@@ -1,0 +1,14 @@
+{
+  "name": "@agora/sdk-typescript",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeScript types for the AGORA wire protocol, generated from packages/protocol JSON Schemas (single source of truth).",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "generate": "json2ts --cwd ../protocol/schemas ../protocol/schemas/event-envelope.schema.json > src/event-envelope.generated.ts && json2ts --cwd ../protocol/schemas ../protocol/schemas/registration.schema.json > src/registration.generated.ts"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "15.0.4"
+  }
+}
