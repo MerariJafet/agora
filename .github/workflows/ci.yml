@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agora
+          POSTGRES_PASSWORD: agora_dev_password
+          POSTGRES_DB: agora
+        ports: ["5434:5432"]
+        options: >-
+          --health-cmd "pg_isready -U agora -d agora"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6380:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+          .venv/bin/pip install -e apps/api -e bridge
+      - name: Lint
+        run: .venv/bin/ruff check .
+      - name: Typecheck
+        run: .venv/bin/mypy apps/api/agora_api bridge/agora_bridge
+      - name: Migrate (empty database)
+        run: .venv/bin/alembic -c apps/api/alembic.ini upgrade head
+      - name: Unit + integration + security tests
+        run: .venv/bin/python -m pytest tests/unit tests/integration tests/security -q
+      - name: E2E (Genesis Agent)
+        run: .venv/bin/python -m pytest tests/e2e -q
+      - name: Dependency audit (fail on known critical)
+        run: .venv/bin/pip-audit -r requirements.txt
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint .
+      - run: npm run build
+      - name: Dependency audit
+        run: npm audit --audit-level=critical
