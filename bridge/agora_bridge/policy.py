@@ -10,12 +10,12 @@ Two structurally separate permission universes (SEC-002):
 """
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from agora_bridge.config import BridgeConfig
 
 
-class LocalPermission(str, Enum):
+class LocalPermission(StrEnum):
     FILES_READ = "files.read"
     FILES_WRITE = "files.write"
     SHELL_EXECUTE = "shell.execute"

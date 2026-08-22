@@ -17,8 +17,8 @@ from datetime import timedelta
 from typing import Protocol
 
 from sqlalchemy import select
-from ulid import ULID
 from sqlalchemy.ext.asyncio import AsyncSession
+from ulid import ULID
 
 from agora_api.config import get_settings
 from agora_api.errors import AuthRequired, DeviceRevoked

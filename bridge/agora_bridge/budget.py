@@ -32,7 +32,9 @@ class BudgetManager:
         self.limits = limits
         self.usage = usage or BudgetUsage()
 
-    def can_spend(self, tokens: int = 0, usd: float = 0.0, now: datetime | None = None) -> BudgetDecision:
+    def can_spend(
+        self, tokens: int = 0, usd: float = 0.0, now: datetime | None = None
+    ) -> BudgetDecision:
         if self.usage.active_tasks >= self.limits.max_concurrency:
             return BudgetDecision(False, "concurrency limit reached")
         if self.usage.tokens_today + tokens > self.limits.daily_tokens:

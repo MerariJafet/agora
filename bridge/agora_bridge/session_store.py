@@ -2,6 +2,8 @@
 file under AGORA_BRIDGE_HOME. Tokens are never written into config.json and
 never logged."""
 
+import contextlib
+
 from agora_bridge.config import bridge_home
 from agora_bridge.identity import _keyring_available
 
@@ -33,9 +35,7 @@ def delete_token(agent_name: str) -> None:
     if _keyring_available():
         import keyring
 
-        try:
+        with contextlib.suppress(Exception):
             keyring.delete_password(SERVICE, agent_name)
-        except Exception:
-            pass
     else:
         (bridge_home() / "session" / f"{agent_name}.token").unlink(missing_ok=True)

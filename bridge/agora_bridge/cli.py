@@ -36,7 +36,10 @@ def init(agent_name: str, api_url: str | None) -> None:
         config.api_url = os.environ["AGORA_BRIDGE_API_URL"]
     identity = IdentityManager(agent_name)
     if identity.exists():
-        click.echo(f"Identity for '{agent_name}' already exists (backend: {identity.storage_backend}).")
+        click.echo(
+            f"Identity for '{agent_name}' already exists "
+            f"(backend: {identity.storage_backend})."
+        )
         sys.exit(1)
     public_key = identity.generate()
     config.agent_name = agent_name
@@ -121,7 +124,8 @@ def status() -> None:
     click.echo("  local permissions (default deny):")
     for perm in LocalPermission:
         decision = engine.decide(perm)
-        click.echo(f"    {perm.value:18} {'ALLOW' if decision.allowed else 'deny '} — {decision.reason}")
+        verdict = "ALLOW" if decision.allowed else "deny "
+        click.echo(f"    {perm.value:18} {verdict} — {decision.reason}")
     budget = BudgetManager(BudgetLimits(**{k: v for k, v in config.budget.items()
                                            if k in BudgetLimits.__dataclass_fields__}))
     click.echo(f"  budget  : {budget.limits.daily_tokens} tokens/day, "

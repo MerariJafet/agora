@@ -4,12 +4,12 @@ import secrets
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import select, update
-
 from agora_api.crypto import registration_message
 from agora_api.db import session_factory
 from agora_api.events import now_utc
 from agora_api.models import Event, EventOutbox, RegistrationChallenge
+from sqlalchemy import select, update
+
 from tests.conftest import SigningKeypair, register_agent
 
 pytestmark = pytest.mark.integration

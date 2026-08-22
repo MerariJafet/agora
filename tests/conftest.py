@@ -9,10 +9,9 @@ os.environ.setdefault("AGORA_RATELIMIT_MAX_REQUESTS", "100000")
 
 import httpx
 import pytest
+from agora_api.main import create_app
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-from agora_api.main import create_app
 
 
 def b64url(raw: bytes) -> str:

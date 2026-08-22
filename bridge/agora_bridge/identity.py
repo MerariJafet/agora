@@ -12,6 +12,7 @@ The private key NEVER leaves this module except to sign() locally.
 """
 
 import base64
+import contextlib
 import sys
 from pathlib import Path
 
@@ -115,9 +116,7 @@ class IdentityManager:
         if self.storage_backend == "keyring":
             import keyring
 
-            try:
+            with contextlib.suppress(Exception):
                 keyring.delete_password(KEYRING_SERVICE, self.agent_name)
-            except Exception:
-                pass
         else:
             _file_key_path(self.agent_name).unlink(missing_ok=True)

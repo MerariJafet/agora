@@ -123,7 +123,7 @@ async def register(request: Request, session: AsyncSession = Depends(get_session
         )
         .values(consumed_at=now_utc())
     )
-    if result.rowcount != 1:
+    if getattr(result, "rowcount", 0) != 1:
         raise ChallengeInvalid("Challenge already used.")
 
     duplicate = await session.execute(select(Agent).where(Agent.name == body["agent_name"]))

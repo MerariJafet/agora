@@ -1,9 +1,8 @@
 import os
 
+from agora_api.models import Base
 from alembic import context
 from sqlalchemy import create_engine, pool
-
-from agora_api.models import Base
 
 config = context.config
 target_metadata = Base.metadata

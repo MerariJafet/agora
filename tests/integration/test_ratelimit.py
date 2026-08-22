@@ -3,7 +3,6 @@
 import secrets
 
 import pytest
-
 from agora_api import ratelimit
 from agora_api.config import Settings
 from agora_api.errors import RateLimited

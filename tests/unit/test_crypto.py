@@ -1,6 +1,7 @@
 """Unit tests: Ed25519 signing/verification and canonical message binding."""
 
 from agora_api.crypto import registration_message, verify_signature
+
 from tests.conftest import SigningKeypair
 
 

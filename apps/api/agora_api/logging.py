@@ -6,6 +6,7 @@ processor additionally redacts common secret-shaped keys.
 """
 
 import logging
+from collections.abc import MutableMapping
 
 import structlog
 
@@ -15,7 +16,9 @@ SENSITIVE_KEYS = {
 }
 
 
-def _redact(_logger: object, _method: str, event_dict: dict) -> dict:
+def _redact(
+    _logger: object, _method: str, event_dict: MutableMapping[str, object]
+) -> MutableMapping[str, object]:
     for key in list(event_dict):
         if key.lower() in SENSITIVE_KEYS:
             event_dict[key] = "[REDACTED]"

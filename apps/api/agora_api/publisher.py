@@ -12,6 +12,7 @@ Strategy (documented for S1-T10):
 """
 
 import asyncio
+import contextlib
 import json
 from typing import Protocol
 
@@ -43,10 +44,8 @@ class NatsPublisher:
     async def connect(self) -> None:
         self._nc = await nats.connect(get_settings().nats_url)
         js = self._nc.jetstream()
-        try:
+        with contextlib.suppress(Exception):  # stream already exists
             await js.add_stream(name=STREAM_NAME, subjects=STREAM_SUBJECTS)
-        except Exception:
-            pass  # stream already exists
 
     async def publish(self, subject: str, body: bytes, msg_id: str) -> None:
         assert self._nc is not None, "publisher not connected"

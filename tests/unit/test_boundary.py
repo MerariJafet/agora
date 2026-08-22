@@ -2,7 +2,6 @@
 rejected, never silently accepted."""
 
 import pytest
-
 from agora_api.boundary import (
     validate_challenge_request,
     validate_event_envelope,

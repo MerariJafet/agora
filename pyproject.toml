@@ -13,7 +13,7 @@ extend-exclude = [".venv", "apps/web", "node_modules"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "S"]
-ignore = ["S101"]  # asserts are fine (tests + invariant checks)
+ignore = ["S101", "B008"]  # S101: asserts are invariant checks; B008: FastAPI Depends idiom
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106", "S311", "S603", "S607"]

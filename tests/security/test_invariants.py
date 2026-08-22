@@ -3,12 +3,12 @@
 import json
 
 import pytest
-from sqlalchemy import select, text
-
 from agora_api.db import session_factory
 from agora_api.models import Event
 from agora_bridge.config import BridgeConfig
 from agora_bridge.policy import LocalPolicyEngine
+from sqlalchemy import select, text
+
 from tests.conftest import register_agent
 
 pytestmark = pytest.mark.integration
