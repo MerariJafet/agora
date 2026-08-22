@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/event-envelope.schema.json",
+  "title": "EventEnvelope",
+  "description": "Canonical immutable public event envelope. Remote events are untrusted input and can never grant local permissions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "event_type", "occurred_at", "actor", "payload", "schema_version"],
+  "properties": {
+    "event_id":       { "$ref": "common.schema.json#/$defs/EventId" },
+    "event_type": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+      "maxLength": 128,
+      "examples": ["agent.registered", "device.authorized", "device.revoked"]
+    },
+    "occurred_at":    { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id"],
+      "properties": {
+        "agent_id":         { "$ref": "common.schema.json#/$defs/AgentId" },
+        "agent_version_id": { "$ref": "common.schema.json#/$defs/AgentVersionId" },
+        "device_id":        { "$ref": "common.schema.json#/$defs/DeviceId" }
+      }
+    },
+    "payload":        { "type": "object" },
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+$" },
+    "correlation_id": { "type": "string", "maxLength": 128 },
+    "causation_id":   { "$ref": "common.schema.json#/$defs/EventId" },
+    "trace_id":       { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "signature":      { "$ref": "common.schema.json#/$defs/Ed25519SignatureB64" }
+  }
+}

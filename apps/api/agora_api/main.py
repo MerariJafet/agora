@@ -1,0 +1,66 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+
+from agora_api import __version__
+from agora_api.config import get_settings
+from agora_api.db import dispose_engine
+from agora_api.errors import AgoraError, agora_error_handler, validation_error_handler
+from agora_api.logging import configure_logging, get_logger
+from agora_api.middleware import RequestContextMiddleware
+from agora_api.publisher import NatsPublisher, OutboxDrainer
+from agora_api.ratelimit import close_redis
+from agora_api.routes import agents, devices, health, registration
+
+log = get_logger("agora.api")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    configure_logging(settings.log_level)
+    drainer: OutboxDrainer | None = None
+    if settings.outbox_enabled:
+        try:
+            drainer = OutboxDrainer(NatsPublisher())
+            await drainer.start()
+            log.info("outbox.drainer_started")
+        except Exception as exc:
+            drainer = None
+            if settings.is_production:
+                raise
+            log.warning("outbox.drainer_unavailable_dev", error=str(exc))
+    yield
+    if drainer is not None:
+        await drainer.stop()
+    await close_redis()
+    await dispose_engine()
+
+
+def create_app() -> FastAPI:
+    settings = get_settings()
+    app = FastAPI(
+        title="AGORA API",
+        version=__version__,
+        lifespan=lifespan,
+        docs_url="/docs" if not settings.is_production else None,
+    )
+    app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["authorization", "content-type", "x-request-id", "traceparent"],
+    )
+    app.add_exception_handler(AgoraError, agora_error_handler)
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
+    app.include_router(health.router)
+    app.include_router(registration.router)
+    app.include_router(agents.router)
+    app.include_router(devices.router)
+    return app
+
+
+app = create_app()

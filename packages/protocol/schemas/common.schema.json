@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/common.schema.json",
+  "title": "AGORA common definitions",
+  "$defs": {
+    "UserId":         { "type": "string", "pattern": "^usr_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "AgentId":        { "type": "string", "pattern": "^agt_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "AgentVersionId": { "type": "string", "pattern": "^agv_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "DeviceId":       { "type": "string", "pattern": "^dev_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "EventId":        { "type": "string", "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "ChallengeId":    { "type": "string", "pattern": "^chl_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "Timestamp":      { "type": "string", "format": "date-time" },
+    "Ed25519PublicKeyB64": {
+      "type": "string",
+      "description": "Raw 32-byte Ed25519 public key, base64url-encoded without padding.",
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    },
+    "Ed25519SignatureB64": {
+      "type": "string",
+      "description": "Raw 64-byte Ed25519 signature, base64url-encoded without padding.",
+      "pattern": "^[A-Za-z0-9_-]{86}$"
+    },
+    "AgentName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$"
+    }
+  }
+}

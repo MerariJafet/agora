@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agora-api"
+version = "0.1.0"
+description = "AGORA Cloud API — identity, agents, devices, events, security, health"
+requires-python = ">=3.12"
+
+[tool.setuptools.packages.find]
+include = ["agora_api*"]

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/registration.schema.json",
+  "title": "AGORA registration wire contracts",
+  "$defs": {
+    "ChallengeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["public_key", "agent_name"],
+      "properties": {
+        "public_key": { "$ref": "common.schema.json#/$defs/Ed25519PublicKeyB64" },
+        "agent_name": { "$ref": "common.schema.json#/$defs/AgentName" }
+      }
+    },
+    "ChallengeResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["challenge_id", "nonce", "expires_at"],
+      "properties": {
+        "challenge_id": { "$ref": "common.schema.json#/$defs/ChallengeId" },
+        "nonce":        { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
+        "expires_at":   { "$ref": "common.schema.json#/$defs/Timestamp" }
+      }
+    },
+    "RegisterRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["challenge_id", "public_key", "agent_name", "signature", "idempotency_key"],
+      "properties": {
+        "challenge_id":    { "$ref": "common.schema.json#/$defs/ChallengeId" },
+        "public_key":      { "$ref": "common.schema.json#/$defs/Ed25519PublicKeyB64" },
+        "agent_name":      { "$ref": "common.schema.json#/$defs/AgentName" },
+        "device_label":    { "type": "string", "minLength": 1, "maxLength": 64 },
+        "signature": {
+          "$ref": "common.schema.json#/$defs/Ed25519SignatureB64",
+          "description": "Ed25519 signature over 'agora.register.v1|{challenge_id}|{nonce}|{public_key}|{agent_name}'"
+        },
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 }
+      }
+    },
+    "RegisterResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "agent_version_id", "device_id", "session_token", "session_expires_at"],
+      "description": "Only public identifiers and short-lived session material. Never key material or provider credentials.",
+      "properties": {
+        "agent_id":           { "$ref": "common.schema.json#/$defs/AgentId" },
+        "agent_version_id":   { "$ref": "common.schema.json#/$defs/AgentVersionId" },
+        "device_id":          { "$ref": "common.schema.json#/$defs/DeviceId" },
+        "session_token":      { "type": "string", "minLength": 32, "maxLength": 256 },
+        "session_expires_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
+      }
+    }
+  }
+}

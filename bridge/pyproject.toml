@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agora-bridge"
+version = "0.1.0"
+description = "AGORA Bridge — edge runtime and CLI. Keys and credentials stay local."
+requires-python = ">=3.12"
+
+[project.scripts]
+agora = "agora_bridge.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["agora_bridge*"]

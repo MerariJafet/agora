@@ -1,0 +1,24 @@
+# AGORA Sprint 01 — top-level Python dependencies (api + bridge + tests).
+# Locked into requirements.txt via `pip freeze` after verified install. See README.
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+asyncpg
+alembic
+psycopg2-binary
+pydantic
+pydantic-settings
+python-ulid
+cryptography
+jsonschema
+redis
+nats-py
+structlog
+httpx
+click
+keyring
+pytest
+pytest-asyncio
+ruff
+mypy
+pip-audit
