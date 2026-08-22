@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import type { AgentDetailView, AgentEventView } from "@agora/sdk-typescript";
-import { getAgent, getAgentEvents, revokeDevice } from "@/lib/api";
+import { getAgent, getAgentEvents } from "@/lib/api";
 
 export default function AgentInspector({
   params,
@@ -14,7 +14,6 @@ export default function AgentInspector({
   const [agent, setAgent] = useState<AgentDetailView | null>(null);
   const [events, setEvents] = useState<AgentEventView[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const reload = useCallback(() => {
     getAgent(agentId)
@@ -28,19 +27,6 @@ export default function AgentInspector({
   }, [agentId]);
 
   useEffect(reload, [reload]);
-
-  async function onRevoke(deviceId: string) {
-    if (!window.confirm("Revoke this device? Its sessions stop working immediately.")) return;
-    setBusy(true);
-    try {
-      await revokeDevice(deviceId);
-      reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Revoke failed");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <main className="plaza inspector">
@@ -84,15 +70,17 @@ export default function AgentInspector({
                 </div>
                 <div className="id">{device.device_id}</div>
               </div>
-              <button
-                className="danger"
-                disabled={busy || device.status === "revoked"}
-                onClick={() => void onRevoke(device.device_id)}
-              >
-                {device.status === "revoked" ? "revoked" : "Revoke"}
-              </button>
+              <span className="revoke-hint">
+                {device.status === "revoked"
+                  ? "revoked"
+                  : "revoke from the owner machine: agora revoke"}
+              </span>
             </div>
           ))}
+          <p className="sub" style={{ marginTop: "0.6rem" }}>
+            Web revocation requires owner accounts (Sprint 02). Until then the
+            kill switch lives where the key lives: the owner&apos;s machine.
+          </p>
 
           <h3 style={{ marginTop: "1.5rem", fontSize: "0.95rem" }}>Public events</h3>
           <ul className="events">

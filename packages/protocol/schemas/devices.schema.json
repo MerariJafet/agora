@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/devices.schema.json",
+  "title": "AGORA device lifecycle wire contracts",
+  "$defs": {
+    "RevokeSignedRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_id", "timestamp", "signature"],
+      "description": "Self-revocation by proof of private-key possession. Signature over 'agora.revoke.v1|{device_id}|{timestamp}'. Timestamp must be within the server's acceptance window.",
+      "properties": {
+        "device_id": { "$ref": "common.schema.json#/$defs/DeviceId" },
+        "timestamp": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "signature": { "$ref": "common.schema.json#/$defs/Ed25519SignatureB64" }
+      }
+    }
+  }
+}

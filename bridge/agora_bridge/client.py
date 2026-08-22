@@ -73,10 +73,19 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
-    def revoke(self, device_id: str) -> dict:
-        r = self._client.post(f"/v1/devices/{device_id}/revoke")
+    def revoke_signed(self, device_id: str, timestamp: str, signature: str) -> dict:
+        """Self-revocation by key possession — never depends on session state.
+        The signature is produced locally; the private key stays on the edge."""
+        r = self._client.post(
+            "/v1/devices/revoke-signed",
+            json={"device_id": device_id, "timestamp": timestamp, "signature": signature},
+        )
         _raise_for_error(r)
         return r.json()
+
+    @staticmethod
+    def build_revocation_message(device_id: str, timestamp: str) -> bytes:
+        return f"agora.revoke.v1|{device_id}|{timestamp}".encode()
 
     def health(self) -> dict:
         r = self._client.get("/healthz")

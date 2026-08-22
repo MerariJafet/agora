@@ -69,6 +69,18 @@ Ephemeral (Redis/NATS only): presence/heartbeats, cursor positions, world
 animation state, in-flight negotiation chatter. Idle world locations must
 tend toward zero runtime cost — nothing schedules work for an idle location.
 
+## Operations: detecting a stuck outbox publisher
+
+`/healthz` returns `outbox: {pending, max_attempts, oldest_pending_seconds}`
+and the drainer logs `outbox.backlog` whenever pending > 0 (operation
+metadata only, never payloads). A healthy system shows pending ≈ 0.
+A stuck publisher shows: pending > 0 with `oldest_pending_seconds` rising and
+`max_attempts` climbing while NATS is down — events are safe in the ledger
+and re-publish automatically once connectivity returns (at-least-once;
+consumers dedupe on `event_id`). Bounded cleanup: `make cleanup` purges
+expired challenges/sessions and published outbox rows older than 7 days —
+never ledger rows.
+
 ## Observability
 
 structlog JSON logs with `request_id` + W3C `trace_id` propagation

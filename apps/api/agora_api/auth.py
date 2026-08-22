@@ -42,6 +42,13 @@ def _hash_token(token: str) -> str:
 
 class DeviceSessionAuthProvider:
     async def issue_session(self, session: AsyncSession, device_id: str) -> tuple[str, str]:
+        # No path may mint auth material for a revoked device (S1.1-T02):
+        # this covers registration idempotency replays and any future refresh.
+        device = await session.get(Device, device_id)
+        if device is None:
+            raise AuthRequired("Unknown device.")
+        if device.status == "revoked":
+            raise DeviceRevoked("Device has been revoked.")
         token = f"ses_{secrets.token_urlsafe(32)}"
         expires_at = now_utc() + timedelta(seconds=get_settings().session_ttl_seconds)
         session.add(

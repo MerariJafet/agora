@@ -91,6 +91,11 @@ class OutboxDrainer:
                 pass
 
     async def drain_once(self, batch_size: int = 100) -> int:
+        """Publish pending rows. Per-row failure tolerance: a failing row has
+        its `attempts` counter incremented and stays pending; the drainer moves
+        on. Retries re-publish the SAME ledger event (stable event_id) — never
+        a second logical event. Delivery is at-least-once by design."""
+        published_count = 0
         async with session_factory()() as session:
             rows = (
                 await session.execute(
@@ -105,8 +110,52 @@ class OutboxDrainer:
                 event = await session.get(Event, row.event_id)
                 assert event is not None
                 body = json.dumps(envelope_dict(event)).encode()
-                await self.publisher.publish(row.subject, body, msg_id=event.event_id)
+                row.attempts += 1
+                try:
+                    await self.publisher.publish(row.subject, body, msg_id=event.event_id)
+                except Exception as exc:
+                    # Operational metadata only — no payload content.
+                    log.warning(
+                        "outbox.publish_failed",
+                        event_id=event.event_id,
+                        subject=row.subject,
+                        attempts=row.attempts,
+                        error=type(exc).__name__,
+                    )
+                    continue
                 row.published = True
                 row.published_at = now_utc()
+                published_count += 1
             await session.commit()
-            return len(rows)
+            await self._log_backlog_metrics(session)
+            return published_count
+
+    async def _log_backlog_metrics(self, session) -> None:
+        stats = await outbox_stats(session)
+        if stats["pending"]:
+            log.info("outbox.backlog", **stats)
+
+
+async def outbox_stats(session) -> dict:
+    """Operational metrics (S1.1-T05): pending count, max attempts, oldest
+    pending age. No payload content. Surfaced via /healthz and backlog logs.
+    A stuck publisher shows as pending > 0 with rising oldest_pending_seconds
+    and attempts climbing — see docs/architecture.md (operations note)."""
+    from sqlalchemy import func
+
+    row = (
+        await session.execute(
+            select(
+                func.count(EventOutbox.outbox_id),
+                func.max(EventOutbox.attempts),
+                func.min(EventOutbox.created_at),
+            ).where(EventOutbox.published.is_(False))
+        )
+    ).one()
+    pending, max_attempts, oldest_created = row
+    oldest_age = (now_utc() - oldest_created).total_seconds() if oldest_created else 0.0
+    return {
+        "pending": int(pending or 0),
+        "max_attempts": int(max_attempts or 0),
+        "oldest_pending_seconds": round(oldest_age, 1),
+    }

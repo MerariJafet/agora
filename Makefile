@@ -46,6 +46,9 @@ typecheck:
 	$(VENV)/mypy apps/api/agora_api bridge/agora_bridge
 	cd apps/web && npx tsc --noEmit
 
+cleanup:          ## purge expired challenges/sessions + published outbox (never the ledger)
+	$(PY) -m agora_api.cleanup
+
 audit:            ## dependency security scan
 	$(VENV)/pip-audit -r requirements.txt || true
 	cd apps/web && npm audit --audit-level=high

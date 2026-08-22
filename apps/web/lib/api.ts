@@ -23,10 +23,6 @@ export function getAgentEvents(
   return getJson(`/v1/agents/${encodeURIComponent(agentId)}/events`);
 }
 
-export async function revokeDevice(deviceId: string): Promise<void> {
-  const res = await fetch(
-    `${API_URL}/v1/devices/${encodeURIComponent(deviceId)}/revoke`,
-    { method: "POST" },
-  );
-  if (!res.ok) throw new Error(`Revoke failed (${res.status})`);
-}
+// Device revocation requires device or owner authority (Sprint 01.1 hardening):
+// the web shell has neither until human accounts land in Sprint 02 (ADR-0009).
+// Owners revoke from the machine that holds the key: `agora revoke`.

@@ -60,6 +60,30 @@ Keys/signatures are raw Ed25519 bytes, base64url without padding (43/86 chars).
 The private key never crosses the wire. Session tokens are opaque, short-lived
 (1 h), stored server-side as SHA-256 hashes, invalidated by device revocation.
 
+## Device revocation (Sprint 01.1)
+
+Knowing a public `device_id` is never sufficient to revoke a device.
+
+- `POST /v1/devices/revoke-signed` — canonical self-revocation by proof of
+  key possession: `{device_id, timestamp, signature}` where the signature
+  covers `agora.revoke.v1|{device_id}|{timestamp}` and the timestamp must be
+  within ±300 s. Independent of session freshness; idempotent
+  (`already_revoked: true` on repeat).
+- `POST /v1/devices/{device_id}/revoke` — session-authenticated (Bearer),
+  self only. Acting on another device → 403 `owner_authority_required`.
+  Owner-level revocation arrives with human accounts in Sprint 02 (ADR-0009).
+
+`device.revoked` is appended to the ledger exactly once, on the
+authorized→revoked transition. Session issuance refuses revoked devices, so
+no refresh/idempotency-replay path can revive one.
+
+## Delivery semantics (explicit)
+
+Outbox → NATS JetStream delivery is **at-least-once**. `event_id` is the
+stable durable identifier: retries re-publish the same ledger record, never a
+second logical event. Every consumer MUST deduplicate on `event_id`
+(reference implementation: `agora_api.consumers.IdempotentConsumer`).
+
 ## Versioning
 
 `schema_version` on the envelope and the `agora.register.v1` context string

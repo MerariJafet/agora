@@ -50,6 +50,14 @@ class DeviceRevoked(AgoraError):
     code = "device_revoked"
 
 
+class OwnerAuthorityRequired(AgoraError):
+    """A device tried to act on a different device. Owner-level controls
+    (human accounts) arrive in Sprint 02 — see ADR-0009."""
+
+    status_code = 403
+    code = "owner_authority_required"
+
+
 class Conflict(AgoraError):
     status_code = 409
     code = "conflict"

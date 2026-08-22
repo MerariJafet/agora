@@ -81,6 +81,7 @@ async def register_agent(api_client, keypair: SigningKeypair, name: str) -> dict
     message = registration_message(
         challenge["challenge_id"], challenge["nonce"], keypair.public_key_b64, name
     )
+    idempotency_key = f"test-{secrets.token_hex(8)}"
     response = await api_client.post(
         "/v1/registration/register",
         json={
@@ -88,7 +89,11 @@ async def register_agent(api_client, keypair: SigningKeypair, name: str) -> dict
             "public_key": keypair.public_key_b64,
             "agent_name": name,
             "signature": keypair.sign_b64(message),
-            "idempotency_key": f"test-{secrets.token_hex(8)}",
+            "idempotency_key": idempotency_key,
         },
     )
-    return response.json() | {"_status": response.status_code, "_challenge": challenge}
+    return response.json() | {
+        "_status": response.status_code,
+        "_challenge": challenge,
+        "_idempotency_key": idempotency_key,
+    }

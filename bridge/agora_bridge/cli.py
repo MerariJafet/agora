@@ -3,6 +3,7 @@
 import os
 import secrets
 import sys
+from datetime import UTC, datetime
 
 import click
 
@@ -159,7 +160,13 @@ def revoke() -> None:
     config = load_config()
     if not config.device_id:
         raise click.ClickException("No registered device to revoke.")
-    result = ConnectionClient(config).revoke(config.device_id)
+    if not config.agent_name:
+        raise click.ClickException("No agent configured.")
+    identity = IdentityManager(config.agent_name)
+    client = ConnectionClient(config)
+    timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    signature = identity.sign(client.build_revocation_message(config.device_id, timestamp))
+    result = client.revoke_signed(config.device_id, timestamp, signature)
     if config.agent_name:
         delete_token(config.agent_name)
     audit.record("device.revoked", agent=config.agent_name, device_id=config.device_id)

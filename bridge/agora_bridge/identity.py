@@ -13,6 +13,7 @@ The private key NEVER leaves this module except to sign() locally.
 
 import base64
 import contextlib
+import os
 import sys
 from pathlib import Path
 
@@ -59,6 +60,17 @@ class IdentityManager:
 
             keyring.set_password(KEYRING_SERVICE, self.agent_name, encoded)
             return
+        # File fallback is never selected silently in production-like
+        # environments (S1.1-T08): it requires an explicit opt-in.
+        if os.environ.get("AGORA_BRIDGE_ENV") == "production" and os.environ.get(
+            "AGORA_BRIDGE_ALLOW_FILE_KEYSTORE"
+        ) != "1":
+            raise RuntimeError(
+                "No OS keyring backend available and AGORA_BRIDGE_ENV=production. "
+                "Refusing the plaintext-file keystore. Install a keyring backend, "
+                "or explicitly set AGORA_BRIDGE_ALLOW_FILE_KEYSTORE=1 if you accept "
+                "file-based key storage on this machine."
+            )
         print(
             "WARNING: no OS keyring backend available; storing device key in "
             f"{_file_key_path(self.agent_name)} (mode 0600). Development fallback only.",

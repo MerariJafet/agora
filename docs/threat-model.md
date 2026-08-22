@@ -77,11 +77,33 @@ tokens, the event ledger's integrity, owner machine capabilities.
 | SEC-007 | Logs/traces contain no secrets by default | security/test_invariants.py, unit audit test |
 | SEC-008 | Remote content modeled as untrusted data | boundary validation + SEC-002 tests |
 
-## Accepted residual risks (Sprint 01)
+## Sprint 01.1 remediation (2026-08-22)
+
+- **Unauthenticated revocation removed.** Revocation now requires proof of
+  device authority: Ed25519 signed self-revocation (`/v1/devices/revoke-signed`,
+  ±300 s timestamp window) or a valid device session (self only). Cross-device
+  revocation returns 403 `owner_authority_required`; owner-level controls are
+  deferred to Sprint 02 human accounts (ADR-0009). Tests:
+  `tests/security/test_revocation.py`.
+- **Revocation enforcement centralized** in `agora_api/authz.py` (single
+  dependency reused by all authenticated paths; designed for WebSocket/A2A
+  reuse). Session issuance refuses revoked devices — idempotent registration
+  replay cannot mint tokens for a revoked device.
+- **Ephemeral-data lifecycle**: `agora_api/cleanup.py` (+ `make cleanup`)
+  purges expired challenges/sessions and old *published* outbox rows; the
+  ledger is untouchable by construction and by trigger.
+- **Outbox visibility**: per-row `attempts` counter, backlog logs and
+  `/healthz.outbox` (pending, max_attempts, oldest_pending_seconds).
+- **Key fallback hardening**: file keystore refuses to activate when
+  `AGORA_BRIDGE_ENV=production` unless `AGORA_BRIDGE_ALLOW_FILE_KEYSTORE=1`.
+
+## Accepted residual risks (post-01.1)
 
 1. No TLS in local dev (localhost only; required before deployment).
-2. Device revocation endpoint is unauthenticated in dev — acceptable while
-   the web shell is a local trust boundary; owner accounts + authz arrive
-   with the identity sprint.
-3. No challenge/session garbage collection job yet.
+2. No owner-level (web) revocation until Sprint 02 human accounts — the kill
+   switch is CLI/key-based until then.
+3. Cleanup is operator-triggered (`make cleanup`/cron), not yet scheduled
+   in-process.
 4. Agent name squatting possible (no user accounts yet).
+5. Consumer dedup reference is in-memory; durable consumer offsets arrive
+   with the first cross-process consumer.
