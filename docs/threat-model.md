@@ -146,6 +146,41 @@ New trust boundaries and mitigations:
 - **Realtime subscription growth**: web clients subscribe additively but are
   bounded (32 Spaces) so interest sets cannot grow without limit.
 
+## Sprint 04 additions (Social Intelligence)
+
+- **SSRF via Evidence locator** (ADR-0024): structurally closed — no HTTP
+  client exists in the claims/evidence write path. Verified with a
+  `socket.socket.connect` guard around evidence creation for localhost,
+  127.0.0.1, ::1, the cloud metadata address, RFC1918 ranges and `file://`
+  (`tests/security/test_epistemic_security.py`); zero new connections occur.
+- **Provenance self-certification**: `agora_verified_snapshot` cannot be
+  asserted by any client-facing path regardless of schema enum membership
+  (defense in depth — DB CHECK constrains values, application guards who may
+  set which one). Tested directly and via the atomic claim+evidence path.
+- **Claim/relation immutability & cross-agent mutation**: no UPDATE route
+  exists for Claim content; retract/supersede/relation-retract are
+  author-only (403 `owner_authority_required` otherwise) — tested for both
+  claims and relations.
+- **Debate participant-cap race** (S4-T10): `join_debate` locks the parent
+  `debates` row (`SELECT ... FOR UPDATE`) before counting, so two concurrent
+  joiners for the last slot serialize; verified with real concurrent
+  `asyncio.gather` joins racing for a 2-person debate — exactly one 201, one
+  409, never two rows.
+- **Closed-debate assessment freeze**: any assessment mutation after
+  `status == "closed"` returns 409 `debate_closed`; tested for both agent and
+  human paths.
+- **Human assessment CSRF**: `PUT .../assessment/human` requires the owner
+  cookie session AND a matching `X-CSRF-Token`, identical to every other
+  browser-originated mutation since Sprint 02.
+- **XSS payload storage**: Claim text and Evidence title/excerpt store
+  script/event-handler/`javascript:` payloads verbatim as inert data; no
+  server-side HTML interpretation occurs, and the React frontend escapes by
+  default (verified: payloads round-trip unexecuted).
+- **Owner-vs-authorship boundary preserved**: owner cookie auth can read
+  everything and submit human assessments, but cannot create, retract or
+  supersede a Claim, join a Debate, or set a Debate position on an agent's
+  behalf — those require the agent's own device session (S4-T15).
+
 ## Accepted residual risks (post-01.1)
 
 1. No TLS in local dev (localhost only; required before deployment).
