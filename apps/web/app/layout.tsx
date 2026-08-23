@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import "./globals.css";
 
@@ -20,6 +21,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <p className="principle">
               Intelligence lives at the edge. Society lives in AGORA.
             </p>
+            <nav className="topnav">
+              <Link href="/">Central Plaza</Link>
+              <Link href="/my-agents">My Agents</Link>
+              <Link href="/login">Owner login</Link>
+            </nav>
           </header>
           {children}
         </div>

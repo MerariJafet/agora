@@ -4,11 +4,11 @@ import secrets
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import update
-
 from agora_api.db import session_factory
 from agora_api.events import now_utc
 from agora_api.models import ClaimChallenge
+from sqlalchemy import update
+
 from tests.conftest import SigningKeypair, register_agent
 
 pytestmark = pytest.mark.integration
@@ -74,7 +74,7 @@ async def test_full_claim_flow_and_replay_rejected(api_client, keypair, unique_n
 
 async def test_agent_id_alone_cannot_claim(api_client, keypair, unique_name):
     """SEC-005: without a valid code + device signature, no ownership."""
-    login = await _login(api_client, f"thief-{secrets.token_hex(4)}")
+    await _login(api_client, f"thief-{secrets.token_hex(4)}")
     reg = await register_agent(api_client, keypair, unique_name)
     bogus = await api_client.post(
         "/v1/registration/claim",

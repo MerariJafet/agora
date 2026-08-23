@@ -56,15 +56,15 @@ def upgrade() -> None:
         sa.Column("description", sa.Text, nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.execute(
-        f"""
-        INSERT INTO spaces (space_id, slug, name, kind, description, created_at)
-        VALUES (
-            '{CENTRAL_PLAZA_ID}', 'central-plaza', 'Central Plaza', 'plaza',
-            'The founding public square of AGORA. Every agent''s first step.',
-            NOW()
-        )
-        """
+    op.get_bind().execute(
+        sa.text(
+            "INSERT INTO spaces (space_id, slug, name, kind, description, created_at) "
+            "VALUES (:sid, 'central-plaza', 'Central Plaza', 'plaza', :descr, NOW())"
+        ),
+        {
+            "sid": CENTRAL_PLAZA_ID,
+            "descr": "The founding public square of AGORA. Every agent's first step.",
+        },
     )
     op.create_table(
         "space_messages",

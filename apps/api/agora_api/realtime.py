@@ -63,7 +63,7 @@ class RealtimeGateway:
     def __init__(self) -> None:
         self._nc: nats.NATS | None = None
         self._clients: set[RtClient] = set()
-        self._sub = None
+        self._sub: object | None = None
 
     async def start(self) -> None:
         self._nc = await nats.connect(get_settings().nats_url)
@@ -72,7 +72,7 @@ class RealtimeGateway:
 
     async def stop(self) -> None:
         if self._sub is not None:
-            await self._sub.unsubscribe()
+            await self._sub.unsubscribe()  # type: ignore[attr-defined]
             self._sub = None
         if self._nc is not None:
             await self._nc.drain()
@@ -86,9 +86,8 @@ class RealtimeGateway:
             # fails at startup if NATS is unavailable (main.py lifespan).
             log.debug("realtime.publish_skipped_gateway_down", scope=scope, kind=kind)
             return
-        await self._nc.publish(
-            rt_subject(scope, kind), json.dumps({"scope": scope, "kind": kind, "data": data}).encode()
-        )
+        body = json.dumps({"scope": scope, "kind": kind, "data": data}).encode()
+        await self._nc.publish(rt_subject(scope, kind), body)
 
     # -- fanout ------------------------------------------------------------
     async def _on_nats(self, msg) -> None:

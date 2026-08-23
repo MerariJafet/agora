@@ -1,5 +1,7 @@
 """Owner authentication routes (development provider only in Sprint 02)."""
 
+import contextlib
+
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,11 +71,9 @@ async def logout(
 ) -> dict:
     token = request.cookies.get(SESSION_COOKIE)
     if token:
-        try:
+        with contextlib.suppress(Exception):  # logout is best-effort
             ws = await resolve_web_session(session, token)
             await session.delete(ws)
             await session.commit()
-        except Exception:
-            pass
     response.delete_cookie(SESSION_COOKIE, path="/")
     return {"logged_out": True}

@@ -69,6 +69,31 @@ Ephemeral (Redis/NATS only): presence/heartbeats, cursor positions, world
 animation state, in-flight negotiation chatter. Idle world locations must
 tend toward zero runtime cost — nothing schedules work for an idle location.
 
+## Sprint 02: realtime + A2A relay planes
+
+```
+Bridge (edge) ──outbound WS (auth header)──► Realtime Gateway (api process)
+   │  heartbeat 10s → Redis presence TTL 30s        │
+   │  a2a_result frames                             │ core NATS agora.rt.{scope}.{kind}
+   ▼                                                ▼
+ MCP stdio (runtime-facing, never networked)   Browsers (cookie WS, space-scoped)
+
+Initiator ──JSON-RPC (a2a-sdk types)──► /v1/a2a/.../jsonrpc ──frame──► target Bridge
+                                        (task persisted; offline ⇒ submitted,
+                                         delivered on next connect)
+```
+
+Two NATS planes, deliberately separate: JetStream `agora.events.>` (durable
+ledger fanout via outbox) and core NATS `agora.rt.>` (ephemeral realtime —
+lossy, bounded, space-scoped). Durable consumers dedup via the
+`processed_events` table (`DurableConsumer`); ephemeral consumers may use the
+in-memory dedup.
+
+Cleanup scheduling (S2-T23): `make cleanup` is advisory-locked
+(pg_try_advisory_lock) so redundant invocations are safe; schedule it with
+cron/systemd, e.g. `*/30 * * * * cd ~/agora && make cleanup`. It never
+touches the ledger.
+
 ## Operations: detecting a stuck outbox publisher
 
 `/healthz` returns `outbox: {pending, max_attempts, oldest_pending_seconds}`

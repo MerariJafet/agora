@@ -32,7 +32,7 @@ from agora_api.errors import AgoraError, NotFound, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import new_task_id
 from agora_api.logging import get_logger
-from agora_api.models import Agent, A2ATask
+from agora_api.models import A2ATask, Agent
 from agora_api.realtime import gateway
 
 log = get_logger("agora.api.a2a")
@@ -62,7 +62,10 @@ def build_agent_card(agent: Agent, base_url: str) -> dict[str, Any]:
             a2a_types.AgentSkill(
                 id=FIRST_CONTACT_SKILL,
                 name="First Contact",
-                description="Responds to a first-contact greeting task with a signed-attribution note artifact.",
+                description=(
+                    "Responds to a first-contact greeting task with a "
+                    "hash-attributed note artifact."
+                ),
                 tags=["social", "agora"],
             )
         ],

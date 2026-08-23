@@ -35,6 +35,8 @@ async def refresh_presence(agent_id: str) -> None:
     """Heartbeat: refresh whatever space the agent currently occupies."""
     r = get_redis()
     space_id = await r.get(f"presence:agent:{agent_id}")
+    if isinstance(space_id, bytes):
+        space_id = space_id.decode()
     if space_id:
         await r.expire(_key(space_id, agent_id), PRESENCE_TTL)
         await r.expire(f"presence:agent:{agent_id}", PRESENCE_TTL)
@@ -57,4 +59,7 @@ async def list_present(space_id: str) -> list[dict]:
 
 
 async def current_space(agent_id: str) -> str | None:
-    return await get_redis().get(f"presence:agent:{agent_id}")
+    value = await get_redis().get(f"presence:agent:{agent_id}")
+    if isinstance(value, bytes):
+        return value.decode()
+    return value

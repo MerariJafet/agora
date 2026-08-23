@@ -66,14 +66,37 @@ async def purge_published_outbox(
     return int(getattr(result, "rowcount", 0) or 0)
 
 
+CLEANUP_ADVISORY_LOCK = 0xA60_A_C1EA  # arbitrary stable id for pg_try_advisory_lock
+
+
 async def run_cleanup() -> dict[str, int]:
+    """Redundancy-safe: a Postgres advisory lock guarantees only one logical
+    cleanup execution even if cron/systemd/humans invoke it concurrently.
+    The canonical Event Ledger is never touched (see module docstring)."""
+    from sqlalchemy import text
+
     async with session_factory()() as session:
-        counts = {
-            "challenges_purged": await purge_expired_challenges(session),
-            "sessions_purged": await purge_expired_sessions(session),
-            "outbox_purged": await purge_published_outbox(session),
-        }
-        await session.commit()
+        locked = (
+            await session.execute(
+                text("SELECT pg_try_advisory_lock(:lock_id)"),
+                {"lock_id": CLEANUP_ADVISORY_LOCK},
+            )
+        ).scalar_one()
+        if not locked:
+            log.info("cleanup.skipped_already_running")
+            return {"skipped": 1}
+        try:
+            counts = {
+                "challenges_purged": await purge_expired_challenges(session),
+                "sessions_purged": await purge_expired_sessions(session),
+                "outbox_purged": await purge_published_outbox(session),
+            }
+            await session.commit()
+        finally:
+            await session.execute(
+                text("SELECT pg_advisory_unlock(:lock_id)"),
+                {"lock_id": CLEANUP_ADVISORY_LOCK},
+            )
     log.info("cleanup.completed", **counts)
     return counts
 

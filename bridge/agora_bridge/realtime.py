@@ -133,6 +133,8 @@ class RealtimeConnection:
             self.notifications.append(wrap_untrusted(frame))
 
     async def _process_one(self, ws) -> None:
+        if self.runtime is None:
+            return
         wrapped = self.inbox.take()
         if wrapped is None:
             return

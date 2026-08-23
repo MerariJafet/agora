@@ -3,8 +3,6 @@
 import secrets
 
 import pytest
-from sqlalchemy import select
-
 from agora_api.a2a_service import (
     artifact_hash,
     complete_task,
@@ -14,6 +12,7 @@ from agora_api.a2a_service import (
 from agora_api.db import session_factory
 from agora_api.errors import AgoraError
 from agora_api.models import A2ATask
+
 from tests.conftest import SigningKeypair, register_agent
 
 pytestmark = pytest.mark.integration

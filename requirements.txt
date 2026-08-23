@@ -1,8 +1,6 @@
 a2a-sdk==1.1.2
 # Editable Git install with no remote (agora-api==0.1.0)
--e /home/merari-acero/agora/apps/api
 # Editable Git install with no remote (agora-bridge==0.1.0)
--e /home/merari-acero/agora/bridge
 aiologic==0.17.1
 alembic==1.19.1
 annotated-doc==0.0.5

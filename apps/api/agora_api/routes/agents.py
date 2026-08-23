@@ -60,7 +60,10 @@ async def get_agent(agent_id: str, session: AsyncSession = Depends(get_session))
             .limit(1)
         )
     ).scalar_one_or_none()
+    from agora_api.presence import current_space
+
     data = _agent_dict(agent, list(devices))
+    data["current_space_id"] = await current_space(agent_id)
     data["last_public_activity"] = (
         {
             "event_id": last_event.event_id,

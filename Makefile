@@ -49,6 +49,9 @@ typecheck:
 cleanup:          ## purge expired challenges/sessions + published outbox (never the ledger)
 	$(PY) -m agora_api.cleanup
 
+perf:             ## 100-connection realtime load harness (records baseline)
+	$(PY) scripts/load_harness.py
+
 audit:            ## dependency security scan
 	$(VENV)/pip-audit -r requirements.txt || true
 	cd apps/web && npm audit --audit-level=high

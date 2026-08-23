@@ -1,7 +1,14 @@
 import type { AgentDetailView, AgentEventView, AgentView } from "@agora/sdk-typescript";
 
+// Same-site rule: the owner session cookie is SameSite=Lax, so the API must
+// share the page's hostname (localhost↔localhost or 127.0.0.1↔127.0.0.1 —
+// ports don't matter for site identity) or the realtime WS handshake would
+// silently lose the cookie. Default derives from the current page.
 export const API_URL =
-  process.env.NEXT_PUBLIC_AGORA_API_URL ?? "http://127.0.0.1:8700";
+  process.env.NEXT_PUBLIC_AGORA_API_URL ??
+  (typeof window !== "undefined"
+    ? `http://${window.location.hostname}:8700`
+    : "http://127.0.0.1:8700");
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, { cache: "no-store" });

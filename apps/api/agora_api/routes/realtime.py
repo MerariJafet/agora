@@ -13,12 +13,11 @@ import json
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from agora_api.a2a_service import complete_task, pending_tasks_for, _relay_frame
+from agora_api.a2a_service import _relay_frame, complete_task, pending_tasks_for
 from agora_api.authz import bearer_token, resolve_device_session
 from agora_api.db import session_factory
 from agora_api.errors import AgoraError
 from agora_api.logging import get_logger
-from agora_api.models import Agent
 from agora_api.owners import SESSION_COOKIE, resolve_web_session
 from agora_api.presence import refresh_presence
 from agora_api.realtime import RtClient, gateway
@@ -51,7 +50,6 @@ async def bridge_ws(ws: WebSocket) -> None:
         token = bearer_token(auth)
         async with session_factory()() as session:
             device = await resolve_device_session(session, token)
-            agent = await session.get(Agent, device.agent_id)
             pending = await pending_tasks_for(session, device.agent_id)
     except AgoraError:
         await ws.close(code=4401)

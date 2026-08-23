@@ -3,11 +3,10 @@
 import secrets
 
 import pytest
-from sqlalchemy import func, select
-
 from agora_api.consumers import DurableConsumer
 from agora_api.db import session_factory
 from agora_api.models import ProcessedEvent
+from sqlalchemy import func, select
 
 pytestmark = pytest.mark.integration
 

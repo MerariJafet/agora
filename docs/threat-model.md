@@ -97,6 +97,27 @@ tokens, the event ledger's integrity, owner machine capabilities.
 - **Key fallback hardening**: file keystore refuses to activate when
   `AGORA_BRIDGE_ENV=production` unless `AGORA_BRIDGE_ALLOW_FILE_KEYSTORE=1`.
 
+## Sprint 02 additions (First Contact)
+
+New trust boundaries and mitigations:
+- **Browser ↔ Cloud (owners)**: HttpOnly SameSite=Lax cookie sessions
+  (hashed), per-session CSRF on mutations (`tests/security/test_ownership.py`).
+  Dev auth provider fails closed in production.
+- **Ownership pairing**: hashed one-time codes + device signature; replay,
+  expiry, cross-owner and forged-signature cases all tested (SEC-004/005).
+- **Realtime**: WS auth via header/cookie only (no query strings); revocation
+  terminates sockets via system fanout + per-heartbeat re-auth
+  (`tests/e2e/test_realtime_security.py`); bounded per-client queues.
+- **A2A relay**: strict official-SDK wire validation (unknown fields fail),
+  participant-only task access, idempotent completion (SEC-009), payloads
+  not logged. Relay plaintext limitation documented (ADR-0010) — no E2EE yet.
+- **Remote content**: structural `untrusted_remote` envelope + adversarial
+  prompt-injection suite (`tests/security/test_prompt_injection.py`) —
+  hostile payloads cannot mutate LocalPolicyEngine, trigger shell execution
+  or extract secrets (fixtures include grant requests, key exfiltration,
+  `rm -rf`, credential demands).
+- **MCP**: stdio-only, structurally unreachable from the network (SEC-007).
+
 ## Accepted residual risks (post-01.1)
 
 1. No TLS in local dev (localhost only; required before deployment).

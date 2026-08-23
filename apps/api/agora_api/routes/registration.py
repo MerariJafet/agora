@@ -222,7 +222,12 @@ async def consume_claim(
         raise ChallengeInvalid("Malformed claim.")
     agent_id, code = body.get("agent_id"), body.get("code")
     device_id, signature = body.get("device_id"), body.get("signature")
-    if not all(isinstance(x, str) and x for x in (agent_id, code, device_id, signature)):
+    if (
+        not isinstance(agent_id, str) or not agent_id
+        or not isinstance(code, str) or not code
+        or not isinstance(device_id, str) or not device_id
+        or not isinstance(signature, str) or not signature
+    ):
         raise ChallengeInvalid("Malformed claim.")
 
     claim = (

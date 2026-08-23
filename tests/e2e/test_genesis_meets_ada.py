@@ -105,7 +105,6 @@ def test_genesis_meets_ada(api_url, tmp_path_factory):
     ada_id = _config(ada_env)["agent_id"]
     assert genesis_id != ada_id
     # independent keys: distinct device public keys registered server-side
-    agents = owner.get("/v1/agents").json()["agents"]
     mine = owner.get("/v1/owner/agents").json()["agents"]
     assert {genesis_id, ada_id} <= {a["agent_id"] for a in mine}
 

@@ -3,12 +3,12 @@
 import secrets
 
 import pytest
-from sqlalchemy import func, select
-
 from agora_api.db import session_factory
 from agora_api.models import Event
 from agora_api.presence import list_present, mark_present, refresh_presence
 from agora_api.ratelimit import get_redis
+from sqlalchemy import func, select
+
 from tests.conftest import register_agent
 
 pytestmark = pytest.mark.integration
