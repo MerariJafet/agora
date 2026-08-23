@@ -101,6 +101,10 @@ class Space(Base):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     kind: Mapped[str] = mapped_column(String(32), nullable=False, default="plaza")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Sprint 04: additive, defaults preserve existing Spaces' behavior.
+    evidence_policy: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="optional"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
@@ -264,3 +268,198 @@ class IdempotencyRecord(Base):
     endpoint: Mapped[str] = mapped_column(String(64), primary_key=True)
     response_body: Mapped[dict] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 04: Social Intelligence — epistemic domain.
+#
+# Claims are published-immutable: no route ever exposes UPDATE on their
+# semantic content. `status` moves only via retract()/supersede(), which
+# append a ledger event in the same transaction as the state change — the
+# same pattern as device revocation (ADR-0020).
+#
+# Evidence is inert provenance metadata; AGORA never fetches `locator`
+# (ADR-0021/0024). `provenance_level` is a plain enum column, but every write
+# path additionally guards against a client asserting agora_verified_snapshot
+# (defense in depth, mirrors the events-table immutability trigger pattern).
+# ---------------------------------------------------------------------------
+
+
+class Claim(Base):
+    __tablename__ = "claims"
+
+    claim_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    space_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("spaces.space_id"), nullable=False
+    )
+    author_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    author_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    claim_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    language: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    debate_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    position_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    superseded_by_claim_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    retracted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_claims_space_created", "space_id", "claim_id"),
+        Index("ix_claims_debate", "debate_id"),
+        Index("ix_claims_author", "author_agent_id"),
+        Index("ix_claims_status", "status"),
+    )
+
+
+class ClaimRelation(Base):
+    """Attributed assertion, not a fact of the graph itself: two different
+    authors may independently assert the same (source, target, type) edge —
+    each is its own row. A given author cannot duplicate their own assertion
+    (enforced by a partial unique index in the migration, scoped to active
+    rows so a retracted relation can be re-asserted)."""
+
+    __tablename__ = "claim_relations"
+
+    relation_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    source_claim_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("claims.claim_id"), nullable=False
+    )
+    target_claim_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("claims.claim_id"), nullable=False
+    )
+    relation_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    author_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    author_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    retracted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_relations_source", "source_claim_id", "status"),
+        Index("ix_relations_target", "target_claim_id", "status"),
+    )
+
+
+class Evidence(Base):
+    __tablename__ = "evidence"
+
+    evidence_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    source_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    locator: Mapped[str] = mapped_column(String(2048), nullable=False)
+    provenance_level: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    excerpt: Mapped[str | None] = mapped_column(String(600), nullable=True)
+    publisher: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ClaimEvidence(Base):
+    """Attachment: one Evidence object may support/contradict/etc. many
+    Claims, and a Claim may cite many Evidence objects."""
+
+    __tablename__ = "claim_evidence"
+
+    attachment_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    claim_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("claims.claim_id"), nullable=False
+    )
+    evidence_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("evidence.evidence_id"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    attached_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_claim_evidence_claim", "claim_id"),
+        Index("ix_claim_evidence_evidence", "evidence_id"),
+    )
+
+
+class Debate(Base):
+    __tablename__ = "debates"
+
+    debate_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    space_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("spaces.space_id"), nullable=False
+    )
+    question: Mapped[str] = mapped_column(String(500), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    max_participants: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
+    evidence_policy: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="optional"
+    )
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_debates_space", "space_id", "debate_id"),)
+
+
+class DebatePosition(Base):
+    __tablename__ = "debate_positions"
+
+    position_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    debate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("debates.debate_id"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    __table_args__ = (Index("ix_positions_debate", "debate_id"),)
+
+
+class DebateParticipant(Base):
+    """Uniqueness on (debate_id, agent_id) is enforced at the database level
+    so a concurrent double-join can never create two rows for one agent; the
+    participant-cap race is closed by locking the parent `debates` row before
+    counting (see debates_service.join_debate)."""
+
+    __tablename__ = "debate_participants"
+
+    debate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("debates.debate_id"), primary_key=True
+    )
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), primary_key=True
+    )
+    position_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AudienceAssessment(Base):
+    """One CURRENT row per (debate_id, assessor_kind, assessor_id); changes
+    while open are upserts, each also appended to the ledger for audit.
+    Frozen once the debate closes."""
+
+    __tablename__ = "audience_assessments"
+
+    debate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("debates.debate_id"), primary_key=True
+    )
+    assessor_kind: Mapped[str] = mapped_column(String(8), primary_key=True)  # human | agent
+    assessor_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    preferred_position_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    evidence_quality: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    clarity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    responsiveness: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

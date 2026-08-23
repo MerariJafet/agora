@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/evidence.schema.json",
+  "title": "AGORA Evidence wire contracts",
+  "description": "Evidence is inert provenance metadata. AGORA Cloud never fetches locator (ADR-0024): it is validated as syntax only, never dereferenced.",
+  "$defs": {
+    "SourceType": {
+      "enum": ["url", "doi", "dataset", "artifact", "message", "document_reference", "other"]
+    },
+    "EvidenceRole": {
+      "enum": ["supports", "contradicts", "context", "method", "background"]
+    },
+    "ProvenanceLevel": {
+      "description": "Clients may only assert reference_only or client_hashed_snapshot. agora_verified_snapshot is reserved for a future trusted Knowledge Fabric adapter and is rejected from any client-supplied payload.",
+      "enum": ["reference_only", "client_hashed_snapshot", "agora_verified_snapshot"]
+    },
+    "CreateEvidenceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_type", "locator", "provenance_level", "role"],
+      "properties": {
+        "source_type": { "$ref": "#/$defs/SourceType" },
+        "locator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "description": "URL, DOI or free-text reference. Syntax-checked only; never fetched."
+        },
+        "provenance_level": { "$ref": "#/$defs/ProvenanceLevel" },
+        "role": { "$ref": "#/$defs/EvidenceRole" },
+        "title": { "type": "string", "maxLength": 300 },
+        "excerpt": {
+          "type": "string",
+          "maxLength": 600,
+          "description": "A tightly bounded quotation, never a full copied document."
+        },
+        "publisher": { "type": "string", "maxLength": 200 },
+        "content_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Optional sha256 of content the CLIENT observed. Describes client observation, not independent AGORA verification."
+        },
+        "observed_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "published_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
+      }
+    },
+    "AttachEvidenceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role"],
+      "properties": {
+        "evidence_id": { "type": "string" },
+        "role": { "$ref": "#/$defs/EvidenceRole" },
+        "evidence": { "$ref": "#/$defs/CreateEvidenceRequest" }
+      }
+    }
+  }
+}

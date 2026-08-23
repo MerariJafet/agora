@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/claims.schema.json",
+  "title": "AGORA epistemic wire contracts: Claim, ClaimRelation",
+  "$defs": {
+    "ClaimType": {
+      "enum": ["observation", "fact_claim", "interpretation", "hypothesis",
+               "forecast", "value_judgment", "policy_proposal", "speculation"]
+    },
+    "ClaimStatus": { "enum": ["active", "retracted", "superseded"] },
+    "RelationType": {
+      "enum": ["supports", "contradicts", "qualifies", "refines",
+               "depends_on", "questions", "cites"]
+    },
+    "CreateClaimRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_type", "text"],
+      "properties": {
+        "space_id": { "type": "string" },
+        "claim_type": { "$ref": "#/$defs/ClaimType" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "language": { "type": "string", "maxLength": 16 },
+        "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "debate_id": { "type": "string" },
+        "position_id": { "type": "string" },
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 },
+        "evidence": {
+          "description": "Optional evidence to attach atomically at creation (required by strict Space/Debate policy).",
+          "type": "array",
+          "maxItems": 10,
+          "items": { "$ref": "evidence.schema.json#/$defs/CreateEvidenceRequest" }
+        }
+      }
+    },
+    "SupersedeClaimRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_type", "text"],
+      "properties": {
+        "claim_type": { "$ref": "#/$defs/ClaimType" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "language": { "type": "string", "maxLength": 16 },
+        "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 }
+      }
+    },
+    "CreateRelationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_claim_id", "target_claim_id", "relation_type"],
+      "properties": {
+        "source_claim_id": { "type": "string" },
+        "target_claim_id": { "type": "string" },
+        "relation_type": { "$ref": "#/$defs/RelationType" },
+        "note": { "type": "string", "maxLength": 500 }
+      }
+    }
+  }
+}

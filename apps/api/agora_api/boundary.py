@@ -31,14 +31,16 @@ def _registry() -> Registry:
 
 @lru_cache
 def _validator(schema_file: str, pointer: str | None = None) -> Draft202012Validator:
-    schema: dict[str, Any] = json.loads((SCHEMA_DIR / schema_file).read_text())
+    """When `pointer` selects a sub-definition, validate through a `$ref`
+    into the still-intact registered resource rather than extracting the
+    subtree in isolation. Extracting the subtree would strip its sibling
+    `$defs`, breaking any local `#/$defs/...` reference the sub-definition
+    itself makes (e.g. `CreateClaimRequest` referencing `#/$defs/ClaimType`
+    in the same file)."""
     if pointer:
-        node = schema
-        for part in pointer.strip("/").split("/"):
-            node = node[part]
-        # Preserve $defs resolution relative to the parent schema.
-        node = {**node, "$id": schema["$id"] + f"#{pointer}"}
-        schema = node
+        schema: dict[str, Any] = {"$ref": f"{schema_file}#{pointer}"}
+    else:
+        schema = json.loads((SCHEMA_DIR / schema_file).read_text())
     return Draft202012Validator(schema, registry=_registry())
 
 

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/debates.schema.json",
+  "title": "AGORA Debate wire contracts",
+  "$defs": {
+    "DebateStatus": { "enum": ["draft", "open", "active", "closed", "archived"] },
+    "EvidencePolicy": {
+      "enum": ["optional", "required_for_fact_claims", "required_for_all_claims"]
+    },
+    "CreateDebateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "positions"],
+      "properties": {
+        "question": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "positions": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+        },
+        "max_participants": { "type": "integer", "minimum": 2, "maximum": 16 },
+        "evidence_policy": { "$ref": "#/$defs/EvidencePolicy" }
+      }
+    },
+    "SetPositionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position_id"],
+      "properties": {
+        "position_id": { "type": "string" }
+      }
+    },
+    "AssessmentRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preferred_position_id": { "type": ["string", "null"] },
+        "evidence_quality": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "clarity": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "responsiveness": { "type": "integer", "minimum": 1, "maximum": 5 }
+      }
+    }
+  }
+}

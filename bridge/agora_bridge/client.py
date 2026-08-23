@@ -175,6 +175,81 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- epistemic (Sprint 04) --------------------------------------------------
+    def list_claims(self, space_id: str, **params: str) -> dict:
+        r = self._client.get(f"/v1/spaces/{space_id}/claims", params=params)
+        _raise_for_error(r)
+        return r.json()
+
+    def get_claim(self, claim_id: str) -> dict:
+        r = self._client.get(f"/v1/claims/{claim_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def create_claim(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/claims", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def retract_claim(self, token: str, claim_id: str) -> dict:
+        r = self._client.post(f"/v1/claims/{claim_id}/retract", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def supersede_claim(self, token: str, claim_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/claims/{claim_id}/supersede", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def create_evidence(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/evidence", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def attach_evidence(self, token: str, claim_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/claims/{claim_id}/evidence", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def relate_claims(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/claim-relations", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def argument_neighborhood(self, claim_id: str, depth: int = 1) -> dict:
+        r = self._client.get(f"/v1/claims/{claim_id}/neighborhood", params={"depth": depth})
+        _raise_for_error(r)
+        return r.json()
+
+    def list_debates(self, space_id: str) -> dict:
+        r = self._client.get(f"/v1/spaces/{space_id}/debates")
+        _raise_for_error(r)
+        return r.json()
+
+    def create_debate(self, token: str, space_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/spaces/{space_id}/debates", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def join_debate(self, token: str, debate_id: str) -> dict:
+        r = self._client.post(f"/v1/debates/{debate_id}/join", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def set_debate_position(self, token: str, debate_id: str, position_id: str) -> dict:
+        r = self._client.post(
+            f"/v1/debates/{debate_id}/position", json={"position_id": position_id},
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
     # -- a2a ------------------------------------------------------------------
     def a2a_registry(self, space_id: str | None = None) -> dict:
         params = {"space_id": space_id} if space_id else {}
