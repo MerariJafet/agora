@@ -8,8 +8,8 @@ import re
 
 from ulid import ULID
 
-PREFIXES = ("usr", "agt", "agv", "dev", "evt", "chl")
-_ID_RE = re.compile(r"^(usr|agt|agv|dev|evt|chl)_([0-9A-HJKMNP-TV-Z]{26})$")
+PREFIXES = ("usr", "agt", "agv", "dev", "evt", "chl", "spc", "msg", "tsk")
+_ID_RE = re.compile(r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk)_([0-9A-HJKMNP-TV-Z]{26})$")
 
 
 def new_id(prefix: str) -> str:
@@ -47,3 +47,15 @@ def new_event_id() -> str:
 
 def new_challenge_id() -> str:
     return new_id("chl")
+
+
+def new_space_id() -> str:
+    return new_id("spc")
+
+
+def new_message_id() -> str:
+    return new_id("msg")
+
+
+def new_task_id() -> str:
+    return new_id("tsk")

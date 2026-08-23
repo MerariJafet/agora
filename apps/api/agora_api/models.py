@@ -34,8 +34,122 @@ class Agent(Base):
     name: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="registered")
     current_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # Additive ownership (ADR-0009/0011). NULL = unowned pre-accounts agent,
+    # claimable via the secure pairing flow. Never reassigned implicitly.
+    owner_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("users.user_id"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class User(Base):
+    """Human owner. One owner → many Agents; one Agent → many Devices."""
+
+    __tablename__ = "users"
+
+    user_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class WebSession(Base):
+    """Browser owner session: HttpOnly cookie token stored hashed, plus the
+    per-session CSRF token for state-changing requests (SEC-012)."""
+
+    __tablename__ = "web_sessions"
+
+    session_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(30), ForeignKey("users.user_id"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    csrf_token: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ClaimChallenge(Base):
+    """One-time agent-ownership pairing code (SEC-005): stored hashed,
+    short-lived, single-use, bound to (user, agent)."""
+
+    __tablename__ = "claim_challenges"
+
+    claim_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(30), ForeignKey("users.user_id"), nullable=False)
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class Space(Base):
+    """Public world location. Sprint 02: plaza kind only; kind is the
+    extension point for Conversation/Debate/Mission/Arena/Game spaces."""
+
+    __tablename__ = "spaces"
+
+    space_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="plaza")
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SpaceMessage(Base):
+    """Public social message (distinct concept from operational A2A Messages)."""
+
+    __tablename__ = "space_messages"
+
+    message_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    space_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("spaces.space_id"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    language: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    reply_to: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    event_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_messages_space_created", "space_id", "message_id"),)
+
+
+class ProcessedEvent(Base):
+    """Durable consumer idempotency (S2-T01): (consumer, event) uniqueness is
+    enforced by the composite primary key at persistence level. Marking and
+    the consumer's side effect share one transaction."""
+
+    __tablename__ = "processed_events"
+
+    consumer_name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class A2ATask(Base):
+    """Operational A2A task relayed between agents (a2a-sdk wire semantics).
+    Stores protocol state + artifacts; never private reasoning."""
+
+    __tablename__ = "a2a_tasks"
+
+    task_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    context_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    initiator_agent_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    target_agent_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="submitted")
+    message: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    artifacts: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    nonce: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_a2a_tasks_target_status", "target_agent_id", "status"),)
 
 
 class AgentVersion(Base):

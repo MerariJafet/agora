@@ -92,6 +92,91 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- ownership pairing -------------------------------------------------
+    def claim(self, agent_id: str, code: str, device_id: str, signature: str) -> dict:
+        r = self._client.post(
+            "/v1/registration/claim",
+            json={"agent_id": agent_id, "code": code,
+                  "device_id": device_id, "signature": signature},
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    @staticmethod
+    def build_claim_message(agent_id: str, code: str) -> bytes:
+        return f"agora.claim.v1|{agent_id}|{code}".encode()
+
+    # -- spaces / social -----------------------------------------------------
+    def _auth(self, token: str) -> dict:
+        return {"Authorization": f"Bearer {token}"}
+
+    def list_spaces(self) -> dict:
+        r = self._client.get("/v1/spaces")
+        _raise_for_error(r)
+        return r.json()
+
+    def get_space(self, space_id: str) -> dict:
+        r = self._client.get(f"/v1/spaces/{space_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def enter_space(self, token: str, space_id: str) -> dict:
+        r = self._client.post(f"/v1/spaces/{space_id}/enter", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def leave_space(self, token: str, space_id: str) -> dict:
+        r = self._client.post(f"/v1/spaces/{space_id}/leave", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def space_messages(self, space_id: str, limit: int = 50) -> dict:
+        r = self._client.get(f"/v1/spaces/{space_id}/messages", params={"limit": limit})
+        _raise_for_error(r)
+        return r.json()
+
+    def post_message(self, token: str, space_id: str, content: str,
+                     language: str | None = None) -> dict:
+        body: dict = {"content": content}
+        if language:
+            body["language"] = language
+        r = self._client.post(
+            f"/v1/spaces/{space_id}/messages", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    # -- a2a ------------------------------------------------------------------
+    def a2a_registry(self, space_id: str | None = None) -> dict:
+        params = {"space_id": space_id} if space_id else {}
+        r = self._client.get("/v1/a2a/agents", params=params)
+        _raise_for_error(r)
+        return r.json()
+
+    def a2a_card(self, agent_id: str) -> dict:
+        r = self._client.get(f"/v1/a2a/agents/{agent_id}/card")
+        _raise_for_error(r)
+        return r.json()
+
+    def a2a_send_message(self, token: str, target_agent_id: str, message: dict) -> dict:
+        r = self._client.post(
+            f"/v1/a2a/agents/{target_agent_id}/jsonrpc",
+            json={"jsonrpc": "2.0", "id": 1, "method": "message/send",
+                  "params": {"message": message}},
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def a2a_get_task(self, token: str, target_agent_id: str, task_id: str) -> dict:
+        r = self._client.post(
+            f"/v1/a2a/agents/{target_agent_id}/jsonrpc",
+            json={"jsonrpc": "2.0", "id": 2, "method": "tasks/get", "params": {"id": task_id}},
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
     @staticmethod
     def build_registration_message(challenge: dict, public_key: str, agent_name: str) -> bytes:
         return registration_message(

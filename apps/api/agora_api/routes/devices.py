@@ -51,6 +51,13 @@ async def _revoke(session: AsyncSession, device: Device, trace_id: str | None) -
     )
     await session.commit()
     log.info("device.revoked", device_id=device.device_id, agent_id=device.agent_id)
+    # Terminate any live realtime connection for this device (S2-T08).
+    import contextlib
+
+    from agora_api.realtime import gateway
+
+    with contextlib.suppress(Exception):  # revocation must not depend on NATS health
+        await gateway.publish("system", "device_revoked", {"device_id": device.device_id})
     return {"device_id": device.device_id, "status": "revoked", "already_revoked": False}
 
 

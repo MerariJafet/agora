@@ -202,3 +202,71 @@ async def register(request: Request, session: AsyncSession = Depends(get_session
 
     log.info("registration.completed", agent_id=agent.agent_id, device_id=device.device_id)
     return {**public_response, "session_token": token, "session_expires_at": expires_at}
+
+
+@router.post("/claim")
+async def consume_claim(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> dict:
+    """Device-side half of the ownership pairing (S2-T04). Requires BOTH the
+    one-time code (proves the human owner initiated it) and an Ed25519
+    signature by the agent's device key (proves device possession). Single
+    use, expiring, cross-owner-safe, replay-safe."""
+    import hashlib
+
+    from agora_api.models import ClaimChallenge
+
+    await enforce_rate_limit("reg_claim", _client_key(request))
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise ChallengeInvalid("Malformed claim.")
+    agent_id, code = body.get("agent_id"), body.get("code")
+    device_id, signature = body.get("device_id"), body.get("signature")
+    if not all(isinstance(x, str) and x for x in (agent_id, code, device_id, signature)):
+        raise ChallengeInvalid("Malformed claim.")
+
+    claim = (
+        await session.execute(
+            select(ClaimChallenge).where(
+                ClaimChallenge.code_hash == hashlib.sha256(code.encode()).hexdigest()
+            )
+        )
+    ).scalar_one_or_none()
+    if claim is None or claim.agent_id != agent_id:
+        raise ChallengeInvalid("Unknown claim code.")
+    if claim.expires_at <= now_utc():
+        raise ChallengeInvalid("Claim code expired.")
+
+    device = await session.get(Device, device_id)
+    if device is None or device.agent_id != agent_id or device.status != "authorized":
+        raise ChallengeInvalid("Device cannot prove this agent.")
+    from agora_api.owners import claim_message
+
+    if not verify_signature(device.public_key, claim_message(agent_id, code), signature):
+        raise SignatureInvalid("Claim signature verification failed.")
+
+    # Single-use consumption (replay-safe, one concurrent winner).
+    consumed = await session.execute(
+        update(ClaimChallenge)
+        .where(ClaimChallenge.claim_id == claim.claim_id, ClaimChallenge.consumed_at.is_(None))
+        .values(consumed_at=now_utc())
+    )
+    if getattr(consumed, "rowcount", 0) != 1:
+        raise ChallengeInvalid("Claim code already used.")
+
+    agent = await session.get(Agent, agent_id)
+    assert agent is not None
+    if agent.owner_id is not None:
+        raise Conflict("Agent is already owned.")
+    agent.owner_id = claim.user_id
+    agent.updated_at = now_utc()
+    await append_event(
+        session,
+        event_type="agent.claimed",
+        actor={"agent_id": agent_id, "device_id": device_id},
+        payload={"agent_id": agent_id, "owner_id": claim.user_id},
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    log.info("claim.completed", agent_id=agent_id, owner_id=claim.user_id)
+    return {"agent_id": agent_id, "owner_id": claim.user_id, "claimed": True}

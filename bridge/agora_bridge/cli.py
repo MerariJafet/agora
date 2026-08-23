@@ -1,5 +1,6 @@
 """AGORA Bridge CLI: agora init | status | connect | pause | resume | revoke."""
 
+import json
 import os
 import secrets
 import sys
@@ -188,6 +189,129 @@ def grant(permission: str) -> None:
         save_config(config)
     audit.record("policy.granted", permission=perm.value, source="local-owner-cli")
     click.echo(f"Granted {perm.value} (local grant by owner).")
+
+
+@cli.command()
+@click.argument("code")
+def claim(code: str) -> None:
+    """Complete an ownership pairing: prove device possession for a claim
+    code issued to your human owner in the AGORA web shell."""
+    config = load_config()
+    if not (config.agent_name and config.agent_id and config.device_id):
+        raise click.ClickException("Agent not registered. Run `agora connect` first.")
+    identity = IdentityManager(config.agent_name)
+    client = ConnectionClient(config)
+    signature = identity.sign(client.build_claim_message(config.agent_id, code))
+    result = client.claim(config.agent_id, code, config.device_id, signature)
+    audit.record("ownership.claimed", agent=config.agent_name, owner_id=result["owner_id"])
+    click.echo(f"Agent {config.agent_name} is now owned by {result['owner_id']}.")
+
+
+@cli.command(name="run")
+@click.option("--space", "space_slug", default="central-plaza", show_default=True)
+@click.option("--for", "duration", type=float, default=None,
+              help="Run for N seconds then exit (default: until interrupted).")
+def run_agent(space_slug: str, duration: float | None) -> None:
+    """Connect outbound to AGORA realtime, enter a Space, and serve A2A tasks
+    with the deterministic runtime. Ctrl-C for graceful shutdown."""
+    import asyncio
+
+    from agora_bridge.realtime import RealtimeConnection
+    from agora_bridge.runtime import DeterministicRuntime
+    from agora_bridge.session_store import load_token
+
+    config = load_config()
+    if config.paused:
+        raise click.ClickException("Bridge is paused. `agora resume` first.")
+    if not (config.agent_name and config.agent_id):
+        raise click.ClickException("Agent not registered. Run `agora connect` first.")
+    token = load_token(config.agent_name)
+    if not token:
+        raise click.ClickException("No session. Run `agora connect` first.")
+
+    client = ConnectionClient(config)
+    spaces = client.list_spaces()["spaces"]
+    space = next((s for s in spaces if s["slug"] == space_slug), None)
+    if space is None:
+        raise click.ClickException(f"Unknown space '{space_slug}'.")
+    client.enter_space(token, space["space_id"])
+    click.echo(f"{config.agent_name} entered {space['name']}.")
+
+    runtime = DeterministicRuntime(config.agent_id, config.agent_name)
+    connection = RealtimeConnection(config, token, runtime=runtime, audit=audit)
+
+    async def _main() -> None:
+        task = asyncio.create_task(connection.run())
+        try:
+            if duration:
+                await asyncio.sleep(duration)
+                connection.stop()
+            await task
+        except asyncio.CancelledError:
+            connection.stop()
+            await task
+
+    click.echo("Realtime connected loop starting (outbound only). Ctrl-C to stop.")
+    try:
+        asyncio.run(_main())
+    except KeyboardInterrupt:
+        click.echo("Stopped.")
+    if connection.revoked:
+        click.echo("This device was REVOKED by the owner. Not reconnecting.")
+
+
+@cli.command(name="first-contact")
+@click.argument("target_agent_id")
+def first_contact(target_agent_id: str) -> None:
+    """Initiate a standards-compliant A2A First Contact task via the AGORA
+    relay (JSON-RPC message/send with official A2A wire shapes)."""
+    import secrets as _secrets
+
+    from agora_bridge.session_store import load_token
+
+    config = load_config()
+    if not (config.agent_name and config.agent_id):
+        raise click.ClickException("Agent not registered.")
+    token = load_token(config.agent_name)
+    if not token:
+        raise click.ClickException("No session. Run `agora connect` first.")
+    client = ConnectionClient(config)
+    card = client.a2a_card(target_agent_id)
+    click.echo(f"Discovered Agent Card: {card['card']['name']} "
+               f"({card['card']['supportedInterfaces'][0]['protocolBinding']})")
+    message = {
+        "messageId": f"msg-{_secrets.token_hex(8)}",
+        "role": "ROLE_USER",
+        "parts": [{"text": f"First contact greeting from {config.agent_name}."}],
+    }
+    response = client.a2a_send_message(token, target_agent_id, message)
+    task = response["result"]["task"]
+    audit.record("a2a.task_initiated", task_id=task["id"], target=target_agent_id)
+    click.echo(f"Task {task['id']} submitted to {target_agent_id}.")
+    click.echo(json.dumps(task, indent=2))
+
+
+@cli.command(name="task-status")
+@click.argument("target_agent_id")
+@click.argument("task_id")
+def task_status(target_agent_id: str, task_id: str) -> None:
+    """Poll an A2A task (tasks/get)."""
+    from agora_bridge.session_store import load_token
+
+    config = load_config()
+    token = load_token(config.agent_name or "")
+    if not token:
+        raise click.ClickException("No session.")
+    result = ConnectionClient(config).a2a_get_task(token, target_agent_id, task_id)
+    click.echo(json.dumps(result["result"]["task"], indent=2))
+
+
+@cli.command(name="mcp-serve")
+def mcp_serve() -> None:
+    """Serve the local MCP stdio server (never network-exposed)."""
+    from agora_bridge.mcp_server import main as mcp_main
+
+    mcp_main()
 
 
 def main() -> None:

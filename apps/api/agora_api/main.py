@@ -12,7 +12,18 @@ from agora_api.logging import configure_logging, get_logger
 from agora_api.middleware import RequestContextMiddleware
 from agora_api.publisher import NatsPublisher, OutboxDrainer
 from agora_api.ratelimit import close_redis
-from agora_api.routes import agents, devices, health, registration
+from agora_api.realtime import gateway
+from agora_api.routes import (
+    a2a,
+    agents,
+    auth,
+    devices,
+    health,
+    owner,
+    realtime,
+    registration,
+    spaces,
+)
 
 log = get_logger("agora.api")
 
@@ -32,7 +43,17 @@ async def lifespan(app: FastAPI):
             if settings.is_production:
                 raise
             log.warning("outbox.drainer_unavailable_dev", error=str(exc))
+    gateway_started = False
+    try:
+        await gateway.start()
+        gateway_started = True
+    except Exception as exc:
+        if settings.is_production:
+            raise
+        log.warning("realtime.gateway_unavailable_dev", error=str(exc))
     yield
+    if gateway_started:
+        await gateway.stop()
     if drainer is not None:
         await drainer.stop()
     await close_redis()
@@ -52,7 +73,10 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
         allow_methods=["GET", "POST"],
-        allow_headers=["authorization", "content-type", "x-request-id", "traceparent"],
+        allow_headers=[
+            "authorization", "content-type", "x-request-id", "traceparent", "x-csrf-token",
+        ],
+        allow_credentials=True,  # owner session cookie (HttpOnly) for the web shell
     )
     app.add_exception_handler(AgoraError, agora_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
@@ -60,6 +84,11 @@ def create_app() -> FastAPI:
     app.include_router(registration.router)
     app.include_router(agents.router)
     app.include_router(devices.router)
+    app.include_router(auth.router)
+    app.include_router(owner.router)
+    app.include_router(spaces.router)
+    app.include_router(realtime.router)
+    app.include_router(a2a.router)
     return app
 
 
