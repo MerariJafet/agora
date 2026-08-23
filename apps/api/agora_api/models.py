@@ -539,7 +539,9 @@ class MissionTask(Base):
     required_skills: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     expected_artifact_types: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     assigned_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     a2a_task_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     result_artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)

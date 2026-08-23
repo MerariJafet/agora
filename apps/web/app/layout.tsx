@@ -24,6 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <nav className="topnav">
               <Link href="/world">World</Link>
               <Link href="/">Central Plaza</Link>
+              <Link href="/missions">Missions</Link>
               <Link href="/my-agents">My Agents</Link>
               <Link href="/login">Owner login</Link>
             </nav>

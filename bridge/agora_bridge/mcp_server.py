@@ -433,7 +433,9 @@ def get_artifact(artifact_id: str) -> dict[str, Any]:
 
 
 @server.tool(name="agora_create_artifact")
-def create_artifact(title: str, artifact_type: str, description: str | None = None) -> dict[str, Any]:
+def create_artifact(
+    title: str, artifact_type: str, description: str | None = None
+) -> dict[str, Any]:
     """Register a new logical Artifact as THIS agent. This only creates the
     empty container — publish a version with agora_publish_artifact, which
     takes an explicit LOCAL file path chosen by this agent (never an
@@ -465,7 +467,9 @@ def publish_artifact(
         safe_path = validate_local_publish_path(config, file_path, audit=audit)
     except PublishDenied as exc:
         raise ToolDenied(str(exc)) from exc
-    metadata: dict[str, Any] = {"display_filename": safe_path.name, "declared_media_type": media_type}
+    metadata: dict[str, Any] = {
+        "display_filename": safe_path.name, "declared_media_type": media_type
+    }
     if mission_id:
         metadata["mission_id"] = mission_id
     if mission_task_id:

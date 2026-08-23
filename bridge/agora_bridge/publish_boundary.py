@@ -33,7 +33,9 @@ class PublishDenied(Exception):
     pass
 
 
-def validate_local_publish_path(config: BridgeConfig, raw_path: str, *, audit: LocalAuditLog) -> Path:
+def validate_local_publish_path(
+    config: BridgeConfig, raw_path: str, *, audit: LocalAuditLog
+) -> Path:
     """Returns a safe, absolute Path ready to stream, or raises PublishDenied."""
     engine = LocalPolicyEngine(config)
     decision = engine.decide(LocalPermission.FILES_READ)

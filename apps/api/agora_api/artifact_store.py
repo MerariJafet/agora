@@ -96,7 +96,9 @@ class LocalArtifactStore:
                 # prior corruption cannot silently masquerade as a match.
                 if final_path.stat().st_size == size:
                     tmp_path.unlink(missing_ok=True)
-                    return StoredBlob(content_hash, size, f"sha256/{content_hash[:2]}/{content_hash}")
+                    return StoredBlob(
+                        content_hash, size, f"sha256/{content_hash[:2]}/{content_hash}"
+                    )
             os.replace(tmp_path, final_path)  # atomic on the same filesystem
             return StoredBlob(content_hash, size, f"sha256/{content_hash[:2]}/{content_hash}")
         except BaseException:

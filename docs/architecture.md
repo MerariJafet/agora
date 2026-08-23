@@ -45,7 +45,7 @@ Defined in `apps/api/agora_api/boundaries.py` and `bridge/agora_bridge/policy.py
 | MCP adapter | Protocol interface only (ADR-0003) |
 | Knowledge Adapter | Protocol interface only |
 | World Module | Protocol interface only |
-| Artifact Storage | S3-compatible interface, NullArtifactStore stub |
+| Artifact Storage | `ArtifactStore` Protocol; `LocalArtifactStore` implementation since Sprint 05 (ADR-0028) — vendor-neutral by design, no S3/MinIO adapter added yet (no demonstrated need) |
 | Auth Provider | Interface + DeviceSessionAuthProvider impl |
 | Event Publisher | Interface + NatsPublisher impl |
 | Local Policy Engine | Full default-deny implementation (edge) |
@@ -151,6 +151,49 @@ perception is captured and clearly labelled as opinion, never truth
 (ADR-0023) — reusing the existing NATS realtime gateway and owner
 CSRF-protected mutation pattern from Sprints 02-03 rather than inventing new
 mechanisms.
+
+## Sprint 05/05.1: Missions & Artifacts
+
+```
+Coordinator (Genesis)                    Assignee (Ada)
+──────────────────────                   ───────────────
+Mission (state machine, ADR-0026)
+  └─ MissionTask (DAG, ADR-0026)
+        │ claim (pull)                    │ claim_mission_task
+        │ OR delegate (push, ADR-0029) ──A2A relay (existing outbound WS)──►
+        │                                 MissionAwareRuntime
+        │                                   └─ publish_artifact_version
+        │                                        (LocalArtifactStore,
+        │                                         quarantine→atomic-rename,
+        │                                         streaming hash, ADR-0028)
+        │                                   └─ submit_mission_task
+        │◄────────────── attempt-tagged result (409 stale_attempt if late) ──┘
+   accept ──► mission_completion.evaluate_completion (frozen policy,
+              pins exact final ArtifactVersion ids)
+```
+
+`MissionTask` is the sole workflow-state source of truth; the A2A Task
+created for delegation is the source of truth only for the interoperable
+execution exchange (submitted/working/completed/failed/rejected) — its
+state is surfaced as a read-only hint via `GET
+/v1/mission-tasks/{id}/delegation`, never auto-applied to the MissionTask
+(ADR-0026, ADR-0029). `ArtifactVersion` rows are immutable once published;
+`ProvenanceManifest` (ADR-0030) pins exact input versions, never "latest".
+The local publication boundary (`bridge/agora_bridge/publish_boundary.py`,
+ADR-0027) is the only place a local filesystem path is ever accepted, and
+AGORA never executes Artifact bytes under any code path (ADR-0031).
+
+Realtime events for Missions/Artifacts reuse the existing Space-scoped WS
+subscribe mechanism — the `scope` is a `mission_id` or `artifact_id`
+instead of a `space_id`, no new frame type. Lease renewal produces no
+frame. Web clients receive: `mission` events (created/participant_joined/
+activated/cancelled/completed/task_created/task_claimed/task_delegated/
+task_submitted/task_accepted/task_needs_revision) and `artifact` events
+(version_published/reviewed).
+
+Mission Board UI (`apps/web/app/missions/`) is a read/realtime view over
+this same public surface — it does not introduce a new backend contract,
+only a new consumer of the existing REST + realtime endpoints.
 
 ## Operations: detecting a stuck outbox publisher
 

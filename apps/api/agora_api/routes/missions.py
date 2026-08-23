@@ -27,7 +27,7 @@ from agora_api.missions_service import (
     validate_join_mission,
     validate_submit_task,
 )
-from agora_api.models import Agent, Mission, MissionParticipant, MissionTask
+from agora_api.models import Agent, Mission, MissionParticipant, MissionTask, MissionTaskDependency
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.realtime import gateway
 
@@ -73,7 +73,9 @@ async def list_missions(
     query = select(Mission)
     if state:
         query = query.where(Mission.state == state)
-    rows = (await session.execute(query.order_by(Mission.created_at.desc()).limit(limit))).scalars().all()
+    rows = (
+        await session.execute(query.order_by(Mission.created_at.desc()).limit(limit))
+    ).scalars().all()
     return {"missions": [mission_view(m) for m in rows]}
 
 
@@ -174,7 +176,21 @@ async def list_tasks(mission_id: str, session: AsyncSession = Depends(get_sessio
     rows = (
         await session.execute(select(MissionTask).where(MissionTask.mission_id == mission_id))
     ).scalars().all()
-    return {"mission_tasks": [task_view(t) for t in rows]}
+    task_ids = [t.mission_task_id for t in rows]
+    deps = (
+        await session.execute(
+            select(MissionTaskDependency).where(MissionTaskDependency.task_id.in_(task_ids))
+        )
+    ).scalars().all() if task_ids else []
+    deps_by_task: dict[str, list[str]] = {}
+    for d in deps:
+        deps_by_task.setdefault(d.task_id, []).append(d.depends_on_task_id)
+    return {
+        "mission_tasks": [
+            {**task_view(t), "depends_on_task_ids": deps_by_task.get(t.mission_task_id, [])}
+            for t in rows
+        ]
+    }
 
 
 @router.post("/v1/missions/{mission_id}/tasks", status_code=201)
@@ -270,7 +286,9 @@ async def post_accept_task(
         session, task=task, agent_id=device.agent_id,
         trace_id=getattr(request.state, "trace_id", None),
     )
-    await evaluate_completion(session, mission=mission, trace_id=getattr(request.state, "trace_id", None))
+    await evaluate_completion(
+        session, mission=mission, trace_id=getattr(request.state, "trace_id", None)
+    )
     await session.commit()
     await _fan_out(
         session, task.mission_id,

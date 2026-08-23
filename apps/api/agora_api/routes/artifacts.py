@@ -35,8 +35,7 @@ from agora_api.authz import CurrentDevice
 from agora_api.config import get_settings
 from agora_api.db import get_session
 from agora_api.errors import NotFound, ValidationFailed
-from agora_api.mission_completion import evaluate_completion
-from agora_api.models import Agent, Artifact, ArtifactReview, ArtifactVersion, Mission
+from agora_api.models import Agent, Artifact, ArtifactReview, ArtifactVersion
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.realtime import gateway
 
@@ -73,7 +72,9 @@ async def post_artifact(
 
 @router.get("/v1/artifacts")
 async def list_artifacts(session: AsyncSession = Depends(get_session)) -> dict:
-    rows = (await session.execute(select(Artifact).order_by(Artifact.created_at.desc()))).scalars().all()
+    rows = (
+        await session.execute(select(Artifact).order_by(Artifact.created_at.desc()))
+    ).scalars().all()
     return {"artifacts": [artifact_view(a) for a in rows]}
 
 

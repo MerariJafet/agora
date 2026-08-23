@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.artifacts_service import independent_review_count
 from agora_api.events import append_event, now_utc
-from agora_api.models import ArtifactVersion, Mission, MissionTask
+from agora_api.models import Mission, MissionTask
 
 
 async def evaluate_completion(
@@ -27,7 +27,9 @@ async def evaluate_completion(
 
     policy: dict[str, Any] = mission.completion_policy or {}
     tasks = (
-        await session.execute(select(MissionTask).where(MissionTask.mission_id == mission.mission_id))
+        await session.execute(
+            select(MissionTask).where(MissionTask.mission_id == mission.mission_id)
+        )
     ).scalars().all()
 
     if policy.get("no_open_needs_revision_tasks", True):

@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.boundary import validate_boundary
-from agora_api.errors import AgoraError, NotFound, OwnerAuthorityRequired, ValidationFailed
+from agora_api.errors import AgoraError, NotFound, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import new_artifact_id, new_artifact_version_id, new_review_id
 from agora_api.models import Artifact, ArtifactReview, ArtifactVersion, MissionTask

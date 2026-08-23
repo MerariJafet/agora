@@ -243,7 +243,12 @@ def run_agent(space_slug: str, duration: float | None, mission_handlers_path: st
     import asyncio
 
     from agora_bridge.realtime import RealtimeConnection
-    from agora_bridge.runtime import DeterministicRuntime, MissionAwareRuntime, MissionDelegationHandler
+    from agora_bridge.runtime import (
+        DeterministicRuntime,
+        MissionAwareRuntime,
+        MissionDelegationHandler,
+        RuntimeAdapter,
+    )
     from agora_bridge.session_store import load_token
 
     config = load_config()
@@ -274,7 +279,9 @@ def run_agent(space_slug: str, duration: float | None, mission_handlers_path: st
             )
             for mission_task_id, spec in raw.items()
         }
-        runtime = MissionAwareRuntime(client, token, handlers, fallback=fallback, audit=audit)
+        runtime: RuntimeAdapter = MissionAwareRuntime(
+            client, token, handlers, fallback=fallback, audit=audit
+        )
     else:
         runtime = fallback
     connection = RealtimeConnection(config, token, runtime=runtime, audit=audit)
@@ -430,7 +437,7 @@ def publish_artifact_command(
     except PublishDenied as exc:
         raise click.ClickException(str(exc)) from None
 
-    metadata = {
+    metadata: dict[str, object] = {
         "display_filename": safe_path.name,
         "declared_media_type": media_type,
     }

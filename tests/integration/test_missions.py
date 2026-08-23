@@ -28,7 +28,9 @@ async def test_create_activate_mission_freezes_policy(api_client, unique_name):
         api_client, a, completion_policy={"all_required_tasks_accepted": True}
     )
     assert mission["state"] == "open"
-    activated = await api_client.post(f"/v1/missions/{mission['mission_id']}/activate", headers=_auth(a))
+    activated = await api_client.post(
+        f"/v1/missions/{mission['mission_id']}/activate", headers=_auth(a)
+    )
     assert activated.status_code == 200
     assert activated.json()["state"] == "active"
     assert activated.json()["completion_policy"] == {"all_required_tasks_accepted": True}
@@ -89,7 +91,9 @@ async def test_task_dag_readiness_and_self_dependency_rejected(api_client, uniqu
 
     # task_b becomes ready only once task_a is accepted.
     await api_client.post(f"/v1/mission-tasks/{task_a['mission_task_id']}/claim", headers=_auth(a))
-    await api_client.post(f"/v1/mission-tasks/{task_a['mission_task_id']}/submit", json={}, headers=_auth(a))
+    await api_client.post(
+        f"/v1/mission-tasks/{task_a['mission_task_id']}/submit", json={}, headers=_auth(a)
+    )
     await api_client.post(f"/v1/mission-tasks/{task_a['mission_task_id']}/accept", headers=_auth(a))
     refreshed_b = (await api_client.get(f"/v1/mission-tasks/{task_b['mission_task_id']}")).json()
     assert refreshed_b["state"] == "ready"

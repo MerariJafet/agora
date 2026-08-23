@@ -2,6 +2,7 @@
 (S5-T13, T15, T17, T18)."""
 
 import hashlib
+import json
 
 import pytest
 
@@ -109,11 +110,12 @@ async def test_revision_loop_needs_changes_then_new_version_approved(api_client,
     )
     assert review1.json()["verdict"] == "needs_changes"
 
+    v2_metadata = json.dumps({"parent_artifact_version_ids": [v1["artifact_version_id"]]})
     v2 = (
         await api_client.post(
             f"/v1/artifacts/{artifact['artifact_id']}/versions",
             files={"file": ("draft.txt", b"v2 draft with sources", "text/plain")},
-            data={"metadata": f'{{"parent_artifact_version_ids": ["{v1["artifact_version_id"]}"]}}'},
+            data={"metadata": v2_metadata},
             headers=_auth(researcher),
         )
     ).json()

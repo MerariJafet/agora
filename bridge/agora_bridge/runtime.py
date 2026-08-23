@@ -18,6 +18,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from agora_bridge.audit import LocalAuditLog
 from agora_bridge.trust import is_untrusted
 
 
@@ -107,7 +108,7 @@ class MissionAwareRuntime:
         token: str,
         handlers: dict[str, MissionDelegationHandler],
         fallback: RuntimeAdapter | None = None,
-        audit=None,
+        audit: LocalAuditLog | None = None,
     ):
         self._client = client
         self._token = token
@@ -124,7 +125,7 @@ class MissionAwareRuntime:
         mission_task_id = (
             metadata.get("agora_mission_task_id") if isinstance(metadata, dict) else None
         )
-        if not mission_task_id:
+        if not mission_task_id or not isinstance(metadata, dict):
             if self._fallback is not None:
                 return self._fallback.handle_task(wrapped_task)
             return TaskResult(False, [], "not a Mission delegation and no fallback runtime")
@@ -141,7 +142,7 @@ class MissionAwareRuntime:
             from agora_bridge.config import load_config
 
             safe_path = validate_local_publish_path(
-                load_config(), handler.file_path, audit=self._audit or _NullAudit()
+                load_config(), handler.file_path, audit=self._audit or LocalAuditLog()
             )
         except PublishDenied as exc:
             return TaskResult(False, [], f"publish boundary denied: {exc}")
@@ -177,8 +178,3 @@ class MissionAwareRuntime:
             ), "mediaType": "application/json"}],
         }
         return TaskResult(True, [ack])
-
-
-class _NullAudit:
-    def record(self, *args: Any, **kwargs: Any) -> None:
-        pass

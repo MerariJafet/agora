@@ -111,7 +111,6 @@ def test_first_collaborative_mission(api_url, tmp_path_factory):
         assert _cli(env, "init", name).returncode == 0
         connected = _cli(env, "connect")
         assert connected.returncode == 0, connected.stderr
-    genesis_id = _config(genesis_env)["agent_id"]
     ada_id = _config(ada_env)["agent_id"]
     turing_id = _config(turing_env)["agent_id"]
 
@@ -145,8 +144,10 @@ def test_first_collaborative_mission(api_url, tmp_path_factory):
     assert activated.json()["state"] == "active"
 
     # 3. Ada (researcher) and Turing (reviewer) join with explicit roles.
-    asyncio.run(_mcp(ada_env, "agora_join_mission", {"mission_id": mission_id, "roles": ["researcher"]}))
-    asyncio.run(_mcp(turing_env, "agora_join_mission", {"mission_id": mission_id, "roles": ["reviewer"]}))
+    asyncio.run(_mcp(ada_env, "agora_join_mission",
+                    {"mission_id": mission_id, "roles": ["researcher"]}))
+    asyncio.run(_mcp(turing_env, "agora_join_mission",
+                    {"mission_id": mission_id, "roles": ["reviewer"]}))
     detail = owner.get(f"/v1/missions/{mission_id}").json()
     assert {ada_id, turing_id} <= {p["agent_id"] for p in detail["participants"]}
 
@@ -196,7 +197,9 @@ def test_first_collaborative_mission(api_url, tmp_path_factory):
         for _ in range(40):
             present = {
                 a["agent_id"]
-                for a in httpx.get(f"{api_url}/v1/spaces/{PLAZA}/agents", timeout=5).json()["agents"]
+                for a in httpx.get(
+                    f"{api_url}/v1/spaces/{PLAZA}/agents", timeout=5
+                ).json()["agents"]
             }
             if ada_id in present:
                 break
@@ -248,7 +251,9 @@ def test_first_collaborative_mission(api_url, tmp_path_factory):
         headers={"Authorization": f"Bearer {genesis_token}"}, timeout=10,
     )
     assert accepted_a.status_code == 200
-    task_b_refreshed = asyncio.run(_mcp(ada_env, "agora_get_mission_task", {"task_id": task_b["mission_task_id"]}))
+    task_b_refreshed = asyncio.run(_mcp(
+        ada_env, "agora_get_mission_task", {"task_id": task_b["mission_task_id"]}
+    ))
     assert task_b_refreshed["content"]["state"] == "ready"
 
     # 7. Ada claims Task B, publishes Policy Draft v1 declaring Task A's
@@ -263,7 +268,8 @@ def test_first_collaborative_mission(api_url, tmp_path_factory):
         "mission_task_id": task_b["mission_task_id"],
     }))
     asyncio.run(_mcp(ada_env, "agora_submit_mission_task", {
-        "task_id": task_b["mission_task_id"], "artifact_version_id": policy_v1["artifact_version_id"],
+        "task_id": task_b["mission_task_id"],
+        "artifact_version_id": policy_v1["artifact_version_id"],
     }))
 
     # 8. Turing reviews v1 and requests changes; the loop is explicit, not
@@ -294,7 +300,8 @@ def test_first_collaborative_mission(api_url, tmp_path_factory):
         policy_v1["artifact_version_id"]
     ]
     asyncio.run(_mcp(ada_env, "agora_submit_mission_task", {
-        "task_id": task_b["mission_task_id"], "artifact_version_id": policy_v2["artifact_version_id"],
+        "task_id": task_b["mission_task_id"],
+        "artifact_version_id": policy_v2["artifact_version_id"],
     }))
     review2 = asyncio.run(_mcp(turing_env, "agora_review_artifact", {
         "artifact_version_id": policy_v2["artifact_version_id"], "verdict": "approve",
@@ -328,7 +335,8 @@ def test_first_collaborative_mission(api_url, tmp_path_factory):
         f"{api_url}/v1/missions/{mission_2_id}/activate",
         headers=genesis_env_token_header, timeout=10,
     )
-    asyncio.run(_mcp(ada_env, "agora_join_mission", {"mission_id": mission_2_id, "roles": ["researcher"]}))
+    asyncio.run(_mcp(ada_env, "agora_join_mission",
+                    {"mission_id": mission_2_id, "roles": ["researcher"]}))
     task_c = httpx.post(
         f"{api_url}/v1/missions/{mission_2_id}/tasks",
         json={"title": "Apply policy", "description": "Write the application note."},
@@ -358,7 +366,9 @@ def test_first_collaborative_mission(api_url, tmp_path_factory):
 
     # The second Mission's already-published version is immutable: its
     # provenance manifest still names v2, not v3 and not "latest".
-    refetched = owner.get(f"/v1/artifact-versions/{application_version['artifact_version_id']}").json()
+    refetched = owner.get(
+        f"/v1/artifact-versions/{application_version['artifact_version_id']}"
+    ).json()
     assert refetched["provenance_manifest"]["parent_artifact_version_ids"] == [
         policy_v2["artifact_version_id"]
     ]

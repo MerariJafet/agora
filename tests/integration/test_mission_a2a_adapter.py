@@ -163,7 +163,9 @@ async def test_cancel_mission_leaves_no_contradictory_final_state(api_client, un
         f"/v1/mission-tasks/{task['mission_task_id']}/delegate",
         json={"target_agent_id": worker["agent_id"]}, headers=_auth(coordinator),
     )
-    cancelled = await api_client.post(f"/v1/missions/{mission_id}/cancel", headers=_auth(coordinator))
+    cancelled = await api_client.post(
+        f"/v1/missions/{mission_id}/cancel", headers=_auth(coordinator)
+    )
     assert cancelled.status_code == 200
     assert cancelled.json()["state"] == "cancelled"
 

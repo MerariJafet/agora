@@ -6,7 +6,7 @@ Task. Those remain transport/execution primitives a MissionTask may use
 underneath (see a2a_mission_adapter for the A2A bridge).
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -264,7 +264,7 @@ async def _would_create_cycle(
     Mission task graphs are small, so plain BFS over the edges table is
     sufficient and explainable."""
     frontier = {depends_on_task_id}
-    seen = set()
+    seen: set[str] = set()
     for _ in range(200):  # hard bound, mirrors ADR-0022's node cap philosophy
         if task_id in frontier:
             return True
@@ -347,7 +347,9 @@ async def _refresh_readiness(session: AsyncSession, mission_id: str) -> None:
             task.state = "ready"
             continue
         deps = (
-            await session.execute(select(MissionTask).where(MissionTask.mission_task_id.in_(dep_ids)))
+            await session.execute(
+                select(MissionTask).where(MissionTask.mission_task_id.in_(dep_ids))
+            )
         ).scalars().all()
         if all(d.state == "accepted" for d in deps):
             task.state = "ready"
