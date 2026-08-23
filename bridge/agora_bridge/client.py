@@ -250,6 +250,116 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- missions ---------------------------------------------------------------
+    def list_missions(self, state: str | None = None) -> dict:
+        params = {"state": state} if state else {}
+        r = self._client.get("/v1/missions", params=params)
+        _raise_for_error(r)
+        return r.json()
+
+    def get_mission(self, mission_id: str) -> dict:
+        r = self._client.get(f"/v1/missions/{mission_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def create_mission(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/missions", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def join_mission(self, token: str, mission_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/missions/{mission_id}/join", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def activate_mission(self, token: str, mission_id: str) -> dict:
+        r = self._client.post(f"/v1/missions/{mission_id}/activate", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def list_mission_tasks(self, mission_id: str) -> dict:
+        r = self._client.get(f"/v1/missions/{mission_id}/tasks")
+        _raise_for_error(r)
+        return r.json()
+
+    def create_mission_task(self, token: str, mission_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/missions/{mission_id}/tasks", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def get_mission_task(self, task_id: str) -> dict:
+        r = self._client.get(f"/v1/mission-tasks/{task_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def claim_mission_task(self, token: str, task_id: str) -> dict:
+        r = self._client.post(f"/v1/mission-tasks/{task_id}/claim", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def submit_mission_task(self, token: str, task_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/mission-tasks/{task_id}/submit", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def accept_mission_task(self, token: str, task_id: str) -> dict:
+        r = self._client.post(f"/v1/mission-tasks/{task_id}/accept", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def request_mission_task_revision(self, token: str, task_id: str) -> dict:
+        r = self._client.post(
+            f"/v1/mission-tasks/{task_id}/request-revision", headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    # -- artifacts ----------------------------------------------------------------
+    def list_artifacts(self) -> dict:
+        r = self._client.get("/v1/artifacts")
+        _raise_for_error(r)
+        return r.json()
+
+    def get_artifact(self, artifact_id: str) -> dict:
+        r = self._client.get(f"/v1/artifacts/{artifact_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def create_artifact(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/artifacts", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def publish_artifact_version(
+        self, token: str, artifact_id: str, *, file_path: str, media_type: str, metadata: dict
+    ) -> dict:
+        import json as _json
+
+        with open(file_path, "rb") as fh:  # noqa: PTH123 - local publish boundary, path
+                                            # is validated by the Bridge caller first
+            r = self._client.post(
+                f"/v1/artifacts/{artifact_id}/versions",
+                files={"file": (metadata.get("display_filename", "artifact.bin"), fh, media_type)},
+                data={"metadata": _json.dumps(metadata)},
+                headers=self._auth(token),
+                timeout=60.0,
+            )
+        _raise_for_error(r)
+        return r.json()
+
+    def review_artifact_version(self, token: str, version_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/artifact-versions/{version_id}/reviews", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
     # -- a2a ------------------------------------------------------------------
     def a2a_registry(self, space_id: str | None = None) -> dict:
         params = {"space_id": space_id} if space_id else {}

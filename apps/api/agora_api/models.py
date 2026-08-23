@@ -11,6 +11,7 @@ Two distinct concepts (ADR-0004):
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
@@ -463,3 +464,183 @@ class AudienceAssessment(Base):
     clarity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     responsiveness: Mapped[int | None] = mapped_column(Integer, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 05: Missions & Artifacts.
+#
+# Missions coordinate work through an explicit state machine (ADR-0026):
+# a Mission is a social object, NOT an A2A Task or MCP Task — those remain
+# transport/execution primitives a MissionTask may use underneath.
+#
+# Artifacts are content-addressed and immutable once published (ADR-0028):
+# ArtifactVersion rows are never updated after creation. Blob bytes live in
+# the ArtifactStore (filesystem-backed in Sprint 05), never in Postgres.
+# ---------------------------------------------------------------------------
+
+
+class Mission(Base):
+    __tablename__ = "missions"
+
+    mission_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    objective: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="public")
+    hosting_space_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    related_debate_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    related_claim_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    max_participants: Mapped[int] = mapped_column(Integer, nullable=False, default=16)
+    # Frozen at activation (ADR: completion is evaluated from explicit
+    # policy, never coordinator opinion, once active).
+    completion_policy: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_by_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    final_artifact_version_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_missions_state", "state"),)
+
+
+class MissionParticipant(Base):
+    """Roles list travels as JSONB: roles are Mission responsibility labels,
+    not platform authorization (constitution: roles never grant local
+    permissions)."""
+
+    __tablename__ = "mission_participants"
+
+    mission_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("missions.mission_id"), primary_key=True
+    )
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), primary_key=True
+    )
+    agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    roles: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class MissionTask(Base):
+    __tablename__ = "mission_tasks"
+
+    mission_task_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    mission_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("missions.mission_id"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    required_skills: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    expected_artifact_types: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    assigned_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    a2a_task_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    result_artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_mission_tasks_mission", "mission_id"),
+        Index("ix_mission_tasks_state", "state"),
+        Index("ix_mission_tasks_assigned", "assigned_agent_id"),
+    )
+
+
+class MissionTaskDependency(Base):
+    """Edge: `task_id` depends on `depends_on_task_id`. Cycle rejection is
+    a bounded reachability check at insert time (ADR: Postgres-first graph,
+    same posture as the Sprint 04 argument graph — no graph database)."""
+
+    __tablename__ = "mission_task_dependencies"
+
+    task_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("mission_tasks.mission_task_id"), primary_key=True
+    )
+    depends_on_task_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("mission_tasks.mission_task_id"), primary_key=True
+    )
+
+
+class Artifact(Base):
+    """Logical Artifact: mutable display metadata only (title, description,
+    visibility). Identity (`artifact_id`) never changes; content lives in
+    immutable ArtifactVersion rows."""
+
+    __tablename__ = "artifacts"
+
+    artifact_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    artifact_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="public")
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    latest_version_number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_artifacts_type", "artifact_type"),)
+
+
+class ArtifactVersion(Base):
+    """Immutable once `state == 'published'`. `state == 'pending'` exists
+    only for the brief window between metadata-row creation and blob
+    validation completing, so a crash mid-upload never leaves a row that
+    LIES about being publish-complete (ADR-0028)."""
+
+    __tablename__ = "artifact_versions"
+
+    artifact_version_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    artifact_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("artifacts.artifact_id"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_by_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    content_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    media_type: Mapped[str | None] = mapped_column(String(127), nullable=True)
+    display_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    storage_key: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    provenance_manifest: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    provenance_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_artifact_versions_artifact", "artifact_id", "version_number", unique=True),
+        Index("ix_artifact_versions_hash", "content_hash"),
+    )
+
+
+class ArtifactReview(Base):
+    """Append-only: a new review is a new row, never an edit. `is_self_review`
+    is computed and stored at creation time so historical reviews keep an
+    honest record even if authorship data changes later."""
+
+    __tablename__ = "artifact_reviews"
+
+    review_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    artifact_version_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("artifact_versions.artifact_version_id"), nullable=False
+    )
+    reviewer_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    is_self_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_reviews_version", "artifact_version_id"),)

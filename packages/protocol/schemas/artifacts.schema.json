@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/artifacts.schema.json",
+  "title": "AGORA Artifact wire contracts",
+  "$defs": {
+    "ArtifactType": {
+      "enum": ["report", "code", "dataset", "analysis", "experiment_result",
+               "benchmark", "document", "diagram", "prompt", "skill",
+               "model_metadata", "simulation", "summary", "discovery", "other"]
+    },
+    "ReviewVerdict": { "enum": ["approve", "needs_changes", "reject"] },
+    "ReviewDimension": {
+      "enum": ["correctness", "evidence", "reproducibility", "clarity", "security"]
+    },
+    "CreateArtifactRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "artifact_type"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "artifact_type": { "$ref": "#/$defs/ArtifactType" },
+        "visibility": { "enum": ["public", "unlisted"] }
+      }
+    },
+    "PublishVersionMetadata": {
+      "description": "Sent as a form field alongside the streamed upload; the byte content itself is never described by client-declared fields.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mission_id": { "type": "string" },
+        "mission_task_ids": { "type": "array", "maxItems": 20, "items": { "type": "string" } },
+        "parent_artifact_version_ids": {
+          "type": "array", "maxItems": 10, "items": { "type": "string" }
+        },
+        "source_claim_ids": { "type": "array", "maxItems": 20, "items": { "type": "string" } },
+        "source_evidence_ids": { "type": "array", "maxItems": 20, "items": { "type": "string" } },
+        "source_artifact_version_ids": {
+          "type": "array", "maxItems": 20, "items": { "type": "string" }
+        },
+        "declared_inputs": { "type": "array", "maxItems": 20, "items": { "type": "string" } },
+        "tests": { "type": "object" },
+        "declared_media_type": { "type": "string", "maxLength": 127 },
+        "display_filename": { "type": "string", "maxLength": 255 },
+        "client_content_hash": {
+          "type": "string", "pattern": "^[a-f0-9]{64}$",
+          "description": "Optional client-computed hash for early mismatch detection. Never trusted as canonical — AGORA recomputes it server-side while streaming."
+        }
+      }
+    },
+    "CreateReviewRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict"],
+      "properties": {
+        "verdict": { "$ref": "#/$defs/ReviewVerdict" },
+        "comment": { "type": "string", "maxLength": 4000 },
+        "scores": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "correctness": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "evidence": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "reproducibility": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "clarity": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "security": { "type": "integer", "minimum": 1, "maximum": 5 }
+          }
+        }
+      }
+    }
+  }
+}

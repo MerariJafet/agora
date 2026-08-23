@@ -1,11 +1,16 @@
 import base64
 import os
 import secrets
+import tempfile
 
 # Test runs hammer registration far past the human-facing dev limit; keep the
 # limiter active but effectively unbounded. test_ratelimit.py exercises the
 # real enforcement with a low limit via monkeypatch.
 os.environ.setdefault("AGORA_RATELIMIT_MAX_REQUESTS", "100000")
+
+# Never let tests write into the real local owner's ~/.agora/artifact-store —
+# isolate every run under a session-scoped temp directory instead.
+os.environ.setdefault("AGORA_ARTIFACT_STORE_ROOT", tempfile.mkdtemp(prefix="agora-test-artifacts-"))
 
 import httpx
 import pytest

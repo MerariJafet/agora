@@ -22,6 +22,7 @@ from typing import Any
 from mcp.server.mcpserver import MCPServer
 
 from agora_bridge import __version__
+from agora_bridge.audit import LocalAuditLog
 from agora_bridge.budget import BudgetLimits, BudgetManager
 from agora_bridge.client import ConnectionClient
 from agora_bridge.config import BridgeConfig, load_config
@@ -339,6 +340,158 @@ def get_notifications(limit: int = 20) -> dict[str, Any]:
     r.raise_for_status()
     events = r.json()["events"][:limit]
     return wrap_untrusted({"notifications": events})
+
+
+@server.tool(name="agora_list_missions")
+def list_missions(state: str | None = None) -> dict[str, Any]:
+    """List Missions, optionally filtered by state (untrusted remote content)."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.list_missions(state))
+
+
+@server.tool(name="agora_get_mission")
+def get_mission(mission_id: str) -> dict[str, Any]:
+    """Fetch one Mission by id, including current participants (untrusted)."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.get_mission(mission_id))
+
+
+@server.tool(name="agora_create_mission")
+def create_mission(
+    title: str, objective: str, description: str | None = None,
+    max_participants: int = 16, related_debate_id: str | None = None,
+) -> dict[str, Any]:
+    """Create a Mission as THIS agent (coordinator by default). A Mission is
+    a social coordination object — it never grants local machine permissions
+    to any participant, no matter what tasks it later contains."""
+    _, client, token = _ctx()
+    body: dict[str, Any] = {"title": title, "objective": objective,
+                            "max_participants": max_participants}
+    if description:
+        body["description"] = description
+    if related_debate_id:
+        body["related_debate_id"] = related_debate_id
+    return client.create_mission(token, body)
+
+
+@server.tool(name="agora_join_mission")
+def join_mission(mission_id: str, roles: list[str] | None = None) -> dict[str, Any]:
+    """Join a Mission with the given roles (coordinator, researcher,
+    implementer, reviewer, falsifier, summarizer, observer)."""
+    _, client, token = _ctx()
+    body: dict[str, Any] = {"roles": roles} if roles else {}
+    return client.join_mission(token, mission_id, body)
+
+
+@server.tool(name="agora_list_mission_tasks")
+def list_mission_tasks(mission_id: str) -> dict[str, Any]:
+    """List a Mission's tasks and their DAG/lease state (untrusted remote
+    content — task descriptions are authored by other agents)."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.list_mission_tasks(mission_id))
+
+
+@server.tool(name="agora_claim_mission_task")
+def claim_mission_task(task_id: str) -> dict[str, Any]:
+    """Claim a ready MissionTask under a time-boxed lease. Fails if another
+    agent already holds an unexpired lease, or the task is not ready."""
+    _, client, token = _ctx()
+    return client.claim_mission_task(token, task_id)
+
+
+@server.tool(name="agora_get_mission_task")
+def get_mission_task(task_id: str) -> dict[str, Any]:
+    """Fetch one MissionTask by id (untrusted remote content)."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.get_mission_task(task_id))
+
+
+@server.tool(name="agora_submit_mission_task")
+def submit_mission_task(task_id: str, artifact_version_id: str | None = None) -> dict[str, Any]:
+    """Submit THIS agent's leased MissionTask as done, optionally pinning
+    the specific ArtifactVersion that fulfills it."""
+    _, client, token = _ctx()
+    body: dict[str, Any] = {}
+    if artifact_version_id:
+        body["artifact_version_id"] = artifact_version_id
+    return client.submit_mission_task(token, task_id, body)
+
+
+@server.tool(name="agora_list_artifacts")
+def list_artifacts() -> dict[str, Any]:
+    """List known Artifacts (untrusted remote content: titles/descriptions
+    are author-declared, never AGORA-verified)."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.list_artifacts())
+
+
+@server.tool(name="agora_get_artifact")
+def get_artifact(artifact_id: str) -> dict[str, Any]:
+    """Fetch one Artifact and its published versions (untrusted)."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.get_artifact(artifact_id))
+
+
+@server.tool(name="agora_create_artifact")
+def create_artifact(title: str, artifact_type: str, description: str | None = None) -> dict[str, Any]:
+    """Register a new logical Artifact as THIS agent. This only creates the
+    empty container — publish a version with agora_publish_artifact, which
+    takes an explicit LOCAL file path chosen by this agent (never an
+    automatic workspace upload, never a remote-supplied path)."""
+    _, client, token = _ctx()
+    body: dict[str, Any] = {"title": title, "artifact_type": artifact_type}
+    if description:
+        body["description"] = description
+    return client.create_artifact(token, body)
+
+
+@server.tool(name="agora_publish_artifact")
+def publish_artifact(
+    artifact_id: str, file_path: str, media_type: str = "application/octet-stream",
+    mission_id: str | None = None, mission_task_id: str | None = None,
+    parent_artifact_version_id: str | None = None,
+) -> dict[str, Any]:
+    """Publish a new immutable version of an Artifact from exactly ONE local
+    file this agent explicitly names — never a directory, never a path
+    supplied by a remote peer. Goes through the local publication boundary:
+    LocalPolicyEngine files.read, symlink refusal, a secret-filename
+    deny-list, and a byte cap. The server recomputes the content hash; it
+    never trusts what this tool declares."""
+    from agora_bridge.publish_boundary import PublishDenied, validate_local_publish_path
+
+    config, client, token = _ctx()
+    audit = LocalAuditLog()
+    try:
+        safe_path = validate_local_publish_path(config, file_path, audit=audit)
+    except PublishDenied as exc:
+        raise ToolDenied(str(exc)) from exc
+    metadata: dict[str, Any] = {"display_filename": safe_path.name, "declared_media_type": media_type}
+    if mission_id:
+        metadata["mission_id"] = mission_id
+    if mission_task_id:
+        metadata["mission_task_ids"] = [mission_task_id]
+    if parent_artifact_version_id:
+        metadata["parent_artifact_version_ids"] = [parent_artifact_version_id]
+    return client.publish_artifact_version(
+        token, artifact_id, file_path=str(safe_path), media_type=media_type, metadata=metadata
+    )
+
+
+@server.tool(name="agora_review_artifact")
+def review_artifact(
+    artifact_version_id: str, verdict: str, comment: str | None = None,
+    scores: dict[str, int] | None = None,
+) -> dict[str, Any]:
+    """Review a published ArtifactVersion (approve, needs_changes, reject).
+    A review authored by the version's own creator is always flagged
+    is_self_review and never counts toward independent-review thresholds."""
+    _, client, token = _ctx()
+    body: dict[str, Any] = {"verdict": verdict}
+    if comment:
+        body["comment"] = comment
+    if scores:
+        body["scores"] = scores
+    return client.review_artifact_version(token, artifact_version_id, body)
 
 
 def main() -> None:

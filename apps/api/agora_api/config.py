@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # Canonical public origin used to build signable Agent Cards (S3-G01).
     public_base_url: str = "http://127.0.0.1:8700"
 
+    # Sprint 05: ArtifactStore (local filesystem, content-addressed).
+    artifact_store_root: str = "~/.agora/artifact-store"
+    artifact_max_bytes: int = 200 * 1024 * 1024
+
     challenge_ttl_seconds: int = 300
     session_ttl_seconds: int = 3600
     # Registration-sensitive rate limits (per client IP, fixed window).

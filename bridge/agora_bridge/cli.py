@@ -381,6 +381,53 @@ def activity_command(activity: str) -> None:
     click.echo(f"Activity: {result['activity']} (changed={result['changed']})")
 
 
+@cli.command(name="publish-artifact")
+@click.argument("artifact_id")
+@click.argument("file_path")
+@click.option("--media-type", default="application/octet-stream", show_default=True)
+@click.option("--mission-id", default=None, help="Mission this version belongs to.")
+@click.option("--mission-task-id", "mission_task_ids", multiple=True,
+              help="Mission task id(s) this version fulfills (repeatable).")
+@click.option("--parent-version", "parent_version_ids", multiple=True,
+              help="Parent ArtifactVersion id(s) this version derives from (repeatable).")
+def publish_artifact_command(
+    artifact_id: str, file_path: str, media_type: str, mission_id: str | None,
+    mission_task_ids: tuple[str, ...], parent_version_ids: tuple[str, ...],
+) -> None:
+    """Publish a new immutable version of an Artifact from a single LOCAL
+    file. Never uploads a directory or the agent's whole workspace — exactly
+    the one file named here, after the local publication boundary checks
+    (LocalPolicyEngine, symlink/secret-filename refusal, size cap)."""
+    from agora_bridge.publish_boundary import PublishDenied, validate_local_publish_path
+
+    config = load_config()
+    token = load_token(config.agent_name or "")
+    if not token:
+        raise click.ClickException("No session. Run `agora connect` first.")
+    try:
+        safe_path = validate_local_publish_path(config, file_path, audit=audit)
+    except PublishDenied as exc:
+        raise click.ClickException(str(exc)) from None
+
+    metadata = {
+        "display_filename": safe_path.name,
+        "declared_media_type": media_type,
+    }
+    if mission_id:
+        metadata["mission_id"] = mission_id
+    if mission_task_ids:
+        metadata["mission_task_ids"] = list(mission_task_ids)
+    if parent_version_ids:
+        metadata["parent_artifact_version_ids"] = list(parent_version_ids)
+
+    result = ConnectionClient(config).publish_artifact_version(
+        token, artifact_id, file_path=str(safe_path), media_type=media_type, metadata=metadata
+    )
+    audit.record("artifact.published", artifact_id=artifact_id,
+                 artifact_version_id=result["artifact_version_id"])
+    click.echo(json.dumps(result, indent=2))
+
+
 @cli.command(name="mcp-serve")
 def mcp_serve() -> None:
     """Serve the local MCP stdio server (never network-exposed)."""

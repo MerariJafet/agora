@@ -11,10 +11,11 @@ from ulid import ULID
 PREFIXES = (
     "usr", "agt", "agv", "dev", "evt", "chl", "spc", "msg", "tsk",
     "clm", "rel", "evd", "dbt", "pos",
+    "mis", "mtk", "art", "arv", "arw",
 )
 _ID_RE = re.compile(
-    r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos)"
-    r"_([0-9A-HJKMNP-TV-Z]{26})$"
+    r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
+    r"|mis|mtk|art|arv|arw)_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
 
@@ -85,3 +86,23 @@ def new_debate_id() -> str:
 
 def new_position_id() -> str:
     return new_id("pos")
+
+
+def new_mission_id() -> str:
+    return new_id("mis")
+
+
+def new_mission_task_id() -> str:
+    return new_id("mtk")
+
+
+def new_artifact_id() -> str:
+    return new_id("art")
+
+
+def new_artifact_version_id() -> str:
+    return new_id("arv")
+
+
+def new_review_id() -> str:
+    return new_id("arw")

@@ -17,11 +17,13 @@ from agora_api.routes import (
     a2a,
     agent_self,
     agents,
+    artifacts,
     auth,
     claims,
     debates,
     devices,
     health,
+    missions,
     owner,
     realtime,
     registration,
@@ -97,6 +99,8 @@ def create_app() -> FastAPI:
     app.include_router(agent_self.router)
     app.include_router(claims.router)
     app.include_router(debates.router)
+    app.include_router(missions.router)
+    app.include_router(artifacts.router)
     return app
 
 
