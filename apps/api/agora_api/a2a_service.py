@@ -123,7 +123,12 @@ async def create_task(
     target: Agent,
     message: dict[str, Any],
     trace_id: str | None,
+    commit: bool = True,
 ) -> A2ATask:
+    """`commit=False` lets a caller (e.g. the Mission delegation adapter)
+    fold task creation into a larger transaction that also mutates its own
+    domain rows atomically. That caller is then responsible for committing
+    and calling `deliver_task` itself — see `mission_a2a_adapter.py`."""
     parsed = parse_wire_message(message)
     task = A2ATask(
         task_id=parsed.task_id or new_task_id(),
@@ -144,8 +149,9 @@ async def create_task(
         payload={"task_id": task.task_id, "target_agent_id": target.agent_id},
         trace_id=trace_id,
     )
-    await session.commit()
-    await deliver_task(task)
+    if commit:
+        await session.commit()
+        await deliver_task(task)
     return task
 
 

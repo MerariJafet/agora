@@ -136,12 +136,22 @@ async def post_version(
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
+    # Scoped by artifact_id always, and additionally by mission_id when this
+    # version was published against a Mission — never an unscoped broadcast.
     await gateway.publish(
-        "global", "artifact",
+        artifact_id, "artifact",
         {"event": "version_published", "artifact_id": artifact_id,
          "artifact_version_id": version.artifact_version_id,
          "version_number": version.version_number},
     )
+    mission_id = parsed_metadata.get("mission_id")
+    if mission_id:
+        await gateway.publish(
+            mission_id, "artifact",
+            {"event": "version_published", "artifact_id": artifact_id,
+             "artifact_version_id": version.artifact_version_id,
+             "version_number": version.version_number, "mission_id": mission_id},
+        )
     return version_view(version)
 
 
@@ -187,10 +197,15 @@ async def post_review(
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
-    await gateway.publish(
-        "global", "artifact",
-        {"event": "reviewed", "artifact_version_id": version_id, "verdict": review.verdict},
-    )
+    review_event = {
+        "event": "reviewed", "artifact_id": version.artifact_id,
+        "artifact_version_id": version_id, "verdict": review.verdict,
+        "is_self_review": review.is_self_review,
+    }
+    await gateway.publish(version.artifact_id, "artifact", review_event)
+    manifest_mission_id = (version.provenance_manifest or {}).get("mission_id")
+    if manifest_mission_id:
+        await gateway.publish(manifest_mission_id, "artifact", review_event)
     return review_view(review)
 
 

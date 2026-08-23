@@ -76,7 +76,11 @@
       "additionalProperties": false,
       "properties": {
         "artifact_version_id": { "type": "string" },
-        "note": { "type": "string", "maxLength": 2000 }
+        "note": { "type": "string", "maxLength": 2000 },
+        "attempt": {
+          "type": "integer", "minimum": 1,
+          "description": "Optional: the attempt number this submission is for. A late/duplicate submission from a superseded attempt (e.g. after lease expiry and reassignment) is rejected rather than silently overwriting the current attempt's result."
+        }
       }
     }
   }

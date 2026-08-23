@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.authz import CurrentDevice
 from agora_api.db import get_session
-from agora_api.errors import NotFound, OwnerAuthorityRequired
+from agora_api.errors import NotFound, OwnerAuthorityRequired, ValidationFailed
+from agora_api.mission_a2a_adapter import delegate_task, get_delegation_status
 from agora_api.mission_completion import evaluate_completion
 from agora_api.missions_service import (
     accept_task,
@@ -49,6 +50,20 @@ async def _get_task(session: AsyncSession, task_id: str) -> MissionTask:
     return task
 
 
+async def _fan_out(session: AsyncSession, mission_id: str, event: dict) -> None:
+    """Mission realtime events are scoped by Mission id (a browser explicitly
+    subscribes to the Missions it cares about, same WS subscribe mechanism
+    already used for Spaces) and, when the Mission is hosted in a Space,
+    ALSO fanned to that Space's scope so a Space view can show Mission
+    activity without knowing every mission_id in advance. Never broadcast
+    to an unscoped "global" channel — nothing subscribes to that, and it
+    would defeat interest-based scoping."""
+    await gateway.publish(mission_id, "mission", event)
+    mission = await session.get(Mission, mission_id)
+    if mission is not None and mission.hosting_space_id:
+        await gateway.publish(mission.hosting_space_id, "mission", event)
+
+
 @router.get("/v1/missions")
 async def list_missions(
     session: AsyncSession = Depends(get_session),
@@ -76,7 +91,7 @@ async def post_mission(
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
-    await gateway.publish("global", "mission", {"event": "created", **mission_view(mission)})
+    await _fan_out(session, mission.mission_id, {"event": "created", **mission_view(mission)})
     return mission_view(mission)
 
 
@@ -115,9 +130,10 @@ async def post_join(
         roles=body.get("roles", []), trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
-    await gateway.publish(
-        "global", "mission",
-        {"event": "participant_joined", "mission_id": mission_id, "agent_id": device.agent_id},
+    await _fan_out(
+        session, mission_id,
+        {"event": "participant_joined", "mission_id": mission_id, "agent_id": device.agent_id,
+         "roles": participant.roles},
     )
     return {"mission_id": mission_id, "agent_id": participant.agent_id, "roles": participant.roles}
 
@@ -133,7 +149,7 @@ async def post_activate(
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
-    await gateway.publish("global", "mission", {"event": "activated", "mission_id": mission_id})
+    await _fan_out(session, mission_id, {"event": "activated", "mission_id": mission_id})
     return mission_view(mission)
 
 
@@ -148,7 +164,7 @@ async def post_cancel(
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
-    await gateway.publish("global", "mission", {"event": "cancelled", "mission_id": mission_id})
+    await _fan_out(session, mission_id, {"event": "cancelled", "mission_id": mission_id})
     return mission_view(mission)
 
 
@@ -176,9 +192,10 @@ async def post_task(
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
-    await gateway.publish(
-        "global", "mission",
-        {"event": "task_created", "mission_id": mission_id, "mission_task_id": task.mission_task_id},
+    await _fan_out(
+        session, mission_id,
+        {"event": "task_created", "mission_id": mission_id, "mission_task_id": task.mission_task_id,
+         "state": task.state},
     )
     return task_view(task)
 
@@ -199,8 +216,8 @@ async def post_claim_task(
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
-    await gateway.publish(
-        "global", "mission",
+    await _fan_out(
+        session, task.mission_id,
         {"event": "task_claimed", "mission_id": task.mission_id, "mission_task_id": task_id,
          "agent_id": device.agent_id},
     )
@@ -211,6 +228,9 @@ async def post_claim_task(
 async def post_renew_lease(
     task_id: str, device: CurrentDevice, session: AsyncSession = Depends(get_session)
 ) -> dict:
+    # Deliberately NOT fanned out: renewing a lease is not a semantic,
+    # user-visible change (the assignee and state were already known), so
+    # this must never become realtime heartbeat noise.
     task = await renew_lease(session, task_id=task_id, agent_id=device.agent_id)
     await session.commit()
     return task_view(task)
@@ -226,12 +246,13 @@ async def post_submit_task(
     task = await submit_task(
         session, task_id=task_id, agent_id=device.agent_id,
         artifact_version_id=body.get("artifact_version_id"),
-        trace_id=getattr(request.state, "trace_id", None),
+        trace_id=getattr(request.state, "trace_id", None), attempt=body.get("attempt"),
     )
     await session.commit()
-    await gateway.publish(
-        "global", "mission",
-        {"event": "task_submitted", "mission_id": task.mission_id, "mission_task_id": task_id},
+    await _fan_out(
+        session, task.mission_id,
+        {"event": "task_submitted", "mission_id": task.mission_id, "mission_task_id": task_id,
+         "artifact_version_id": task.result_artifact_version_id},
     )
     return task_view(task)
 
@@ -251,12 +272,16 @@ async def post_accept_task(
     )
     await evaluate_completion(session, mission=mission, trace_id=getattr(request.state, "trace_id", None))
     await session.commit()
-    await gateway.publish(
-        "global", "mission",
+    await _fan_out(
+        session, task.mission_id,
         {"event": "task_accepted", "mission_id": task.mission_id, "mission_task_id": task_id},
     )
     if mission.state == "completed":
-        await gateway.publish("global", "mission", {"event": "completed", "mission_id": mission.mission_id})
+        await _fan_out(
+            session, mission.mission_id,
+            {"event": "completed", "mission_id": mission.mission_id,
+             "final_artifact_version_ids": mission.final_artifact_version_ids},
+        )
     return task_view(task)
 
 
@@ -274,8 +299,44 @@ async def post_request_revision(
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
-    await gateway.publish(
-        "global", "mission",
+    await _fan_out(
+        session, task.mission_id,
         {"event": "task_needs_revision", "mission_id": task.mission_id, "mission_task_id": task_id},
     )
     return task_view(task)
+
+
+@router.post("/v1/mission-tasks/{task_id}/delegate")
+async def post_delegate_task(
+    task_id: str, request: Request, device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Coordinator-driven delegation (S5.1-T02/T04): assign the task AND
+    hand it off over the real cross-Bridge A2A relay to `target_agent_id`,
+    instead of the assignee being the sole one who can poll/claim it."""
+    task = await _get_task(session, task_id)
+    body = await request.json()
+    target_agent_id = body.get("target_agent_id")
+    if not isinstance(target_agent_id, str) or not target_agent_id:
+        raise ValidationFailed("target_agent_id is required.")
+    target_agent = await session.get(Agent, target_agent_id)
+    if target_agent is None:
+        raise NotFound("Target agent not found.")
+    a2a_task = await delegate_task(
+        session, task=task, target_agent=target_agent, coordinator_agent_id=device.agent_id,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    refreshed = await _get_task(session, task_id)
+    await _fan_out(
+        session, refreshed.mission_id,
+        {"event": "task_delegated", "mission_id": refreshed.mission_id, "mission_task_id": task_id,
+         "target_agent_id": target_agent_id, "a2a_task_id": a2a_task.task_id},
+    )
+    return {**task_view(refreshed), "a2a_task_id": a2a_task.task_id}
+
+
+@router.get("/v1/mission-tasks/{task_id}/delegation")
+async def get_delegation(task_id: str, session: AsyncSession = Depends(get_session)) -> dict:
+    task = await _get_task(session, task_id)
+    status = await get_delegation_status(session, task)
+    return status or {"a2a_task_id": None, "a2a_status": None, "hint": "not_delegated"}

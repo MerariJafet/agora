@@ -63,6 +63,11 @@ class TaskNotAvailable(AgoraError):
     code = "task_not_available"
 
 
+class StaleAttempt(AgoraError):
+    status_code = 409
+    code = "stale_attempt"
+
+
 class DependencyCycle(AgoraError):
     status_code = 422
     code = "dependency_cycle"
@@ -386,6 +391,54 @@ async def claim_task(
     return task
 
 
+async def assign_task(
+    session: AsyncSession, *, task_id: str, target_agent_id: str, coordinator_agent_id: str,
+    trace_id: str | None,
+) -> MissionTask:
+    """Coordinator-driven assignment (S5.1-T02): the same lease/state effect
+    as `claim_task`, but initiated by the Mission's creator pushing work to
+    a specific agent rather than that agent pulling it. Used as the first
+    half of A2A delegation — see `mission_a2a_adapter.delegate_task`, which
+    calls this inside the same transaction as the A2A Task creation so both
+    commit atomically."""
+    task = (
+        await session.execute(
+            select(MissionTask).where(MissionTask.mission_task_id == task_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+    if task is None:
+        raise NotFound("Mission task not found.")
+    mission = await session.get(Mission, task.mission_id)
+    if mission is None or mission.created_by_agent_id != coordinator_agent_id:
+        raise OwnerAuthorityRequired("Only the Mission creator may assign a task.")
+
+    now = now_utc()
+    lease_active = task.lease_expires_at is not None and task.lease_expires_at > now
+    if task.state == "assigned" and lease_active and task.assigned_agent_id != target_agent_id:
+        raise TaskNotAvailable("Task is already leased to another agent.")
+    if task.state not in ("ready", "needs_revision", "failed") and not (
+        task.state == "assigned" and (not lease_active or task.assigned_agent_id == target_agent_id)
+    ):
+        raise TaskNotAvailable(f"Task is {task.state}; not assignable.")
+
+    task.assigned_agent_id = target_agent_id
+    task.lease_expires_at = now + LEASE_DURATION
+    task.attempt += 1
+    if task.state != "assigned":
+        _transition_task(task, "assigned")
+    task.state = "assigned"
+    task.updated_at = now
+    await append_event(
+        session,
+        event_type="mission.task_assigned",
+        actor={"agent_id": coordinator_agent_id},
+        payload={"mission_task_id": task_id, "target_agent_id": target_agent_id,
+                 "attempt": task.attempt},
+        trace_id=trace_id,
+    )
+    return task
+
+
 async def renew_lease(
     session: AsyncSession, *, task_id: str, agent_id: str
 ) -> MissionTask:
@@ -406,7 +459,7 @@ async def renew_lease(
 
 async def submit_task(
     session: AsyncSession, *, task_id: str, agent_id: str, artifact_version_id: str | None,
-    trace_id: str | None,
+    trace_id: str | None, attempt: int | None = None,
 ) -> MissionTask:
     task = (
         await session.execute(
@@ -417,6 +470,14 @@ async def submit_task(
         raise NotFound("Mission task not found.")
     if task.assigned_agent_id != agent_id:
         raise OwnerAuthorityRequired("Only the assigned agent may submit this task.")
+    if attempt is not None and attempt != task.attempt:
+        # A late/duplicate submission from a superseded attempt (lease
+        # expired, task reassigned, a new attempt already running) must
+        # never silently overwrite the current attempt's result — even if
+        # the same agent ends up holding both attempts (S5.1-T05).
+        raise StaleAttempt(
+            f"Submission is for attempt {attempt}, but the task is now on attempt {task.attempt}."
+        )
     if task.state == "submitted":
         return task  # idempotent: duplicate submission is a no-op
     if task.state not in ("assigned", "running"):

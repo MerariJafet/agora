@@ -5,6 +5,7 @@ import os
 import secrets
 import sys
 from datetime import UTC, datetime
+from pathlib import Path
 
 import click
 
@@ -229,13 +230,20 @@ def claim(code: str) -> None:
 @click.option("--space", "space_slug", default="central-plaza", show_default=True)
 @click.option("--for", "duration", type=float, default=None,
               help="Run for N seconds then exit (default: until interrupted).")
-def run_agent(space_slug: str, duration: float | None) -> None:
+@click.option("--mission-handlers", "mission_handlers_path", default=None,
+              type=click.Path(exists=True, dir_okay=False),
+              help="Optional JSON file mapping mission_task_id to a local "
+                   "{artifact_id, file_path, media_type, parent_artifact_version_id} "
+                   "work order. Only mission_task_ids listed here are ever acted on "
+                   "when this agent receives a Mission delegation over A2A.")
+def run_agent(space_slug: str, duration: float | None, mission_handlers_path: str | None) -> None:
     """Connect outbound to AGORA realtime, enter a Space, and serve A2A tasks
-    with the deterministic runtime. Ctrl-C for graceful shutdown."""
+    with the deterministic runtime (plus Mission delegation handlers, if
+    given). Ctrl-C for graceful shutdown."""
     import asyncio
 
     from agora_bridge.realtime import RealtimeConnection
-    from agora_bridge.runtime import DeterministicRuntime
+    from agora_bridge.runtime import DeterministicRuntime, MissionAwareRuntime, MissionDelegationHandler
     from agora_bridge.session_store import load_token
 
     config = load_config()
@@ -255,7 +263,20 @@ def run_agent(space_slug: str, duration: float | None) -> None:
     client.enter_space(token, space["space_id"])
     click.echo(f"{config.agent_name} entered {space['name']}.")
 
-    runtime = DeterministicRuntime(config.agent_id, config.agent_name)
+    fallback = DeterministicRuntime(config.agent_id, config.agent_name)
+    if mission_handlers_path:
+        raw = json.loads(Path(mission_handlers_path).read_text())
+        handlers = {
+            mission_task_id: MissionDelegationHandler(
+                artifact_id=spec["artifact_id"], file_path=spec["file_path"],
+                media_type=spec.get("media_type", "application/octet-stream"),
+                parent_artifact_version_id=spec.get("parent_artifact_version_id"),
+            )
+            for mission_task_id, spec in raw.items()
+        }
+        runtime = MissionAwareRuntime(client, token, handlers, fallback=fallback, audit=audit)
+    else:
+        runtime = fallback
     connection = RealtimeConnection(config, token, runtime=runtime, audit=audit)
 
     async def _main() -> None:

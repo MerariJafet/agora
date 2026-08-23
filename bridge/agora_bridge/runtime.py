@@ -68,3 +68,117 @@ class DeterministicRuntime:
             "metadata": {"sha256": digest, "creator_agent_id": self.agent_id},
         }
         return TaskResult(True, [artifact])
+
+
+@dataclass(frozen=True)
+class MissionDelegationHandler:
+    """Operator-declared, single-mission-task work order: exactly which
+    local file to publish and which Mission API calls to make once this
+    specific MissionTask arrives over A2A. NOT a generic auto-executor —
+    only mission_task_ids explicitly registered here are ever acted on, and
+    the file path still goes through the same local publication boundary
+    (LocalPolicyEngine, symlink/secret-filename refusal) as any other
+    `agora publish-artifact` call."""
+
+    artifact_id: str
+    file_path: str
+    media_type: str = "application/octet-stream"
+    parent_artifact_version_id: str | None = None
+
+
+class MissionAwareRuntime:
+    """Recognizes AGORA Mission delegation metadata (`agora_mission_task_id`
+    in the A2A Message's own `metadata` field — a standards extension point,
+    never an invented wire field) inside an otherwise-ordinary A2A task.
+
+    For any task WITHOUT that metadata, falls back to `fallback` (typically
+    `DeterministicRuntime`) so this class is a strict superset, not a
+    replacement, of existing A2A behavior (e.g. First Contact).
+
+    For a recognized mission_task_id with a registered handler: publishes
+    the ALREADY-EXPLICIT local file through the existing publication
+    boundary and submits the MissionTask through the existing, already-
+    accepted Mission API — this class invents no new execution path, it
+    only wires the real A2A delivery to those existing calls."""
+
+    def __init__(
+        self,
+        client,  # agora_bridge.client.ConnectionClient
+        token: str,
+        handlers: dict[str, MissionDelegationHandler],
+        fallback: RuntimeAdapter | None = None,
+        audit=None,
+    ):
+        self._client = client
+        self._token = token
+        self._handlers = handlers
+        self._fallback = fallback
+        self._audit = audit
+
+    def handle_task(self, wrapped_task: dict[str, Any]) -> TaskResult:
+        if not is_untrusted(wrapped_task):
+            return TaskResult(False, [], "refusing task without untrusted_remote envelope")
+        frame = wrapped_task["content"]
+        message = frame.get("message", {})
+        metadata = message.get("metadata") if isinstance(message, dict) else None
+        mission_task_id = (
+            metadata.get("agora_mission_task_id") if isinstance(metadata, dict) else None
+        )
+        if not mission_task_id:
+            if self._fallback is not None:
+                return self._fallback.handle_task(wrapped_task)
+            return TaskResult(False, [], "not a Mission delegation and no fallback runtime")
+
+        handler = self._handlers.get(mission_task_id)
+        if handler is None:
+            return TaskResult(
+                False, [], f"no local handler registered for mission task {mission_task_id}"
+            )
+
+        from agora_bridge.publish_boundary import PublishDenied, validate_local_publish_path
+
+        try:
+            from agora_bridge.config import load_config
+
+            safe_path = validate_local_publish_path(
+                load_config(), handler.file_path, audit=self._audit or _NullAudit()
+            )
+        except PublishDenied as exc:
+            return TaskResult(False, [], f"publish boundary denied: {exc}")
+
+        publish_metadata: dict[str, Any] = {
+            "display_filename": safe_path.name, "declared_media_type": handler.media_type,
+            "mission_id": metadata.get("agora_mission_id"),
+            "mission_task_ids": [mission_task_id],
+        }
+        if handler.parent_artifact_version_id:
+            publish_metadata["parent_artifact_version_ids"] = [handler.parent_artifact_version_id]
+
+        version = self._client.publish_artifact_version(
+            self._token, handler.artifact_id, file_path=str(safe_path),
+            media_type=handler.media_type, metadata=publish_metadata,
+        )
+        self._client.submit_mission_task(
+            self._token, mission_task_id,
+            {"artifact_version_id": version["artifact_version_id"],
+             "attempt": metadata.get("agora_attempt")},
+        )
+
+        ack = {
+            "artifactId": f"art-mission-ack-{mission_task_id}",
+            "name": "Mission Delegation Acknowledgement",
+            "description": "Confirms the delegated MissionTask was submitted through the "
+                            "existing Mission API; this A2A artifact is NOT the Mission's "
+                            "own ArtifactVersion.",
+            "parts": [{"text": json.dumps(
+                {"mission_task_id": mission_task_id,
+                 "artifact_version_id": version["artifact_version_id"]},
+                sort_keys=True,
+            ), "mediaType": "application/json"}],
+        }
+        return TaskResult(True, [ack])
+
+
+class _NullAudit:
+    def record(self, *args: Any, **kwargs: Any) -> None:
+        pass

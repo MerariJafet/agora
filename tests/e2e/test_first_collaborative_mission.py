@@ -17,6 +17,7 @@ import secrets
 import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -165,23 +166,81 @@ def test_first_collaborative_mission(api_url, tmp_path_factory):
     assert task_a["state"] == "ready"
     assert task_b["state"] == "pending"  # blocked on Task A until it is accepted
 
-    # 5. Ada claims and works Task A, then publishes an immutable Artifact
-    # version from a real local file through the publication boundary.
-    asyncio.run(_mcp(ada_env, "agora_claim_mission_task", {"task_id": task_a["mission_task_id"]}))
+    # 5. Task A is worked through REAL cross-Bridge A2A delegation (S5.1-T04),
+    # not Ada polling/claiming on her own initiative: Genesis pushes the work
+    # over the existing outbound-only A2A relay to Ada's connected Bridge,
+    # whose MissionAwareRuntime publishes the Artifact and submits the
+    # MissionTask through the same, already-accepted Mission API a manual
+    # MCP call would use — the delegation only changes HOW the work order
+    # arrives, never the MissionTask/Artifact source-of-truth mechanisms.
     arguments_artifact = asyncio.run(_mcp(ada_env, "agora_create_artifact", {
         "title": "Extracted Arguments", "artifact_type": "analysis",
     }))
-    arguments_version = asyncio.run(_mcp(ada_env, "agora_publish_artifact", {
-        "artifact_id": arguments_artifact["artifact_id"], "file_path": str(arguments_file),
-        "media_type": "text/markdown", "mission_id": mission_id,
-        "mission_task_id": task_a["mission_task_id"],
+    handlers_file = workdir / "ada_mission_handlers.json"
+    handlers_file.write_text(json.dumps({
+        task_a["mission_task_id"]: {
+            "artifact_id": arguments_artifact["artifact_id"],
+            "file_path": str(arguments_file), "media_type": "text/markdown",
+        }
     }))
+    ada_runtime_proc = subprocess.Popen(
+        [PYTHON, "-m", "agora_bridge.cli", "run", "--for", "30",
+         "--mission-handlers", str(handlers_file)],
+        env=ada_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+    )
+    try:
+        # Ada's Bridge must actually be connected before delegation, or the
+        # A2A relay would (correctly) queue the task for her next connect
+        # instead of delivering it live.
+        PLAZA = "spc_00000000000000000000P1AZA0"
+        for _ in range(40):
+            present = {
+                a["agent_id"]
+                for a in httpx.get(f"{api_url}/v1/spaces/{PLAZA}/agents", timeout=5).json()["agents"]
+            }
+            if ada_id in present:
+                break
+            time.sleep(0.25)
+        else:
+            raise AssertionError("Ada's Bridge never entered the Space before delegation")
+
+        delegated = httpx.post(
+            f"{api_url}/v1/mission-tasks/{task_a['mission_task_id']}/delegate",
+            json={"target_agent_id": ada_id},
+            headers={"Authorization": f"Bearer {genesis_token}"}, timeout=10,
+        )
+        assert delegated.status_code == 200, delegated.text
+        a2a_task_id = delegated.json()["a2a_task_id"]
+
+        for _ in range(60):
+            task_a_now = httpx.get(f"{api_url}/v1/mission-tasks/{task_a['mission_task_id']}").json()
+            if task_a_now["state"] == "submitted":
+                break
+            time.sleep(0.5)
+        else:
+            raise AssertionError(
+                f"Task A never reached 'submitted' via A2A delegation; last seen: {task_a_now}"
+            )
+        arguments_version_id = task_a_now["result_artifact_version_id"]
+        assert arguments_version_id, "Ada's MissionAwareRuntime must have pinned a real version"
+
+        delegation_status = httpx.get(
+            f"{api_url}/v1/mission-tasks/{task_a['mission_task_id']}/delegation", timeout=10
+        ).json()
+        assert delegation_status["a2a_task_id"] == a2a_task_id
+        assert delegation_status["a2a_status"] == "completed"
+    finally:
+        ada_runtime_proc.terminate()
+        ada_runtime_proc.wait(timeout=10)
+
+    arguments_version = httpx.get(
+        f"{api_url}/v1/artifact-versions/{arguments_version_id}", timeout=10
+    ).json()
     assert arguments_version["version_number"] == 1
     assert arguments_version["provenance_manifest"]["mission_id"] == mission_id
-    asyncio.run(_mcp(ada_env, "agora_submit_mission_task", {
-        "task_id": task_a["mission_task_id"],
-        "artifact_version_id": arguments_version["artifact_version_id"],
-    }))
+    assert arguments_version["provenance_manifest"]["mission_task_ids"] == [
+        task_a["mission_task_id"]
+    ]
 
     # 6. Genesis accepts Task A -> Task B becomes ready.
     accepted_a = httpx.post(
