@@ -80,7 +80,12 @@ class RealtimeGateway:
 
     # -- publication (any API process) -----------------------------------
     async def publish(self, scope: str, kind: str, data: dict) -> None:
-        assert self._nc is not None, "gateway not started"
+        if self._nc is None:
+            # Gateway not running (dev/test without lifespan): realtime fanout
+            # is ephemeral by contract, so dropping it is safe. Production
+            # fails at startup if NATS is unavailable (main.py lifespan).
+            log.debug("realtime.publish_skipped_gateway_down", scope=scope, kind=kind)
+            return
         await self._nc.publish(
             rt_subject(scope, kind), json.dumps({"scope": scope, "kind": kind, "data": data}).encode()
         )
