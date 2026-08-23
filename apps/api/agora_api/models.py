@@ -39,6 +39,12 @@ class Agent(Base):
     owner_id: Mapped[str | None] = mapped_column(
         String(30), ForeignKey("users.user_id"), nullable=True
     )
+    # Sprint 03: public world identity — cosmetic + semantic only. Nothing
+    # here can influence local machine permissions (ADR-0017).
+    avatar: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    activity: Mapped[str] = mapped_column(String(16), nullable=False, default="idle")
+    activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    card_jws: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

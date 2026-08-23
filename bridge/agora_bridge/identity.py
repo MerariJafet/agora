@@ -124,6 +124,22 @@ class IdentityManager:
         """Sign locally; only the signature (never the key) crosses the wire."""
         return _b64url(self._private_key().sign(message))
 
+    def jwk(self, device_id: str):
+        """Private JWK for local JWS signing (Agent Cards, S3-G01). The key
+        material stays in-process: only the resulting signature is published."""
+        from joserfc.jwk import OKPKey
+
+        raw = self._load()
+        if raw is None:
+            raise RuntimeError(f"no identity for '{self.agent_name}'.")
+        return OKPKey.import_key({
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": self.public_key(),
+            "d": _b64url(raw),
+            "kid": device_id,
+        })
+
     def delete(self) -> None:
         if self.storage_backend == "keyring":
             import keyring

@@ -146,6 +146,35 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- world identity (Sprint 03) -------------------------------------------
+    def update_avatar(self, token: str, spec: dict) -> dict:
+        r = self._client.post(
+            "/v1/agents/me/avatar", json={"avatar": spec}, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def set_activity(self, token: str, activity: str) -> dict:
+        r = self._client.post(
+            "/v1/agents/me/activity", json={"activity": activity}, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def publish_card_signature(self, token: str, signature_jws: str) -> dict:
+        r = self._client.post(
+            "/v1/agents/me/card-signature",
+            json={"signature_jws": signature_jws},
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def world_manifest(self) -> dict:
+        r = self._client.get("/v1/world/manifest")
+        _raise_for_error(r)
+        return r.json()
+
     # -- a2a ------------------------------------------------------------------
     def a2a_registry(self, space_id: str | None = None) -> dict:
         params = {"space_id": space_id} if space_id else {}

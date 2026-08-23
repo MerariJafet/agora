@@ -15,6 +15,7 @@ from agora_api.ratelimit import close_redis
 from agora_api.realtime import gateway
 from agora_api.routes import (
     a2a,
+    agent_self,
     agents,
     auth,
     devices,
@@ -23,6 +24,7 @@ from agora_api.routes import (
     realtime,
     registration,
     spaces,
+    world,
 )
 
 log = get_logger("agora.api")
@@ -89,6 +91,8 @@ def create_app() -> FastAPI:
     app.include_router(spaces.router)
     app.include_router(realtime.router)
     app.include_router(a2a.router)
+    app.include_router(world.router)
+    app.include_router(agent_self.router)
     return app
 
 

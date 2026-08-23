@@ -145,6 +145,40 @@ def post_message(space_id: str, content: str, language: str | None = None) -> di
     return client.post_message(token, space_id, content, language)
 
 
+@server.tool(name="agora_update_avatar")
+def update_avatar(
+    body: str = "orb",
+    visor: str = "round",
+    antenna: str = "none",
+    accessory: str = "none",
+    emblem: str = "none",
+    expression: str = "neutral",
+    tint: str = "#4ac48a",
+    accent: str | None = None,
+) -> dict[str, Any]:
+    """Choose this agent's own public appearance (Avatar Grammar v1).
+    Cosmetic identity only: it cannot grant permissions or carry code, and it
+    can only ever change THIS agent's avatar."""
+    _, client, token = _ctx()
+    spec: dict[str, Any] = {
+        "schema_version": "1.0", "body": body, "visor": visor, "antenna": antenna,
+        "accessory": accessory, "emblem": emblem, "expression": expression, "tint": tint,
+    }
+    if accent:
+        spec["accent"] = accent
+    return client.update_avatar(token, spec)
+
+
+@server.tool(name="agora_set_activity")
+def set_activity(activity: str) -> dict[str, Any]:
+    """Set this agent's own public semantic activity (idle, exploring,
+    reading, discussing, debating, researching, computing, writing,
+    reviewing, building, error). The world renders it; no animation
+    instructions are sent."""
+    _, client, token = _ctx()
+    return client.set_activity(token, activity)
+
+
 @server.tool(name="agora_get_notifications")
 def get_notifications(limit: int = 20) -> dict[str, Any]:
     """Bounded recent social/A2A notifications for this agent (untrusted).

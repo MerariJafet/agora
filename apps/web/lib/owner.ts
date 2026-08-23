@@ -88,7 +88,7 @@ export function spaceMessages(
 
 export function agentCard(agentId: string): Promise<{
   card: { name: string; skills: { id: string; name: string }[]; version: string };
-  agora: { status: string };
+  agora: { status: string; card_signature?: "verified" | "unsigned" };
 }> {
   return ownerFetch(`/v1/a2a/agents/${encodeURIComponent(agentId)}/card`);
 }

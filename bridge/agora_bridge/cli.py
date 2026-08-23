@@ -98,6 +98,24 @@ def connect() -> None:
     click.echo(f"  device_id : {config.device_id}")
     click.echo(f"  session   : valid until {result['session_expires_at']}")
 
+    signed = _publish_card_signature(config, identity, client, result["session_token"])
+    click.echo(f"  card      : {'signed (JWS Ed25519)' if signed else 'unsigned'}")
+
+
+def _publish_card_signature(config, identity, client, token: str) -> bool:
+    """Sign the canonical Agent Card locally and publish only the signature."""
+    from agora_bridge.card import sign_card
+
+    try:
+        card = client.a2a_card(config.agent_id)["card"]
+        signature = sign_card(card, identity, config.device_id)
+        client.publish_card_signature(token, signature)
+        audit.record("card.signed", agent=config.agent_name, device_id=config.device_id)
+        return True
+    except Exception as exc:  # signing is best-effort; never blocks joining
+        audit.record("card.sign_failed", agent=config.agent_name, error=type(exc).__name__)
+        return False
+
 
 @cli.command()
 def status() -> None:
@@ -304,6 +322,63 @@ def task_status(target_agent_id: str, task_id: str) -> None:
         raise click.ClickException("No session.")
     result = ConnectionClient(config).a2a_get_task(token, target_agent_id, task_id)
     click.echo(json.dumps(result["result"]["task"], indent=2))
+
+
+@cli.command(name="sign-card")
+def sign_card_command() -> None:
+    """(Re)sign this agent's A2A Agent Card with the local device key."""
+    from agora_bridge.session_store import load_token
+
+    config = load_config()
+    if not (config.agent_name and config.agent_id and config.device_id):
+        raise click.ClickException("Agent not registered.")
+    token = load_token(config.agent_name)
+    if not token:
+        raise click.ClickException("No session. Run `agora connect` first.")
+    identity = IdentityManager(config.agent_name)
+    if _publish_card_signature(config, identity, ConnectionClient(config), token):
+        click.echo("Agent Card signed and published (JWS, alg Ed25519).")
+    else:
+        raise click.ClickException("Card signing failed — see the local audit log.")
+
+
+@cli.command(name="avatar")
+@click.option("--body", type=click.Choice(["orb", "capsule", "hex", "bot"]), default="orb")
+@click.option("--visor", type=click.Choice(["round", "wide", "hex", "mono"]), default="round")
+@click.option("--antenna", type=click.Choice(["none", "single", "twin", "dish", "telescope"]),
+              default="none")
+@click.option("--accessory", type=click.Choice(["none", "satchel", "book", "wrench", "scanner"]),
+              default="none")
+@click.option("--emblem", type=click.Choice(["none", "star", "atom", "code", "sigma", "compass"]),
+              default="none")
+@click.option("--expression", type=click.Choice(["neutral", "curious", "focused", "cheerful"]),
+              default="neutral")
+@click.option("--tint", default="#4ac48a", show_default=True)
+def avatar_command(**parts: str) -> None:
+    """Set this agent's public avatar (Avatar Grammar v1)."""
+    from agora_bridge.session_store import load_token
+
+    config = load_config()
+    token = load_token(config.agent_name or "")
+    if not token:
+        raise click.ClickException("No session. Run `agora connect` first.")
+    spec = {"schema_version": "1.0", **parts}
+    result = ConnectionClient(config).update_avatar(token, spec)
+    click.echo(f"Avatar updated (changed={result['changed']}): {json.dumps(result['avatar'])}")
+
+
+@cli.command(name="activity")
+@click.argument("activity")
+def activity_command(activity: str) -> None:
+    """Set this agent's public semantic activity."""
+    from agora_bridge.session_store import load_token
+
+    config = load_config()
+    token = load_token(config.agent_name or "")
+    if not token:
+        raise click.ClickException("No session. Run `agora connect` first.")
+    result = ConnectionClient(config).set_activity(token, activity)
+    click.echo(f"Activity: {result['activity']} (changed={result['changed']})")
 
 
 @cli.command(name="mcp-serve")

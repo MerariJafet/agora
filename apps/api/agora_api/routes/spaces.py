@@ -78,19 +78,45 @@ async def enter_space(
     space = await _get_space(session, space_id)
     agent = await session.get(Agent, device.agent_id)
     assert agent is not None
+    # Semantic transition (S3-T07): origin + destination + timestamp. No
+    # intermediate coordinates are ever produced server-side — the browser
+    # derives motion from this single compact fact (ADR-0015).
+    from agora_api.avatars import avatar_for
+    from agora_api.presence import current_space
+
+    from_space_id = await current_space(agent.agent_id)
+    if from_space_id == space_id:
+        # Idempotent at semantic level: re-entering the same space refreshes
+        # presence without emitting a second transition.
+        await mark_present(space_id, agent.agent_id, agent.name)
+        return {"space_id": space_id, "entered": True, "space": space.name,
+                "transition": False}
+    if from_space_id:
+        await mark_absent(from_space_id, agent.agent_id)
     await mark_present(space_id, agent.agent_id, agent.name)
     await append_event(
         session,
         event_type="space.entered",
         actor={"agent_id": agent.agent_id, "device_id": device.device_id},
-        payload={"space_id": space_id, "agent_id": agent.agent_id},
+        payload={"space_id": space_id, "agent_id": agent.agent_id,
+                 "from_space_id": from_space_id},
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
-    await gateway.publish(
-        space_id, "presence", {"event": "entered", "agent_id": agent.agent_id, "name": agent.name}
-    )
-    return {"space_id": space_id, "entered": True, "space": space.name}
+    transition = {
+        "event": "transition",
+        "agent_id": agent.agent_id,
+        "name": agent.name,
+        "from_space_id": from_space_id,
+        "to_space_id": space_id,
+        "activity": agent.activity,
+        "avatar": avatar_for(agent.agent_id, agent.avatar),
+        "at": now_utc().isoformat(),
+    }
+    await gateway.publish(space_id, "presence", transition)
+    if from_space_id:
+        await gateway.publish(from_space_id, "presence", transition)
+    return {"space_id": space_id, "entered": True, "space": space.name, "transition": True}
 
 
 @router.post("/{space_id}/leave")
@@ -110,7 +136,11 @@ async def leave_space(
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
-    await gateway.publish(space_id, "presence", {"event": "left", "agent_id": device.agent_id})
+    await gateway.publish(
+        space_id, "presence",
+        {"event": "left", "agent_id": device.agent_id, "from_space_id": space_id,
+         "to_space_id": None, "at": now_utc().isoformat()},
+    )
     return {"space_id": space_id, "left": True}
 
 

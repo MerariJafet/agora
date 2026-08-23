@@ -26,6 +26,7 @@ router = APIRouter(tags=["realtime"])
 log = get_logger("agora.api.realtime.ws")
 
 SEND_INTERVAL = 0.05
+MAX_SPACE_SUBSCRIPTIONS = 32
 
 
 async def _pump(ws: WebSocket, client: RtClient) -> None:
@@ -126,9 +127,19 @@ async def web_ws(ws: WebSocket) -> None:
                 frame = json.loads(raw)
             except ValueError:
                 continue
-            if frame.get("type") == "subscribe" and isinstance(frame.get("space_id"), str):
-                client.spaces = {frame["space_id"]}  # space-scoped interest only
-                client.offer({"type": "subscribed", "space_id": frame["space_id"]})
+            ftype = frame.get("type")
+            space_id = frame.get("space_id")
+            if ftype == "subscribe" and isinstance(space_id, str):
+                # Interest is ADDITIVE and bounded: a world view legitimately
+                # watches several Spaces at once, but a client cannot grow its
+                # subscription set without limit.
+                if len(client.spaces) < MAX_SPACE_SUBSCRIPTIONS:
+                    client.spaces.add(space_id)
+                    client.offer({"type": "subscribed", "space_id": space_id})
+                else:
+                    client.offer({"type": "subscribe_rejected", "reason": "limit"})
+            elif ftype == "unsubscribe" and isinstance(space_id, str):
+                client.spaces.discard(space_id)
     except WebSocketDisconnect:
         pass
     finally:

@@ -75,10 +75,26 @@ class DevOwnerAuthProvider:
 
 
 def get_owner_auth_provider() -> OwnerAuthProvider:
+    """Dev provider only. Production never reaches it (SEC-011): the OIDC
+    provider is resolved separately by the /v1/auth/oidc routes."""
     if get_settings().is_production:
-        # Fail closed: no production provider exists yet (SEC-011).
-        raise DevAuthDisabled("No production auth provider configured.")
+        raise DevAuthDisabled(
+            "Development authentication is disabled in production. "
+            "Configure an OIDC provider (ADR-0019)."
+        )
     return DevOwnerAuthProvider()
+
+
+def get_production_auth_provider() -> OwnerAuthProvider:
+    """Resolve the configured production provider or fail closed."""
+    from agora_api.oidc import OIDCNotConfigured, build_oidc_provider
+
+    provider = build_oidc_provider()
+    if provider is None:
+        raise OIDCNotConfigured(
+            "No production AuthProvider configured (set AGORA_OIDC_* settings)."
+        )
+    return provider
 
 
 async def create_web_session(session: AsyncSession, user: User) -> tuple[str, str, str]:

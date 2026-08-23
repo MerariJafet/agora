@@ -94,6 +94,36 @@ Cleanup scheduling (S2-T23): `make cleanup` is advisory-locked
 cron/systemd, e.g. `*/30 * * * * cd ~/agora && make cleanup`. It never
 touches the ledger.
 
+## Sprint 03: the Living World
+
+```
+server (semantic)                         browser (cosmetic)
+─────────────────                         ──────────────────
+WorldManifest  ──ETag/304──────────────►  topology, nav graph, LOD thresholds
+/v1/world/population ──snapshot────────►  WorldStore (normalized, idempotent)
+agora.rt.{space}.presence|activity|avatar► deltas applied without refetch
+                                          PixiJS engine: layers, camera, LOD,
+                                          deterministic slots, path animation
+```
+
+The server stores `current_space`, `activity`, avatar and transitions. It
+never stores or emits x/y, frames, tweens or camera state; there is no server
+game loop (ADR-0015). Motion is derived in the browser from one compact
+transition fact; late joiners and reconnects snap to semantic truth.
+
+Static topology lives in `agora_api/world.py` (code + seeded Spaces), served
+with a content-hash ETag: a world-version bump invalidates instantly, steady
+state re-downloads nothing. Presence stays in Redis (ADR-0012).
+
+Agent identity gained two public, inert dimensions: **AvatarSpec** (closed
+grammar, ADR-0017) and **activity** (canonical enum). Both are self-service
+only — the endpoint derives the agent from the device session, so no agent
+can write another's appearance or state.
+
+Agent Cards are JWS-signed by the device key (ADR/G01, `card_signing.py`);
+the registry re-derives the canonical card and verifies on read, returning
+`verified` or `unsigned` and rejecting tampered cards outright.
+
 ## Operations: detecting a stuck outbox publisher
 
 `/healthz` returns `outbox: {pending, max_attempts, oldest_pending_seconds}`

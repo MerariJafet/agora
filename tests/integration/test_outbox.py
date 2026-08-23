@@ -46,6 +46,12 @@ async def _append_test_event(agent_suffix: str) -> str:
 
 
 async def test_retry_after_failure_republishes_same_event_id():
+    # Start from a drained backlog: this test asserts RETRY semantics, not
+    # how a batch happens to be composed when earlier suites left rows behind.
+    warmup = OutboxDrainer(RecordingPublisher())  # type: ignore[arg-type]
+    while await warmup.drain_once():
+        pass
+
     event_id = await _append_test_event("11")
     publisher = RecordingPublisher()
     drainer = OutboxDrainer(publisher)  # type: ignore[arg-type]

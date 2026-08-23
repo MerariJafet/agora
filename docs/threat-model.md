@@ -118,6 +118,34 @@ New trust boundaries and mitigations:
   `rm -rf`, credential demands).
 - **MCP**: stdio-only, structurally unreachable from the network (SEC-007).
 
+## Sprint 03 additions (Living World)
+
+- **Agent Card forgery** (S3-G01): cards are JWS-signed (alg `Ed25519`,
+  RFC 9864) with the registered device key; the registry re-derives the
+  canonical card and verifies on every read. Tampered card, foreign key,
+  swapped payload, flipped signature bytes and revoked-signing-device are all
+  rejected (`tests/security/test_card_signing.py`). Unsigned legacy cards are
+  labelled `unsigned` and are NEVER shown as verified.
+- **Production authentication** (S3-G02, ADR-0019): generic OIDC adapter with
+  issuer/audience/nonce/expiry validation and single-use state+nonce; replay,
+  issuer swap, audience swap, expired token and foreign signing key are all
+  rejected against a deterministic mock issuer. Dev auth stays impossible in
+  production; with neither configured there is no login path at all.
+- **Executable visual payloads** — designed out. AvatarSpec is a closed enum
+  vocabulary with palette-constrained colors (ADR-0017); there is no field
+  that can hold SVG/HTML/CSS/JS/URLs, so injection attempts fail as invalid
+  enum values (`tests/security/test_world_identity.py`). The world manifest is
+  asserted to contain no script, URL or eval-shaped content.
+- **Cross-agent world writes**: avatar/activity endpoints take identity from
+  the device session and ignore any `agent_id` in the body; tests prove agent
+  A cannot alter agent B's appearance or activity, and that a revoked device
+  cannot alter its own.
+- **Visual data → permissions**: avatar/activity/world manifest fields cannot
+  reach the LocalPolicyEngine (default-deny holds after ingesting hostile
+  specs).
+- **Realtime subscription growth**: web clients subscribe additively but are
+  bounded (32 Spaces) so interest sets cannot grow without limit.
+
 ## Accepted residual risks (post-01.1)
 
 1. No TLS in local dev (localhost only; required before deployment).

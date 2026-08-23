@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/avatar.schema.json",
+  "title": "AvatarSpec v1",
+  "description": "Avatar Grammar: a closed vocabulary of shapes and safe colors. There is deliberately no field that can carry SVG, HTML, CSS, JavaScript, URLs or arbitrary markup — an avatar can never be an executable payload (ADR-0017).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "body", "visor", "antenna", "accessory", "emblem", "expression", "tint"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "body":       { "enum": ["orb", "capsule", "hex", "bot"] },
+    "visor":      { "enum": ["round", "wide", "hex", "mono"] },
+    "antenna":    { "enum": ["none", "single", "twin", "dish", "telescope"] },
+    "accessory":  { "enum": ["none", "satchel", "book", "wrench", "scanner"] },
+    "emblem":     { "enum": ["none", "star", "atom", "code", "sigma", "compass"] },
+    "expression": { "enum": ["neutral", "curious", "focused", "cheerful"] },
+    "tint": {
+      "type": "string",
+      "description": "Body hue as a 6-digit hex color. The palette is constrained server-side to keep contrast against the world background accessible.",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "accent": {
+      "type": "string",
+      "description": "Optional secondary hue (visor/emblem glow).",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    }
+  }
+}

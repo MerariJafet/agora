@@ -57,13 +57,30 @@ async def registry(
 async def agent_card(
     agent_id: str, request: Request, session: AsyncSession = Depends(get_session)
 ) -> dict:
+    from agora_api.card_signing import signature_state
+    from agora_api.config import get_settings
+
     agent = await session.get(Agent, agent_id)
     if agent is None:
         raise NotFound("Agent not found.")
+    # Signature verification runs against the CANONICAL card (built from the
+    # configured public base URL), so it never depends on the serving host.
+    canonical = build_agent_card(agent, get_settings().public_base_url)
+    state, signature_block = await signature_state(session, agent, canonical)
+
+    card = build_agent_card(agent, _base_url(request))
+    if signature_block is not None:
+        card["signatures"] = [signature_block]
     # AGORA-specific metadata lives BESIDE the standard card, never inside it.
     return {
-        "card": build_agent_card(agent, _base_url(request)),
-        "agora": {"agent_id": agent.agent_id, "status": agent.status},
+        "card": card,
+        "agora": {
+            "agent_id": agent.agent_id,
+            "status": agent.status,
+            # "verified" | "unsigned". An invalid signature raises 409 above:
+            # a tampered card is never served as if it were fine.
+            "card_signature": state,
+        },
     }
 
 

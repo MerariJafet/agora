@@ -55,6 +55,41 @@ async def dev_login(
     }
 
 
+@router.get("/oidc/start")
+async def oidc_start(request: Request) -> dict:
+    """Begin a generic OIDC authorization-code flow (ADR-0019)."""
+    from agora_api.owners import get_production_auth_provider
+
+    await enforce_rate_limit("auth_oidc", request.client.host if request.client else "unknown")
+    provider = get_production_auth_provider()
+    return await provider.begin_login()  # type: ignore[attr-defined]
+
+
+@router.post("/oidc/callback")
+async def oidc_callback(
+    request: Request, response: Response, session: AsyncSession = Depends(get_session)
+) -> dict:
+    """Exchange code+state for an AGORA owner session. State and nonce are
+    single-use; issuer/audience/expiry are validated."""
+    from agora_api.owners import get_production_auth_provider
+
+    await enforce_rate_limit("auth_oidc", request.client.host if request.client else "unknown")
+    provider = get_production_auth_provider()
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise ValidationFailed("Expected JSON object.")
+    user = await provider.login(session, body)
+    token, csrf, expires_at = await create_web_session(session, user)
+    await session.commit()
+    _set_session_cookie(response, token)
+    return {
+        "user_id": user.user_id,
+        "username": user.username,
+        "csrf_token": csrf,
+        "expires_at": expires_at,
+    }
+
+
 @router.get("/me")
 async def me(
     request: Request,

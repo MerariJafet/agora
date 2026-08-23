@@ -31,6 +31,12 @@ export default function AgentInspector({
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [events, setEvents] = useState<AgentEventView[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
+  const [cardSignature, setCardSignature] = useState<string>("checking…");
+  const [worldState, setWorldState] = useState<{
+    activity: string;
+    avatar: Record<string, string>;
+    current_space_id: string | null;
+  } | null>(null);
   const [session, setSession] = useState<OwnerSession | null>(null);
   const [ownsIt, setOwnsIt] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +51,20 @@ export default function AgentInspector({
       .then((d) => setEvents(d.events))
       .catch(() => setEvents([]));
     agentCard(agentId)
-      .then((d) => setSkills(d.card.skills.map((s) => s.name)))
-      .catch(() => setSkills([]));
+      .then((d) => {
+        setSkills(d.card.skills.map((s) => s.name));
+        // Never render "verified" unless the server says so. A rejected
+        // (tampered) card fails the request and lands in the catch below.
+        setCardSignature(d.agora.card_signature ?? "unsigned");
+      })
+      .catch(() => {
+        setSkills([]);
+        setCardSignature("invalid or unavailable");
+      });
+    fetch(`${API_URL}/v1/world/agents/${agentId}/state`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setWorldState)
+      .catch(() => setWorldState(null));
     whoAmI()
       .then((s) => {
         setSession(s);
@@ -90,8 +108,26 @@ export default function AgentInspector({
             <dd>{agent.current_version_id ?? "—"}</dd>
             <dt>status</dt>
             <dd>{agent.status}</dd>
+            <dt>card signature</dt>
+            <dd>
+              <span
+                className={`badge ${cardSignature === "verified" ? "ok" : "revoked"}`}
+                data-testid="card-signature"
+              >
+                {cardSignature}
+              </span>
+            </dd>
             <dt>current space</dt>
-            <dd>{agent.current_space_id ?? "offline / none"}</dd>
+            <dd>{worldState?.current_space_id ?? agent.current_space_id ?? "offline / none"}</dd>
+            <dt>activity</dt>
+            <dd>{worldState?.activity ?? "—"}</dd>
+            <dt>avatar</dt>
+            <dd>
+              {worldState
+                ? `${worldState.avatar.body} · ${worldState.avatar.visor} visor · ` +
+                  `${worldState.avatar.emblem} emblem · ${worldState.avatar.tint}`
+                : "—"}
+            </dd>
             <dt>card capabilities</dt>
             <dd>{skills.length ? skills.join(", ") : "—"}</dd>
             <dt>registered</dt>

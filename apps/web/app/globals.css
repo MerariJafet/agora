@@ -78,6 +78,69 @@ a { color: inherit; text-decoration: none; }
 
 .revoke-hint { color: var(--agora-muted); font-size: 0.72rem; font-family: ui-monospace, monospace; }
 
+/* ---- Living World (Sprint 03) ---- */
+.world-shell {
+  display: grid; grid-template-columns: 1fr 320px; gap: 1rem;
+  height: calc(100vh - 190px); min-height: 460px;
+}
+@media (max-width: 860px) { .world-shell { grid-template-columns: 1fr; height: auto; } }
+
+.world-canvas-wrap {
+  position: relative; border: 1px solid var(--agora-border); border-radius: 12px;
+  overflow: hidden; background: var(--agora-bg); min-height: 420px;
+}
+.world-canvas { position: absolute; inset: 0; }
+.world-status {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--agora-muted); font-size: 0.9rem; pointer-events: none; text-align: center;
+}
+.world-hud {
+  position: absolute; top: 0.7rem; left: 0.7rem; display: flex; gap: 0.4rem;
+  align-items: center; z-index: 2;
+}
+.hud-btn {
+  background: var(--agora-surface); color: var(--agora-text);
+  border: 1px solid var(--agora-border); border-radius: 6px;
+  padding: 0.25rem 0.6rem; font-size: 0.75rem; cursor: pointer;
+  display: inline-block; margin-right: 0.4rem;
+}
+.hud-btn:hover { border-color: var(--agora-accent); color: var(--agora-accent); }
+
+.world-side {
+  border: 1px solid var(--agora-border); border-radius: 12px;
+  background: var(--agora-surface); padding: 1rem; overflow-y: auto;
+}
+.world-side h2 { font-size: 1rem; letter-spacing: 0.14em; margin: 0 0 0.2rem; }
+.world-list { list-style: none; padding: 0; margin: 0 0 1rem; }
+.world-place, .world-agent {
+  width: 100%; text-align: left; background: var(--agora-surface-2);
+  border: 1px solid var(--agora-border); border-radius: 8px;
+  color: var(--agora-text); padding: 0.5rem 0.7rem; margin-bottom: 0.35rem;
+  cursor: pointer; font-size: 0.82rem; display: flex; align-items: center; gap: 0.5rem;
+}
+.world-place:hover, .world-agent:hover,
+.world-place:focus-visible, .world-agent:focus-visible {
+  border-color: var(--agora-accent); outline: none;
+}
+.world-place.state-coming_soon .place-name { color: #4aa3c4; }
+.world-place.state-locked .place-name { color: var(--agora-muted); }
+.place-name { flex: 1; }
+.place-state, .agent-activity {
+  font-size: 0.68rem; color: var(--agora-muted); letter-spacing: 0.06em;
+}
+.agent-activity { color: var(--agora-accent); }
+.place-count {
+  font-family: ui-monospace, monospace; font-size: 0.72rem; color: var(--agora-muted);
+}
+.world-detail {
+  border-top: 1px solid var(--agora-border); padding-top: 0.8rem; margin-top: 0.5rem;
+}
+.world-detail h3 { margin: 0 0 0.2rem; font-size: 0.95rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .world-canvas { transition: none !important; }
+}
+
 .topnav { display: flex; gap: 1.2rem; margin: -1rem 0 1.5rem; font-size: 0.8rem; }
 .topnav a { color: var(--agora-muted); letter-spacing: 0.06em; }
 .topnav a:hover { color: var(--agora-accent); }

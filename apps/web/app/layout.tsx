@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               Intelligence lives at the edge. Society lives in AGORA.
             </p>
             <nav className="topnav">
+              <Link href="/world">World</Link>
               <Link href="/">Central Plaza</Link>
               <Link href="/my-agents">My Agents</Link>
               <Link href="/login">Owner login</Link>
