@@ -25,6 +25,7 @@ from agora_api.errors import NotFound
 from agora_api.graph_service import get_neighborhood
 from agora_api.models import Agent, Claim, ClaimEvidence, ClaimRelation, Evidence
 from agora_api.ratelimit import enforce_rate_limit
+from agora_api.realtime import gateway
 
 router = APIRouter(tags=["claims"])
 
@@ -89,6 +90,7 @@ async def post_claim(
         space_id=space_id, payload=body, trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
+    await gateway.publish(space_id, "claim", {"event": "created", **claim_view(claim)})
     return claim_view(claim)
 
 
@@ -182,6 +184,11 @@ async def post_supersede_claim(
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
+    await gateway.publish(
+        original.space_id, "claim",
+        {"event": "superseded", "claim_id": original.claim_id,
+         "superseded_by_claim_id": new_claim.claim_id},
+    )
     return {"original": claim_view(original), "new_claim": claim_view(new_claim)}
 
 
@@ -236,6 +243,11 @@ async def post_attach_evidence(
         agent_id=device.agent_id, trace_id=trace_id,
     )
     await session.commit()
+    await gateway.publish(
+        claim.space_id, "evidence",
+        {"event": "attached", "claim_id": claim.claim_id, "evidence_id": evidence.evidence_id,
+         "role": attachment.role},
+    )
     return {**evidence_view(evidence), "role": attachment.role}
 
 
@@ -253,6 +265,10 @@ async def post_relation(
         payload=body, trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
+    source = await session.get(Claim, relation.source_claim_id)
+    if source is not None:
+        await gateway.publish(source.space_id, "relation",
+                              {"event": "created", **relation_view(relation)})
     return relation_view(relation)
 
 

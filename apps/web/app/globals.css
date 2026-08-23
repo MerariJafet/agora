@@ -186,3 +186,74 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
 
 .events li { font-size: 0.8rem; font-family: ui-monospace, monospace; color: var(--agora-muted); margin-bottom: 0.3rem; }
 .events .type { color: var(--agora-text); }
+
+/* ---- Sprint 04: Social Intelligence ---- */
+.tab-row { display: flex; gap: 0.5rem; margin: 1rem 0; border-bottom: 1px solid var(--agora-border); }
+.tab-btn {
+  background: none; border: none; color: var(--agora-muted); padding: 0.5rem 1rem;
+  cursor: pointer; text-transform: capitalize; font-size: 0.85rem;
+  border-bottom: 2px solid transparent;
+}
+.tab-btn.tab-active { color: var(--agora-accent); border-bottom-color: var(--agora-accent); }
+
+.filter-row { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; }
+.hud-btn-active { border-color: var(--agora-accent); color: var(--agora-accent); }
+
+.claim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.8rem; }
+.claim-card {
+  display: block; border: 1px solid var(--agora-border); border-radius: 10px;
+  background: var(--agora-surface-2); padding: 0.9rem; transition: border-color 120ms;
+}
+.claim-card:hover { border-color: var(--agora-accent); }
+.claim-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.claim-type {
+  font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--agora-accent);
+}
+.claim-text { font-size: 0.88rem; margin: 0 0 0.6rem; line-height: 1.4; }
+.claim-full-text { font-size: 1.05rem; line-height: 1.5; max-width: 60ch; }
+.claim-meta {
+  display: flex; flex-wrap: wrap; gap: 0.6rem; font-size: 0.7rem;
+  color: var(--agora-muted); font-family: ui-monospace, monospace;
+}
+
+.evidence-list { list-style: none; padding: 0; }
+.evidence-row {
+  border: 1px solid var(--agora-border); border-radius: 8px;
+  background: var(--agora-surface-2); margin-bottom: 0.4rem; overflow: hidden;
+}
+.evidence-toggle {
+  width: 100%; text-align: left; background: none; border: none; color: var(--agora-text);
+  padding: 0.6rem 0.8rem; cursor: pointer; display: flex; gap: 0.6rem; align-items: center;
+  font-size: 0.82rem;
+}
+.evidence-detail { padding: 0 0.8rem 0.8rem; font-size: 0.8rem; }
+.evidence-detail dl { display: grid; grid-template-columns: 110px 1fr; row-gap: 0.3rem; }
+.evidence-detail dt { color: var(--agora-muted); }
+.evidence-detail a { color: var(--agora-accent); word-break: break-all; }
+
+.graph-wrap {
+  border: 1px solid var(--agora-border); border-radius: 10px;
+  background: var(--agora-surface-2); padding: 0.6rem; margin-bottom: 0.6rem;
+}
+.argument-graph { width: 100%; height: auto; max-height: 420px; }
+
+.epistemic-disclaimer {
+  border-left: 2px solid var(--agora-accent); padding-left: 0.6rem;
+  color: var(--agora-muted); font-size: 0.82rem; margin: 0.5rem 0 1rem;
+}
+.assessment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
+.assessment-card {
+  border: 1px solid var(--agora-border); border-radius: 8px;
+  background: var(--agora-surface-2); padding: 0.8rem;
+}
+.assessment-card h4 { margin: 0 0 0.3rem; font-size: 0.85rem; }
+.assessment-card dl { display: grid; grid-template-columns: 1fr auto; row-gap: 0.2rem; font-size: 0.8rem; }
+.assessment-card dt { color: var(--agora-muted); }
+
+.assessment-form {
+  border: 1px solid var(--agora-border); border-radius: 10px;
+  background: var(--agora-surface-2); padding: 1rem; max-width: 360px;
+}
+.assessment-slider { display: block; margin-bottom: 0.6rem; font-size: 0.82rem; text-transform: capitalize; }
+.assessment-slider input { width: 100%; }

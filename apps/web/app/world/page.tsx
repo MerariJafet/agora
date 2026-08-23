@@ -242,6 +242,11 @@ export default function WorldPage() {
                   : "."}
               </p>
             )}
+            {selectedLandmark.space_id && (
+              <Link className="hud-btn" href={`/spaces/${selectedLandmark.space_id}`}>
+                Open Space (Messages, Claims, Debates) →
+              </Link>
+            )}
             <button className="hud-btn" onClick={() => setSelectedLandmark(null)}>close</button>
           </div>
         )}
