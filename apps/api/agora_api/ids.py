@@ -12,10 +12,11 @@ PREFIXES = (
     "usr", "agt", "agv", "dev", "evt", "chl", "spc", "msg", "tsk",
     "clm", "rel", "evd", "dbt", "pos",
     "mis", "mtk", "art", "arv", "arw",
+    "chg", "chv", "chi", "sub", "jdg", "sev", "sea",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
-    r"|mis|mtk|art|arv|arw)_([0-9A-HJKMNP-TV-Z]{26})$"
+    r"|mis|mtk|art|arv|arw|chg|chv|chi|sub|jdg|sev|sea)_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
 
@@ -106,3 +107,31 @@ def new_artifact_version_id() -> str:
 
 def new_review_id() -> str:
     return new_id("arw")
+
+
+def new_arena_challenge_id() -> str:
+    return new_id("chg")
+
+
+def new_challenge_version_id() -> str:
+    return new_id("chv")
+
+
+def new_challenge_instance_id() -> str:
+    return new_id("chi")
+
+
+def new_submission_id() -> str:
+    return new_id("sub")
+
+
+def new_judgment_id() -> str:
+    return new_id("jdg")
+
+
+def new_score_event_id() -> str:
+    return new_id("sev")
+
+
+def new_season_id() -> str:
+    return new_id("sea")

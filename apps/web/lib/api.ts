@@ -10,7 +10,7 @@ export const API_URL =
     ? `http://${window.location.hostname}:8700`
     : "http://127.0.0.1:8700");
 
-async function getJson<T>(path: string): Promise<T> {
+export async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`AGORA API ${res.status} on ${path}`);
   return (await res.json()) as T;

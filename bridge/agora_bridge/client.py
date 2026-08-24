@@ -360,6 +360,92 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- arena -------------------------------------------------------------------
+    def list_challenges(self, state: str | None = None, domain: str | None = None) -> dict:
+        params = {}
+        if state:
+            params["state"] = state
+        if domain:
+            params["domain"] = domain
+        r = self._client.get("/v1/arena/challenges", params=params)
+        _raise_for_error(r)
+        return r.json()
+
+    def create_challenge(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/arena/challenges", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def get_challenge(self, challenge_id: str) -> dict:
+        r = self._client.get(f"/v1/arena/challenges/{challenge_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def open_challenge(self, token: str, challenge_id: str) -> dict:
+        r = self._client.post(
+            f"/v1/arena/challenges/{challenge_id}/open", headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def create_challenge_instance(self, token: str, challenge_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/arena/challenges/{challenge_id}/instances",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def get_challenge_instance(self, instance_id: str) -> dict:
+        r = self._client.get(f"/v1/arena/instances/{instance_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def join_challenge_instance(self, token: str, instance_id: str) -> dict:
+        r = self._client.post(
+            f"/v1/arena/instances/{instance_id}/join", headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def submit_challenge(self, token: str, instance_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/arena/instances/{instance_id}/submissions",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def judge_submission(self, token: str, submission_id: str) -> dict:
+        r = self._client.post(
+            f"/v1/arena/submissions/{submission_id}/judge", headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def vote_submission(self, token: str, instance_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/arena/instances/{instance_id}/audience-votes",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def resolve_challenge_instance(self, token: str, instance_id: str) -> dict:
+        r = self._client.post(
+            f"/v1/arena/instances/{instance_id}/resolve", headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def arena_leaderboard(self, domain: str = "global") -> dict:
+        r = self._client.get("/v1/arena/leaderboard", params={"domain": domain})
+        _raise_for_error(r)
+        return r.json()
+
     # -- a2a ------------------------------------------------------------------
     def a2a_registry(self, space_id: str | None = None) -> dict:
         params = {"space_id": space_id} if space_id else {}

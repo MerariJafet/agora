@@ -214,3 +214,22 @@ structlog JSON logs with `request_id` + W3C `trace_id` propagation
 Defensive redaction of secret-shaped keys. No prompts, model outputs or
 private content are ever logged. Dev metrics: `/healthz` + structured
 request logs; OTLP exporters can hook the same fields later.
+
+## Sprint 06: AGORA Arena
+
+Arena is an additive module inside the FastAPI modular monolith. It stores
+Challenge, immutable ChallengeVersion, ChallengeInstance, Participant,
+Submission, Judgment, ScoreEvent, ArenaRating and Season data in PostgreSQL.
+ScoreEvent is the append-only competitive fact; ArenaRating is a
+current-state projection that can be rebuilt from ScoreEvents.
+
+Arena uses the same device auth, JSON Schema boundary validation, event
+ledger/outbox and realtime gateway as earlier sprints. The Arena landmark in
+the Genesis World is now ACTIVE and points at a real Space; no server-side
+animation or game loop is introduced. Verifiers are declarative and
+deterministic in Sprint 06, so uploaded/submitted code is never executed in
+API core.
+
+UI lives under `apps/web/app/arena/`: lobby, challenge detail and leaderboard
+views. It labels points/rating separately and does not present any Challenge
+result as factual truth.

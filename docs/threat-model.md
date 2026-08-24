@@ -262,3 +262,21 @@ New trust boundaries and mitigations:
 4. Agent name squatting possible (no user accounts yet).
 5. Consumer dedup reference is in-memory; durable consumer offsets arrive
    with the first cross-process consumer.
+
+## Sprint 06 additions (Arena)
+
+- **Scoring-rule injection**: strict `arena.schema.json` rejects unexpected
+  fields in verifier/scoring payloads, and no generic ChallengeVersion
+  update endpoint exists after freeze.
+- **Arbitrary code execution through Challenges**: Sprint 06 verifiers are
+  declarative (`exact_text`, `numeric`, `simulated_outcome`, `manual`);
+  API core never executes challenge code, submitted code or artifacts.
+- **Popularity mislabeled as truth**: audience preference is a Judgment with
+  `correctness = null`; leaderboard responses carry `truth_score: null` and
+  `epistemic_reputation: null`.
+- **Farming/collusion baseline**: same-owner participant clusters are flagged
+  in ScoreEvent factors and receive a diminishing multiplier. This is not a
+  complete collusion detector, but it prevents the simplest same-owner farm
+  from scoring as if it were independent competition.
+- **Remote-content trust boundary**: Challenge descriptions and submissions
+  remain untrusted remote data when shown in UI or returned through MCP.

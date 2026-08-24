@@ -14,11 +14,13 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -646,3 +648,188 @@ class ArtifactReview(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (Index("ix_reviews_version", "artifact_version_id"),)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 06: AGORA Arena.
+#
+# Arena creates competitive pressure without confusing popularity, points,
+# rating, epistemic reputation or truth (ADR-0032). ChallengeVersion freezes
+# rules/scoring before play, ScoreEvent is append-only, and leaderboards are
+# derived from ScoreEvents rather than hand-edited mutable totals.
+# ---------------------------------------------------------------------------
+
+
+class ArenaSeason(Base):
+    __tablename__ = "arena_seasons"
+
+    season_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class Challenge(Base):
+    __tablename__ = "arena_challenges"
+
+    challenge_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    domain: Mapped[str] = mapped_column(String(64), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    current_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_arena_challenges_state", "state"),
+        Index("ix_arena_challenges_domain", "domain"),
+    )
+
+
+class ChallengeVersion(Base):
+    __tablename__ = "arena_challenge_versions"
+
+    challenge_version_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    challenge_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("arena_challenges.challenge_id"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    complexity: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    certified_difficulty: Mapped[float] = mapped_column(Float, nullable=False)
+    verifier_manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    scoring_formula: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    frozen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index(
+            "ix_arena_challenge_versions_challenge",
+            "challenge_id",
+            "version_number",
+            unique=True,
+        ),
+    )
+
+
+class ChallengeInstance(Base):
+    __tablename__ = "arena_challenge_instances"
+
+    challenge_instance_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    challenge_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("arena_challenges.challenge_id"), nullable=False
+    )
+    challenge_version_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("arena_challenge_versions.challenge_version_id"),
+        nullable=False,
+    )
+    season_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    max_participants: Mapped[int] = mapped_column(Integer, nullable=False, default=16)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_arena_instances_state", "state"),
+        Index("ix_arena_instances_challenge", "challenge_id"),
+    )
+
+
+class ChallengeParticipant(Base):
+    __tablename__ = "arena_participants"
+
+    challenge_instance_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("arena_challenge_instances.challenge_instance_id"),
+        primary_key=True,
+    )
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), primary_key=True
+    )
+    owner_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class Submission(Base):
+    __tablename__ = "arena_submissions"
+
+    submission_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    challenge_instance_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("arena_challenge_instances.challenge_instance_id"),
+        nullable=False,
+    )
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    answer: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="submitted")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("challenge_instance_id", "agent_id", name="uq_arena_submission_agent"),
+        Index("ix_arena_submissions_instance", "challenge_instance_id"),
+    )
+
+
+class Judgment(Base):
+    __tablename__ = "arena_judgments"
+
+    judgment_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    submission_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("arena_submissions.submission_id"), nullable=False
+    )
+    judge_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    judge_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    correctness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    audience_preference: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_arena_judgments_submission", "submission_id"),)
+
+
+class ScoreEvent(Base):
+    __tablename__ = "arena_score_events"
+
+    score_event_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    challenge_instance_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("arena_challenge_instances.challenge_instance_id"),
+        nullable=False,
+    )
+    submission_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("arena_submissions.submission_id"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    score_delta: Mapped[float] = mapped_column(Float, nullable=False)
+    rating_delta: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    formula_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    factors: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("submission_id", name="uq_arena_score_submission"),
+        Index("ix_arena_score_events_agent", "agent_id"),
+        Index("ix_arena_score_events_instance", "challenge_instance_id"),
+    )
+
+
+class ArenaRating(Base):
+    __tablename__ = "arena_ratings"
+
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), primary_key=True
+    )
+    domain: Mapped[str] = mapped_column(String(64), primary_key=True)
+    rating: Mapped[float] = mapped_column(Float, nullable=False, default=1500.0)
+    rating_deviation: Mapped[float] = mapped_column(Float, nullable=False, default=350.0)
+    points: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

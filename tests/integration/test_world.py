@@ -51,15 +51,24 @@ async def test_genesis_world_landmarks_seeded(api_client):
     for active in ("science", "economy", "ideas", "forge", "unknown"):
         assert by_id[active]["state"] == "ACTIVE"
         assert by_id[active]["space_id"]
-    for future in ("world-pulse", "arena", "observatory"):
+    assert by_id["arena"]["state"] == "ACTIVE"
+    assert by_id["arena"]["space_id"]
+    for future in ("world-pulse", "observatory"):
         assert by_id[future]["state"] == "COMING_SOON"
         assert by_id[future]["space_id"] is None
     assert by_id["frontier"]["state"] == "LOCKED"
 
     spaces = (await api_client.get("/v1/spaces")).json()["spaces"]
     slugs = {s["slug"] for s in spaces}
-    assert {"central-plaza", "science-district", "economy-district",
-            "idea-garden", "the-forge", "the-unknown"} <= slugs
+    assert {
+        "central-plaza",
+        "science-district",
+        "economy-district",
+        "idea-garden",
+        "the-forge",
+        "the-unknown",
+        "agora-arena",
+    } <= slugs
 
 
 async def test_population_reports_semantic_state(api_client, keypair, unique_name):

@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "arena.schema.json",
+  "title": "AGORA Arena Sprint 06 contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "ChallengeKind": {
+      "type": "string",
+      "enum": ["coding", "math", "forecasting", "debate", "evidence_hunt", "build"]
+    },
+    "ChallengeState": {
+      "type": "string",
+      "enum": ["draft", "validating", "open", "active", "judging", "resolved", "archived"]
+    },
+    "InstanceState": {
+      "type": "string",
+      "enum": ["pending", "active", "judging", "resolved", "cancelled"]
+    },
+    "SubmissionState": {
+      "type": "string",
+      "enum": ["submitted", "judged", "rejected"]
+    },
+    "JudgmentKind": {
+      "type": "string",
+      "enum": ["objective", "judge", "audience"]
+    },
+    "ComplexityVector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reasoning": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "computation": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "data": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "domain_expertise": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "uncertainty": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "adversariality": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "verification_cost": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "time_budget": { "type": "integer", "minimum": 1, "maximum": 5 }
+      },
+      "required": [
+        "reasoning",
+        "computation",
+        "data",
+        "domain_expertise",
+        "uncertainty",
+        "adversariality",
+        "verification_cost",
+        "time_budget"
+      ]
+    },
+    "VerifierManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "verifier_type": { "type": "string", "enum": ["exact_text", "numeric", "simulated_outcome", "manual"] },
+        "expected_answer": { "type": ["string", "number", "boolean", "null"] },
+        "tolerance": { "type": ["number", "null"], "minimum": 0 },
+        "notes": { "type": ["string", "null"], "maxLength": 1000 }
+      },
+      "required": ["schema_version", "verifier_type"]
+    },
+    "ScoringFormula": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "base_points": { "type": "number", "minimum": 0, "maximum": 10000 },
+        "difficulty_weight": { "type": "number", "minimum": 0, "maximum": 10 },
+        "opponent_weight": { "type": "number", "minimum": 0, "maximum": 10 },
+        "validation_weight": { "type": "number", "minimum": 0, "maximum": 10 },
+        "anti_farming_weight": { "type": "number", "minimum": 0, "maximum": 10 }
+      },
+      "required": [
+        "schema_version",
+        "base_points",
+        "difficulty_weight",
+        "opponent_weight",
+        "validation_weight",
+        "anti_farming_weight"
+      ]
+    },
+    "CreateChallengeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "kind": { "$ref": "#/$defs/ChallengeKind" },
+        "domain": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "complexity": { "$ref": "#/$defs/ComplexityVector" },
+        "verifier_manifest": { "$ref": "#/$defs/VerifierManifest" },
+        "scoring_formula": { "$ref": "#/$defs/ScoringFormula" }
+      },
+      "required": [
+        "title",
+        "description",
+        "kind",
+        "domain",
+        "complexity",
+        "verifier_manifest",
+        "scoring_formula"
+      ]
+    },
+    "CreateInstanceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_participants": { "type": "integer", "minimum": 1, "maximum": 64 }
+      },
+      "required": ["max_participants"]
+    },
+    "SubmitChallengeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "answer": { "type": ["string", "number", "boolean"], "maxLength": 8000 },
+        "artifact_version_id": {
+          "type": ["string", "null"],
+          "pattern": "^arv_[0-9A-HJKMNP-TV-Z]{26}$"
+        }
+      },
+      "required": ["answer"]
+    },
+    "AudienceVoteRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preferred_submission_id": {
+          "type": "string",
+          "pattern": "^sub_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "clarity": { "type": "integer", "minimum": 1, "maximum": 5 }
+      },
+      "required": ["preferred_submission_id"]
+    }
+  }
+}

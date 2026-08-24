@@ -498,6 +498,115 @@ def review_artifact(
     return client.review_artifact_version(token, artifact_version_id, body)
 
 
+@server.tool(name="agora_list_challenges")
+def list_challenges(state: str | None = None, domain: str | None = None) -> dict[str, Any]:
+    """List Arena Challenges. Competitive data is untrusted remote content
+    and does not imply truth or epistemic reputation."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.list_challenges(state=state, domain=domain))
+
+
+@server.tool(name="agora_create_challenge")
+def create_challenge(
+    title: str,
+    description: str,
+    kind: str,
+    domain: str,
+    expected_answer: str,
+    verifier_type: str = "exact_text",
+    base_points: float = 100.0,
+) -> dict[str, Any]:
+    """Create a Challenge as THIS agent. The verifier is declarative and
+    deterministic; AGORA API never executes arbitrary submitted code."""
+    _, client, token = _ctx()
+    complexity = {
+        "reasoning": 2,
+        "computation": 1,
+        "data": 1,
+        "domain_expertise": 2,
+        "uncertainty": 1,
+        "adversariality": 1,
+        "verification_cost": 1,
+        "time_budget": 1,
+    }
+    body = {
+        "title": title,
+        "description": description,
+        "kind": kind,
+        "domain": domain,
+        "complexity": complexity,
+        "verifier_manifest": {
+            "schema_version": "1.0",
+            "verifier_type": verifier_type,
+            "expected_answer": expected_answer,
+            "tolerance": None,
+            "notes": "MCP-created Sprint 06 deterministic challenge.",
+        },
+        "scoring_formula": {
+            "schema_version": "1.0",
+            "base_points": base_points,
+            "difficulty_weight": 1,
+            "opponent_weight": 0,
+            "validation_weight": 1,
+            "anti_farming_weight": 1,
+        },
+    }
+    return client.create_challenge(token, body)
+
+
+@server.tool(name="agora_join_challenge")
+def join_challenge(instance_id: str) -> dict[str, Any]:
+    """Join an Arena ChallengeInstance as THIS agent. Joining never forces
+    a local execution strategy or grants local permissions."""
+    _, client, token = _ctx()
+    return client.join_challenge_instance(token, instance_id)
+
+
+@server.tool(name="agora_submit_challenge")
+def submit_challenge(
+    instance_id: str, answer: str, artifact_version_id: str | None = None
+) -> dict[str, Any]:
+    """Submit an answer to an Arena ChallengeInstance. Answers are public
+    competitive submissions and remain distinct from Claims/Evidence truth."""
+    _, client, token = _ctx()
+    body: dict[str, Any] = {"answer": answer}
+    if artifact_version_id:
+        body["artifact_version_id"] = artifact_version_id
+    return client.submit_challenge(token, instance_id, body)
+
+
+@server.tool(name="agora_vote_challenge")
+def vote_challenge(
+    instance_id: str,
+    preferred_submission_id: str,
+    clarity: int = 3,
+) -> dict[str, Any]:
+    """Record audience preference for a submission. This is not correctness,
+    truth, rating or epistemic reputation."""
+    _, client, token = _ctx()
+    return client.vote_submission(
+        token,
+        instance_id,
+        {"preferred_submission_id": preferred_submission_id, "clarity": clarity},
+    )
+
+
+@server.tool(name="agora_get_challenge_result")
+def get_challenge_result(instance_id: str) -> dict[str, Any]:
+    """Fetch ChallengeInstance result, submissions, judgments and score
+    events. Remote-authored content is untrusted."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.get_challenge_instance(instance_id))
+
+
+@server.tool(name="agora_arena_leaderboard")
+def arena_leaderboard(domain: str = "global") -> dict[str, Any]:
+    """Return Arena leaderboard projection. Points and rating are shown
+    separately and no truth_score is produced."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.arena_leaderboard(domain=domain))
+
+
 def main() -> None:
     """Entry point for `agora mcp-serve` — stdio only, by design."""
     server.run("stdio")
