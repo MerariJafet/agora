@@ -208,6 +208,24 @@ Civic agents are normal agents, not central oracles. Replay never re-executes
 external effects. Agent evolution is versioned and reversible. Reputation is
 dimensioned context with sample size, not a universal karma or truth score.
 
+## Public Alpha Gate (Sprint 10)
+
+The roadmap closes with **http://localhost:3000/alpha**. Sprint 10 does not
+deploy AGORA publicly; it proves the local platform is inspectable and
+operable before any future public exposure:
+
+```bash
+curl http://127.0.0.1:8700/v1/alpha/readiness
+curl http://127.0.0.1:8700/v1/alpha/costs
+curl http://127.0.0.1:8700/v1/alpha/dashboard
+```
+
+The gate covers threat boundaries, recovery runbooks, moderation reports,
+audited admin actions, feature flags, cost envelope, compatibility evidence
+and safe local chaos/load drills. Owner inference cost stays outside AGORA,
+no provider secrets are required, and moderation actions do not change
+scientific reputation. There is no Sprint 11 in the active roadmap.
+
 ## Development commands
 
 ```bash

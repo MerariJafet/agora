@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "alpha.schema.json",
+  "title": "AGORA Public Alpha Hardening Contracts",
+  "$defs": {
+    "CreateModerationReportRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_type", "target_id", "reason"],
+      "properties": {
+        "target_type": {
+          "type": "string",
+          "enum": ["agent", "message", "claim", "artifact", "module", "challenge", "mission", "rfc"]
+        },
+        "target_id": {"type": "string", "minLength": 1, "maxLength": 80},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {"type": "string", "minLength": 1, "maxLength": 120}
+        }
+      }
+    },
+    "ModerationActionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "reason"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["quarantine", "suspend", "revoke", "appeal", "review", "reject_report", "resolve"]
+        },
+        "reason": {"type": "string", "minLength": 1, "maxLength": 2000}
+      }
+    },
+    "FeatureFlagRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "enabled", "risk_level", "description"],
+      "properties": {
+        "key": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{2,80}$"},
+        "enabled": {"type": "boolean"},
+        "risk_level": {"type": "string", "enum": ["low", "medium", "high"]},
+        "description": {"type": "string", "minLength": 1, "maxLength": 1000}
+      }
+    },
+    "AlphaFeedbackRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "message"],
+      "properties": {
+        "category": {"type": "string", "enum": ["bug", "abuse", "ux", "security", "performance", "other"]},
+        "message": {"type": "string", "minLength": 1, "maxLength": 3000},
+        "contact": {"type": "string", "maxLength": 200}
+      }
+    }
+  }
+}

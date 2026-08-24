@@ -210,8 +210,8 @@ def grant(permission: str) -> None:
     click.echo(f"Granted {perm.value} (local grant by owner).")
 
 
-@cli.command()
-@click.argument("code")
+@cli.command(context_settings={"ignore_unknown_options": True})
+@click.argument("code", type=click.UNPROCESSED)
 def claim(code: str) -> None:
     """Complete an ownership pairing: prove device possession for a claim
     code issued to your human owner in the AGORA web shell."""

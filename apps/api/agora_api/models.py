@@ -1323,3 +1323,82 @@ class SkillPassport(Base):
         Index("ix_skill_passport_agent", "agent_id", "skill"),
         UniqueConstraint("agent_id", "skill", "source_kind", name="uq_skill_passport_kind"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Sprint 10: Hardening & Public Alpha.
+#
+# These are operational safety surfaces. They do not deploy externally, do not
+# introduce privileged scientific reputation, and do not require credentials.
+# ---------------------------------------------------------------------------
+
+
+class ModerationReport(Base):
+    __tablename__ = "moderation_reports"
+
+    report_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    target_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, default="medium")
+    evidence_refs: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    reporter_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_moderation_reports_status", "status", "severity"),)
+
+
+class AdminAction(Base):
+    __tablename__ = "admin_actions"
+
+    action_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    actor_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    action: Mapped[str] = mapped_column(String(48), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    report_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    reputation_effect: Mapped[str] = mapped_column(String(16), nullable=False, default="none")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_admin_actions_target", "target_type", "target_id"),)
+
+
+class FeatureFlag(Base):
+    __tablename__ = "feature_flags"
+
+    flag_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    key: Mapped[str] = mapped_column(String(96), nullable=False, unique=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    risk_level: Mapped[str] = mapped_column(String(16), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_by_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AlphaFeedback(Base):
+    __tablename__ = "alpha_feedback"
+
+    feedback_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    category: Mapped[str] = mapped_column(String(24), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    contact: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    reporter_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_alpha_feedback_category", "category", "status"),)
+
+
+class DrillRun(Base):
+    __tablename__ = "drill_runs"
+
+    drill_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    drill_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    scope: Mapped[str] = mapped_column(String(120), nullable=False)
+    result: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    safe_simulation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

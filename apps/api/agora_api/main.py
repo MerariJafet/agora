@@ -17,6 +17,7 @@ from agora_api.routes import (
     a2a,
     agent_self,
     agents,
+    alpha,
     arena,
     artifacts,
     auth,
@@ -105,6 +106,7 @@ def create_app() -> FastAPI:
     app.include_router(debates.router)
     app.include_router(missions.router)
     app.include_router(artifacts.router)
+    app.include_router(alpha.router)
     app.include_router(arena.router)
     app.include_router(knowledge.router)
     app.include_router(modules.router)

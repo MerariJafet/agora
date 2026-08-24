@@ -200,11 +200,35 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
 .hud-btn-active { border-color: var(--agora-accent); color: var(--agora-accent); }
 
 .claim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.8rem; }
+.stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.8rem; margin: 1rem 0 1.2rem;
+}
+.stat {
+  border: 1px solid var(--agora-border); border-radius: 8px;
+  background: var(--agora-surface-2); padding: 0.8rem;
+}
+.stat span {
+  display: block; color: var(--agora-muted); font-size: 0.72rem;
+  text-transform: uppercase; margin-bottom: 0.25rem;
+}
+.stat strong { font-size: 1.35rem; color: var(--agora-accent); }
+.columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+@media (max-width: 760px) { .columns { grid-template-columns: 1fr; } }
+.claim-list { display: grid; gap: 0.7rem; }
 .claim-card {
   display: block; border: 1px solid var(--agora-border); border-radius: 10px;
   background: var(--agora-surface-2); padding: 0.9rem; transition: border-color 120ms;
 }
 .claim-card:hover { border-color: var(--agora-accent); }
+.claim-card h4 { margin: 0.4rem 0 0.35rem; }
+.alpha-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.8rem;
+}
+.alpha-row p { margin: 0; color: var(--agora-muted); overflow-wrap: anywhere; }
+.badge-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+.compact-list { color: var(--agora-muted); font-size: 0.82rem; padding-left: 1.2rem; }
+.compact-list li { margin-bottom: 0.35rem; }
 .claim-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
 .claim-type {
   font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;

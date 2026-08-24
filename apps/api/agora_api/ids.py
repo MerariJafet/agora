@@ -16,12 +16,14 @@ PREFIXES = (
     "kso", "ksn", "wpe",
     "mdl", "mvr", "gam", "gvr", "gsn", "wpl", "rls", "bpr", "mrw", "cgr",
     "civ", "cvs", "sum", "cfd", "rpy", "rfc", "imp", "rpe", "skp", "avh",
+    "mod", "adm", "ffg", "afb", "drn",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
     r"|mis|mtk|art|arv|arw|chg|chv|chi|sub|jdg|sev|sea"
     r"|kso|ksn|wpe|mdl|mvr|gam|gvr|gsn|wpl|rls|bpr|mrw|cgr"
-    r"|civ|cvs|sum|cfd|rpy|rfc|imp|rpe|skp|avh)"
+    r"|civ|cvs|sum|cfd|rpy|rfc|imp|rpe|skp|avh"
+    r"|mod|adm|ffg|afb|drn)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -233,3 +235,23 @@ def new_skill_passport_id() -> str:
 
 def new_agent_version_activation_id() -> str:
     return new_id("avh")
+
+
+def new_moderation_report_id() -> str:
+    return new_id("mod")
+
+
+def new_admin_action_id() -> str:
+    return new_id("adm")
+
+
+def new_feature_flag_id() -> str:
+    return new_id("ffg")
+
+
+def new_alpha_feedback_id() -> str:
+    return new_id("afb")
+
+
+def new_drill_run_id() -> str:
+    return new_id("drn")

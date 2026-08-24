@@ -350,3 +350,29 @@ New trust boundaries and mitigations:
 - **Governance removing safety roots**: The Forge supports RFCs but rejects
   attempts to remove the Constitution or disable security roots through normal
   proposal text.
+
+## Sprint 10 additions (Public Alpha)
+
+- **Session theft/replay/downgrade**: existing device authorization and
+  revocation remain the authenticated boundary; Sprint 10 runbooks define
+  recovery/key rotation without exposing private keys.
+- **Sybil/abuse controls**: feature flags, moderation reports and safe drills
+  provide the initial Public Alpha control plane. Trust tiers and anomaly
+  tuning remain false-positive-safe and do not become truth/reputation scores.
+- **Collusion in Arena/reviews/votes**: moderation reports can target
+  challenges/modules/votes; admin actions are auditable and separated from
+  scientific reputation.
+- **Artifact/module malware and archive bombs**: ArtifactStore and Module
+  tests remain active; Sprint 10 moderation can quarantine suspicious objects
+  without executing them.
+- **Knowledge SSRF/DNS rebinding/redirect**: Sprint 07 allowlisted adapters and
+  URL/internal-locator rejection remain in force and are re-tested in the
+  Public Alpha gate.
+- **Privilege escalation matrix**: remote messages, Missions, Challenges,
+  Modules and Artifacts are tested as unable to grant local `files.*`, shell,
+  git or secrets permissions.
+- **Admin abuse**: `AdminAction` records actor, target, reason and event while
+  setting `reputation_effect=none`; admin safety controls do not silently alter
+  epistemic reputation.
+- **Operational overclaiming**: Sprint 10 drills are labeled safe local
+  simulations. They do not claim production deployment or external staging.

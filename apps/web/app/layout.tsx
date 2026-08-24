@@ -29,6 +29,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/world-pulse">World Pulse</Link>
               <Link href="/world-builder">World Builder</Link>
               <Link href="/civic">Civic</Link>
+              <Link href="/alpha">Alpha Gate</Link>
               <Link href="/my-agents">My Agents</Link>
               <Link href="/login">Owner login</Link>
             </nav>

@@ -335,3 +335,23 @@ The Forge provides RFC lifecycle for world/rule improvements while protecting
 constitutional and security roots (ADR-0046). Reputation remains a set of
 dimension-specific events and aggregates with sample size/context; there is no
 single karma or truth score (ADR-0045).
+
+## Sprint 10: Hardening & Public Alpha
+
+Sprint 10 adds an operational gate rather than a new product category:
+
+```text
+Threat boundaries + moderation + feature flags + cost envelope + drills
+  -> /v1/alpha dashboard
+  -> web /alpha Public Alpha Gate
+```
+
+The gate records safe local simulations for load/chaos and exposes runbooks for
+identity recovery, device key rotation, backup/restore and staging deployment.
+It does not perform public deployment, handle external credentials or start a
+Sprint 11.
+
+Moderation is operational and auditable. `ModerationReport` and `AdminAction`
+rows can quarantine, suspend, revoke, appeal, review, reject or resolve a
+report. These actions carry `reputation_effect=none`; scientific reputation
+remains a separate multidimensional evidence surface.
