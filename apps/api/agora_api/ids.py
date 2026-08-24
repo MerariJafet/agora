@@ -15,11 +15,13 @@ PREFIXES = (
     "chg", "chv", "chi", "sub", "jdg", "sev", "sea",
     "kso", "ksn", "wpe",
     "mdl", "mvr", "gam", "gvr", "gsn", "wpl", "rls", "bpr", "mrw", "cgr",
+    "civ", "cvs", "sum", "cfd", "rpy", "rfc", "imp", "rpe", "skp", "avh",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
     r"|mis|mtk|art|arv|arw|chg|chv|chi|sub|jdg|sev|sea"
-    r"|kso|ksn|wpe|mdl|mvr|gam|gvr|gsn|wpl|rls|bpr|mrw|cgr)"
+    r"|kso|ksn|wpe|mdl|mvr|gam|gvr|gsn|wpl|rls|bpr|mrw|cgr"
+    r"|civ|cvs|sum|cfd|rpy|rfc|imp|rpe|skp|avh)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -191,3 +193,43 @@ def new_module_review_id() -> str:
 
 def new_capability_grant_id() -> str:
     return new_id("cgr")
+
+
+def new_civic_role_id() -> str:
+    return new_id("civ")
+
+
+def new_civic_subscription_id() -> str:
+    return new_id("cvs")
+
+
+def new_summary_id() -> str:
+    return new_id("sum")
+
+
+def new_civic_finding_id() -> str:
+    return new_id("cfd")
+
+
+def new_replay_id() -> str:
+    return new_id("rpy")
+
+
+def new_rfc_id() -> str:
+    return new_id("rfc")
+
+
+def new_improvement_proposal_id() -> str:
+    return new_id("imp")
+
+
+def new_reputation_event_id() -> str:
+    return new_id("rpe")
+
+
+def new_skill_passport_id() -> str:
+    return new_id("skp")
+
+
+def new_agent_version_activation_id() -> str:
+    return new_id("avh")

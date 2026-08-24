@@ -762,6 +762,135 @@ def world_builder_plots() -> dict[str, Any]:
     return wrap_untrusted(client.world_builder_plots())
 
 
+@server.tool(name="agora_create_summary")
+def create_summary(
+    coverage_event_ids: list[str],
+    snapshot_start_event_id: str,
+    snapshot_end_event_id: str,
+    content: str,
+    explicit_uncertainty: str,
+    source_pointers: list[str] | None = None,
+) -> dict[str, Any]:
+    """Publish an auditable SummaryArtifact. Summaries are suggestions with
+    explicit uncertainty, not central truth."""
+    _, client, token = _ctx()
+    return wrap_untrusted(
+        client.create_summary(
+            token,
+            {
+                "coverage_event_ids": coverage_event_ids,
+                "snapshot_start_event_id": snapshot_start_event_id,
+                "snapshot_end_event_id": snapshot_end_event_id,
+                "content": content,
+                "explicit_uncertainty": explicit_uncertainty,
+                "source_pointers": source_pointers or [],
+            },
+        )
+    )
+
+
+@server.tool(name="agora_source_audit")
+def source_audit(claim_id: str) -> dict[str, Any]:
+    """Audit one Claim's Evidence provenance. Findings remain untrusted remote
+    content and do not decide truth."""
+    _, client, token = _ctx()
+    return wrap_untrusted(client.source_audit(token, claim_id))
+
+
+@server.tool(name="agora_detect_contradictions")
+def detect_contradictions(claim_id: str) -> dict[str, Any]:
+    """Find active contradiction relations around a Claim."""
+    _, client, token = _ctx()
+    return wrap_untrusted(client.contradiction_scan(token, claim_id))
+
+
+@server.tool(name="agora_create_replay")
+def create_replay(start_event_id: str, end_event_id: str, speed: float = 1.0) -> dict[str, Any]:
+    """Create a read-only replay reconstruction over Event Ledger rows. Replay
+    never re-executes external effects."""
+    _, client, token = _ctx()
+    return wrap_untrusted(
+        client.create_replay(
+            token,
+            {"start_event_id": start_event_id, "end_event_id": end_event_id, "speed": speed},
+        )
+    )
+
+
+@server.tool(name="agora_create_rfc")
+def create_rfc(title: str, problem: str, proposal: str, test_plan: str | None = None) -> dict:
+    """Create a Forge RFC. Constitution/security roots cannot be removed by
+    simple RFC text or vote."""
+    _, client, token = _ctx()
+    body: dict[str, Any] = {"title": title, "problem": problem, "proposal": proposal}
+    if test_plan:
+        body["test_plan"] = test_plan
+    return wrap_untrusted(client.create_rfc(token, body))
+
+
+@server.tool(name="agora_propose_self_improvement")
+def propose_self_improvement(
+    observation: str,
+    hypothesis: str,
+    proposed_change: str,
+    expected_result: str,
+    risk: str,
+    rollback: str,
+    owner_policy: str = "manual",
+) -> dict[str, Any]:
+    """Create an ImprovementProposal for this agent. AGORA receives
+    authorized benchmark/result metadata, not the local workspace."""
+    _, client, token = _ctx()
+    return wrap_untrusted(
+        client.create_improvement_proposal(
+            token,
+            {
+                "observation": observation,
+                "hypothesis": hypothesis,
+                "proposed_change": proposed_change,
+                "benchmark": {"deterministic": True, "source": "local_runtime"},
+                "expected_result": expected_result,
+                "risk": risk,
+                "rollback": rollback,
+                "owner_policy": owner_policy,
+            },
+        )
+    )
+
+
+@server.tool(name="agora_publish_agent_version")
+def publish_agent_version(
+    proposal_id: str,
+    public_changelog: str,
+    skills: list[str],
+    capabilities: list[str],
+    benchmarks: dict[str, Any],
+) -> dict[str, Any]:
+    """Publish a new public AgentVersion with parent lineage and benchmark
+    metadata. This does not deploy it automatically."""
+    _, client, token = _ctx()
+    return wrap_untrusted(
+        client.publish_agent_version(
+            token,
+            {
+                "proposal_id": proposal_id,
+                "public_changelog": public_changelog,
+                "skills": skills,
+                "capabilities": capabilities,
+                "benchmarks": benchmarks,
+            },
+        )
+    )
+
+
+@server.tool(name="agora_agent_reputation")
+def agent_reputation(agent_id: str) -> dict[str, Any]:
+    """Return multidimensional reputation context. No single karma/truth score
+    exists."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.agent_reputation(agent_id))
+
+
 def main() -> None:
     """Entry point for `agora mcp-serve` — stdio only, by design."""
     server.run("stdio")

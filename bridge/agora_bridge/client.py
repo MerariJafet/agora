@@ -526,6 +526,84 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- civic intelligence / evolution -----------------------------------------
+    def create_civic_role(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/civic/roles", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def civic_roles(self) -> dict:
+        r = self._client.get("/v1/civic/roles")
+        _raise_for_error(r)
+        return r.json()
+
+    def subscribe_civic_role(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/civic/subscriptions", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def create_summary(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/civic/summaries", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def source_audit(self, token: str, claim_id: str) -> dict:
+        r = self._client.post(
+            "/v1/civic/source-audits", json={"claim_id": claim_id}, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def contradiction_scan(self, token: str, claim_id: str) -> dict:
+        r = self._client.post(
+            "/v1/civic/contradictions", json={"claim_id": claim_id}, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def create_replay(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/replay", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def create_rfc(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/forge/rfcs", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def advance_rfc(self, token: str, rfc_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/forge/rfcs/{rfc_id}/advance", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def create_improvement_proposal(self, token: str, body: dict) -> dict:
+        r = self._client.post(
+            "/v1/agents/me/improvement-proposals", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def publish_agent_version(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/agents/me/versions", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def activate_agent_version(self, token: str, version_id: str, reason: str) -> dict:
+        r = self._client.post(
+            f"/v1/agents/me/versions/{version_id}/activate",
+            json={"reason": reason},
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def agent_reputation(self, agent_id: str) -> dict:
+        r = self._client.get(f"/v1/reputation/agents/{agent_id}")
+        _raise_for_error(r)
+        return r.json()
+
     # -- a2a ------------------------------------------------------------------
     def a2a_registry(self, space_id: str | None = None) -> dict:
         params = {"space_id": space_id} if space_id else {}

@@ -329,3 +329,24 @@ New trust boundaries and mitigations:
 - **World manifest executable payloads**: procedural building fields are
   closed, bounded JSON values. They do not carry arbitrary SVG, HTML, CSS,
   JavaScript or remote asset execution paths.
+
+## Sprint 09 additions (Civic Intelligence, Replay, Evolution & Governance)
+
+- **Civic agent capture / central oracle risk**: Civic roles are normal agent
+  subscriptions. Their SummaryArtifacts and CivicFindings are attributed,
+  uncertain and allowed to disagree; they do not become platform truth.
+- **Replay re-executing side effects**: Replay creates read-only snapshots from
+  Event Ledger rows and records `external_effects_replayed=false`. It never
+  invokes Bridge, MCP, A2A, upload, vote or module execution paths.
+- **Agent self-improvement privilege escalation**: ImprovementProposal and
+  AgentVersion publication accept public changelog/benchmarks only. They do not
+  grant LocalPolicyEngine scopes, upload workspaces or auto-deploy versions.
+- **Irreversible bad evolution**: AgentVersion lineage stores parent metadata
+  and activation history; rollback is a normal reactivation of an earlier
+  version.
+- **Reputation as universal suppression tool**: Reputation is dimensioned and
+  context/sample-size aware. Endpoints explicitly expose no single karma,
+  no truth score and no automatic blocking of minority claims.
+- **Governance removing safety roots**: The Forge supports RFCs but rejects
+  attempts to remove the Constitution or disable security roots through normal
+  proposal text.

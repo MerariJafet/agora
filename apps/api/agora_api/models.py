@@ -174,6 +174,12 @@ class AgentVersion(Base):
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parent_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    public_changelog: Mapped[str | None] = mapped_column(Text, nullable=True)
+    skills: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    capabilities: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    benchmarks: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    signed_metadata: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (Index("uq_agent_version_number", "agent_id", "version", unique=True),)
@@ -1118,3 +1124,202 @@ class CapabilityGrant(Base):
     scope: Mapped[str] = mapped_column(String(120), nullable=False)
     granted_by: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 09: Civic Intelligence, Replay, Evolution & Governance.
+#
+# Civic agents are normal agents with public roles/subscriptions; their outputs
+# are auditable artifacts/findings, not central control. Replay is read-only
+# over the Event Ledger and never re-executes effects. Agent evolution is
+# versioned, benchmark-attributed and reversible.
+# ---------------------------------------------------------------------------
+
+
+class CivicRoleManifest(Base):
+    __tablename__ = "civic_role_manifests"
+
+    role_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    manifest: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_civic_roles_role", "role", "status"),)
+
+
+class CivicSubscription(Base):
+    __tablename__ = "civic_subscriptions"
+
+    subscription_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    role_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("civic_role_manifests.role_id"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    scope: Mapped[str] = mapped_column(String(120), nullable=False)
+    filters: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_civic_subscriptions_agent", "agent_id", "status"),
+        UniqueConstraint("role_id", "agent_id", "scope", name="uq_civic_subscription_scope"),
+    )
+
+
+class SummaryArtifact(Base):
+    __tablename__ = "summary_artifacts"
+
+    summary_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    coverage_event_ids: Mapped[list] = mapped_column(JSONB, nullable=False)
+    snapshot_start_event_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    snapshot_end_event_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    source_pointers: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    explicit_uncertainty: Mapped[str] = mapped_column(Text, nullable=False)
+    creator_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    creator_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    disagreement_group_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_summary_range", "snapshot_start_event_id", "snapshot_end_event_id"),
+    )
+
+
+class CivicFinding(Base):
+    __tablename__ = "civic_findings"
+
+    finding_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    finding_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, default="info")
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    related_claim_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    related_evidence_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    related_snapshot_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    summary_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_civic_findings_type", "finding_type", "created_at"),)
+
+
+class ReplayRun(Base):
+    __tablename__ = "replay_runs"
+
+    replay_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    start_event_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    end_event_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    speed: Mapped[float] = mapped_column(Float, nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    read_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ForgeRFC(Base):
+    __tablename__ = "forge_rfcs"
+
+    rfc_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    problem: Mapped[str] = mapped_column(Text, nullable=False)
+    proposal: Mapped[str] = mapped_column(Text, nullable=False)
+    test_plan: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="draft")
+    discussion_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decision: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_forge_rfcs_status", "status", "created_at"),)
+
+
+class ImprovementProposal(Base):
+    __tablename__ = "improvement_proposals"
+
+    proposal_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    observation: Mapped[str] = mapped_column(Text, nullable=False)
+    hypothesis: Mapped[str] = mapped_column(Text, nullable=False)
+    proposed_change: Mapped[str] = mapped_column(Text, nullable=False)
+    benchmark: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    expected_result: Mapped[str] = mapped_column(Text, nullable=False)
+    risk: Mapped[str] = mapped_column(Text, nullable=False)
+    rollback: Mapped[str] = mapped_column(Text, nullable=False)
+    owner_policy: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="proposed")
+    result_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    new_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_improvement_agent", "agent_id", "status"),)
+
+
+class AgentVersionActivation(Base):
+    __tablename__ = "agent_version_activations"
+
+    activation_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    from_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    to_agent_version_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ReputationEvent(Base):
+    __tablename__ = "reputation_events"
+
+    reputation_event_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    dimension: Mapped[str] = mapped_column(String(40), nullable=False)
+    delta: Mapped[float] = mapped_column(Float, nullable=False)
+    context: Mapped[str] = mapped_column(Text, nullable=False)
+    sample_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_event_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_reputation_agent_dimension", "agent_id", "dimension"),)
+
+
+class SkillPassport(Base):
+    __tablename__ = "skill_passports"
+
+    passport_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    skill: Mapped[str] = mapped_column(String(80), nullable=False)
+    evidence_refs: Mapped[list] = mapped_column(JSONB, nullable=False)
+    source_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_skill_passport_agent", "agent_id", "skill"),
+        UniqueConstraint("agent_id", "skill", "source_kind", name="uq_skill_passport_kind"),
+    )

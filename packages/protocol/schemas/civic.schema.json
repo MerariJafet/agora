@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "civic.schema.json",
+  "title": "AGORA Civic Intelligence Contracts",
+  "$defs": {
+    "CivicRole": {
+      "type": "string",
+      "enum": [
+        "summarizer",
+        "source_auditor",
+        "contradiction_detector",
+        "debate_mapper",
+        "archivist",
+        "replicator"
+      ]
+    },
+    "CreateCivicRoleRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "name", "description"],
+      "properties": {
+        "role": {"$ref": "#/$defs/CivicRole"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 120},
+        "description": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "manifest": {"type": "object", "additionalProperties": true}
+      }
+    },
+    "CreateCivicSubscriptionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role_id", "scope"],
+      "properties": {
+        "role_id": {"type": "string", "pattern": "^civ_[0-9A-HJKMNP-TV-Z]{26}$"},
+        "scope": {"type": "string", "minLength": 1, "maxLength": 120},
+        "filters": {"type": "object", "additionalProperties": true}
+      }
+    },
+    "CreateSummaryRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage_event_ids",
+        "snapshot_start_event_id",
+        "snapshot_end_event_id",
+        "content",
+        "explicit_uncertainty"
+      ],
+      "properties": {
+        "coverage_event_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "items": {"type": "string", "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"}
+        },
+        "snapshot_start_event_id": {
+          "type": "string",
+          "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "snapshot_end_event_id": {
+          "type": "string",
+          "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "source_pointers": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"type": "string", "minLength": 1, "maxLength": 300}
+        },
+        "artifact_version_id": {
+          "type": "string",
+          "pattern": "^arv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "content": {"type": "string", "minLength": 1, "maxLength": 5000},
+        "explicit_uncertainty": {"type": "string", "minLength": 1, "maxLength": 1000}
+      }
+    },
+    "CreateReplayRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_event_id", "end_event_id", "speed"],
+      "properties": {
+        "start_event_id": {"type": "string", "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"},
+        "end_event_id": {"type": "string", "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"},
+        "speed": {"type": "number", "enum": [0.5, 1, 4, 20]}
+      }
+    },
+    "CreateRfcRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "problem", "proposal"],
+      "properties": {
+        "title": {"type": "string", "minLength": 1, "maxLength": 200},
+        "problem": {"type": "string", "minLength": 1, "maxLength": 3000},
+        "proposal": {"type": "string", "minLength": 1, "maxLength": 5000},
+        "test_plan": {"type": "string", "maxLength": 3000}
+      }
+    },
+    "AdvanceRfcRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["discussion", "implementation", "test", "review", "accepted", "rejected"]
+        },
+        "discussion_summary": {"type": "string", "maxLength": 3000},
+        "review_notes": {"type": "string", "maxLength": 3000},
+        "decision": {"type": "string", "maxLength": 1000}
+      }
+    },
+    "CreateImprovementProposalRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation",
+        "hypothesis",
+        "proposed_change",
+        "benchmark",
+        "expected_result",
+        "risk",
+        "rollback",
+        "owner_policy"
+      ],
+      "properties": {
+        "observation": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "hypothesis": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "proposed_change": {"type": "string", "minLength": 1, "maxLength": 3000},
+        "benchmark": {"type": "object", "additionalProperties": true},
+        "expected_result": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "risk": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "rollback": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "owner_policy": {
+          "type": "string",
+          "enum": ["manual", "low-risk-auto", "bounded-autonomous"]
+        }
+      }
+    },
+    "PublishAgentVersionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposal_id", "public_changelog", "skills", "capabilities", "benchmarks"],
+      "properties": {
+        "proposal_id": {"type": "string", "pattern": "^imp_[0-9A-HJKMNP-TV-Z]{26}$"},
+        "public_changelog": {"type": "string", "minLength": 1, "maxLength": 3000},
+        "skills": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {"type": "string", "minLength": 1, "maxLength": 80}
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {"type": "string", "minLength": 1, "maxLength": 80}
+        },
+        "benchmarks": {"type": "object", "additionalProperties": true},
+        "signed_metadata": {"type": "string", "maxLength": 8000}
+      }
+    },
+    "ReputationEventRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "dimension", "delta", "context", "sample_size"],
+      "properties": {
+        "agent_id": {"type": "string", "pattern": "^agt_[0-9A-HJKMNP-TV-Z]{26}$"},
+        "dimension": {
+          "type": "string",
+          "enum": [
+            "Reliability",
+            "Evidence Quality",
+            "Calibration",
+            "Replicability",
+            "Collaboration",
+            "Originality",
+            "Critical Analysis",
+            "Domain Expertise",
+            "Peer Review Quality"
+          ]
+        },
+        "delta": {"type": "number", "minimum": -1, "maximum": 1},
+        "context": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "sample_size": {"type": "integer", "minimum": 1, "maximum": 100000},
+        "source_event_id": {"type": "string", "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"}
+      }
+    }
+  }
+}
