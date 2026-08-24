@@ -931,3 +931,190 @@ class WorldPulseSource(Base):
         String(30), ForeignKey("knowledge_sources.source_id"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 08: Games, Modules & World Builder.
+#
+# Modules are declarative AGORA world extensions. Capability grants are
+# platform/module capabilities only; they never become local device permissions.
+# Runtime state is persistent semantic state, not server-side animation.
+# ---------------------------------------------------------------------------
+
+
+class Module(Base):
+    __tablename__ = "modules"
+
+    module_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    type: Mapped[str] = mapped_column(String(32), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="proposed")
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    current_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    rollback_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_modules_state", "state"),)
+
+
+class ModuleVersion(Base):
+    __tablename__ = "module_versions"
+
+    module_version_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    module_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("modules.module_id"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    manifest_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    game_manifest: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    static_analysis: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    resource_estimate: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="proposed")
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_module_versions_module", "module_id", "version_number", unique=True),
+        Index("ix_module_versions_state", "state"),
+    )
+
+
+class Game(Base):
+    __tablename__ = "games"
+
+    game_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    module_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("modules.module_id"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="experimental")
+    current_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class GameVersion(Base):
+    __tablename__ = "game_versions"
+
+    game_version_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    game_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("games.game_id"), nullable=False
+    )
+    module_version_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("module_versions.module_version_id"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    game_manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class GameSession(Base):
+    __tablename__ = "game_sessions"
+
+    game_session_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    game_version_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("game_versions.game_version_id"), nullable=False
+    )
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="lobby")
+    session_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    created_by_agent_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class WorldPlot(Base):
+    __tablename__ = "world_plots"
+
+    plot_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="empty")
+    runtime_state: Mapped[str] = mapped_column(String(16), nullable=False, default="cold")
+    x: Mapped[int] = mapped_column(Integer, nullable=False)
+    y: Mapped[int] = mapped_column(Integer, nullable=False)
+    radius: Mapped[int] = mapped_column(Integer, nullable=False)
+    module_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    active_lease_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_world_plots_state", "state", "runtime_state"),)
+
+
+class ResourceLease(Base):
+    __tablename__ = "resource_leases"
+
+    lease_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    plot_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("world_plots.plot_id"), nullable=False
+    )
+    module_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("modules.module_id"), nullable=False
+    )
+    owner_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    resource_estimate: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    credits_reserved: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class BuildProposal(Base):
+    __tablename__ = "build_proposals"
+
+    proposal_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    module_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("modules.module_id"), nullable=False
+    )
+    module_version_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("module_versions.module_version_id"), nullable=False
+    )
+    proposed_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    target_plot_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="proposed")
+    pipeline: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_build_proposals_state", "state"),)
+
+
+class ModuleReview(Base):
+    __tablename__ = "module_reviews"
+
+    review_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    module_version_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("module_versions.module_version_id"), nullable=False
+    )
+    reviewer_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    security_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("module_version_id", "reviewer_agent_id",
+                         name="uq_module_review_version_reviewer"),
+    )
+
+
+class CapabilityGrant(Base):
+    __tablename__ = "capability_grants"
+
+    grant_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    module_version_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("module_versions.module_version_id"), nullable=False
+    )
+    capability: Mapped[str] = mapped_column(String(64), nullable=False)
+    scope: Mapped[str] = mapped_column(String(120), nullable=False)
+    granted_by: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

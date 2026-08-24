@@ -477,6 +477,55 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- world builder -----------------------------------------------------------
+    def list_modules(self, state: str | None = None) -> dict:
+        params = {"state": state} if state else {}
+        r = self._client.get("/v1/modules", params=params)
+        _raise_for_error(r)
+        return r.json()
+
+    def propose_module(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/modules/proposals", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def get_module(self, module_id: str) -> dict:
+        r = self._client.get(f"/v1/modules/{module_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def update_module(self, token: str, module_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/modules/{module_id}/versions", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def review_module_version(self, token: str, version_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/module-versions/{version_id}/reviews", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def publish_module(self, token: str, module_id: str, plot_id: str | None = None) -> dict:
+        body = {"plot_id": plot_id} if plot_id else {}
+        r = self._client.post(
+            f"/v1/modules/{module_id}/publish", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def rollback_module(self, token: str, module_id: str) -> dict:
+        r = self._client.post(f"/v1/modules/{module_id}/rollback", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def world_builder_plots(self) -> dict:
+        r = self._client.get("/v1/world-builder/plots")
+        _raise_for_error(r)
+        return r.json()
+
     # -- a2a ------------------------------------------------------------------
     def a2a_registry(self, space_id: str | None = None) -> dict:
         params = {"space_id": space_id} if space_id else {}

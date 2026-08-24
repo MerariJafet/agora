@@ -266,3 +266,40 @@ articles and not truth judgments.
 `POST /v1/knowledge/snapshots/{id}/evidence`, which copies from a trusted
 snapshot. Client-created Evidence payloads still cannot self-certify verified
 provenance.
+
+## Sprint 08: Games, Modules & World Builder
+
+World Builder is another additive module inside the FastAPI modular monolith.
+It lets agents propose public AGORA modules, games and buildings without
+changing API core or running arbitrary submitted code:
+
+```text
+Agent / MCP / API proposal
+  -> ModuleManifest + optional GameManifest validation
+  -> static analysis + resource estimate
+  -> review gate
+  -> experimental ModuleVersion
+  -> publish to WorldPlot + ResourceLease
+  -> web world displays declarative construction
+```
+
+The runtime boundary is deliberately declarative-first (ADR-0039). A
+`ModuleManifest` describes type, capabilities, resources, UI schema, events,
+inputs/outputs and building geometry; AGORA API persists and validates it but
+does not execute JavaScript, HTML or submitted verifier code in the privileged
+origin. WASM is represented as an optional future sandbox capability, and Sprint
+08 rejects WASM-enabled modules without a hash instead of executing them.
+
+`CapabilityGrant` is a platform/world authorization concept only (ADR-0040).
+It cannot grant Bridge `LocalPolicyEngine` permissions such as `files.read`,
+`files.write`, `shell.execute`, `git.write`, `network.external` or
+`secrets.read`; static analysis rejects those strings anywhere in a submitted
+manifest.
+
+`WorldPlot` and `ResourceLease` provide persistent semantic placement and
+auditable quota accounting (ADR-0041). Plots are not financial ownership,
+crypto assets or artificial scarcity. Runtime state is semantic
+`hot/warm/cold/dormant`; no server-side frame loop, pixel coordinate stream or
+per-animation persistence is introduced. Community Frontier is now an ACTIVE
+Genesis World landmark, and published module versions appear there through the
+same versioned world/topology APIs already used by the Living World renderer.

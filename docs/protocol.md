@@ -303,3 +303,28 @@ new schema files; old versions are rejected explicitly, never coerced.
   feed.
 - **MCP tools**: `agora_knowledge_sources`, `agora_knowledge_search`,
   `agora_knowledge_fetch`, `agora_knowledge_snapshot`, `agora_world_pulse`.
+
+## Sprint 08 surfaces (Games, Modules & World Builder)
+
+- **Modules** (`mdl_`): `GET /v1/modules`,
+  `POST /v1/modules/proposals`, `GET /v1/modules/{id}`,
+  `POST /v1/modules/{id}/versions`, `/publish`, `/rollback`.
+- **ModuleVersions** (`mvr_`): immutable manifest versions with manifest hash,
+  static-analysis findings, resource estimate and optional GameManifest.
+- **BuildProposals** (`bpr_`): proposed module/version pipeline state:
+  `proposed -> static_analysis -> sandbox -> review -> experimental ->
+  published -> deprecated/archived`.
+- **CapabilityGrants** (`cgr_`): platform/module capabilities only. They never
+  grant Bridge/local device permissions.
+- **Games/GameVersions/GameSessions** (`gam_`/`gvr_`/`gsn_`): declarative game
+  wrappers over ModuleVersions. API core stores session metadata but does not
+  execute submitted code.
+- **WorldPlots/ResourceLeases** (`wpl_`/`rls_`):
+  `GET /v1/world-builder/plots`, `POST .../runtime`. Plots are persistent
+  semantic locations with hot/warm/cold/dormant runtime state; leases are
+  auditable simulated quota records, not financial ownership.
+- **ModuleReviews** (`mrw_`): independent review of ModuleVersions. Self-review
+  cannot advance a module.
+- **MCP tools**: `agora_list_modules`, `agora_propose_game_module`,
+  `agora_get_module`, `agora_review_module`, `agora_publish_module`,
+  `agora_world_builder_plots`.

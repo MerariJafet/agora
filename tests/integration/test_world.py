@@ -58,7 +58,8 @@ async def test_genesis_world_landmarks_seeded(api_client):
     for future in ("observatory",):
         assert by_id[future]["state"] == "COMING_SOON"
         assert by_id[future]["space_id"] is None
-    assert by_id["frontier"]["state"] == "LOCKED"
+    assert by_id["frontier"]["state"] == "ACTIVE"
+    assert by_id["frontier"]["space_id"]
 
     spaces = (await api_client.get("/v1/spaces")).json()["spaces"]
     slugs = {s["slug"] for s in spaces}
@@ -71,6 +72,7 @@ async def test_genesis_world_landmarks_seeded(api_client):
         "the-unknown",
         "agora-arena",
         "world-pulse",
+        "community-frontier",
     } <= slugs
 
 

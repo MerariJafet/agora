@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "modules.schema.json",
+  "title": "AGORA World Builder module contracts",
+  "description": "Declarative modules and games. No arbitrary JS/HTML or local device permissions.",
+  "$defs": {
+    "ModuleType": {
+      "type": "string",
+      "enum": ["game", "dashboard", "lab", "room", "challenge_template", "building"]
+    },
+    "ModuleCapability": {
+      "type": "string",
+      "enum": [
+        "world.render",
+        "world.events.emit",
+        "space.messages.read",
+        "space.messages.write",
+        "knowledge.sources.read",
+        "arena.challenge.create",
+        "artifact.reference",
+        "sandbox.wasm.execute"
+      ]
+    },
+    "ResourceSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage_mb": { "type": "integer", "minimum": 0, "maximum": 1024 },
+        "event_rate_per_minute": { "type": "integer", "minimum": 0, "maximum": 600 },
+        "bandwidth_mb_per_day": { "type": "integer", "minimum": 0, "maximum": 10240 },
+        "concurrent_sessions": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "sandbox_cpu_ms": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "sandbox_memory_mb": { "type": "integer", "minimum": 0, "maximum": 256 }
+      }
+    },
+    "UiSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout"],
+      "properties": {
+        "layout": { "type": "string", "enum": ["panel", "board", "arena", "lab", "room"] },
+        "theme": { "type": "string", "maxLength": 40 },
+        "signage": { "type": "string", "maxLength": 120 }
+      }
+    },
+    "BuildingManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["footprint", "theme", "rooms", "portals", "signage"],
+      "properties": {
+        "footprint": { "type": "string", "enum": ["small", "medium", "large"] },
+        "theme": { "type": "string", "maxLength": 40 },
+        "rooms": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "portals": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 80 }
+        },
+        "signage": { "type": "string", "minLength": 1, "maxLength": 120 }
+      }
+    },
+    "ModuleManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "type", "name", "capabilities", "resources", "ui", "building"],
+      "properties": {
+        "schema_version": { "type": "string", "const": "1.0" },
+        "type": { "$ref": "#/$defs/ModuleType" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/ModuleCapability" }
+        },
+        "resources": { "$ref": "#/$defs/ResourceSpec" },
+        "ui": { "$ref": "#/$defs/UiSchema" },
+        "events": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 80 }
+        },
+        "inputs": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 80 }
+        },
+        "outputs": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 80 }
+        },
+        "knowledge_sources": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string", "maxLength": 48 }
+        },
+        "lifecycle": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "proposed",
+              "static_analysis",
+              "sandbox",
+              "review",
+              "experimental",
+              "published",
+              "deprecated",
+              "archived"
+            ]
+          }
+        },
+        "building": { "$ref": "#/$defs/BuildingManifest" },
+        "wasm": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "module_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+        }
+      }
+    },
+    "GameManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rules", "players", "session_lifecycle"],
+      "properties": {
+        "rules": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "players": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "scoring": { "type": "string", "maxLength": 1000 },
+        "verifier": { "type": "string", "enum": ["manual", "exact_text", "numeric", "none"] },
+        "session_lifecycle": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": { "enum": ["lobby", "active", "paused", "completed", "archived"] }
+        }
+      }
+    },
+    "CreateBuildProposalRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest"],
+      "properties": {
+        "manifest": { "$ref": "#/$defs/ModuleManifest" },
+        "game_manifest": { "$ref": "#/$defs/GameManifest" },
+        "target_plot_id": { "type": "string" }
+      }
+    },
+    "ReviewModuleRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict"],
+      "properties": {
+        "verdict": { "type": "string", "enum": ["approve", "needs_changes", "reject"] },
+        "comment": { "type": "string", "maxLength": 1000 },
+        "security_notes": { "type": "string", "maxLength": 1000 }
+      }
+    },
+    "CreateGameSessionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metadata": { "type": "object", "additionalProperties": true }
+      }
+    }
+  }
+}

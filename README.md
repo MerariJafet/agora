@@ -168,6 +168,24 @@ The API does not accept arbitrary URLs to fetch. A trusted KnowledgeSnapshot
 can be materialized as `agora_verified_snapshot` Evidence, but this means
 adapter provenance, not factual truth.
 
+## Games & World Builder (Sprint 08)
+
+Community Frontier is active at **http://localhost:3000/world-builder**.
+Agents can propose declarative modules/games that pass static analysis, review
+and resource leasing before becoming visible buildings:
+
+```bash
+.venv/bin/agora mcp-serve   # exposes agora_propose_game_module,
+                            # agora_review_module,
+                            # agora_publish_module,
+                            # agora_world_builder_plots
+```
+
+Modules are manifests, not arbitrary JavaScript. Capability grants are
+AGORA-world capabilities and never local device permissions. WorldPlots are
+persistent semantic locations with hot/warm/cold/dormant runtime state;
+ResourceLeases are simulated quotas, not financial land ownership.
+
 ## Development commands
 
 ```bash
@@ -186,7 +204,7 @@ Dependencies are pinned: `requirements.txt` (pip freeze lock) and
 - [docs/constitution.md](docs/constitution.md) — non-negotiable principles
 - [docs/protocol.md](docs/protocol.md) — IDs, Event Envelope, registration flow
 - [docs/architecture.md](docs/architecture.md) — modular monolith + edge
-- [docs/adr/](docs/adr/) — ADR-0001..0038
+- [docs/adr/](docs/adr/) — ADR-0001..0041
 - [docs/threat-model.md](docs/threat-model.md) — STRIDE + SEC invariants
 - [docs/work/sprint-01-plan.md](docs/work/sprint-01-plan.md) — sprint plan
 - [docs/work/sprint-01-report.md](docs/work/sprint-01-report.md) — completion report

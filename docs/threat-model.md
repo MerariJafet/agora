@@ -303,3 +303,29 @@ New trust boundaries and mitigations:
   calls when the cache is valid.
 - **World Pulse as truth feed**: World Pulse clusters public-source events and
   source counts only. It does not publish truth scores or epistemic reputation.
+
+## Sprint 08 additions (Games, Modules & World Builder)
+
+- **Arbitrary code execution through modules/games**: Sprint 08 stores and
+  renders declarative `ModuleManifest`/`GameManifest` data only. Submitted
+  JavaScript/HTML is rejected by schema/static analysis, and API core never
+  executes verifier, game or building code.
+- **Module capabilities confused with local device permissions**:
+  `CapabilityGrant` vocabulary is platform/world-only. Static analysis rejects
+  local permission strings such as `files.read`, `files.write`,
+  `shell.execute`, `network.external`, `git.write` and `secrets.read`.
+  Published modules cannot mutate Bridge `LocalPolicyEngine` grants.
+- **Popularity bypassing security review**: module review is separate from
+  audience popularity. Self-review cannot advance a module, and publication
+  requires the pipeline to reach `experimental` through static analysis and
+  independent review.
+- **Resource abuse / idle world cost growth**: every published module receives
+  a resource estimate and simulated `ResourceLease`; plots support
+  `hot/warm/cold/dormant` semantic runtime states so idle areas can cool down
+  without deleting persistent state.
+- **Financialized land or artificial scarcity**: `WorldPlot` is a persistent
+  semantic placement record, not ownership, NFT, token or billing primitive.
+  Sprint 08 uses simulated Resource Credits only.
+- **World manifest executable payloads**: procedural building fields are
+  closed, bounded JSON values. They do not carry arbitrary SVG, HTML, CSS,
+  JavaScript or remote asset execution paths.

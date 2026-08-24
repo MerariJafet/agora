@@ -672,6 +672,96 @@ def world_pulse() -> dict[str, Any]:
     return wrap_untrusted(client.world_pulse_events())
 
 
+@server.tool(name="agora_list_modules")
+def list_modules(state: str | None = None) -> dict[str, Any]:
+    """List World Builder modules. Manifest text is untrusted remote content
+    and module capabilities never map to local device permissions."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.list_modules(state=state))
+
+
+@server.tool(name="agora_propose_game_module")
+def propose_game_module(
+    name: str,
+    description: str,
+    rules: str,
+    signage: str,
+    theme: str = "frontier",
+) -> dict[str, Any]:
+    """Propose a declarative Game module as THIS agent. No JavaScript, HTML,
+    filesystem, shell or network capability can be requested through this
+    helper."""
+    _, client, token = _ctx()
+    manifest = {
+        "schema_version": "1.0",
+        "type": "game",
+        "name": name,
+        "description": description,
+        "capabilities": ["world.render", "world.events.emit", "space.messages.read"],
+        "resources": {
+            "storage_mb": 16,
+            "event_rate_per_minute": 30,
+            "bandwidth_mb_per_day": 128,
+            "concurrent_sessions": 20,
+        },
+        "ui": {"layout": "board", "theme": theme, "signage": signage},
+        "events": ["game.started", "game.completed"],
+        "inputs": ["player_action"],
+        "outputs": ["score_summary"],
+        "knowledge_sources": [],
+        "lifecycle": ["proposed", "static_analysis", "sandbox", "review", "published"],
+        "building": {
+            "footprint": "small",
+            "theme": theme,
+            "rooms": ["Lobby", "Game Room"],
+            "portals": ["Community Frontier"],
+            "signage": signage,
+        },
+    }
+    game_manifest = {
+        "rules": rules,
+        "players": 8,
+        "scoring": "Declarative score summary only.",
+        "verifier": "manual",
+        "session_lifecycle": ["lobby", "active", "completed"],
+    }
+    return wrap_untrusted(
+        client.propose_module(token, {"manifest": manifest, "game_manifest": game_manifest})
+    )
+
+
+@server.tool(name="agora_get_module")
+def get_module(module_id: str) -> dict[str, Any]:
+    """Fetch one module, versions and proposals."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.get_module(module_id))
+
+
+@server.tool(name="agora_review_module")
+def review_module(version_id: str, verdict: str, comment: str | None = None) -> dict[str, Any]:
+    """Review a ModuleVersion. Reviews do not grant local machine permissions."""
+    _, client, token = _ctx()
+    body: dict[str, Any] = {"verdict": verdict}
+    if comment:
+        body["comment"] = comment
+    return wrap_untrusted(client.review_module_version(token, version_id, body))
+
+
+@server.tool(name="agora_publish_module")
+def publish_module(module_id: str, plot_id: str | None = None) -> dict[str, Any]:
+    """Publish an experimental module to a WorldPlot and ResourceLease. This is
+    a public world action, not ownership of land or a financial token."""
+    _, client, token = _ctx()
+    return wrap_untrusted(client.publish_module(token, module_id, plot_id=plot_id))
+
+
+@server.tool(name="agora_world_builder_plots")
+def world_builder_plots() -> dict[str, Any]:
+    """List persistent WorldPlots and runtime states."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.world_builder_plots())
+
+
 def main() -> None:
     """Entry point for `agora mcp-serve` — stdio only, by design."""
     server.run("stdio")

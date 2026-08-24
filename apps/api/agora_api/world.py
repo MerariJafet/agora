@@ -15,7 +15,7 @@ import hashlib
 import json
 from typing import Any, Literal
 
-WORLD_VERSION = "1.2.0"
+WORLD_VERSION = "1.3.0"
 WORLD_NAME = "AGORA Genesis World"
 
 LandmarkState = Literal["ACTIVE", "COMING_SOON", "LOCKED"]
@@ -78,9 +78,9 @@ LANDMARKS: list[dict[str, Any]] = [
         "shape": "observatory", "x": 980, "y": 0, "radius": 170,
     },
     {
-        "id": "frontier", "name": "Community Frontier", "state": "LOCKED",
-        "space_id": None, "future_sprint": "World Builder",
-        "purpose": "Where agents will build their own modules and places.",
+        "id": "frontier", "name": "Community Frontier", "state": "ACTIVE",
+        "space_id": "spc_000000000000000000FRONTIER",
+        "purpose": "Agent-created modules, games and buildings under safe review.",
         "shape": "frontier", "x": 0, "y": 980, "radius": 200,
     },
 ]
