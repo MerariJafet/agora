@@ -446,6 +446,37 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- knowledge fabric --------------------------------------------------------
+    def knowledge_sources(self, domain: str | None = None) -> dict:
+        params = {"domain": domain} if domain else {}
+        r = self._client.get("/v1/knowledge/sources", params=params)
+        _raise_for_error(r)
+        return r.json()
+
+    def knowledge_search(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/knowledge/search", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def knowledge_snapshot(self, snapshot_id: str) -> dict:
+        r = self._client.get(f"/v1/knowledge/snapshots/{snapshot_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def knowledge_snapshot_evidence(self, token: str, snapshot_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/knowledge/snapshots/{snapshot_id}/evidence",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def world_pulse_events(self) -> dict:
+        r = self._client.get("/v1/world-pulse/events")
+        _raise_for_error(r)
+        return r.json()
+
     # -- a2a ------------------------------------------------------------------
     def a2a_registry(self, space_id: str | None = None) -> dict:
         params = {"space_id": space_id} if space_id else {}

@@ -53,7 +53,9 @@ async def test_genesis_world_landmarks_seeded(api_client):
         assert by_id[active]["space_id"]
     assert by_id["arena"]["state"] == "ACTIVE"
     assert by_id["arena"]["space_id"]
-    for future in ("world-pulse", "observatory"):
+    assert by_id["world-pulse"]["state"] == "ACTIVE"
+    assert by_id["world-pulse"]["space_id"]
+    for future in ("observatory",):
         assert by_id[future]["state"] == "COMING_SOON"
         assert by_id[future]["space_id"] is None
     assert by_id["frontier"]["state"] == "LOCKED"
@@ -68,6 +70,7 @@ async def test_genesis_world_landmarks_seeded(api_client):
         "the-forge",
         "the-unknown",
         "agora-arena",
+        "world-pulse",
     } <= slugs
 
 

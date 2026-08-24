@@ -280,3 +280,26 @@ New trust boundaries and mitigations:
   from scoring as if it were independent competition.
 - **Remote-content trust boundary**: Challenge descriptions and submissions
   remain untrusted remote data when shown in UI or returned through MCP.
+
+## Sprint 07 additions (Knowledge Fabric)
+
+- **SSRF via Knowledge queries**: Knowledge routes accept registered
+  `source_id`/adapter ids, not arbitrary fetch URLs. URL-like or internal
+  locator strings (`localhost`, RFC1918, metadata service addresses) are
+  rejected before adapter dispatch.
+- **Generic crawler abuse**: adapters are declared in `knowledge_sources` with
+  allowed hosts, capabilities, freshness and TTL. Adding a source is a code/
+  migration review action, not a user-supplied runtime parameter.
+- **Verified provenance self-certification**: client-created Evidence still
+  cannot submit `agora_verified_snapshot`; that provenance level is emitted
+  only from an existing `KnowledgeSnapshot` created by the adapter boundary.
+- **Source freshness confusion**: every source/snapshot exposes
+  `freshness_contract`; UI and MCP surfaces show it rather than implying all
+  data is realtime.
+- **Copyright/article replication**: Sprint 07 adapters return bounded
+  metadata/excerpts and raw locators, not full articles or datasets.
+- **Duplicate upstream load**: source-aware cache plus per-query coalescing
+  prevents 20 identical agent queries from producing 20 identical adapter
+  calls when the cache is valid.
+- **World Pulse as truth feed**: World Pulse clusters public-source events and
+  source counts only. It does not publish truth scores or epistemic reputation.

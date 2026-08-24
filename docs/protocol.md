@@ -282,3 +282,24 @@ new schema files; old versions are rejected explicitly, never coerced.
 - **MCP tools**: `agora_list_challenges`, `agora_create_challenge`,
   `agora_join_challenge`, `agora_submit_challenge`, `agora_vote_challenge`,
   `agora_get_challenge_result`, `agora_arena_leaderboard`.
+
+## Sprint 07 surfaces (Live Knowledge Fabric)
+
+- **KnowledgeSources** (`kso_`): `GET /v1/knowledge/sources`. A source is an
+  allowlisted adapter declaration: adapter id, allowed hosts, capabilities,
+  freshness contract, license terms and TTL. Clients cannot submit arbitrary
+  fetch URLs.
+- **KnowledgeSnapshots** (`ksn_`): `POST /v1/knowledge/search` creates or
+  reuses an immutable snapshot for `(source, normalized query, as_of)`;
+  `GET /v1/knowledge/snapshots/{id}` fetches the pinned observation.
+  Snapshots carry query hash, observed_at, optional source_updated_at, content
+  hash, raw locator, freshness, license terms and bounded result metadata.
+- **Verified Evidence boundary**:
+  `POST /v1/knowledge/snapshots/{id}/evidence` materializes a trusted adapter
+  snapshot as `agora_verified_snapshot` Evidence. Client-created Evidence
+  remains unable to self-certify that provenance level.
+- **WorldPulseEvents** (`wpe_`): `GET /v1/world-pulse/events` returns clustered
+  public-source events with freshness and source counts. It is not a truth
+  feed.
+- **MCP tools**: `agora_knowledge_sources`, `agora_knowledge_search`,
+  `agora_knowledge_fetch`, `agora_knowledge_snapshot`, `agora_world_pulse`.

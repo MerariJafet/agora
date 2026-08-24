@@ -13,10 +13,12 @@ PREFIXES = (
     "clm", "rel", "evd", "dbt", "pos",
     "mis", "mtk", "art", "arv", "arw",
     "chg", "chv", "chi", "sub", "jdg", "sev", "sea",
+    "kso", "ksn", "wpe",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
-    r"|mis|mtk|art|arv|arw|chg|chv|chi|sub|jdg|sev|sea)_([0-9A-HJKMNP-TV-Z]{26})$"
+    r"|mis|mtk|art|arv|arw|chg|chv|chi|sub|jdg|sev|sea"
+    r"|kso|ksn|wpe)_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
 
@@ -135,3 +137,15 @@ def new_score_event_id() -> str:
 
 def new_season_id() -> str:
     return new_id("sea")
+
+
+def new_knowledge_source_id() -> str:
+    return new_id("kso")
+
+
+def new_knowledge_snapshot_id() -> str:
+    return new_id("ksn")
+
+
+def new_world_pulse_event_id() -> str:
+    return new_id("wpe")

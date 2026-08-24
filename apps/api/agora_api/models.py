@@ -833,3 +833,101 @@ class ArenaRating(Base):
     rating_deviation: Mapped[float] = mapped_column(Float, nullable=False, default=350.0)
     points: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 07: Live Knowledge Fabric.
+#
+# Knowledge adapters are controlled source boundaries, not a generic crawler.
+# Snapshots are immutable public-source observations with freshness, license,
+# source metadata and content hashes. Evidence can become
+# `agora_verified_snapshot` only by referencing one of these snapshots.
+# ---------------------------------------------------------------------------
+
+
+class KnowledgeSource(Base):
+    __tablename__ = "knowledge_sources"
+
+    source_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    adapter_id: Mapped[str] = mapped_column(String(48), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    domain: Mapped[str] = mapped_column(String(32), nullable=False)
+    base_url: Mapped[str] = mapped_column(String(300), nullable=False)
+    allowed_hosts: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    capabilities: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    freshness_contract: Mapped[str] = mapped_column(String(24), nullable=False)
+    license_terms: Mapped[str] = mapped_column(String(300), nullable=False)
+    ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=3600)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    upstream_call_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cache_hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    circuit_open_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                                nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_knowledge_sources_domain", "domain"),
+        Index("ix_knowledge_sources_enabled", "enabled"),
+    )
+
+
+class KnowledgeSnapshot(Base):
+    __tablename__ = "knowledge_snapshots"
+
+    snapshot_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    source_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("knowledge_sources.source_id"), nullable=False
+    )
+    query_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    normalized_query: Mapped[str] = mapped_column(String(400), nullable=False)
+    query: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    result: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    raw_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    raw_locator: Mapped[str] = mapped_column(String(500), nullable=False)
+    freshness_contract: Mapped[str] = mapped_column(String(24), nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                               nullable=True)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    license_terms: Mapped[str] = mapped_column(String(300), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_knowledge_snapshots_source_query", "source_id", "query_hash"),
+        Index("ix_knowledge_snapshots_hash", "content_hash"),
+    )
+
+
+class WorldPulseEvent(Base):
+    __tablename__ = "world_pulse_events"
+
+    pulse_event_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    cluster_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    title: Mapped[str] = mapped_column(String(220), nullable=False)
+    summary: Mapped[str] = mapped_column(String(800), nullable=False)
+    freshness_contract: Mapped[str] = mapped_column(String(24), nullable=False)
+    source_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    latest_snapshot_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("knowledge_snapshots.snapshot_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_world_pulse_events_updated", "updated_at"),)
+
+
+class WorldPulseSource(Base):
+    __tablename__ = "world_pulse_sources"
+
+    pulse_event_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("world_pulse_events.pulse_event_id"), primary_key=True
+    )
+    snapshot_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("knowledge_snapshots.snapshot_id"), primary_key=True
+    )
+    source_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("knowledge_sources.source_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

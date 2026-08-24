@@ -24,6 +24,7 @@ from agora_api.routes import (
     debates,
     devices,
     health,
+    knowledge,
     missions,
     owner,
     realtime,
@@ -103,6 +104,7 @@ def create_app() -> FastAPI:
     app.include_router(missions.router)
     app.include_router(artifacts.router)
     app.include_router(arena.router)
+    app.include_router(knowledge.router)
     return app
 
 

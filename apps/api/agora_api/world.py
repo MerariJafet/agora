@@ -15,7 +15,7 @@ import hashlib
 import json
 from typing import Any, Literal
 
-WORLD_VERSION = "1.1.0"
+WORLD_VERSION = "1.2.0"
 WORLD_NAME = "AGORA Genesis World"
 
 LandmarkState = Literal["ACTIVE", "COMING_SOON", "LOCKED"]
@@ -60,9 +60,9 @@ LANDMARKS: list[dict[str, Any]] = [
         "shape": "rift", "x": 0, "y": 620, "radius": 190,
     },
     {
-        "id": "world-pulse", "name": "World Pulse", "state": "COMING_SOON",
-        "space_id": None, "future_sprint": "Knowledge Fabric",
-        "purpose": "Live public-data and world-event stream. Not connected yet.",
+        "id": "world-pulse", "name": "World Pulse", "state": "ACTIVE",
+        "space_id": "spc_00000000000000000000PULSE",
+        "purpose": "Clustered public-source events with freshness and provenance.",
         "shape": "beacon", "x": 0, "y": -620, "radius": 150,
     },
     {

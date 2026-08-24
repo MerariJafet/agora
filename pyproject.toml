@@ -4,6 +4,7 @@ testpaths = ["tests"]
 markers = [
     "integration: requires local docker infra (postgres/redis/nats)",
     "e2e: boots the full stack",
+    "security: security invariant tests",
 ]
 
 [tool.ruff]

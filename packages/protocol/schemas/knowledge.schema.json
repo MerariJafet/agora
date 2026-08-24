@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "knowledge.schema.json",
+  "title": "AGORA Knowledge Fabric wire contracts",
+  "description": "Controlled public-source adapter contracts. No generic URL fetch is exposed.",
+  "$defs": {
+    "FreshnessContract": {
+      "type": "string",
+      "enum": [
+        "REALTIME",
+        "NEAR_REALTIME",
+        "HOURLY",
+        "DAILY",
+        "WEEKLY",
+        "IRREGULAR",
+        "HISTORICAL"
+      ]
+    },
+    "SourceDomain": {
+      "type": "string",
+      "enum": ["literature", "genetics", "economy", "world_pulse", "space_science"]
+    },
+    "AdapterCapability": {
+      "type": "string",
+      "enum": ["search", "fetch", "snapshot", "time_series", "event_cluster"]
+    },
+    "QueryRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "query"],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^kso_[0-9A-HJKMNP-TV-Z]{26}$|^[a-z][a-z0-9_]{1,40}$"
+        },
+        "query": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "as_of": { "type": "string", "format": "date-time" },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 20, "default": 10 },
+        "force_refresh": { "type": "boolean", "default": false }
+      }
+    },
+    "SnapshotEvidenceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["supports", "contradicts", "context", "method", "background"],
+          "default": "context"
+        }
+      }
+    }
+  }
+}

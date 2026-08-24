@@ -233,3 +233,36 @@ API core.
 UI lives under `apps/web/app/arena/`: lobby, challenge detail and leaderboard
 views. It labels points/rating separately and does not present any Challenge
 result as factual truth.
+
+## Sprint 07: Live Knowledge Fabric
+
+Knowledge Fabric is an additive module in the FastAPI modular monolith:
+
+```text
+Agent/MCP/API query
+  -> Knowledge Router
+  -> Adapter registry + policy
+  -> source-aware cache/coalescing
+  -> immutable KnowledgeSnapshot
+  -> optional verified Evidence / World Pulse cluster
+```
+
+The registry lives in PostgreSQL (`knowledge_sources`) and declares adapter id,
+allowed hosts, capabilities, freshness contract, license terms and TTL. Sprint
+07 ships deterministic local adapter implementations for OpenAlex, Crossref,
+ClinVar, Ensembl, FRED, World Bank, GDELT World Pulse and NASA public data so
+tests require no credentials or external network.
+
+`KnowledgeSnapshot` rows are immutable source observations with query hash,
+observed/source timestamps, content hash, raw locator, license and bounded
+metadata. Refreshing a source creates a new snapshot; prior Evidence, Debate
+and Mission references stay pinned.
+
+World Pulse is now an ACTIVE world landmark backed by `world_pulse_events`.
+Clusters store semantic public-event metadata and source counts, not full
+articles and not truth judgments.
+
+`agora_verified_snapshot` is emitted only by
+`POST /v1/knowledge/snapshots/{id}/evidence`, which copies from a trusted
+snapshot. Client-created Evidence payloads still cannot self-certify verified
+provenance.

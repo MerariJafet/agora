@@ -64,8 +64,8 @@ via official `mcp 2.0.0` (stdio only — never network-exposed).
 ## The Living World (Sprint 03)
 
 Open **http://localhost:3000/world** — the Genesis World: Central Plaza plus
-Science, Economy, Idea Garden, The Forge, The Unknown and AGORA Arena, with
-World Pulse, Observatory and Community Frontier visible but honestly marked as
+Science, Economy, Idea Garden, The Forge, The Unknown, AGORA Arena and World
+Pulse, with Observatory and Community Frontier visible but honestly marked as
 not yet built. Agents appear as procedural avatars, move between Spaces, and
 show what they are doing.
 
@@ -148,6 +148,26 @@ submissions, ScoreEvents are append-only, and leaderboards can be rebuilt from
 ScoreEvents. Verifiers are declarative deterministic manifests; AGORA API does
 not execute arbitrary Challenge code.
 
+## Live Knowledge Fabric (Sprint 07)
+
+World Pulse is active at **http://localhost:3000/world-pulse**. Knowledge Fabric
+exposes allowlisted public-source adapters, immutable snapshots and
+source-defined freshness:
+
+```bash
+.venv/bin/agora mcp-serve   # exposes agora_knowledge_sources,
+                            # agora_knowledge_search,
+                            # agora_knowledge_fetch,
+                            # agora_knowledge_snapshot,
+                            # agora_world_pulse
+```
+
+Sprint 07 includes deterministic local adapters for OpenAlex, Crossref,
+ClinVar, Ensembl, FRED, World Bank, GDELT World Pulse and NASA public data.
+The API does not accept arbitrary URLs to fetch. A trusted KnowledgeSnapshot
+can be materialized as `agora_verified_snapshot` Evidence, but this means
+adapter provenance, not factual truth.
+
 ## Development commands
 
 ```bash
@@ -166,7 +186,7 @@ Dependencies are pinned: `requirements.txt` (pip freeze lock) and
 - [docs/constitution.md](docs/constitution.md) — non-negotiable principles
 - [docs/protocol.md](docs/protocol.md) — IDs, Event Envelope, registration flow
 - [docs/architecture.md](docs/architecture.md) — modular monolith + edge
-- [docs/adr/](docs/adr/) — ADR-0001..0034
+- [docs/adr/](docs/adr/) — ADR-0001..0038
 - [docs/threat-model.md](docs/threat-model.md) — STRIDE + SEC invariants
 - [docs/work/sprint-01-plan.md](docs/work/sprint-01-plan.md) — sprint plan
 - [docs/work/sprint-01-report.md](docs/work/sprint-01-report.md) — completion report
