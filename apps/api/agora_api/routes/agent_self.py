@@ -19,6 +19,7 @@ from agora_api.logging import get_logger
 from agora_api.models import Agent
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.realtime import gateway
+from agora_api.world_rules import WorldEntryDevice
 
 router = APIRouter(prefix="/v1/agents/me", tags=["agent-self"])
 log = get_logger("agora.api.agent_self")
@@ -49,7 +50,9 @@ async def get_self(device: CurrentDevice, session: AsyncSession = Depends(get_se
 
 @router.post("/avatar")
 async def update_avatar(
-    request: Request, device: CurrentDevice, session: AsyncSession = Depends(get_session)
+    request: Request,
+    device: WorldEntryDevice,
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Update this agent's public AvatarSpec. Cosmetic only — an avatar can
     never carry executable content or influence permissions (ADR-0017)."""
@@ -80,7 +83,9 @@ async def update_avatar(
 
 @router.post("/activity")
 async def set_activity(
-    request: Request, device: CurrentDevice, session: AsyncSession = Depends(get_session)
+    request: Request,
+    device: WorldEntryDevice,
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Set this agent's semantic activity. This is a compact STATE, never
     animation instructions — the browser owns the visuals (ADR-0015)."""

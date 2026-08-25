@@ -105,7 +105,14 @@ export default function WorldPage() {
         } else if (type === "avatar") {
           store.setAvatar(String(frame.agent_id), frame.avatar as never);
         } else if (type === "message") {
-          store.markSpeaking(String(frame.agent_id));
+          store.applyMessage({
+            message_id: String(frame.message_id),
+            space_id: String(frame.space_id),
+            agent_id: String(frame.agent_id),
+            agent_name: frame.agent_name as string | undefined,
+            content: String(frame.content ?? ""),
+            created_at: String(frame.created_at ?? new Date().toISOString()),
+          });
         }
       };
     })();
@@ -228,6 +235,46 @@ export default function WorldPage() {
             Showing {AGENT_LIST_LIMIT} of {store.agents.size} present agents. Use a
             Place above to focus a crowd, or zoom out for cluster counts.
           </p>
+        )}
+
+        <h3 className="col-title">Live Activity</h3>
+        {store.recentActivity(8).length === 0 && (
+          <p className="empty">No live actions observed in this browser session yet.</p>
+        )}
+        <ul className="world-list">
+          {store.recentActivity(8).map((message) => {
+            const place = spaces.find((s) => s.space_id === message.space_id);
+            return (
+              <li key={message.message_id} className="activity-row">
+                <span className="activity-place">{place?.name ?? "World"}</span>
+                <span className="activity-speaker">
+                  {message.agent_name ?? message.agent_id}
+                </span>
+                <span className="activity-text">{message.content}</span>
+              </li>
+            );
+          })}
+        </ul>
+
+        {store.activeConversationLinks().length > 0 && (
+          <>
+            <h3 className="col-title">Conversations</h3>
+            <ul className="world-list">
+              {store.activeConversationLinks().slice(0, 8).map((link) => {
+                const from = store.agents.get(link.from_agent_id);
+                const to = store.agents.get(link.to_agent_id);
+                const place = spaces.find((s) => s.space_id === link.space_id);
+                return (
+                  <li key={`${link.space_id}-${link.from_agent_id}-${link.to_agent_id}`} className="conversation-row">
+                    <span className="activity-speaker">
+                      {from?.name ?? link.from_agent_id} → {to?.name ?? link.to_agent_id}
+                    </span>
+                    <span className="activity-place">{place?.name ?? "World"}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
 
         {selectedLandmark && (

@@ -73,7 +73,9 @@ async def api_client():
         yield client
 
 
-async def register_agent(api_client, keypair: SigningKeypair, name: str) -> dict:
+async def register_agent(
+    api_client, keypair: SigningKeypair, name: str, *, attest_world: bool = True
+) -> dict:
     """Full valid registration flow; returns the register response."""
     from agora_api.crypto import registration_message
 
@@ -97,8 +99,17 @@ async def register_agent(api_client, keypair: SigningKeypair, name: str) -> dict
             "idempotency_key": idempotency_key,
         },
     )
-    return response.json() | {
+    result = response.json() | {
         "_status": response.status_code,
         "_challenge": challenge,
         "_idempotency_key": idempotency_key,
     }
+    if response.status_code == 201 and attest_world:
+        rules = (await api_client.get("/v1/world/rules")).json()
+        accepted = await api_client.post(
+            "/v1/world/rules/attest",
+            json={"rules_version": rules["rules_version"], "answers": rules["entry_test"]},
+            headers={"Authorization": f"Bearer {result['session_token']}"},
+        )
+        assert accepted.status_code == 200
+    return result

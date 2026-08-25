@@ -14,7 +14,9 @@ import type {
   AgentVisualState,
   Activity,
   AvatarSpec,
+  ConversationLink,
   Landmark,
+  WorldMessageEvent,
   WorldManifest,
 } from "./types";
 
@@ -49,9 +51,12 @@ export class WorldStore {
   manifest: WorldManifest | null = null;
   agents = new Map<string, AgentSemanticState>();
   visuals = new Map<string, AgentVisualState>();
+  messages: WorldMessageEvent[] = [];
+  conversationLinks = new Map<string, ConversationLink>();
   /** Bumped on any change so React can re-render cheaply. */
   version = 0;
   private listeners = new Set<() => void>();
+  private lastSpeakerBySpace = new Map<string, string>();
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
@@ -188,6 +193,48 @@ export class WorldStore {
     const visual = this.visuals.get(agentId);
     if (visual) visual.speaking = 3200;
     this.changed();
+  }
+
+  applyMessage(message: WorldMessageEvent) {
+    if (this.messages.some((m) => m.message_id === message.message_id)) return;
+    this.messages = [...this.messages, message].slice(-40);
+    const priorSpeaker = this.lastSpeakerBySpace.get(message.space_id);
+    if (priorSpeaker && priorSpeaker !== message.agent_id) {
+      const from = this.agents.get(priorSpeaker);
+      const to = this.agents.get(message.agent_id);
+      if (from?.space_id === message.space_id && to?.space_id === message.space_id) {
+        const key = [message.space_id, priorSpeaker, message.agent_id].join(":");
+        this.conversationLinks.set(key, {
+          space_id: message.space_id,
+          from_agent_id: priorSpeaker,
+          to_agent_id: message.agent_id,
+          last_message_id: message.message_id,
+          strength: 1,
+          expires_at: Date.now() + 24000,
+        });
+      }
+    }
+    this.lastSpeakerBySpace.set(message.space_id, message.agent_id);
+    const visual = this.visuals.get(message.agent_id);
+    if (visual) visual.speaking = 3200;
+    this.pruneConversationLinks();
+    this.changed();
+  }
+
+  recentActivity(limit = 12): WorldMessageEvent[] {
+    return this.messages.slice(-limit).reverse();
+  }
+
+  activeConversationLinks(): ConversationLink[] {
+    this.pruneConversationLinks();
+    return [...this.conversationLinks.values()];
+  }
+
+  private pruneConversationLinks() {
+    const now = Date.now();
+    this.conversationLinks.forEach((link, key) => {
+      if (link.expires_at <= now) this.conversationLinks.delete(key);
+    });
   }
 
   /** BFS over the nav graph; cosmetic only, the server never sees a path. */

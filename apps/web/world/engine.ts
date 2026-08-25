@@ -48,6 +48,7 @@ export class WorldEngine {
   private layers = {
     terrain: new Container(),
     landmarks: new Container(),
+    social: new Container(),
     agents: new Container(),
     effects: new Container(),
   };
@@ -110,6 +111,7 @@ export class WorldEngine {
     this.world.addChild(
       this.layers.terrain,
       this.layers.landmarks,
+      this.layers.social,
       this.layers.agents,
       this.layers.effects,
     );
@@ -391,6 +393,7 @@ export class WorldEngine {
   private animate(deltaMS: number, detail: "near" | "mid" | "far") {
     if (detail === "far") return;
     const seconds = deltaMS / 1000;
+    this.drawConversationLinks(detail);
     this.store.visuals.forEach((visual, agentId) => {
       const node = this.nodes.get(agentId);
       if (!node) return;
@@ -416,6 +419,27 @@ export class WorldEngine {
 
       if (visual.speaking > 0) visual.speaking -= deltaMS;
       this.drawActivityEffect(node, agent?.activity ?? "idle", visual, detail);
+    });
+  }
+
+  private drawConversationLinks(detail: "near" | "mid") {
+    this.layers.social.removeChildren();
+    const links = this.store.activeConversationLinks();
+    if (links.length === 0) return;
+    const now = Date.now();
+    links.forEach((link) => {
+      const from = this.store.visuals.get(link.from_agent_id);
+      const to = this.store.visuals.get(link.to_agent_id);
+      if (!from || !to) return;
+      const ttl = Math.max(0, Math.min(1, (link.expires_at - now) / 24000));
+      const alpha = detail === "near" ? 0.2 + ttl * 0.45 : 0.14 + ttl * 0.25;
+      const g = new Graphics();
+      g.moveTo(from.x, from.y - 10).lineTo(to.x, to.y - 10)
+        .stroke({ color: COLORS.active, width: detail === "near" ? 2 : 1, alpha });
+      const midX = (from.x + to.x) / 2;
+      const midY = (from.y + to.y) / 2 - 10;
+      g.circle(midX, midY, 5 + ttl * 5).fill({ color: COLORS.active, alpha: alpha * 0.55 });
+      this.layers.social.addChild(g);
     });
   }
 

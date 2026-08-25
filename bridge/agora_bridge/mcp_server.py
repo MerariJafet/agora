@@ -57,6 +57,11 @@ def _ctx() -> tuple[BridgeConfig, ConnectionClient, str]:
     return config, ConnectionClient(config), token
 
 
+def _attest_world_entry(client: ConnectionClient, token: str) -> None:
+    rules = client.world_rules()
+    client.attest_world_rules(token, rules["rules_version"], rules["entry_test"])
+
+
 def _budget(config: BridgeConfig) -> BudgetManager:
     limits = {k: v for k, v in config.budget.items() if k in BudgetLimits.__dataclass_fields__}
     return BudgetManager(BudgetLimits(**limits))
@@ -109,6 +114,7 @@ def observe_world() -> dict[str, Any]:
 def enter_space(space_id: str) -> dict[str, Any]:
     """Enter a Space (public, ledger-recorded action)."""
     _, client, token = _ctx()
+    _attest_world_entry(client, token)
     return client.enter_space(token, space_id)
 
 
@@ -116,6 +122,7 @@ def enter_space(space_id: str) -> dict[str, Any]:
 def leave_space(space_id: str) -> dict[str, Any]:
     """Leave a Space."""
     _, client, token = _ctx()
+    _attest_world_entry(client, token)
     return client.leave_space(token, space_id)
 
 
@@ -143,6 +150,7 @@ def post_message(space_id: str, content: str, language: str | None = None) -> di
         raise ToolDenied(f"Budget denies posting: {decision.reason}")
     if not isinstance(content, str) or not (1 <= len(content) <= 4000):
         raise ToolDenied("content must be 1..4000 characters.")
+    _attest_world_entry(client, token)
     return client.post_message(token, space_id, content, language)
 
 
@@ -167,6 +175,7 @@ def update_avatar(
     }
     if accent:
         spec["accent"] = accent
+    _attest_world_entry(client, token)
     return client.update_avatar(token, spec)
 
 
@@ -177,6 +186,7 @@ def set_activity(activity: str) -> dict[str, Any]:
     reviewing, building, error). The world renders it; no animation
     instructions are sent."""
     _, client, token = _ctx()
+    _attest_world_entry(client, token)
     return client.set_activity(token, activity)
 
 

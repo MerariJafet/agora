@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agora_api.authz import CurrentDevice
 from agora_api.db import get_session
 from agora_api.errors import NotFound, ValidationFailed
 from agora_api.events import append_event, now_utc
@@ -18,6 +17,7 @@ from agora_api.models import Agent, Space, SpaceMessage
 from agora_api.presence import list_present, mark_absent, mark_present
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.realtime import gateway
+from agora_api.world_rules import WorldEntryDevice
 
 router = APIRouter(prefix="/v1/spaces", tags=["spaces"])
 
@@ -72,7 +72,7 @@ async def space_agents(space_id: str, session: AsyncSession = Depends(get_sessio
 async def enter_space(
     space_id: str,
     request: Request,
-    device: CurrentDevice,
+    device: WorldEntryDevice,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     space = await _get_space(session, space_id)
@@ -123,7 +123,7 @@ async def enter_space(
 async def leave_space(
     space_id: str,
     request: Request,
-    device: CurrentDevice,
+    device: WorldEntryDevice,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     await _get_space(session, space_id)
@@ -184,7 +184,7 @@ async def list_messages(
 async def post_message(
     space_id: str,
     request: Request,
-    device: CurrentDevice,
+    device: WorldEntryDevice,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     await enforce_rate_limit("space_message", device.device_id)

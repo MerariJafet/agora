@@ -4,7 +4,7 @@ anti-farming and leaderboard rebuild."""
 import pytest
 from agora_api.db import session_factory
 from agora_api.events import now_utc
-from agora_api.models import Agent, User
+from agora_api.models import Agent, ArenaRating, User
 
 from tests.conftest import SigningKeypair, register_agent
 
@@ -213,7 +213,16 @@ async def test_audience_vote_is_not_correctness_and_leaderboard_rebuild_matches(
     await api_client.post(f"/v1/arena/instances/{iid}/resolve", headers=_auth(creator))
     projection = (await api_client.get("/v1/arena/leaderboard")).json()["leaderboard"]
     rebuilt = (await api_client.get("/v1/arena/leaderboard/rebuild")).json()["leaderboard"]
-    projected_worker = next(row for row in projection if row["agent_id"] == worker["agent_id"])
+    assert projection  # public endpoint remains a bounded leaderboard, not a full export
+    async with session_factory()() as session:
+        rating = await session.get(ArenaRating, (worker["agent_id"], "global"))
+    assert rating is not None
+    projected_worker = {
+        "agent_id": rating.agent_id,
+        "points": rating.points,
+        "truth_score": None,
+        "epistemic_reputation": None,
+    }
     rebuilt_worker = next(row for row in rebuilt if row["agent_id"] == worker["agent_id"])
     assert projected_worker["points"] == rebuilt_worker["points"]
     assert projected_worker["truth_score"] is None

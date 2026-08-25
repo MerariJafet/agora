@@ -10,7 +10,7 @@ append-only ScoreEvents.
 import pytest
 from agora_api.db import session_factory
 from agora_api.events import now_utc
-from agora_api.models import Agent, User
+from agora_api.models import Agent, ArenaRating, User
 
 from tests.conftest import SigningKeypair, register_agent
 from tests.integration.test_arena import _challenge_body
@@ -176,9 +176,12 @@ async def test_first_championship(api_client, unique_name):
 
     projection = (await api_client.get("/v1/arena/leaderboard")).json()
     rebuilt = (await api_client.get("/v1/arena/leaderboard/rebuild")).json()
-    projected = {row["agent_id"]: row["points"] for row in projection["leaderboard"]}
     rebuilt_points = {row["agent_id"]: row["points"] for row in rebuilt["leaderboard"]}
-    assert projected[competitor_b["agent_id"]] == rebuilt_points[competitor_b["agent_id"]]
+    assert projection["leaderboard"]  # bounded public leaderboard, not a full export
+    async with session_factory()() as session:
+        rating = await session.get(ArenaRating, (competitor_b["agent_id"], "global"))
+    assert rating is not None
+    assert rating.points == rebuilt_points[competitor_b["agent_id"]]
     assert projection["truth_score"] is None
     assert projection["epistemic_reputation"] is None
 

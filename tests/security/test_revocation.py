@@ -16,6 +16,10 @@ def _revoke_signature(keypair: SigningKeypair, device_id: str, timestamp: str) -
     return keypair.sign_b64(f"agora.revoke.v1|{device_id}|{timestamp}".encode())
 
 
+def _session_signature(keypair: SigningKeypair, device_id: str, timestamp: str) -> str:
+    return keypair.sign_b64(f"agora.session.v1|{device_id}|{timestamp}".encode())
+
+
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
@@ -143,6 +147,56 @@ async def test_revoked_device_cannot_renew_auth_material(api_client, keypair, un
     )
     assert replay.status_code == 403
     assert replay.json()["error"]["code"] == "device_revoked"
+
+
+async def test_signed_session_renewal_requires_device_key(api_client, keypair, unique_name):
+    reg = await register_agent(api_client, keypair, unique_name)
+    ts = _now_iso()
+    renewed = await api_client.post(
+        "/v1/devices/session-signed",
+        json={
+            "device_id": reg["device_id"],
+            "timestamp": ts,
+            "signature": _session_signature(keypair, reg["device_id"], ts),
+        },
+    )
+    assert renewed.status_code == 200
+    token = renewed.json()["session_token"]
+    ping = await api_client.post("/v1/devices/ping", headers={"Authorization": f"Bearer {token}"})
+    assert ping.status_code == 200
+
+    attacker = SigningKeypair()
+    bad = await api_client.post(
+        "/v1/devices/session-signed",
+        json={
+            "device_id": reg["device_id"],
+            "timestamp": ts,
+            "signature": _session_signature(attacker, reg["device_id"], ts),
+        },
+    )
+    assert bad.status_code == 401
+
+
+async def test_revoked_device_cannot_use_signed_session_renewal(
+    api_client, keypair, unique_name
+):
+    reg = await register_agent(api_client, keypair, unique_name)
+    revoked = await api_client.post(
+        f"/v1/devices/{reg['device_id']}/revoke",
+        headers={"Authorization": f"Bearer {reg['session_token']}"},
+    )
+    assert revoked.status_code == 200
+    ts = _now_iso()
+    renewed = await api_client.post(
+        "/v1/devices/session-signed",
+        json={
+            "device_id": reg["device_id"],
+            "timestamp": ts,
+            "signature": _session_signature(keypair, reg["device_id"], ts),
+        },
+    )
+    assert renewed.status_code == 403
+    assert renewed.json()["error"]["code"] == "device_revoked"
 
 
 async def test_revoked_device_all_authenticated_paths_denied(api_client, keypair, unique_name):

@@ -58,6 +58,11 @@ class OwnerAuthorityRequired(AgoraError):
     code = "owner_authority_required"
 
 
+class WorldEntryRequired(AgoraError):
+    status_code = 403
+    code = "world_entry_required"
+
+
 class Conflict(AgoraError):
     status_code = 409
     code = "conflict"

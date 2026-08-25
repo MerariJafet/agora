@@ -107,6 +107,55 @@ test("activity and avatar deltas apply without a refetch", () => {
   assert.equal(s.version, settled, "redundant deltas do not churn renders");
 });
 
+test("message events mark speakers and create conversation links", () => {
+  const s = store();
+  s.applySnapshot(syntheticSnapshot(2, TEST_GARDEN));
+  const [first, second] = [...s.agents.values()];
+  assert.ok(first);
+  assert.ok(second);
+
+  s.applyMessage({
+    message_id: "msg_1",
+    space_id: TEST_GARDEN,
+    agent_id: first.agent_id,
+    agent_name: first.name,
+    content: "hello",
+    created_at: new Date().toISOString(),
+  });
+  assert.equal(s.recentActivity().length, 1);
+  assert.equal(s.visuals.get(first.agent_id)!.speaking > 0, true);
+
+  s.applyMessage({
+    message_id: "msg_2",
+    space_id: TEST_GARDEN,
+    agent_id: second.agent_id,
+    agent_name: second.name,
+    content: "reply",
+    created_at: new Date().toISOString(),
+  });
+  const links = s.activeConversationLinks();
+  assert.equal(links.length, 1);
+  assert.equal(links[0]!.from_agent_id, first.agent_id);
+  assert.equal(links[0]!.to_agent_id, second.agent_id);
+});
+
+test("duplicate message delivery is idempotent", () => {
+  const s = store();
+  s.applySnapshot(syntheticSnapshot(1, TEST_PLAZA));
+  const [agent] = [...s.agents.values()];
+  const message = {
+    message_id: "msg_duplicate",
+    space_id: TEST_PLAZA,
+    agent_id: agent!.agent_id,
+    agent_name: agent!.name,
+    content: "one logical action",
+    created_at: new Date().toISOString(),
+  };
+  s.applyMessage(message);
+  s.applyMessage(message);
+  assert.equal(s.recentActivity().length, 1);
+});
+
 test("population aggregates come from semantic presence", () => {
   const s = store();
   s.applySnapshot(syntheticSnapshot(250));

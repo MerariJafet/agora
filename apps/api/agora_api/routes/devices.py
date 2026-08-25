@@ -20,6 +20,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agora_api.auth import auth_provider
 from agora_api.authz import CurrentDevice
 from agora_api.boundary import validate_boundary
 from agora_api.crypto import verify_signature
@@ -33,6 +34,7 @@ router = APIRouter(prefix="/v1/devices", tags=["devices"])
 log = get_logger("agora.api.devices")
 
 REVOKE_CONTEXT = "agora.revoke.v1"
+SESSION_CONTEXT = "agora.session.v1"
 REVOKE_TIMESTAMP_WINDOW = timedelta(seconds=300)
 
 
@@ -69,6 +71,49 @@ async def device_ping(
     device.last_seen_at = now_utc()
     await session.commit()
     return {"device_id": device.device_id, "agent_id": device.agent_id, "status": device.status}
+
+
+@router.post("/session-signed")
+async def session_signed(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> dict:
+    """Renew short-lived auth by proving possession of the device key.
+
+    This is intentionally narrower than registration: it can only issue a
+    session for an already registered, non-revoked device whose public key is
+    in AGORA. The private key remains local.
+    """
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise SignatureInvalid("Expected JSON object.")
+    unknown = set(body) - {"device_id", "timestamp", "signature"}
+    if unknown:
+        raise SignatureInvalid("Unknown fields rejected.")
+    if not all(isinstance(body.get(k), str) for k in ("device_id", "timestamp", "signature")):
+        raise SignatureInvalid("Invalid signed session request.")
+
+    device = await session.get(Device, body["device_id"])
+    if device is None:
+        raise NotFound("Device not found.")
+    try:
+        ts = datetime.fromisoformat(body["timestamp"].replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise SignatureInvalid("Invalid timestamp.") from exc
+    if abs(datetime.now(UTC) - ts) > REVOKE_TIMESTAMP_WINDOW:
+        raise SignatureInvalid("Session timestamp outside acceptance window.")
+
+    message = f"{SESSION_CONTEXT}|{body['device_id']}|{body['timestamp']}".encode()
+    if not verify_signature(device.public_key, message, body["signature"]):
+        raise SignatureInvalid("Session signature verification failed.")
+
+    token, expires_at = await auth_provider.issue_session(session, device.device_id)
+    await session.commit()
+    return {
+        "device_id": device.device_id,
+        "agent_id": device.agent_id,
+        "session_token": token,
+        "session_expires_at": expires_at,
+    }
 
 
 @router.post("/revoke-signed")

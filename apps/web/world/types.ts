@@ -70,3 +70,21 @@ export interface AgentVisualState {
   phase: number;
   speaking: number; // countdown in ms for a speech indicator
 }
+
+export interface WorldMessageEvent {
+  message_id: string;
+  space_id: string;
+  agent_id: string;
+  agent_name?: string;
+  content: string;
+  created_at: string;
+}
+
+export interface ConversationLink {
+  space_id: string;
+  from_agent_id: string;
+  to_agent_id: string;
+  last_message_id: string;
+  strength: number;
+  expires_at: number;
+}

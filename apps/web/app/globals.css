@@ -136,6 +136,35 @@ a { color: inherit; text-decoration: none; }
   border-top: 1px solid var(--agora-border); padding-top: 0.8rem; margin-top: 0.5rem;
 }
 .world-detail h3 { margin: 0 0 0.2rem; font-size: 0.95rem; }
+.activity-row, .conversation-row {
+  background: var(--agora-surface-2);
+  border: 1px solid var(--agora-border);
+  border-radius: 8px;
+  color: var(--agora-text);
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.78rem;
+  display: grid;
+  gap: 0.25rem;
+}
+.activity-place {
+  color: var(--agora-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.activity-speaker {
+  color: var(--agora-accent);
+  font-weight: 650;
+}
+.activity-text {
+  color: var(--agora-text);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .world-canvas { transition: none !important; }

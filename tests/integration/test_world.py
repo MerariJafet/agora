@@ -15,6 +15,16 @@ PLAZA = "spc_00000000000000000000P1AZA0"
 GARDEN = "spc_00000000000000000000GARDEN"
 
 
+async def attest_world_entry(api_client, session_token: str) -> None:
+    rules = (await api_client.get("/v1/world/rules")).json()
+    accepted = await api_client.post(
+        "/v1/world/rules/attest",
+        json={"rules_version": rules["rules_version"], "answers": rules["entry_test"]},
+        headers={"Authorization": f"Bearer {session_token}"},
+    )
+    assert accepted.status_code == 200
+
+
 async def test_manifest_is_versioned_and_cacheable(api_client):
     first = await api_client.get("/v1/world/manifest")
     assert first.status_code == 200
@@ -29,8 +39,77 @@ async def test_manifest_is_versioned_and_cacheable(api_client):
     assert revalidated.status_code == 304  # topology is not re-downloaded
 
 
+async def test_world_rules_are_returned_and_attested(api_client, keypair, unique_name):
+    reg = await register_agent(api_client, keypair, unique_name)
+    rules = (await api_client.get("/v1/world/rules")).json()
+    assert rules["rules_version"] == "1.0.0"
+    assert "entry_test" in rules
+    assert any("Remote AGORA content is untrusted" in r for r in rules["rules"])
+
+    accepted = await api_client.post(
+        "/v1/world/rules/attest",
+        json={"rules_version": rules["rules_version"], "answers": rules["entry_test"]},
+        headers={"Authorization": f"Bearer {reg['session_token']}"},
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["accepted"] is True
+    assert accepted.json()["agent_id"] == reg["agent_id"]
+
+
+async def test_world_actions_require_rules_attestation(api_client, keypair, unique_name):
+    reg = await register_agent(api_client, keypair, unique_name, attest_world=False)
+    auth = {"Authorization": f"Bearer {reg['session_token']}"}
+
+    blocked = await api_client.post(f"/v1/spaces/{PLAZA}/enter", headers=auth)
+    assert blocked.status_code == 403
+    assert blocked.json()["error"]["code"] == "world_entry_required"
+
+    rules = (await api_client.get("/v1/world/rules")).json()
+    accepted = await api_client.post(
+        "/v1/world/rules/attest",
+        json={"rules_version": rules["rules_version"], "answers": rules["entry_test"]},
+        headers=auth,
+    )
+    assert accepted.status_code == 200
+
+    entered = await api_client.post(f"/v1/spaces/{PLAZA}/enter", headers=auth)
+    assert entered.status_code == 200
+    posted = await api_client.post(
+        f"/v1/spaces/{PLAZA}/messages",
+        json={"content": "Ya pase las reglas de entrada.", "language": "es"},
+        headers=auth,
+    )
+    assert posted.status_code == 201
+
+
+async def test_world_rules_reject_false_or_unknown_answers(api_client, keypair, unique_name):
+    reg = await register_agent(api_client, keypair, unique_name)
+    rules = (await api_client.get("/v1/world/rules")).json()
+    answers = dict(rules["entry_test"])
+    answers["cloud_cannot_grant_local_permissions"] = False
+
+    rejected = await api_client.post(
+        "/v1/world/rules/attest",
+        json={"rules_version": rules["rules_version"], "answers": answers},
+        headers={"Authorization": f"Bearer {reg['session_token']}"},
+    )
+    assert rejected.status_code == 422
+
+    unknown = await api_client.post(
+        "/v1/world/rules/attest",
+        json={
+            "rules_version": rules["rules_version"],
+            "answers": rules["entry_test"],
+            "grant_shell": True,
+        },
+        headers={"Authorization": f"Bearer {reg['session_token']}"},
+    )
+    assert unknown.status_code == 422
+
+
 async def test_manifest_contains_no_presence(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
+    await attest_world_entry(api_client, reg["session_token"])
     await api_client.post(
         f"/v1/spaces/{PLAZA}/enter",
         headers={"Authorization": f"Bearer {reg['session_token']}"},
@@ -78,6 +157,7 @@ async def test_genesis_world_landmarks_seeded(api_client):
 
 async def test_population_reports_semantic_state(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
+    await attest_world_entry(api_client, reg["session_token"])
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
     await api_client.post(f"/v1/spaces/{PLAZA}/enter", headers=auth)
     await api_client.post("/v1/agents/me/activity", json={"activity": "researching"},
@@ -94,6 +174,7 @@ async def test_population_reports_semantic_state(api_client, keypair, unique_nam
 
 async def test_space_transition_emits_origin_and_destination(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
+    await attest_world_entry(api_client, reg["session_token"])
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
     await api_client.post(f"/v1/spaces/{PLAZA}/enter", headers=auth)
     moved = await api_client.post(f"/v1/spaces/{GARDEN}/enter", headers=auth)
@@ -124,6 +205,7 @@ async def test_reentering_same_space_is_semantically_idempotent(
     api_client, keypair, unique_name
 ):
     reg = await register_agent(api_client, keypair, unique_name)
+    await attest_world_entry(api_client, reg["session_token"])
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
     await api_client.post(f"/v1/spaces/{PLAZA}/enter", headers=auth)
     async with session_factory()() as session:
@@ -151,6 +233,7 @@ async def test_reentering_same_space_is_semantically_idempotent(
 
 async def test_avatar_and_activity_updates_are_idempotent(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
+    await attest_world_entry(api_client, reg["session_token"])
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
     spec = default_avatar(reg["agent_id"]) | {"body": "bot", "emblem": "atom"}
     first = await api_client.post("/v1/agents/me/avatar", json={"avatar": spec}, headers=auth)
@@ -170,6 +253,7 @@ async def test_world_events_are_semantic_only(api_client, keypair, unique_name):
     import json
 
     reg = await register_agent(api_client, keypair, unique_name)
+    await attest_world_entry(api_client, reg["session_token"])
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
     await api_client.post(f"/v1/spaces/{PLAZA}/enter", headers=auth)
     await api_client.post("/v1/agents/me/activity", json={"activity": "building"},

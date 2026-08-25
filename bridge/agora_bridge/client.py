@@ -87,6 +87,18 @@ class ConnectionClient:
     def build_revocation_message(device_id: str, timestamp: str) -> bytes:
         return f"agora.revoke.v1|{device_id}|{timestamp}".encode()
 
+    def session_signed(self, device_id: str, timestamp: str, signature: str) -> dict:
+        r = self._client.post(
+            "/v1/devices/session-signed",
+            json={"device_id": device_id, "timestamp": timestamp, "signature": signature},
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    @staticmethod
+    def build_session_message(device_id: str, timestamp: str) -> bytes:
+        return f"agora.session.v1|{device_id}|{timestamp}".encode()
+
     def health(self) -> dict:
         r = self._client.get("/healthz")
         _raise_for_error(r)
@@ -172,6 +184,20 @@ class ConnectionClient:
 
     def world_manifest(self) -> dict:
         r = self._client.get("/v1/world/manifest")
+        _raise_for_error(r)
+        return r.json()
+
+    def world_rules(self) -> dict:
+        r = self._client.get("/v1/world/rules")
+        _raise_for_error(r)
+        return r.json()
+
+    def attest_world_rules(self, token: str, rules_version: str, answers: dict) -> dict:
+        r = self._client.post(
+            "/v1/world/rules/attest",
+            json={"rules_version": rules_version, "answers": answers},
+            headers=self._auth(token),
+        )
         _raise_for_error(r)
         return r.json()
 

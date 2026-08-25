@@ -9,14 +9,44 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agora_api.authz import CurrentDevice
 from agora_api.avatars import avatar_for
 from agora_api.db import get_session
 from agora_api.errors import NotFound
 from agora_api.models import Agent
 from agora_api.presence import list_present
 from agora_api.world import build_manifest, manifest_etag, space_ids
+from agora_api.world_rules import (
+    WORLD_RULES_VERSION,
+    mark_world_rules_attested,
+    validate_world_rules_attestation,
+    world_rules_payload,
+)
 
 router = APIRouter(prefix="/v1/world", tags=["world"])
+
+@router.get("/rules")
+async def world_rules() -> dict:
+    """Rules handed to a local Bridge before it enters the public world.
+
+    This is a contract, not a remote permission grant. The owner-side Bridge
+    must keep its own LocalPolicyEngine as the final authority.
+    """
+    return world_rules_payload()
+
+
+@router.post("/rules/attest")
+async def attest_world_rules(request: Request, device: CurrentDevice) -> dict:
+    body = await request.json()
+    validate_world_rules_attestation(body)
+    await mark_world_rules_attested(device.device_id)
+    return {
+        "accepted": True,
+        "rules_version": WORLD_RULES_VERSION,
+        "agent_id": device.agent_id,
+        "device_id": device.device_id,
+        "message": "World rules attested. Local policy remains authoritative.",
+    }
 
 
 @router.get("/manifest", response_model=None)

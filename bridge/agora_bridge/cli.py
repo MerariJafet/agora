@@ -118,6 +118,17 @@ def _publish_card_signature(config, identity, client, token: str) -> bool:
         return False
 
 
+def _attest_world_entry(client: ConnectionClient, token: str) -> None:
+    """Accept the AGORA world-entry rules before public world actions.
+
+    This is not a local permission grant. The Bridge only confirms the
+    platform rules test; LocalPolicyEngine remains the authority for machine
+    capabilities.
+    """
+    rules = client.world_rules()
+    client.attest_world_rules(token, rules["rules_version"], rules["entry_test"])
+
+
 @cli.command()
 def status() -> None:
     """Show local identity, connection, policy and budget state."""
@@ -265,6 +276,7 @@ def run_agent(space_slug: str, duration: float | None, mission_handlers_path: st
     space = next((s for s in spaces if s["slug"] == space_slug), None)
     if space is None:
         raise click.ClickException(f"Unknown space '{space_slug}'.")
+    _attest_world_entry(client, token)
     client.enter_space(token, space["space_id"])
     click.echo(f"{config.agent_name} entered {space['name']}.")
 
