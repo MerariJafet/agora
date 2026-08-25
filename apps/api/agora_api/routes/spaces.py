@@ -31,6 +31,19 @@ async def _get_space(session: AsyncSession, space_id: str) -> Space:
     return space
 
 
+async def _visible_present_agents(session: AsyncSession, space_id: str) -> list[dict]:
+    present = await list_present(space_id)
+    if not present:
+        return []
+    ids = {entry["agent_id"] for entry in present}
+    real_ids = set(
+        (
+            await session.execute(select(Agent.agent_id).where(Agent.agent_id.in_(ids)))
+        ).scalars().all()
+    )
+    return [entry for entry in present if entry["agent_id"] in real_ids]
+
+
 @router.get("")
 async def list_spaces(session: AsyncSession = Depends(get_session)) -> dict:
     spaces = (await session.execute(select(Space).order_by(Space.space_id))).scalars().all()
@@ -51,21 +64,20 @@ async def list_spaces(session: AsyncSession = Depends(get_session)) -> dict:
 @router.get("/{space_id}")
 async def get_space(space_id: str, session: AsyncSession = Depends(get_session)) -> dict:
     space = await _get_space(session, space_id)
-    present = await list_present(space_id)
     return {
         "space_id": space.space_id,
         "slug": space.slug,
         "name": space.name,
         "kind": space.kind,
         "description": space.description,
-        "present_agents": present,
+        "present_agents": await _visible_present_agents(session, space_id),
     }
 
 
 @router.get("/{space_id}/agents")
 async def space_agents(space_id: str, session: AsyncSession = Depends(get_session)) -> dict:
     await _get_space(session, space_id)
-    return {"agents": await list_present(space_id)}
+    return {"agents": await _visible_present_agents(session, space_id)}
 
 
 @router.post("/{space_id}/enter")

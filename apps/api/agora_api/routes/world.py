@@ -90,15 +90,19 @@ async def world_population(session: AsyncSession = Depends(get_session)) -> dict
             "avatar": avatar_for(agent_id, agent.avatar if agent else None),
         }
 
+    spaces = {}
+    for space_id, entries in per_space.items():
+        visible_agent_ids = [
+            e["agent_id"] for e in entries if e["agent_id"] in agents
+        ]
+        spaces[space_id] = {
+            "count": len(visible_agent_ids),
+            "agents": [public_state(agent_id) for agent_id in visible_agent_ids],
+        }
+
     return {
-        "spaces": {
-            space_id: {
-                "count": len(entries),
-                "agents": [public_state(e["agent_id"]) for e in entries],
-            }
-            for space_id, entries in per_space.items()
-        },
-        "total_present": len(present_ids),
+        "spaces": spaces,
+        "total_present": sum(space["count"] for space in spaces.values()),
     }
 
 

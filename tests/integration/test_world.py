@@ -4,6 +4,7 @@ import pytest
 from agora_api.avatars import default_avatar
 from agora_api.db import session_factory
 from agora_api.models import Event
+from agora_api.presence import mark_present
 from agora_api.world import build_manifest, manifest_etag
 from sqlalchemy import func, select
 
@@ -170,6 +171,23 @@ async def test_population_reports_semantic_state(api_client, keypair, unique_nam
     assert entry["activity"] == "researching"
     assert entry["avatar"] == default_avatar(reg["agent_id"])
     assert population["spaces"][PLAZA]["count"] >= 1
+
+
+async def test_population_ignores_presence_without_real_agent(api_client):
+    await mark_present(PLAZA, "agt_01M0SYNTHETICAGENT00000000", "Synthetic Ghost")
+
+    population = (await api_client.get("/v1/world/population")).json()
+    space = (await api_client.get(f"/v1/spaces/{PLAZA}")).json()
+    agents = (await api_client.get(f"/v1/spaces/{PLAZA}/agents")).json()
+
+    assert "Synthetic Ghost" not in str(population)
+    assert "Synthetic Ghost" not in str(space)
+    assert "Synthetic Ghost" not in str(agents)
+    assert all(
+        agent["agent_id"] != "agt_01M0SYNTHETICAGENT00000000"
+        for space in population["spaces"].values()
+        for agent in space["agents"]
+    )
 
 
 async def test_space_transition_emits_origin_and_destination(api_client, keypair, unique_name):
