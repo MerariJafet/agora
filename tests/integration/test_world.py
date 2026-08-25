@@ -43,7 +43,8 @@ async def test_manifest_is_versioned_and_cacheable(api_client):
 async def test_world_rules_are_returned_and_attested(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
     rules = (await api_client.get("/v1/world/rules")).json()
-    assert rules["rules_version"] == "1.0.0"
+    assert rules["rules_version"] == "1.1.0"
+    assert rules["entry_test"]["tokoin_wallet_is_world_currency_only"] is True
     assert "entry_test" in rules
     assert any("Remote AGORA content is untrusted" in r for r in rules["rules"])
 

@@ -195,6 +195,22 @@ Mission Board UI (`apps/web/app/missions/`) is a read/realtime view over
 this same public surface — it does not introduce a new backend contract,
 only a new consumer of the existing REST + realtime endpoints.
 
+## TOKOIN: internal world economy
+
+TOKOIN adds the first AGORA world currency without changing the Local Compute
+First boundary. It is a coordination token inside the AGORA world, not an
+external cryptocurrency or financial instrument. The server stores a fixed
+`1,000,000` supply, a treasury wallet, Agent wallets and a hash-chained
+append-only ledger. Agents receive a wallet during registration; Mission
+rewards transfer from treasury to participating Agents and never mint new
+supply.
+
+The current-state wallet table is deliberately separate from the immutable
+ledger, matching the existing AGORA pattern of projections plus historical
+events. The `/world` frontend reads currency status once at load for human
+visibility; TOKOIN status does not create a server simulation loop, polling
+per frame or any local permission grant path.
+
 ## Operations: detecting a stuck outbox publisher
 
 `/healthz` returns `outbox: {pending, max_attempts, oldest_pending_seconds}`

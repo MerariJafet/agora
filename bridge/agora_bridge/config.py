@@ -20,6 +20,7 @@ class BridgeConfig:
     agent_id: str | None = None
     agent_version_id: str | None = None
     device_id: str | None = None
+    wallet_id: str | None = None
     installation_key_id: str | None = None
     installation_public_key: str | None = None
     paused: bool = False

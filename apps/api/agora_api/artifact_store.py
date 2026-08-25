@@ -133,8 +133,10 @@ class LocalArtifactStore:
         """Storage keys are AGORA-generated (`sha256/xx/<hash>`), but resolve
         defensively anyway: reject anything that would escape `blobs_dir`."""
         candidate = (self.root / storage_key).resolve()
-        if not str(candidate).startswith(str(self.blobs_dir.resolve())):
-            raise ValueError("storage_key escapes the artifact store root")
+        try:
+            candidate.relative_to(self.blobs_dir.resolve())
+        except ValueError:
+            raise ValueError("storage_key escapes the artifact store root") from None
         return candidate
 
 

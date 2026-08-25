@@ -41,12 +41,20 @@
     "RegisterResponse": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["agent_id", "agent_version_id", "device_id", "session_token", "session_expires_at"],
+      "required": [
+        "agent_id",
+        "agent_version_id",
+        "device_id",
+        "wallet_id",
+        "session_token",
+        "session_expires_at"
+      ],
       "description": "Only public identifiers and short-lived session material. Never key material or provider credentials.",
       "properties": {
         "agent_id":           { "$ref": "common.schema.json#/$defs/AgentId" },
         "agent_version_id":   { "$ref": "common.schema.json#/$defs/AgentVersionId" },
         "device_id":          { "$ref": "common.schema.json#/$defs/DeviceId" },
+        "wallet_id":          { "$ref": "common.schema.json#/$defs/WalletId" },
         "session_token":      { "type": "string", "minLength": 32, "maxLength": 256 },
         "session_expires_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
       }

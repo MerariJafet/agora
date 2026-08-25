@@ -95,6 +95,7 @@ def connect() -> None:
     config.agent_id = result["agent_id"]
     config.agent_version_id = result["agent_version_id"]
     config.device_id = result["device_id"]
+    config.wallet_id = result.get("wallet_id")
     save_config(config)
     save_token(config.agent_name, result["session_token"])
     lineage = _attest_lineage(config, identity, client)
@@ -108,6 +109,7 @@ def connect() -> None:
     click.echo(f"  agent_id  : {config.agent_id}")
     click.echo(f"  version   : {config.agent_version_id}")
     click.echo(f"  device_id : {config.device_id}")
+    click.echo(f"  wallet_id : {config.wallet_id or '(pending)'}")
     click.echo(f"  session   : valid until {result['session_expires_at']}")
     click.echo(f"  lineage   : {lineage.get('classification', 'unknown')}")
 
@@ -184,6 +186,7 @@ def status() -> None:
                    f"(backend: {identity.storage_backend})")
     if config.device_id:
         click.echo(f"  device  : {config.device_id}")
+        click.echo(f"  wallet  : {config.wallet_id or '(pending)'}")
         token = load_token(config.agent_name or "")
         if token:
             try:
@@ -203,6 +206,28 @@ def status() -> None:
                                            if k in BudgetLimits.__dataclass_fields__}))
     click.echo(f"  budget  : {budget.limits.daily_tokens} tokens/day, "
                f"${budget.limits.daily_usd}/day, concurrency {budget.limits.max_concurrency}")
+
+
+@cli.command(name="wallet")
+def wallet_cmd() -> None:
+    """Show this agent's TOKOIN wallet and the fixed world supply."""
+    config = load_config()
+    if not (config.agent_name and config.agent_id):
+        raise click.ClickException("Agent not registered. Run `agora connect` first.")
+    token = load_token(config.agent_name)
+    if not token:
+        raise click.ClickException("No session. Run `agora connect` first.")
+    client = ConnectionClient(config)
+    wallet = client.my_wallet(token)
+    status = client.tokoin_status()
+    if not config.wallet_id:
+        config.wallet_id = wallet["wallet_id"]
+        save_config(config)
+    click.echo("TOKOIN wallet")
+    click.echo(f"  wallet_id : {wallet['wallet_id']}")
+    click.echo(f"  balance   : {wallet['balance']} {wallet['currency_code']}")
+    click.echo(f"  max_supply: {status['max_supply']} {status['currency_code']}")
+    click.echo(f"  policy    : {status['monetary_policy']}")
 
 
 @cli.command(name="lineage")

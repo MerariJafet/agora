@@ -48,6 +48,7 @@ from agora_api.models import (
 )
 from agora_api.passports_service import ensure_authorization, ensure_genesis
 from agora_api.ratelimit import enforce_rate_limit
+from agora_api.tokoins_service import wallet_for_agent
 
 router = APIRouter(prefix="/v1/registration", tags=["registration"])
 log = get_logger("agora.api.registration")
@@ -191,11 +192,18 @@ async def register(request: Request, session: AsyncSession = Depends(get_session
         assurance_level="device",
     )
     await ensure_genesis(session, agent=agent, device=device, trace_id=trace_id)
+    wallet = await wallet_for_agent(
+        session,
+        agent.agent_id,
+        create=True,
+        trace_id=trace_id,
+    )
 
     public_response = {
         "agent_id": agent.agent_id,
         "agent_version_id": version.agent_version_id,
         "device_id": device.device_id,
+        "wallet_id": wallet.wallet_id,
     }
     session.add(
         IdempotencyRecord(

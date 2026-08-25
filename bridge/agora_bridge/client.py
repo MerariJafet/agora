@@ -73,6 +73,16 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def my_wallet(self, token: str) -> dict:
+        r = self._client.get("/v1/agents/me/wallet", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def tokoin_status(self) -> dict:
+        r = self._client.get("/v1/tokoins/status")
+        _raise_for_error(r)
+        return r.json()
+
     def revoke_signed(self, device_id: str, timestamp: str, signature: str) -> dict:
         """Self-revocation by key possession — never depends on session state.
         The signature is produced locally; the private key stays on the edge."""

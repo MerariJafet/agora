@@ -20,7 +20,7 @@ async def test_sec001_no_private_key_in_api_payloads(api_client, keypair, unique
     serialized = json.dumps(result)
     assert "private" not in serialized.lower()
     # response contains only public ids + session material
-    public_fields = {"agent_id", "agent_version_id", "device_id",
+    public_fields = {"agent_id", "agent_version_id", "device_id", "wallet_id",
                      "session_token", "session_expires_at",
                      "_status", "_challenge", "_idempotency_key"}
     assert set(result.keys()) <= public_fields

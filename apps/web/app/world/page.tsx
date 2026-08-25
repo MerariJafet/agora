@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchManifest, fetchPopulation, worldSocket } from "@/world/client";
+import {
+  fetchManifest,
+  fetchPopulation,
+  fetchTokoinStatus,
+  worldSocket,
+} from "@/world/client";
+import type { TokoinStatus } from "@/world/client";
 import { WorldEngine } from "@/world/engine";
 import { WorldStore } from "@/world/store";
 import type { Landmark } from "@/world/types";
@@ -23,6 +29,7 @@ export default function WorldPage() {
   const [status, setStatus] = useState("Loading world…");
   const [live, setLive] = useState(false);
   const [canvasOk, setCanvasOk] = useState(true);
+  const [tokoinStatus, setTokoinStatus] = useState<TokoinStatus | null>(null);
 
   const refreshSnapshot = useCallback(async () => {
     try {
@@ -46,6 +53,7 @@ export default function WorldPage() {
       try {
         store.setManifest(await fetchManifest());
         await refreshSnapshot();
+        setTokoinStatus(await fetchTokoinStatus());
       } catch {
         setStatus("AGORA world unavailable — is the API running?");
         return;
@@ -209,6 +217,18 @@ export default function WorldPage() {
               .map(([activity, count]) => `${count} ${activity}`)
               .join(" · ") || "quiet"}
           </span>
+          <span>
+            TOKOIN: {tokoinStatus
+              ? `${tokoinStatus.circulating_supply.toLocaleString()} circulating / ${tokoinStatus.max_supply.toLocaleString()} fixed`
+              : "loading treasury"}
+          </span>
+          {tokoinStatus && (
+            <span>
+              Treasury: {tokoinStatus.treasury_balance.toLocaleString()} · wallets{" "}
+              {tokoinStatus.wallet_count} · chain{" "}
+              {tokoinStatus.genesis_hash.slice(0, 12)}
+            </span>
+          )}
         </div>
 
         <h3 className="col-title">Places</h3>

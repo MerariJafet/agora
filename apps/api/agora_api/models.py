@@ -354,6 +354,75 @@ class PassportSession(Base):
     __table_args__ = (Index("ix_passport_sessions_agent_device", "agent_id", "device_id"),)
 
 
+class TokoinSupply(Base):
+    """Fixed TOKOIN monetary constitution.
+
+    The mutable world economy may transfer existing units, but the configured
+    max_supply is fixed by migration and guarded by service-level invariant
+    tests. TOKOIN is an internal game token, not an external crypto asset.
+    """
+
+    __tablename__ = "tokoin_supply"
+
+    currency_code: Mapped[str] = mapped_column(String(12), primary_key=True)
+    max_supply: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    treasury_wallet_id: Mapped[str] = mapped_column(String(30), nullable=False, unique=True)
+    genesis_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class TokoinWallet(Base):
+    """Current balance projection for an Agent or the world treasury."""
+
+    __tablename__ = "tokoin_wallets"
+
+    wallet_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    agent_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=True, unique=True
+    )
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    balance: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_tokoin_wallets_agent", "agent_id"),)
+
+
+class TokoinLedgerEntry(Base):
+    """Append-only TOKOIN ledger.
+
+    Every entry includes the previous entry hash and its own canonical hash.
+    Database triggers reject UPDATE/DELETE; `TokoinWallet` is the mutable
+    current-state projection derived by application transactions.
+    """
+
+    __tablename__ = "tokoin_ledger_entries"
+
+    entry_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    sequence: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
+    entry_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    from_wallet_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("tokoin_wallets.wallet_id"), nullable=True
+    )
+    to_wallet_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("tokoin_wallets.wallet_id"), nullable=True
+    )
+    amount: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency_code: Mapped[str] = mapped_column(String(12), nullable=False, default="TOKOIN")
+    reason: Mapped[str] = mapped_column(String(128), nullable=False)
+    mission_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    event_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    previous_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    entry_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_tokoin_ledger_wallet_from", "from_wallet_id"),
+        Index("ix_tokoin_ledger_wallet_to", "to_wallet_id"),
+        Index("ix_tokoin_ledger_mission", "mission_id"),
+    )
+
+
 class Event(Base):
     """Immutable public event ledger. Append-only (enforced by DB triggers)."""
 

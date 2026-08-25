@@ -8,6 +8,8 @@ def test_namespaces():
     assert ids.new_challenge_id().startswith("chl_")
     assert ids.new_agent_version_id().startswith("agv_")
     assert ids.new_user_id().startswith("usr_")
+    assert ids.new_wallet_id().startswith("wal_")
+    assert ids.new_tokoin_entry_id().startswith("tko_")
 
 
 def test_ids_are_sortable_by_time():

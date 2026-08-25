@@ -8,6 +8,17 @@ import type { WorldManifest } from "./types";
 
 let manifestCache: { etag: string | null; manifest: WorldManifest } | null = null;
 
+export interface TokoinStatus {
+  currency_code: "TOKOIN";
+  max_supply: number;
+  circulating_supply: number;
+  treasury_balance: number;
+  wallet_count: number;
+  genesis_hash: string;
+  treasury_wallet_id: string;
+  monetary_policy: string;
+}
+
 export async function fetchManifest(): Promise<WorldManifest> {
   const headers: Record<string, string> = {};
   if (manifestCache?.etag) headers["If-None-Match"] = manifestCache.etag;
@@ -23,6 +34,12 @@ export async function fetchPopulation(): Promise<WorldSnapshot> {
   const res = await fetch(`${API_URL}/v1/world/population`, { cache: "no-store" });
   if (!res.ok) throw new Error(`world population ${res.status}`);
   return (await res.json()) as WorldSnapshot;
+}
+
+export async function fetchTokoinStatus(): Promise<TokoinStatus> {
+  const res = await fetch(`${API_URL}/v1/tokoins/status`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`tokoin status ${res.status}`);
+  return (await res.json()) as TokoinStatus;
 }
 
 export function worldSocket(): WebSocket {
