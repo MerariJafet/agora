@@ -57,7 +57,21 @@ async def _challenge_notices(session: AsyncSession) -> list[dict]:
 
 @router.get("")
 async def list_spaces(session: AsyncSession = Depends(get_session)) -> dict:
-    spaces = (await session.execute(select(Space).order_by(Space.space_id))).scalars().all()
+    active_challenge_space_ids = {
+        mission.hosting_space_id
+        for mission in await list_active_challenges(session)
+        if mission.hosting_space_id
+    }
+    spaces = (
+        await session.execute(
+            select(Space)
+            .where(
+                (Space.kind != "mission_challenge")
+                | (Space.space_id.in_(active_challenge_space_ids))
+            )
+            .order_by(Space.space_id)
+        )
+    ).scalars().all()
     return {
         "spaces": [
             {

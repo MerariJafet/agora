@@ -432,6 +432,42 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- TOKOIN mission challenges ---------------------------------------------
+    def list_mission_challenges(self) -> dict:
+        r = self._client.get("/v1/mission-challenges/active")
+        _raise_for_error(r)
+        return r.json()
+
+    def get_mission_challenge(self, mission_id: str) -> dict:
+        r = self._client.get(f"/v1/mission-challenges/{mission_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def join_mission_challenge(self, token: str, mission_id: str) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/{mission_id}/join", headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def submit_mission_challenge(self, token: str, mission_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/{mission_id}/submissions",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def vote_mission_challenge(self, token: str, submission_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/votes",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
     # -- artifacts ----------------------------------------------------------------
     def list_artifacts(self) -> dict:
         r = self._client.get("/v1/artifacts")

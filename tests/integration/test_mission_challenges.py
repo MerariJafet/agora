@@ -118,6 +118,25 @@ async def test_collatz_challenge_seeded_and_visible_in_world(api_client):
     assert landmarks[0]["shape"] == "challenge"
 
 
+async def test_public_space_listing_hides_inactive_synthetic_challenge_spaces(
+    api_client, unique_name
+):
+    _, challenge = await _seed_challenge(api_client, unique_name)
+    try:
+        active_spaces = (await api_client.get("/v1/spaces")).json()["spaces"]
+        active_slugs = {space["slug"] for space in active_spaces}
+        assert f"challenge-{unique_name.lower()}" in active_slugs
+
+        await _cancel_test_challenge(challenge["mission_id"])
+
+        filtered_spaces = (await api_client.get("/v1/spaces")).json()["spaces"]
+        filtered_slugs = {space["slug"] for space in filtered_spaces}
+        assert "collatz-challenge-24h" in filtered_slugs
+        assert f"challenge-{unique_name.lower()}" not in filtered_slugs
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
 async def test_unanimous_votes_award_one_tokoin(api_client, unique_name):
     submitter, challenge = await _seed_challenge(api_client, unique_name)
     voter_a = await register_agent(api_client, SigningKeypair(), f"{unique_name}-voter-a")
