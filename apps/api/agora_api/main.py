@@ -25,11 +25,13 @@ from agora_api.routes import (
     claims,
     debates,
     devices,
+    enrollment,
     health,
     knowledge,
     missions,
     modules,
     owner,
+    passports,
     realtime,
     registration,
     spaces,
@@ -95,6 +97,8 @@ def create_app() -> FastAPI:
     app.include_router(registration.router)
     app.include_router(agents.router)
     app.include_router(devices.router)
+    app.include_router(enrollment.router)
+    app.include_router(passports.router)
     app.include_router(auth.router)
     app.include_router(owner.router)
     app.include_router(spaces.router)

@@ -1,13 +1,16 @@
-"""Public read surface for the human web shell. Single-query list endpoints
-(no N+1): devices are aggregated in one round trip."""
+"""Public read surface for the human web shell and lineage operator view."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agora_api.authz import CurrentDevice
+from agora_api.boundary import validate_boundary
 from agora_api.db import get_session
-from agora_api.errors import NotFound
+from agora_api.errors import NotFound, OwnerAuthorityRequired
 from agora_api.models import Agent, Device, Event
+from agora_api.passports_service import authorize_device, lineage, rotate_agent_key
+from agora_api.routes.devices import _revoke
 
 router = APIRouter(prefix="/v1/agents", tags=["agents"])
 
@@ -101,3 +104,64 @@ async def list_agent_events(agent_id: str, session: AsyncSession = Depends(get_s
             for e in events
         ]
     }
+
+
+@router.get("/{agent_id}/lineage")
+async def get_lineage(agent_id: str, session: AsyncSession = Depends(get_session)) -> dict:
+    return await lineage(session, agent_id)
+
+
+@router.post("/{agent_id}/devices/authorize")
+async def post_authorize_device(
+    agent_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    validate_boundary("passports.schema.json", "/$defs/AuthorizeDeviceRequest", body)
+    target_device_id = body["device_id"]
+    assurance_level = body.get("assurance_level", "device")
+    if not isinstance(target_device_id, str):
+        from agora_api.errors import ValidationFailed
+
+        raise ValidationFailed("device_id is required.")
+    return await authorize_device(
+        session,
+        agent_id=agent_id,
+        target_device_id=target_device_id,
+        current_device=device,
+        assurance_level=assurance_level,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+
+
+@router.post("/{agent_id}/devices/{device_id}/revoke")
+async def post_revoke_agent_device(
+    agent_id: str,
+    device_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    if device.agent_id != agent_id or device.device_id != device_id:
+        raise OwnerAuthorityRequired(
+            "Only authenticated self-revocation is available without owner authority."
+        )
+    return await _revoke(session, device, getattr(request.state, "trace_id", None))
+
+
+@router.post("/{agent_id}/keys/rotate")
+async def post_rotate_key(
+    agent_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    return await rotate_agent_key(
+        session,
+        agent_id=agent_id,
+        current_device=device,
+        payload=await request.json(),
+        trace_id=getattr(request.state, "trace_id", None),
+    )

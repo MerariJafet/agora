@@ -20,6 +20,8 @@ class BridgeConfig:
     agent_id: str | None = None
     agent_version_id: str | None = None
     device_id: str | None = None
+    installation_key_id: str | None = None
+    installation_public_key: str | None = None
     paused: bool = False
     # Local permission grants. ONLY this local file can grant scopes —
     # remote data never reaches this structure (SEC-002).

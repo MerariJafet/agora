@@ -99,6 +99,82 @@ class ConnectionClient:
     def build_session_message(device_id: str, timestamp: str) -> bytes:
         return f"agora.session.v1|{device_id}|{timestamp}".encode()
 
+    # -- lineage / passports -------------------------------------------------
+    def request_enrollment_challenge(
+        self, agent_id: str, device_id: str, constitution_hash: str | None = None
+    ) -> dict:
+        body = {"agent_id": agent_id, "device_id": device_id}
+        if constitution_hash:
+            body["constitution_hash"] = constitution_hash
+        r = self._client.post("/v1/enrollment/challenge", json=body)
+        _raise_for_error(r)
+        return r.json()
+
+    def attest_enrollment(
+        self,
+        *,
+        challenge_id: str,
+        agent_id: str,
+        device_id: str,
+        device_signature: str,
+        agent_signature: str,
+    ) -> dict:
+        r = self._client.post(
+            "/v1/enrollment/attest",
+            json={
+                "challenge_id": challenge_id,
+                "agent_id": agent_id,
+                "device_id": device_id,
+                "device_signature": device_signature,
+                "agent_signature": agent_signature,
+            },
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    @staticmethod
+    def build_enrollment_message(
+        challenge_id: str,
+        nonce: str,
+        agent_id: str,
+        device_id: str,
+        constitution_hash: str,
+    ) -> bytes:
+        return (
+            f"agora.enrollment.v1|{challenge_id}|{nonce}|{agent_id}|{device_id}|"
+            f"{constitution_hash}"
+        ).encode()
+
+    def issue_passport(
+        self,
+        *,
+        agent_id: str,
+        device_id: str,
+        timestamp: str,
+        signature: str,
+        scopes: list[str] | None = None,
+    ) -> dict:
+        body: dict = {
+            "agent_id": agent_id,
+            "device_id": device_id,
+            "timestamp": timestamp,
+            "signature": signature,
+        }
+        if scopes is not None:
+            body["scopes"] = scopes
+        r = self._client.post("/v1/passports/issue", json=body)
+        _raise_for_error(r)
+        return r.json()
+
+    @staticmethod
+    def build_passport_issue_message(agent_id: str, device_id: str, timestamp: str) -> bytes:
+        return f"agora.passport.issue.v1|{agent_id}|{device_id}|{timestamp}".encode()
+
+    def lineage(self, agent_id: str) -> dict:
+        r = self._client.get(f"/v1/agents/{agent_id}/lineage")
+        _raise_for_error(r)
+        return r.json()
+
     def health(self) -> dict:
         r = self._client.get("/healthz")
         _raise_for_error(r)

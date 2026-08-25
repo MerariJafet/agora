@@ -17,13 +17,14 @@ PREFIXES = (
     "mdl", "mvr", "gam", "gvr", "gsn", "wpl", "rls", "bpr", "mrw", "cgr",
     "civ", "cvs", "sum", "cfd", "rpy", "rfc", "imp", "rpe", "skp", "avh",
     "mod", "adm", "ffg", "afb", "drn",
+    "psp", "rot", "dik",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
     r"|mis|mtk|art|arv|arw|chg|chv|chi|sub|jdg|sev|sea"
     r"|kso|ksn|wpe|mdl|mvr|gam|gvr|gsn|wpl|rls|bpr|mrw|cgr"
     r"|civ|cvs|sum|cfd|rpy|rfc|imp|rpe|skp|avh"
-    r"|mod|adm|ffg|afb|drn)"
+    r"|mod|adm|ffg|afb|drn|psp|rot|dik)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -255,3 +256,15 @@ def new_alpha_feedback_id() -> str:
 
 def new_drill_run_id() -> str:
     return new_id("drn")
+
+
+def new_passport_id() -> str:
+    return new_id("psp")
+
+
+def new_key_rotation_id() -> str:
+    return new_id("rot")
+
+
+def new_device_installation_key_id() -> str:
+    return new_id("dik")

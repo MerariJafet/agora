@@ -9,6 +9,8 @@
     "DeviceId":       { "type": "string", "pattern": "^dev_[0-9A-HJKMNP-TV-Z]{26}$" },
     "EventId":        { "type": "string", "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$" },
     "ChallengeId":    { "type": "string", "pattern": "^chl_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "PassportId":     { "type": "string", "pattern": "^psp_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "DeviceInstallationKeyId": { "type": "string", "pattern": "^dik_[0-9A-HJKMNP-TV-Z]{26}$" },
     "Timestamp":      { "type": "string", "format": "date-time" },
     "Ed25519PublicKeyB64": {
       "type": "string",

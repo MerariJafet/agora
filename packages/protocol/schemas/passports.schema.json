@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/passports.schema.json",
+  "title": "AGORA enrollment and passport contracts",
+  "$defs": {
+    "EnrollmentChallengeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "device_id"],
+      "properties": {
+        "agent_id": { "$ref": "common.schema.json#/$defs/AgentId" },
+        "device_id": { "$ref": "common.schema.json#/$defs/DeviceId" },
+        "constitution_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "EnrollmentAttestRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "challenge_id",
+        "agent_id",
+        "device_id",
+        "device_signature",
+        "agent_signature"
+      ],
+      "properties": {
+        "challenge_id": { "$ref": "common.schema.json#/$defs/ChallengeId" },
+        "agent_id": { "$ref": "common.schema.json#/$defs/AgentId" },
+        "device_id": { "$ref": "common.schema.json#/$defs/DeviceId" },
+        "device_signature": { "$ref": "common.schema.json#/$defs/Ed25519SignatureB64" },
+        "agent_signature": { "$ref": "common.schema.json#/$defs/Ed25519SignatureB64" }
+      }
+    },
+    "PassportIssueRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "device_id", "timestamp", "signature"],
+      "properties": {
+        "agent_id": { "$ref": "common.schema.json#/$defs/AgentId" },
+        "device_id": { "$ref": "common.schema.json#/$defs/DeviceId" },
+        "timestamp": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "signature": { "$ref": "common.schema.json#/$defs/Ed25519SignatureB64" },
+        "scopes": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "enum": [
+              "world.enter",
+              "world.speak",
+              "world.observe",
+              "a2a.relay",
+              "mcp.local",
+              "mission.accept",
+              "artifact.publish"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "AuthorizeDeviceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_id"],
+      "properties": {
+        "device_id": { "$ref": "common.schema.json#/$defs/DeviceId" },
+        "assurance_level": {
+          "type": "string",
+          "enum": ["device", "owner_recovery", "rotated_key"],
+          "default": "device"
+        }
+      }
+    },
+    "RotateAgentKeyRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["new_public_key", "timestamp", "old_key_signature", "new_key_signature"],
+      "properties": {
+        "new_public_key": { "$ref": "common.schema.json#/$defs/Ed25519PublicKeyB64" },
+        "timestamp": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "old_key_signature": { "$ref": "common.schema.json#/$defs/Ed25519SignatureB64" },
+        "new_key_signature": { "$ref": "common.schema.json#/$defs/Ed25519SignatureB64" }
+      }
+    }
+  }
+}

@@ -34,7 +34,16 @@ async def test_registry_lists_minimum_functional_allowlisted_sources(api_client)
 
 async def test_search_creates_immutable_snapshot_and_cache_hit(api_client, unique_name):
     reg = await _register(api_client, unique_name)
-    body = {"source_id": "openalex", "query": "consensus is not truth", "limit": 3}
+    body = {"source_id": "openalex", "query": f"consensus is not truth {unique_name}", "limit": 3}
+    async with session_factory()() as session:
+        source_before = (
+            await session.execute(
+                select(KnowledgeSource).where(KnowledgeSource.adapter_id == "openalex")
+            )
+        ).scalar_one()
+        upstream_before = source_before.upstream_call_count
+        cache_before = source_before.cache_hit_count
+
     first = await api_client.post("/v1/knowledge/search", json=body, headers=_auth(reg))
     assert first.status_code == 201, first.text
     snapshot = first.json()
@@ -52,8 +61,8 @@ async def test_search_creates_immutable_snapshot_and_cache_hit(api_client, uniqu
                 select(KnowledgeSource).where(KnowledgeSource.adapter_id == "openalex")
             )
         ).scalar_one()
-        assert source.upstream_call_count == 1
-        assert source.cache_hit_count >= 1
+        assert source.upstream_call_count == upstream_before + 1
+        assert source.cache_hit_count >= cache_before + 1
 
 
 async def test_concurrent_identical_queries_coalesce_to_one_upstream_call(api_client, unique_name):

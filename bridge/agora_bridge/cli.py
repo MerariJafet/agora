@@ -15,6 +15,7 @@ from agora_bridge.budget import BudgetLimits, BudgetManager
 from agora_bridge.client import ApiError, ConnectionClient
 from agora_bridge.config import load_config, save_config
 from agora_bridge.identity import IdentityManager
+from agora_bridge.installation import ensure_installation_key
 from agora_bridge.policy import LocalPermission, LocalPolicyEngine
 from agora_bridge.session_store import delete_token, load_token, save_token
 
@@ -45,11 +46,20 @@ def init(agent_name: str, api_url: str | None) -> None:
         )
         sys.exit(1)
     public_key = identity.generate()
+    installation = ensure_installation_key()
     config.agent_name = agent_name
+    config.installation_key_id = installation.installation_key_id
+    config.installation_public_key = installation.public_key
     save_config(config)
-    audit.record("identity.created", agent=agent_name, backend=identity.storage_backend)
+    audit.record(
+        "identity.created",
+        agent=agent_name,
+        backend=identity.storage_backend,
+        installation_key_id=installation.installation_key_id,
+    )
     click.echo(f"Created identity for '{agent_name}'.")
     click.echo(f"  key storage : {identity.storage_backend}")
+    click.echo(f"  install key : {installation.installation_key_id}")
     click.echo(f"  public key  : {public_key}")
     click.echo("  private key : stays on this machine. It is never sent to AGORA.")
 
@@ -87,6 +97,7 @@ def connect() -> None:
     config.device_id = result["device_id"]
     save_config(config)
     save_token(config.agent_name, result["session_token"])
+    lineage = _attest_lineage(config, identity, client)
     audit.record(
         "connect.registered",
         agent=config.agent_name,
@@ -98,9 +109,38 @@ def connect() -> None:
     click.echo(f"  version   : {config.agent_version_id}")
     click.echo(f"  device_id : {config.device_id}")
     click.echo(f"  session   : valid until {result['session_expires_at']}")
+    click.echo(f"  lineage   : {lineage.get('classification', 'unknown')}")
 
     signed = _publish_card_signature(config, identity, client, result["session_token"])
     click.echo(f"  card      : {'signed (JWS Ed25519)' if signed else 'unsigned'}")
+
+
+def _attest_lineage(config, identity, client) -> dict:
+    """Create the canonical AgentGenesis projection once.
+
+    Current AGORA uses the initial device Ed25519 key as both the device key
+    and the initial lineage key; the API exposes explicit key rotation so a
+    future dedicated agent key can be introduced without changing Agent ID.
+    """
+    assert config.agent_id and config.device_id
+    challenge = client.request_enrollment_challenge(config.agent_id, config.device_id)
+    message = client.build_enrollment_message(
+        challenge["challenge_id"],
+        challenge["nonce"],
+        config.agent_id,
+        config.device_id,
+        challenge["constitution_hash"],
+    )
+    signature = identity.sign(message)
+    result = client.attest_enrollment(
+        challenge_id=challenge["challenge_id"],
+        agent_id=config.agent_id,
+        device_id=config.device_id,
+        device_signature=signature,
+        agent_signature=signature,
+    )
+    audit.record("lineage.attested", agent=config.agent_name, agent_id=config.agent_id)
+    return result
 
 
 def _publish_card_signature(config, identity, client, token: str) -> bool:
@@ -136,6 +176,7 @@ def status() -> None:
     click.echo(f"AGORA Bridge v{__version__}")
     click.echo(f"  api_url : {config.api_url}")
     click.echo(f"  agent   : {config.agent_name or '(not initialized)'}")
+    click.echo(f"  install : {config.installation_key_id or '(not initialized)'}")
     click.echo(f"  paused  : {config.paused}")
     if config.agent_name:
         identity = IdentityManager(config.agent_name)
@@ -162,6 +203,47 @@ def status() -> None:
                                            if k in BudgetLimits.__dataclass_fields__}))
     click.echo(f"  budget  : {budget.limits.daily_tokens} tokens/day, "
                f"${budget.limits.daily_usd}/day, concurrency {budget.limits.max_concurrency}")
+
+
+@cli.command(name="lineage")
+def lineage_cmd() -> None:
+    """Show this agent's public lineage without raw hardware identifiers."""
+    config = load_config()
+    if not config.agent_id:
+        raise click.ClickException("No registered agent. Run `agora connect` first.")
+    data = ConnectionClient(config).lineage(config.agent_id)
+    click.echo(json.dumps(data, indent=2))
+
+
+@cli.command(name="passport")
+def passport_cmd() -> None:
+    """Issue a short-lived signed PassportSession for this device."""
+    config = load_config()
+    if not (config.agent_name and config.agent_id and config.device_id):
+        raise click.ClickException("Agent not registered. Run `agora connect` first.")
+    identity = IdentityManager(config.agent_name)
+    client = ConnectionClient(config)
+    timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    signature = identity.sign(
+        client.build_passport_issue_message(config.agent_id, config.device_id, timestamp)
+    )
+    result = client.issue_passport(
+        agent_id=config.agent_id,
+        device_id=config.device_id,
+        timestamp=timestamp,
+        signature=signature,
+    )
+    passport = result["passport"]
+    audit.record(
+        "passport.issued",
+        agent=config.agent_name,
+        agent_id=config.agent_id,
+        passport_id=passport["passport_id"],
+    )
+    click.echo(f"Passport issued: {passport['passport_id']}")
+    click.echo(f"  expires_at        : {passport['expires_at']}")
+    click.echo(f"  assurance_level   : {passport['assurance_level']}")
+    click.echo(f"  constitution_hash : {passport['constitution_hash']}")
 
 
 @cli.command()

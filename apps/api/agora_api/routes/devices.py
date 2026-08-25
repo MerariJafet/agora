@@ -28,7 +28,7 @@ from agora_api.db import get_session
 from agora_api.errors import NotFound, OwnerAuthorityRequired, SignatureInvalid
 from agora_api.events import append_event, now_utc
 from agora_api.logging import get_logger
-from agora_api.models import Device
+from agora_api.models import AgentDeviceAuthorization, Device
 
 router = APIRouter(prefix="/v1/devices", tags=["devices"])
 log = get_logger("agora.api.devices")
@@ -44,6 +44,12 @@ async def _revoke(session: AsyncSession, device: Device, trace_id: str | None) -
         return {"device_id": device.device_id, "status": "revoked", "already_revoked": True}
     device.status = "revoked"
     device.revoked_at = now_utc()
+    authorization = await session.get(
+        AgentDeviceAuthorization, (device.agent_id, device.device_id)
+    )
+    if authorization is not None:
+        authorization.status = "revoked"
+        authorization.revoked_at = device.revoked_at
     await append_event(
         session,
         event_type="device.revoked",

@@ -226,6 +226,134 @@ class DeviceSession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class DeviceInstallationKey(Base):
+    """Privacy-preserving local installation continuity record.
+
+    The value is an owner/Bridge-generated public key, not a hardware
+    fingerprint. AGORA never stores MAC, disk serial, machine-id, TPM
+    endorsement keys or raw hardware identifiers.
+    """
+
+    __tablename__ = "device_installation_keys"
+
+    installation_key_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    device_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("devices.device_id"), nullable=False, unique=True
+    )
+    public_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AgentGenesis(Base):
+    """Canonical one-time birth record for an Agent ID."""
+
+    __tablename__ = "agent_genesis"
+
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), primary_key=True
+    )
+    genesis_event_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("events.event_id"), nullable=False, unique=True
+    )
+    first_device_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("devices.device_id"), nullable=False
+    )
+    agent_public_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    device_public_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    born_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentDeviceAuthorization(Base):
+    """Agent↔device authorization projection.
+
+    A device can authenticate itself, but whether that device is ordinary,
+    pending, revoked or recovery-authorized for an Agent is tracked here.
+    """
+
+    __tablename__ = "agent_device_authorizations"
+
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), primary_key=True
+    )
+    device_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("devices.device_id"), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="authorized")
+    assurance_level: Mapped[str] = mapped_column(String(24), nullable=False, default="device")
+    authorized_by_device_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    authorized_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_agent_device_authorizations_device", "device_id"),)
+
+
+class EnrollmentChallenge(Base):
+    """Short-lived challenge for lineage/passport enrollment.
+
+    This is separate from initial registration because it binds an existing
+    Agent ID, Device ID, constitution hash and nonce.
+    """
+
+    __tablename__ = "enrollment_challenges"
+
+    challenge_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    device_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("devices.device_id"), nullable=False
+    )
+    nonce: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_enrollment_challenges_agent_device", "agent_id", "device_id"),)
+
+
+class AgentKeyRotation(Base):
+    __tablename__ = "agent_key_rotations"
+
+    rotation_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    device_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("devices.device_id"), nullable=False
+    )
+    old_public_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    new_public_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    rotation_event_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_agent_key_rotations_agent", "agent_id"),
+        UniqueConstraint("agent_id", "new_public_key", name="uq_agent_rotation_new_key"),
+    )
+
+
+class PassportSession(Base):
+    """Short-lived signed passport material stored by digest only."""
+
+    __tablename__ = "passport_sessions"
+
+    passport_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    device_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("devices.device_id"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    nonce_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    scopes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    assurance_level: Mapped[str] = mapped_column(String(24), nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_passport_sessions_agent_device", "agent_id", "device_id"),)
+
+
 class Event(Base):
     """Immutable public event ledger. Append-only (enforced by DB triggers)."""
 

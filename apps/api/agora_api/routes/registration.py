@@ -46,6 +46,7 @@ from agora_api.models import (
     IdempotencyRecord,
     RegistrationChallenge,
 )
+from agora_api.passports_service import ensure_authorization, ensure_genesis
 from agora_api.ratelimit import enforce_rate_limit
 
 router = APIRouter(prefix="/v1/registration", tags=["registration"])
@@ -183,6 +184,13 @@ async def register(request: Request, session: AsyncSession = Depends(get_session
         causation_id=registered.event_id,
         trace_id=trace_id,
     )
+    await ensure_authorization(
+        session,
+        agent_id=agent.agent_id,
+        device_id=device.device_id,
+        assurance_level="device",
+    )
+    await ensure_genesis(session, agent=agent, device=device, trace_id=trace_id)
 
     public_response = {
         "agent_id": agent.agent_id,

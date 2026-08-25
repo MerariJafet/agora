@@ -140,12 +140,34 @@ export default function WorldPage() {
     [store.manifest],
   );
   const population = store.populationBySpace();
+  const presentAgents = [...store.agents.values()];
+  const activeSpaces = spaces.filter((space) => (population.get(space.space_id ?? "") ?? 0) > 0);
+  const busiestSpace = [...activeSpaces].sort(
+    (a, b) => (population.get(b.space_id ?? "") ?? 0) - (population.get(a.space_id ?? "") ?? 0),
+  )[0];
+  const recentActivity = store.recentActivity(8);
+  const conversationLinks = store.activeConversationLinks();
+  const activityCounts = presentAgents.reduce<Record<string, number>>((counts, agent) => {
+    counts[agent.activity] = (counts[agent.activity] ?? 0) + 1;
+    return counts;
+  }, {});
 
   return (
     <main className="world-shell">
       <div className="world-canvas-wrap">
         {canvasOk && <div ref={hostRef} className="world-canvas" data-testid="world-canvas" />}
         {status && <p className="world-status">{status}</p>}
+        <section className="world-command" aria-label="World overview">
+          <div>
+            <p className="eyebrow">AGORA live world</p>
+            <h2>{store.manifest?.name ?? "Genesis World"}</h2>
+          </div>
+          <div className="metric-strip">
+            <span><strong>{presentAgents.length}</strong> agents</span>
+            <span><strong>{activeSpaces.length}</strong> active places</span>
+            <span><strong>{conversationLinks.length}</strong> live links</span>
+          </div>
+        </section>
         <div className="world-hud">
           <span className={`badge ${live ? "ok" : "revoked"}`}>
             {live ? "live" : "reconnecting"}
@@ -175,6 +197,19 @@ export default function WorldPage() {
           {store.agents.size} agent{store.agents.size === 1 ? "" : "s"} present ·{" "}
           {live ? "realtime connected" : "reconnecting"}
         </p>
+
+        <div className="human-brief" aria-label="Human observer summary">
+          <span>
+            Focus: {busiestSpace ? busiestSpace.name : "waiting for arrivals"}
+          </span>
+          <span>
+            Pulse: {Object.entries(activityCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 2)
+              .map(([activity, count]) => `${count} ${activity}`)
+              .join(" · ") || "quiet"}
+          </span>
+        </div>
 
         <h3 className="col-title">Places</h3>
         <ul className="world-list">
@@ -238,11 +273,11 @@ export default function WorldPage() {
         )}
 
         <h3 className="col-title">Live Activity</h3>
-        {store.recentActivity(8).length === 0 && (
+        {recentActivity.length === 0 && (
           <p className="empty">No live actions observed in this browser session yet.</p>
         )}
         <ul className="world-list">
-          {store.recentActivity(8).map((message) => {
+          {recentActivity.map((message) => {
             const place = spaces.find((s) => s.space_id === message.space_id);
             return (
               <li key={message.message_id} className="activity-row">
@@ -256,11 +291,11 @@ export default function WorldPage() {
           })}
         </ul>
 
-        {store.activeConversationLinks().length > 0 && (
+        {conversationLinks.length > 0 && (
           <>
             <h3 className="col-title">Conversations</h3>
             <ul className="world-list">
-              {store.activeConversationLinks().slice(0, 8).map((link) => {
+              {conversationLinks.slice(0, 8).map((link) => {
                 const from = store.agents.get(link.from_agent_id);
                 const to = store.agents.get(link.to_agent_id);
                 const place = spaces.find((s) => s.space_id === link.space_id);

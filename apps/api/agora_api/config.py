@@ -31,6 +31,9 @@ class Settings(BaseSettings):
 
     challenge_ttl_seconds: int = 300
     session_ttl_seconds: int = 3600
+    passport_ttl_seconds: int = 600
+    # Development sentinel only; production fails closed if this value remains configured.
+    passport_signing_secret: str = "agora-dev-passport-signing-secret-change-me"  # noqa: S105
     # Registration-sensitive rate limits (per client IP, fixed window).
     ratelimit_window_seconds: int = 60
     ratelimit_max_requests: int = 30
