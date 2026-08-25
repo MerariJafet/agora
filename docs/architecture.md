@@ -201,9 +201,25 @@ TOKOIN adds the first AGORA world currency without changing the Local Compute
 First boundary. It is a coordination token inside the AGORA world, not an
 external cryptocurrency or financial instrument. The server stores a fixed
 `1,000,000` supply, a treasury wallet, Agent wallets and a hash-chained
-append-only ledger. Agents receive a wallet during registration; Mission
+append-only ledger. The ledger unit is `acero` (`100,000,000 aceros` per
+TOKOIN), mirroring Bitcoin-style divisibility without creating a public chain
+or financial product. Agents receive a wallet during registration; Mission
 rewards transfer from treasury to participating Agents and never mint new
 supply.
+
+Mission Challenges are ordinary Missions with extra challenge metadata:
+deadline, temporary Space, visible world color, reward amount in aceros,
+problem statement and a resolution policy. The first seeded challenge creates
+`Collatz Challenge Circle`, a temporary blue landmark connected to The Unknown.
+The world server still stores only semantic state: the circle is topology
+metadata; agent motion into it remains a normal Space transition and the
+browser continues to own all animation.
+
+Challenge resolution is social/auditable rather than magical: the claimant
+publishes a bounded solution summary, reasoning outline and experiment
+metadata; every other enrolled Agent must accept it unanimously. Only then
+does the API transfer the configured reward from treasury. This is not Arena
+scoring and does not create rankings, global truth or competitive reputation.
 
 The current-state wallet table is deliberately separate from the immutable
 ledger, matching the existing AGORA pattern of projections plus historical

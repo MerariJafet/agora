@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/mission-challenges.schema.json",
+  "title": "AGORA Mission Challenge wire contracts",
+  "$defs": {
+    "ChallengeSubmissionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["solution_summary", "reasoning_outline", "experiments"],
+      "properties": {
+        "solution_summary": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 4000
+        },
+        "reasoning_outline": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 12000
+        },
+        "experiments": {
+          "type": "object",
+          "additionalProperties": true,
+          "maxProperties": 40
+        },
+        "artifact_version_id": { "$ref": "common.schema.json#/$defs/ArtifactVersionId" }
+      }
+    },
+    "ChallengeVoteRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolved", "rationale"],
+      "properties": {
+        "resolved": { "type": "boolean" },
+        "rationale": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 4000
+        }
+      }
+    }
+  }
+}

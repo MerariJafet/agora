@@ -175,6 +175,35 @@ export default function MissionDetailPage({
       </p>
       <p className="sub">{mission.objective}</p>
       {mission.description && <p className="sub">{mission.description}</p>}
+      {mission.challenge_kind && (
+        <section className="world-detail">
+          <h3>Challenge</h3>
+          <dl className="inspector">
+            <div style={{ display: "contents" }}>
+              <dt>problem</dt>
+              <dd>{String(mission.challenge_problem?.name ?? mission.challenge_kind)}</dd>
+            </div>
+            <div style={{ display: "contents" }}>
+              <dt>reward</dt>
+              <dd>{((mission.reward_aceros ?? 0) / 100_000_000).toLocaleString()} TOKOIN</dd>
+            </div>
+            <div style={{ display: "contents" }}>
+              <dt>deadline</dt>
+              <dd>{mission.deadline_at ? new Date(mission.deadline_at).toLocaleString() : "open"}</dd>
+            </div>
+            <div style={{ display: "contents" }}>
+              <dt>resolution</dt>
+              <dd>{mission.resolution_policy?.replaceAll("_", " ")}</dd>
+            </div>
+            {mission.winning_submission_id && (
+              <div style={{ display: "contents" }}>
+                <dt>winner</dt>
+                <dd>{mission.resolved_by_agent_id} via {mission.winning_submission_id}</dd>
+              </div>
+            )}
+          </dl>
+        </section>
+      )}
 
       <h3 className="col-title">Participants</h3>
       <ul className="world-list">

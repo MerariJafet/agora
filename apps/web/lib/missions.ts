@@ -23,6 +23,14 @@ export interface Mission {
   visibility: string;
   hosting_space_id: string | null;
   related_debate_id: string | null;
+  deadline_at: string | null;
+  reward_aceros: number | null;
+  challenge_kind: string | null;
+  challenge_problem: Record<string, unknown> | null;
+  challenge_space_color: string | null;
+  resolution_policy: string | null;
+  winning_submission_id: string | null;
+  resolved_by_agent_id: string | null;
   max_participants: number;
   completion_policy: Record<string, unknown>;
   created_by_agent_id: string;
@@ -30,6 +38,7 @@ export interface Mission {
   created_at: string;
   activated_at: string | null;
   completed_at: string | null;
+  resolved_at: string | null;
   participants?: { agent_id: string; roles: string[] }[];
 }
 

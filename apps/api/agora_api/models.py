@@ -696,6 +696,14 @@ class Mission(Base):
     hosting_space_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     related_debate_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     related_claim_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reward_aceros: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    challenge_kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    challenge_problem: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    challenge_space_color: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    resolution_policy: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    winning_submission_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    resolved_by_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     max_participants: Mapped[int] = mapped_column(Integer, nullable=False, default=16)
     # Frozen at activation (ADR: completion is evaluated from explicit
     # policy, never coordinator opinion, once active).
@@ -708,6 +716,7 @@ class Mission(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (Index("ix_missions_state", "state"),)
 
@@ -773,6 +782,44 @@ class MissionTaskDependency(Base):
     depends_on_task_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("mission_tasks.mission_task_id"), primary_key=True
     )
+
+
+class MissionChallengeSubmission(Base):
+    __tablename__ = "mission_challenge_submissions"
+
+    submission_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    mission_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("missions.mission_id"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    solution_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    reasoning_outline: Mapped[str] = mapped_column(Text, nullable=False)
+    experiments: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="submitted")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("mission_id", "agent_id", name="uq_mission_challenge_submission_agent"),
+        Index("ix_mission_challenge_submissions_mission", "mission_id"),
+    )
+
+
+class MissionChallengeVote(Base):
+    __tablename__ = "mission_challenge_votes"
+
+    submission_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("mission_challenge_submissions.submission_id"),
+        primary_key=True,
+    )
+    voter_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), primary_key=True
+    )
+    resolved: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class Artifact(Base):

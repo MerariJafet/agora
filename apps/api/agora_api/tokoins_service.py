@@ -1,8 +1,9 @@
 """TOKOIN internal economy service.
 
 TOKOIN is an in-world coordination token, not a public cryptocurrency or a
-financial instrument. The world starts with exactly 1,000,000 units held by
-the AGORA treasury. Wallet balances are current-state projections; the
+financial instrument. The world starts with exactly 1,000,000 TOKOIN held by
+the AGORA treasury. Each TOKOIN is divisible into 100,000,000 aceros, the
+integer ledger unit. Wallet balances are current-state projections; the
 `tokoin_ledger_entries` table is append-only and hash-chained.
 """
 
@@ -19,7 +20,9 @@ from agora_api.ids import new_tokoin_entry_id, new_wallet_id
 from agora_api.models import Agent, TokoinLedgerEntry, TokoinSupply, TokoinWallet
 
 CURRENCY_CODE = "TOKOIN"
-MAX_SUPPLY = 1_000_000
+ACEROS_PER_TOKOIN = 100_000_000
+MAX_SUPPLY_TOKOINS = 1_000_000
+MAX_SUPPLY_ACEROS = MAX_SUPPLY_TOKOINS * ACEROS_PER_TOKOIN
 TREASURY_WALLET_ID = "wal_0000000000000000000TREASRY"
 
 
@@ -121,7 +124,8 @@ async def wallet_for_agent(
         payload={
             "wallet_id": wallet.wallet_id,
             "currency_code": CURRENCY_CODE,
-            "initial_balance": 0,
+            "unit": "acero",
+            "initial_balance_aceros": 0,
             "agent_must_self_configure_wallet": True,
         },
         trace_id=trace_id,
@@ -144,13 +148,20 @@ async def tokoin_status(session: AsyncSession) -> dict[str, Any]:
     treasury = await session.get(TokoinWallet, supply.treasury_wallet_id)
     return {
         "currency_code": CURRENCY_CODE,
-        "max_supply": supply.max_supply,
-        "circulating_supply": int(circulating),
-        "treasury_balance": treasury.balance if treasury else None,
+        "unit": "acero",
+        "aceros_per_tokoin": ACEROS_PER_TOKOIN,
+        "max_supply": MAX_SUPPLY_TOKOINS,
+        "max_supply_aceros": supply.max_supply,
+        "circulating_supply": int(circulating) / ACEROS_PER_TOKOIN,
+        "circulating_supply_aceros": int(circulating),
+        "treasury_balance": (
+            treasury.balance / ACEROS_PER_TOKOIN if treasury else None
+        ),
+        "treasury_balance_aceros": treasury.balance if treasury else None,
         "wallet_count": int(wallets),
         "genesis_hash": supply.genesis_hash,
         "treasury_wallet_id": supply.treasury_wallet_id,
-        "monetary_policy": "fixed_supply_no_minting_api",
+        "monetary_policy": "fixed_supply_100000000_aceros_per_tokoin_no_minting_api",
     }
 
 
@@ -160,7 +171,10 @@ def wallet_view(wallet: TokoinWallet) -> dict[str, Any]:
         "agent_id": wallet.agent_id,
         "label": wallet.label,
         "currency_code": CURRENCY_CODE,
-        "balance": wallet.balance,
+        "unit": "acero",
+        "aceros_per_tokoin": ACEROS_PER_TOKOIN,
+        "balance": wallet.balance / ACEROS_PER_TOKOIN,
+        "balance_aceros": wallet.balance,
         "created_at": _iso_z(wallet.created_at),
         "updated_at": _iso_z(wallet.updated_at),
     }
@@ -190,7 +204,7 @@ async def transfer_from_treasury(
     if len(reason) > 128:
         raise ValidationFailed("TOKOIN reason is too long.")
     supply = await get_supply(session)
-    if supply.max_supply != MAX_SUPPLY:
+    if supply.max_supply != MAX_SUPPLY_ACEROS:
         raise ValidationFailed("TOKOIN fixed supply invariant failed.")
     treasury = await treasury_wallet(session, lock=True)
     target = await wallet_for_agent(session, to_agent_id, create=True, trace_id=trace_id)
@@ -215,7 +229,7 @@ async def transfer_from_treasury(
         actor={"agent_id": to_agent_id, "agent_version_id": agent.current_version_id},
         payload={
             "wallet_id": target.wallet_id,
-            "amount": amount,
+            "amount_aceros": amount,
             "currency_code": CURRENCY_CODE,
             "reason": reason,
             "mission_id": mission_id,
@@ -252,6 +266,24 @@ async def transfer_from_treasury(
     return entry
 
 
+async def transfer_one_tokoin_reward(
+    session: AsyncSession,
+    *,
+    to_agent_id: str,
+    reason: str,
+    mission_id: str | None = None,
+    trace_id: str | None = None,
+) -> TokoinLedgerEntry:
+    return await transfer_from_treasury(
+        session,
+        to_agent_id=to_agent_id,
+        amount=ACEROS_PER_TOKOIN,
+        reason=reason,
+        mission_id=mission_id,
+        trace_id=trace_id,
+    )
+
+
 async def verify_ledger_chain(session: AsyncSession) -> dict[str, Any]:
     rows = (
         await session.execute(select(TokoinLedgerEntry).order_by(TokoinLedgerEntry.sequence))
@@ -268,12 +300,14 @@ async def verify_ledger_chain(session: AsyncSession) -> dict[str, Any]:
     total_balance = (
         await session.execute(select(func.coalesce(func.sum(TokoinWallet.balance), 0)))
     ).scalar_one()
-    if int(total_balance) != MAX_SUPPLY:
+    if int(total_balance) != MAX_SUPPLY_ACEROS:
         return {"valid": False, "reason": "supply_mismatch", "total_balance": int(total_balance)}
     return {
         "valid": True,
         "entries": len(rows),
         "tip_hash": previous_hash,
         "total_balance": int(total_balance),
-        "max_supply": MAX_SUPPLY,
+        "max_supply": MAX_SUPPLY_ACEROS,
+        "unit": "acero",
+        "aceros_per_tokoin": ACEROS_PER_TOKOIN,
     }

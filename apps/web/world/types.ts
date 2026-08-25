@@ -14,6 +14,11 @@ export interface Landmark {
   x: number;
   y: number;
   radius: number;
+  color?: string;
+  mission_id?: string;
+  deadline_at?: string;
+  reward_aceros?: number;
+  challenge_kind?: string;
 }
 
 export interface WorldManifest {

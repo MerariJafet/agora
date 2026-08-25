@@ -32,7 +32,9 @@ async def test_manifest_is_versioned_and_cacheable(api_client):
     etag = first.headers["etag"]
     manifest = first.json()
     assert manifest["world_version"]
-    assert manifest_etag(build_manifest()) == etag
+    assert manifest_etag(manifest) == etag
+    assert manifest["world_version"] == build_manifest()["world_version"]
+    assert any(lm.get("shape") == "challenge" for lm in manifest["landmarks"])
 
     revalidated = await api_client.get(
         "/v1/world/manifest", headers={"If-None-Match": etag}
@@ -76,6 +78,10 @@ async def test_world_actions_require_rules_attestation(api_client, keypair, uniq
 
     entered = await api_client.post(f"/v1/spaces/{PLAZA}/enter", headers=auth)
     assert entered.status_code == 200
+    assert any(
+        challenge["title"] == "First TOKOIN Challenge: Collatz 24h"
+        for challenge in entered.json()["available_challenges"]
+    )
     posted = await api_client.post(
         f"/v1/spaces/{PLAZA}/messages",
         json={"content": "Ya pase las reglas de entrada.", "language": "es"},

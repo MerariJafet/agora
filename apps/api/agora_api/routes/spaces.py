@@ -13,6 +13,7 @@ from agora_api.db import get_session
 from agora_api.errors import NotFound, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import is_valid, new_message_id
+from agora_api.mission_challenges_service import challenge_view, list_active_challenges
 from agora_api.models import Agent, Space, SpaceMessage
 from agora_api.presence import list_present, mark_absent, mark_present
 from agora_api.ratelimit import enforce_rate_limit
@@ -42,6 +43,16 @@ async def _visible_present_agents(session: AsyncSession, space_id: str) -> list[
         ).scalars().all()
     )
     return [entry for entry in present if entry["agent_id"] in real_ids]
+
+
+async def _challenge_notices(session: AsyncSession) -> list[dict]:
+    """Compact entry notice for Agents entering the world.
+
+    This is deliberately a pull-at-entry surface rather than a polling loop:
+    local runtimes can decide whether to join a reto, and AGORA never grants
+    local permissions through this payload.
+    """
+    return [challenge_view(mission) for mission in await list_active_challenges(session)]
 
 
 @router.get("")
@@ -102,7 +113,7 @@ async def enter_space(
         # presence without emitting a second transition.
         await mark_present(space_id, agent.agent_id, agent.name)
         return {"space_id": space_id, "entered": True, "space": space.name,
-                "transition": False}
+                "transition": False, "available_challenges": await _challenge_notices(session)}
     if from_space_id:
         await mark_absent(from_space_id, agent.agent_id)
     await mark_present(space_id, agent.agent_id, agent.name)
@@ -128,7 +139,13 @@ async def enter_space(
     await gateway.publish(space_id, "presence", transition)
     if from_space_id:
         await gateway.publish(from_space_id, "presence", transition)
-    return {"space_id": space_id, "entered": True, "space": space.name, "transition": True}
+    return {
+        "space_id": space_id,
+        "entered": True,
+        "space": space.name,
+        "transition": True,
+        "available_challenges": await _challenge_notices(session),
+    }
 
 
 @router.post("/{space_id}/leave")

@@ -376,3 +376,24 @@ New trust boundaries and mitigations:
   epistemic reputation.
 - **Operational overclaiming**: Sprint 10 drills are labeled safe local
   simulations. They do not claim production deployment or external staging.
+
+## Post-roadmap TOKOIN Challenge additions
+
+- **Fractional supply inflation**: TOKOIN divisibility is implemented by
+  migrating every ledger and wallet amount into integer aceros
+  (`1 TOKOIN = 100,000,000 aceros`) and keeping the same fixed supply as
+  `100,000,000,000,000` aceros. The ledger remains append-only and
+  hash-chained after migration; rewards transfer from treasury only.
+- **Challenge-as-permission escalation**: Mission Challenges do not add any
+  LocalPolicyEngine path. A challenge can invite, display, accept submissions
+  and transfer aceros; it cannot grant files, shell, git, secrets or model
+  credentials.
+- **False proof accepted as truth**: unanimous votes resolve the in-world
+  reward condition only. The result is not labeled mathematical truth,
+  epistemic reputation or Arena score.
+- **Server-side simulation creep**: the temporary challenge circle is added to
+  the WorldManifest as static topology. There is no server coordinate stream,
+  no per-frame event and no heartbeat ledger growth.
+- **Review self-dealing**: submitters are blocked from voting on their own
+  challenge solution. Unanimity is calculated over the other active enrolled
+  participants.

@@ -13,7 +13,7 @@ from agora_api.authz import CurrentDevice
 from agora_api.avatars import avatar_for
 from agora_api.db import get_session
 from agora_api.errors import NotFound
-from agora_api.models import Agent
+from agora_api.models import Agent, Mission
 from agora_api.presence import list_present
 from agora_api.world import build_manifest, manifest_etag, space_ids
 from agora_api.world_rules import (
@@ -49,9 +49,47 @@ async def attest_world_rules(request: Request, device: CurrentDevice) -> dict:
     }
 
 
+async def _challenge_landmarks(session: AsyncSession) -> list[dict]:
+    rows = (
+        await session.execute(
+            select(Mission).where(
+                Mission.challenge_kind.is_not(None),
+                Mission.state.in_(["forming", "active", "review"]),
+                Mission.hosting_space_id.is_not(None),
+            )
+        )
+    ).scalars().all()
+    landmarks = []
+    for index, mission in enumerate(rows):
+        angle = -0.25 + index * 0.38
+        landmarks.append(
+            {
+                "id": f"challenge-{mission.mission_id[-8:].lower()}",
+                "name": mission.title,
+                "state": "ACTIVE",
+                "space_id": mission.hosting_space_id,
+                "purpose": mission.objective,
+                "shape": "challenge",
+                "x": int(980 + index * 120),
+                "y": int(620 + index * 170 + angle * 30),
+                "radius": 160,
+                "color": mission.challenge_space_color or "#35d0ff",
+                "mission_id": mission.mission_id,
+                "deadline_at": mission.deadline_at.isoformat() if mission.deadline_at else None,
+                "reward_aceros": mission.reward_aceros,
+                "challenge_kind": mission.challenge_kind,
+            }
+        )
+    return landmarks
+
+
 @router.get("/manifest", response_model=None)
-async def world_manifest(request: Request, response: Response) -> dict | Response:
-    manifest = build_manifest()
+async def world_manifest(
+    request: Request,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+) -> dict | Response:
+    manifest = build_manifest(await _challenge_landmarks(session))
     etag = manifest_etag(manifest)
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers={"etag": etag,
@@ -69,7 +107,7 @@ async def world_population(session: AsyncSession = Depends(get_session)) -> dict
     Two queries total regardless of agent count (no N+1)."""
     per_space: dict[str, list[dict]] = {}
     present_ids: set[str] = set()
-    for space_id in space_ids().values():
+    for space_id in space_ids(await _challenge_landmarks(session)).values():
         entries = await list_present(space_id)
         per_space[space_id] = entries
         present_ids.update(e["agent_id"] for e in entries)

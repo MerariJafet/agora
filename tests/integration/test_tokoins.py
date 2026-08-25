@@ -36,15 +36,19 @@ async def _create_mission(api_client, reg: dict, *, max_participants: int = 4) -
 async def test_tokoin_genesis_supply_and_chain_are_valid(api_client):
     status = (await api_client.get("/v1/tokoins/status")).json()
     assert status["currency_code"] == "TOKOIN"
+    assert status["unit"] == "acero"
+    assert status["aceros_per_tokoin"] == 100_000_000
     assert status["max_supply"] == 1_000_000
+    assert status["max_supply_aceros"] == 100_000_000_000_000
     assert status["treasury_balance"] <= 1_000_000
-    assert status["monetary_policy"] == "fixed_supply_no_minting_api"
+    assert status["monetary_policy"] == "fixed_supply_100000000_aceros_per_tokoin_no_minting_api"
 
     ledger = (await api_client.get("/v1/tokoins/ledger")).json()
     assert ledger["verification"]["valid"] is True
-    assert ledger["verification"]["total_balance"] == 1_000_000
+    assert ledger["verification"]["total_balance"] == 100_000_000_000_000
     assert ledger["ledger"][-1]["entry_type"] == "genesis"
     assert ledger["ledger"][-1]["amount"] == 1_000_000
+    assert ledger["ledger"][-1]["amount_aceros"] == 100_000_000_000_000
 
 
 async def test_registration_creates_tokoin_wallet_with_zero_balance(api_client, unique_name):
@@ -56,6 +60,7 @@ async def test_registration_creates_tokoin_wallet_with_zero_balance(api_client, 
     assert wallet["wallet_id"] == reg["wallet_id"]
     assert wallet["agent_id"] == reg["agent_id"]
     assert wallet["balance"] == 0
+    assert wallet["balance_aceros"] == 0
     assert wallet["currency_code"] == "TOKOIN"
 
 
@@ -84,21 +89,23 @@ async def test_tokoin_mission_reward_transfers_without_minting(api_client, uniqu
     assert reward.status_code == 201, reward.text
     entry = reward.json()
     assert entry["entry_type"] == "mission_reward"
-    assert entry["amount"] == 25
+    assert entry["amount"] == 0.00000025
+    assert entry["amount_aceros"] == 25
     assert entry["mission_id"] == mission_id
     assert entry["previous_hash"]
 
     worker_wallet = (
         await api_client.get(f"/v1/agents/{worker['agent_id']}/wallet")
     ).json()
-    assert worker_wallet["balance"] == 25
+    assert worker_wallet["balance"] == 0.00000025
+    assert worker_wallet["balance_aceros"] == 25
     after = (await api_client.get("/v1/tokoins/status")).json()
-    assert after["treasury_balance"] == before["treasury_balance"] - 25
-    assert after["circulating_supply"] == before["circulating_supply"] + 25
+    assert after["treasury_balance_aceros"] == before["treasury_balance_aceros"] - 25
+    assert after["circulating_supply_aceros"] == before["circulating_supply_aceros"] + 25
 
     ledger = (await api_client.get("/v1/tokoins/ledger")).json()
     assert ledger["verification"]["valid"] is True
-    assert ledger["verification"]["total_balance"] == 1_000_000
+    assert ledger["verification"]["total_balance"] == 100_000_000_000_000
 
 
 async def test_tokoin_rewards_are_creator_and_participant_scoped(api_client, unique_name):

@@ -11,6 +11,7 @@ from agora_api.errors import NotFound, OwnerAuthorityRequired
 from agora_api.models import Mission, MissionParticipant, TokoinLedgerEntry
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.tokoins_service import (
+    ACEROS_PER_TOKOIN,
     tokoin_status,
     transfer_from_treasury,
     verify_ledger_chain,
@@ -28,8 +29,10 @@ def ledger_entry_view(entry: TokoinLedgerEntry) -> dict:
         "entry_type": entry.entry_type,
         "from_wallet_id": entry.from_wallet_id,
         "to_wallet_id": entry.to_wallet_id,
-        "amount": entry.amount,
+        "amount": entry.amount / ACEROS_PER_TOKOIN,
+        "amount_aceros": entry.amount,
         "currency_code": entry.currency_code,
+        "unit": "acero",
         "reason": entry.reason,
         "mission_id": entry.mission_id,
         "event_id": entry.event_id,

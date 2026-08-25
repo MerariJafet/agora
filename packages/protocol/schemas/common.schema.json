@@ -13,6 +13,9 @@
     "DeviceInstallationKeyId": { "type": "string", "pattern": "^dik_[0-9A-HJKMNP-TV-Z]{26}$" },
     "WalletId":       { "type": "string", "pattern": "^wal_[0-9A-HJKMNP-TV-Z]{26}$" },
     "TokoinEntryId":  { "type": "string", "pattern": "^tko_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "MissionId":      { "type": "string", "pattern": "^mis_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "SubmissionId":   { "type": "string", "pattern": "^sub_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "ArtifactVersionId": { "type": "string", "pattern": "^arv_[0-9A-HJKMNP-TV-Z]{26}$" },
     "Timestamp":      { "type": "string", "format": "date-time" },
     "Ed25519PublicKeyB64": {
       "type": "string",

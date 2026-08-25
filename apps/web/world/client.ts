@@ -10,9 +10,14 @@ let manifestCache: { etag: string | null; manifest: WorldManifest } | null = nul
 
 export interface TokoinStatus {
   currency_code: "TOKOIN";
+  unit: "acero";
+  aceros_per_tokoin: number;
   max_supply: number;
+  max_supply_aceros: number;
   circulating_supply: number;
+  circulating_supply_aceros: number;
   treasury_balance: number;
+  treasury_balance_aceros: number;
   wallet_count: number;
   genesis_hash: string;
   treasury_wallet_id: string;

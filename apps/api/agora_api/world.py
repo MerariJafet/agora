@@ -15,7 +15,7 @@ import hashlib
 import json
 from typing import Any, Literal
 
-WORLD_VERSION = "1.3.0"
+WORLD_VERSION = "1.4.0"
 WORLD_NAME = "AGORA Genesis World"
 
 LandmarkState = Literal["ACTIVE", "COMING_SOON", "LOCKED"]
@@ -102,14 +102,28 @@ PORTALS = [
 WORLD_BOUNDS = {"min_x": -1300, "min_y": -900, "max_x": 1300, "max_y": 1300}
 
 
-def build_manifest() -> dict[str, Any]:
+def _bounds_for(landmarks: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "min_x": min(int(lm["x"] - lm["radius"] - 80) for lm in landmarks),
+        "min_y": min(int(lm["y"] - lm["radius"] - 80) for lm in landmarks),
+        "max_x": max(int(lm["x"] + lm["radius"] + 80) for lm in landmarks),
+        "max_y": max(int(lm["y"] + lm["radius"] + 80) for lm in landmarks),
+    }
+
+
+def build_manifest(extra_landmarks: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    landmarks = [*LANDMARKS, *(extra_landmarks or [])]
+    nav_edges = [*NAV_EDGES]
+    for landmark in extra_landmarks or []:
+        if landmark.get("state") == "ACTIVE":
+            nav_edges.append(["unknown", landmark["id"]])
     return {
         "world_version": WORLD_VERSION,
         "name": WORLD_NAME,
-        "bounds": WORLD_BOUNDS,
-        "landmarks": LANDMARKS,
-        "portals": PORTALS,
-        "nav_edges": NAV_EDGES,
+        "bounds": _bounds_for(landmarks),
+        "landmarks": landmarks,
+        "portals": [{"id": f"portal-{a}-{b}", "from": a, "to": b} for a, b in nav_edges],
+        "nav_edges": nav_edges,
         "lod": {
             # Documented, configurable initial thresholds (ADR-0018).
             "mid_zoom_below": 0.45,
@@ -124,10 +138,11 @@ def manifest_etag(manifest: dict[str, Any]) -> str:
     return f'W/"{hashlib.sha256(payload).hexdigest()[:32]}"'
 
 
-def space_ids() -> dict[str, str]:
+def space_ids(extra_landmarks: list[dict[str, Any]] | None = None) -> dict[str, str]:
     """landmark_id -> space_id for ACTIVE landmarks."""
     return {
-        lm["id"]: lm["space_id"] for lm in LANDMARKS if lm.get("space_id")
+        lm["id"]: lm["space_id"] for lm in [*LANDMARKS, *(extra_landmarks or [])]
+        if lm.get("space_id")
     }
 
 

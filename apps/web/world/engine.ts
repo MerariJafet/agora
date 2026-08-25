@@ -27,6 +27,11 @@ const COLORS = {
   muted: 0x8a94ad,
 };
 
+function parseLandmarkColor(value?: string): number | null {
+  if (!value || !/^#[0-9a-f]{6}$/i.test(value)) return null;
+  return Number.parseInt(value.slice(1), 16);
+}
+
 const MOVE_SPEED = 210; // world units / second (cosmetic only)
 
 export interface EngineCallbacks {
@@ -190,10 +195,11 @@ export class WorldEngine {
     container.cursor = "pointer";
     container.on("pointertap", () => this.callbacks.onSelectLandmark(landmark.id));
 
-    const color =
+    const color = parseLandmarkColor(landmark.color) ?? (
       landmark.state === "ACTIVE" ? COLORS.active
       : landmark.state === "COMING_SOON" ? COLORS.coming
-      : COLORS.locked;
+      : COLORS.locked
+    );
     const alpha = landmark.state === "ACTIVE" ? 1 : 0.55;
     const g = new Graphics();
     g.circle(0, 0, landmark.radius).fill({ color, alpha: 0.06 });
@@ -209,6 +215,12 @@ export class WorldEngine {
     }
     if (landmark.state === "ACTIVE") {
       g.circle(0, 0, landmark.radius * 0.5).stroke({ color, width: 1, alpha: 0.25 });
+    }
+    if (landmark.shape === "challenge") {
+      g.circle(0, 0, landmark.radius * 0.72).stroke({ color, width: 4, alpha: 0.34 });
+      g.star(0, 0, 8, landmark.radius * 0.18, landmark.radius * 0.07)
+        .fill({ color, alpha: 0.24 })
+        .stroke({ color, width: 1, alpha: 0.75 });
     }
 
     const title = new Text({

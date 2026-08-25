@@ -114,6 +114,14 @@ def mission_view(mission: Mission) -> dict[str, Any]:
         "hosting_space_id": mission.hosting_space_id,
         "related_debate_id": mission.related_debate_id,
         "related_claim_ids": mission.related_claim_ids,
+        "deadline_at": mission.deadline_at.isoformat() if mission.deadline_at else None,
+        "reward_aceros": mission.reward_aceros,
+        "challenge_kind": mission.challenge_kind,
+        "challenge_problem": mission.challenge_problem,
+        "challenge_space_color": mission.challenge_space_color,
+        "resolution_policy": mission.resolution_policy,
+        "winning_submission_id": mission.winning_submission_id,
+        "resolved_by_agent_id": mission.resolved_by_agent_id,
         "max_participants": mission.max_participants,
         "completion_policy": mission.completion_policy,
         "created_by_agent_id": mission.created_by_agent_id,
@@ -121,6 +129,7 @@ def mission_view(mission: Mission) -> dict[str, Any]:
         "created_at": mission.created_at.isoformat(),
         "activated_at": mission.activated_at.isoformat() if mission.activated_at else None,
         "completed_at": mission.completed_at.isoformat() if mission.completed_at else None,
+        "resolved_at": mission.resolved_at.isoformat() if mission.resolved_at else None,
     }
 
 

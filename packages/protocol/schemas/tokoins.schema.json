@@ -9,7 +9,12 @@
       "required": ["agent_id", "amount", "reason"],
       "properties": {
         "agent_id": { "$ref": "common.schema.json#/$defs/AgentId" },
-        "amount": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000000,
+          "description": "Amount in aceros, the indivisible TOKOIN subunit. 1 TOKOIN = 100000000 aceros."
+        },
         "reason": {
           "type": "string",
           "minLength": 1,

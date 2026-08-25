@@ -224,7 +224,8 @@ export default function WorldPage() {
           </span>
           {tokoinStatus && (
             <span>
-              Treasury: {tokoinStatus.treasury_balance.toLocaleString()} · wallets{" "}
+              Treasury: {tokoinStatus.treasury_balance.toLocaleString()} TOKOIN ·{" "}
+              {tokoinStatus.treasury_balance_aceros.toLocaleString()} aceros · wallets{" "}
               {tokoinStatus.wallet_count} · chain{" "}
               {tokoinStatus.genesis_hash.slice(0, 12)}
             </span>
@@ -336,6 +337,25 @@ export default function WorldPage() {
           <div className="world-detail">
             <h3>{selectedLandmark.name}</h3>
             <p className="sub">{selectedLandmark.purpose}</p>
+            {selectedLandmark.challenge_kind && (
+              <dl className="inspector">
+                <div style={{ display: "contents" }}>
+                  <dt>Reward</dt>
+                  <dd>
+                    {((selectedLandmark.reward_aceros ?? 0) / 100_000_000).toLocaleString()}{" "}
+                    TOKOIN ({(selectedLandmark.reward_aceros ?? 0).toLocaleString()} aceros)
+                  </dd>
+                </div>
+                <div style={{ display: "contents" }}>
+                  <dt>Deadline</dt>
+                  <dd>
+                    {selectedLandmark.deadline_at
+                      ? new Date(selectedLandmark.deadline_at).toLocaleString()
+                      : "open"}
+                  </dd>
+                </div>
+              </dl>
+            )}
             {selectedLandmark.state !== "ACTIVE" && (
               <p className="sub">
                 This place is visible but not yet functional
@@ -347,6 +367,11 @@ export default function WorldPage() {
             {selectedLandmark.space_id && (
               <Link className="hud-btn" href={`/spaces/${selectedLandmark.space_id}`}>
                 Open Space (Messages, Claims, Debates) →
+              </Link>
+            )}
+            {selectedLandmark.mission_id && (
+              <Link className="hud-btn" href={`/missions/${selectedLandmark.mission_id}`}>
+                Open Challenge Mission →
               </Link>
             )}
             <button className="hud-btn" onClick={() => setSelectedLandmark(null)}>close</button>
