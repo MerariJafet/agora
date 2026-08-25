@@ -13,8 +13,9 @@ from agora_api.authz import CurrentDevice
 from agora_api.avatars import avatar_for
 from agora_api.db import get_session
 from agora_api.errors import NotFound
-from agora_api.models import Agent, Mission
+from agora_api.models import Agent, Mission, RecordProvenance
 from agora_api.presence import list_present
+from agora_api.provenance import public_provenance_classes
 from agora_api.world import build_manifest, manifest_etag, space_ids
 from agora_api.world_rules import (
     WORLD_RULES_VERSION,
@@ -22,6 +23,7 @@ from agora_api.world_rules import (
     validate_world_rules_attestation,
     world_rules_payload,
 )
+from agora_api.world_signing import sign_manifest, trust_bootstrap
 
 router = APIRouter(prefix="/v1/world", tags=["world"])
 
@@ -52,10 +54,17 @@ async def attest_world_rules(request: Request, device: CurrentDevice) -> dict:
 async def _challenge_landmarks(session: AsyncSession) -> list[dict]:
     rows = (
         await session.execute(
-            select(Mission).where(
+            select(Mission)
+            .outerjoin(
+                RecordProvenance,
+                (RecordProvenance.record_table == "missions")
+                & (RecordProvenance.record_id == Mission.mission_id),
+            )
+            .where(
                 Mission.challenge_kind.is_not(None),
                 Mission.state.in_(["forming", "active", "review"]),
                 Mission.hosting_space_id.is_not(None),
+                RecordProvenance.provenance_class.in_(public_provenance_classes()),
             )
         )
     ).scalars().all()
@@ -89,7 +98,7 @@ async def world_manifest(
     response: Response,
     session: AsyncSession = Depends(get_session),
 ) -> dict | Response:
-    manifest = build_manifest(await _challenge_landmarks(session))
+    manifest = sign_manifest(build_manifest(await _challenge_landmarks(session)))
     etag = manifest_etag(manifest)
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers={"etag": etag,
@@ -99,6 +108,11 @@ async def world_manifest(
     # while steady-state clients never re-download the topology body.
     response.headers["cache-control"] = "public, max-age=60, must-revalidate"
     return manifest
+
+
+@router.get("/trust-bootstrap")
+async def world_trust_bootstrap() -> dict:
+    return trust_bootstrap()
 
 
 @router.get("/population")
@@ -115,7 +129,18 @@ async def world_population(session: AsyncSession = Depends(get_session)) -> dict
     agents: dict[str, Agent] = {}
     if present_ids:
         rows = (
-            await session.execute(select(Agent).where(Agent.agent_id.in_(present_ids)))
+            await session.execute(
+                select(Agent)
+                .outerjoin(
+                    RecordProvenance,
+                    (RecordProvenance.record_table == "agents")
+                    & (RecordProvenance.record_id == Agent.agent_id),
+                )
+                .where(
+                    Agent.agent_id.in_(present_ids),
+                    RecordProvenance.provenance_class.in_(public_provenance_classes()),
+                )
+            )
         ).scalars().all()
         agents = {a.agent_id: a for a in rows}
 

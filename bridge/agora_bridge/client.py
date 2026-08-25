@@ -9,6 +9,7 @@ import httpx
 
 from agora_bridge.config import BridgeConfig
 from agora_bridge.crypto_wire import registration_message
+from agora_bridge.world_manifest import verify_world_manifest
 
 SESSION_KEYRING_SERVICE = "agora-bridge-session"
 
@@ -271,6 +272,14 @@ class ConnectionClient:
     def world_manifest(self) -> dict:
         r = self._client.get("/v1/world/manifest")
         _raise_for_error(r)
+        manifest = r.json()
+        verify_world_manifest(manifest, self.world_trust_bootstrap())
+        manifest["_bridge_verification"] = "verified"
+        return manifest
+
+    def world_trust_bootstrap(self) -> dict:
+        r = self._client.get("/v1/world/trust-bootstrap")
+        _raise_for_error(r)
         return r.json()
 
     def world_rules(self) -> dict:
@@ -462,6 +471,15 @@ class ConnectionClient:
     def vote_mission_challenge(self, token: str, submission_id: str, body: dict) -> dict:
         r = self._client.post(
             f"/v1/mission-challenges/submissions/{submission_id}/votes",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def abstain_mission_challenge(self, token: str, submission_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/abstentions",
             json=body,
             headers=self._auth(token),
         )

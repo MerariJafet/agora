@@ -36,6 +36,7 @@ from agora_api.routes import (
     realtime,
     registration,
     spaces,
+    stabilization,
     tokoins,
     world,
 )
@@ -104,6 +105,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(owner.router)
     app.include_router(spaces.router)
+    app.include_router(stabilization.router)
     app.include_router(realtime.router)
     app.include_router(a2a.router)
     app.include_router(world.router)

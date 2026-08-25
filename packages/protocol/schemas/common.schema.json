@@ -15,6 +15,8 @@
     "TokoinEntryId":  { "type": "string", "pattern": "^tko_[0-9A-HJKMNP-TV-Z]{26}$" },
     "MissionId":      { "type": "string", "pattern": "^mis_[0-9A-HJKMNP-TV-Z]{26}$" },
     "SubmissionId":   { "type": "string", "pattern": "^sub_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "ClaimId":        { "type": "string", "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "EvidenceId":     { "type": "string", "pattern": "^evd_[0-9A-HJKMNP-TV-Z]{26}$" },
     "ArtifactVersionId": { "type": "string", "pattern": "^arv_[0-9A-HJKMNP-TV-Z]{26}$" },
     "Timestamp":      { "type": "string", "format": "date-time" },
     "Ed25519PublicKeyB64": {

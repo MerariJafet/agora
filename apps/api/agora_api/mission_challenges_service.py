@@ -22,7 +22,9 @@ from agora_api.models import (
     MissionChallengeSubmission,
     MissionChallengeVote,
     MissionParticipant,
+    RecordProvenance,
 )
+from agora_api.provenance import add_provenance, public_provenance_classes, record_key
 from agora_api.tokoins_service import ACEROS_PER_TOKOIN, transfer_from_treasury
 
 COLLATZ_MISSION_ID = "mis_000000000000000000C011ATZ0"
@@ -52,6 +54,12 @@ def validate_challenge_submission(payload: Any) -> None:
 
 def validate_challenge_vote(payload: Any) -> None:
     validate_boundary("mission-challenges.schema.json", "/$defs/ChallengeVoteRequest", payload)
+
+
+def validate_challenge_abstention(payload: Any) -> None:
+    validate_boundary(
+        "mission-challenges.schema.json", "/$defs/ChallengeAbstentionRequest", payload
+    )
 
 
 def challenge_view(
@@ -90,6 +98,7 @@ def submission_view(
     votes: list[MissionChallengeVote] | None = None,
 ) -> dict[str, Any]:
     resolved_votes = len([vote for vote in votes or [] if vote.resolved])
+    abstentions = len([vote for vote in votes or [] if vote.abstained])
     return {
         "submission_id": submission.submission_id,
         "mission_id": submission.mission_id,
@@ -98,10 +107,18 @@ def submission_view(
         "reasoning_outline": submission.reasoning_outline,
         "experiments": submission.experiments,
         "artifact_version_id": submission.artifact_version_id,
+        "claim_ids": submission.claim_ids or [],
+        "artifact_version_ids": submission.artifact_version_ids or (
+            [submission.artifact_version_id] if submission.artifact_version_id else []
+        ),
+        "evidence_ids": submission.evidence_ids or [],
+        "limitations": submission.limitations,
+        "public_rationale": submission.public_rationale or submission.reasoning_outline,
         "state": submission.state,
         "created_at": submission.created_at.isoformat(),
         "votes_count": len(votes or []),
         "resolved_votes": resolved_votes,
+        "abstentions_count": abstentions,
     }
 
 
@@ -133,9 +150,15 @@ async def list_active_challenges(session: AsyncSession) -> list[Mission]:
     rows = (
         await session.execute(
             select(Mission)
+            .join(
+                RecordProvenance,
+                (RecordProvenance.record_table == "missions")
+                & (RecordProvenance.record_id == Mission.mission_id),
+            )
             .where(
                 Mission.challenge_kind.is_not(None),
                 Mission.state.in_(["forming", "active", "review"]),
+                RecordProvenance.provenance_class.in_(public_provenance_classes()),
             )
             .order_by(Mission.created_at.asc())
         )
@@ -185,6 +208,13 @@ async def join_challenge(
         joined_at=now_utc(),
     )
     session.add(participant)
+    await add_provenance(
+        session,
+        record_table="mission_participants",
+        record_id=record_key(mission_id, agent_id),
+        created_by="mission_challenge.join",
+        source_reference=mission_id,
+    )
     await append_event(
         session,
         event_type="mission.challenge_joined",
@@ -222,24 +252,52 @@ async def submit_solution(
         )
     ).scalar_one_or_none()
     if existing is not None:
+        if existing.idempotency_key == payload["idempotency_key"]:
+            return existing
         raise DuplicateChallengeSubmission("This Agent already submitted a solution.")
+    artifact_version_ids = list(payload.get("artifact_version_ids") or [])
+    if (
+        payload.get("artifact_version_id")
+        and payload["artifact_version_id"] not in artifact_version_ids
+    ):
+        artifact_version_ids.append(payload["artifact_version_id"])
     submission = MissionChallengeSubmission(
         submission_id=new_submission_id(),
         mission_id=mission_id,
         agent_id=agent_id,
+        idempotency_key=payload["idempotency_key"],
         solution_summary=payload["solution_summary"],
-        reasoning_outline=payload["reasoning_outline"],
-        experiments=payload["experiments"],
-        artifact_version_id=payload.get("artifact_version_id"),
+        reasoning_outline=payload.get("reasoning_outline") or payload["public_rationale"],
+        experiments=payload.get("experiments") or {},
+        artifact_version_id=artifact_version_ids[0] if artifact_version_ids else None,
+        claim_ids=payload.get("claim_ids") or [],
+        artifact_version_ids=artifact_version_ids,
+        evidence_ids=payload.get("evidence_ids") or [],
+        limitations=payload["limitations"],
+        public_rationale=payload["public_rationale"],
         state="submitted",
         created_at=now,
     )
     session.add(submission)
+    await add_provenance(
+        session,
+        record_table="mission_challenge_submissions",
+        record_id=submission.submission_id,
+        created_by="mission_challenge.submit_solution",
+        source_reference=payload["idempotency_key"],
+    )
     await append_event(
         session,
         event_type="mission.challenge_solution_submitted",
         actor={"agent_id": agent_id, "agent_version_id": agent_version_id},
-        payload={"mission_id": mission_id, "submission_id": submission.submission_id},
+        payload={
+            "mission_id": mission_id,
+            "submission_id": submission.submission_id,
+            "claim_ids": submission.claim_ids or [],
+            "artifact_version_ids": submission.artifact_version_ids or [],
+            "evidence_ids": submission.evidence_ids or [],
+            "limitations": submission.limitations,
+        },
         trace_id=trace_id,
     )
     return submission
@@ -251,8 +309,11 @@ async def vote_solution(
     submission_id: str,
     voter_agent_id: str,
     voter_agent_version_id: str | None,
-    resolved: bool,
+    verdict: str,
     rationale: str,
+    idempotency_key: str,
+    review_evidence_ids: list[str] | None,
+    conflict_of_interest_declaration: str | None,
     trace_id: str | None,
 ) -> dict[str, Any]:
     submission = await session.get(MissionChallengeSubmission, submission_id)
@@ -269,20 +330,57 @@ async def vote_solution(
     participant = await session.get(MissionParticipant, (mission.mission_id, voter_agent_id))
     if participant is None or participant.left_at is not None:
         raise OwnerAuthorityRequired("Only enrolled challenge participants may vote.")
+    if not conflict_of_interest_declaration or not conflict_of_interest_declaration.strip():
+        raise OwnerAuthorityRequired("Challenge votes require a conflict declaration.")
 
     vote = await session.get(MissionChallengeVote, (submission_id, voter_agent_id))
+    resolved = verdict == "resolved"
+    abstained = verdict == "abstain"
     if vote is None:
         vote = MissionChallengeVote(
             submission_id=submission_id,
             voter_agent_id=voter_agent_id,
+            idempotency_key=idempotency_key,
             resolved=resolved,
+            verdict=verdict,
             rationale=rationale,
+            review_evidence_ids=review_evidence_ids or [],
+            conflict_of_interest_declaration=conflict_of_interest_declaration,
+            abstained=abstained,
             created_at=now,
         )
         session.add(vote)
+        await add_provenance(
+            session,
+            record_table="mission_challenge_votes",
+            record_id=record_key(submission_id, voter_agent_id),
+            created_by="mission_challenge.vote_solution",
+            source_reference=idempotency_key,
+        )
     else:
+        if vote.idempotency_key == idempotency_key:
+            votes = (
+                await session.execute(
+                    select(MissionChallengeVote).where(
+                        MissionChallengeVote.submission_id == submission_id
+                    )
+                )
+            ).scalars().all()
+            return {
+                "submission": submission_view(submission, votes=list(votes)),
+                "resolved": False,
+                "mission": challenge_view(
+                    mission,
+                    participants_count=len(await _active_participants(session, mission.mission_id)),
+                ),
+                "idempotent_replay": True,
+            }
         vote.resolved = resolved
+        vote.verdict = verdict
         vote.rationale = rationale
+        vote.review_evidence_ids = review_evidence_ids or []
+        vote.conflict_of_interest_declaration = conflict_of_interest_declaration
+        vote.abstained = abstained
         vote.created_at = now
     await append_event(
         session,
@@ -291,7 +389,11 @@ async def vote_solution(
         payload={
             "mission_id": mission.mission_id,
             "submission_id": submission_id,
+            "verdict": verdict,
             "resolved": resolved,
+            "abstained": abstained,
+            "review_evidence_ids": review_evidence_ids or [],
+            "conflict_of_interest_declared": True,
         },
         trace_id=trace_id,
     )
@@ -336,7 +438,24 @@ async def _maybe_resolve(
             )
         )
     ).scalars().all()
-    if len(votes) != len(participant_ids) or not all(vote.resolved for vote in votes):
+    vote_by_agent = {vote.voter_agent_id: vote for vote in votes}
+    active_reviewer_ids = [
+        agent_id
+        for agent_id in participant_ids
+        if not (vote_by_agent.get(agent_id) and vote_by_agent[agent_id].abstained)
+    ]
+    active_votes = [
+        vote
+        for vote in vote_by_agent.values()
+        if not vote.abstained and vote.voter_agent_id in active_reviewer_ids
+    ]
+    if not active_reviewer_ids:
+        return False
+    if len(active_votes) != len(active_reviewer_ids) or not all(
+        vote.resolved for vote in active_votes
+    ):
+        return False
+    if mission.winning_submission_id or mission.resolved_at:
         return False
 
     reward = mission.reward_aceros or ACEROS_PER_TOKOIN

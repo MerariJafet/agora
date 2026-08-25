@@ -18,6 +18,7 @@ from agora_api.errors import AgoraError, NotFound, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import new_tokoin_entry_id, new_wallet_id
 from agora_api.models import Agent, TokoinLedgerEntry, TokoinSupply, TokoinWallet
+from agora_api.provenance import add_provenance
 
 CURRENCY_CODE = "TOKOIN"
 ACEROS_PER_TOKOIN = 100_000_000
@@ -117,6 +118,13 @@ async def wallet_for_agent(
         updated_at=ts,
     )
     session.add(wallet)
+    await add_provenance(
+        session,
+        record_table="tokoin_wallets",
+        record_id=wallet.wallet_id,
+        created_by="tokoin.wallet_for_agent",
+        source_reference=agent_id,
+    )
     await append_event(
         session,
         event_type="tokoin.wallet_created",
@@ -263,6 +271,13 @@ async def transfer_from_treasury(
     target.balance += amount
     target.updated_at = ts
     session.add(entry)
+    await add_provenance(
+        session,
+        record_table="tokoin_ledger_entries",
+        record_id=entry.entry_id,
+        created_by="tokoin.transfer_from_treasury",
+        source_reference=mission_id,
+    )
     return entry
 
 

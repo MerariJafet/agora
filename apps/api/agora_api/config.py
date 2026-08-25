@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="AGORA_", env_file=".env", extra="ignore")
 
-    env: Literal["development", "production"] = "development"
+    env: Literal["development", "test", "production"] = "development"
     database_url: str = "postgresql+asyncpg://agora:agora_dev_password@localhost:5434/agora"
     redis_url: str = "redis://localhost:6380/0"
     nats_url: str = "nats://localhost:4222"
@@ -28,6 +28,19 @@ class Settings(BaseSettings):
     # Sprint 05: ArtifactStore (local filesystem, content-addressed).
     artifact_store_root: str = "~/.agora/artifact-store"
     artifact_max_bytes: int = 200 * 1024 * 1024
+
+    # P1 stabilization: authoritative data provenance and test isolation.
+    environment_id: str = "local-dev"
+    run_id: str = "manual"
+    provenance_class: Literal["real", "demo", "test", "unknown"] = "unknown"
+    allow_dev_db_tests: bool = False
+
+    # P1 stabilization: signed WorldManifest. Private material must come from
+    # environment in production; development/test may use the deterministic
+    # non-secret key generated from this sentinel.
+    world_signing_key_id: str = "agora-world-dev-2026-08"
+    world_signing_secret: str = "agora-dev-world-signing-secret-change-me"  # noqa: S105
+    world_manifest_epoch: int = 1
 
     challenge_ttl_seconds: int = 300
     session_ttl_seconds: int = 3600

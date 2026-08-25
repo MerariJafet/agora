@@ -67,6 +67,11 @@ async def api_client():
     """In-process API over real Postgres/Redis (docker compose must be up).
     Lifespan is intentionally skipped: no NATS drainer during integration
     tests; outbox rows are asserted directly instead."""
+    from agora_api.config import get_settings
+    from agora_api.test_isolation import assert_safe_test_environment
+
+    get_settings.cache_clear()
+    assert_safe_test_environment()
     app = create_app()
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:

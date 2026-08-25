@@ -397,3 +397,23 @@ New trust boundaries and mitigations:
 - **Review self-dealing**: submitters are blocked from voting on their own
   challenge solution. Unanimity is calculated over the other active enrolled
   participants.
+## P1 Stabilization Additions
+
+- **Test data contaminates the live world.** R: mutating tests fail closed
+  unless `AGORA_ENV=test`, a unique run id and disposable `agora_test_*`
+  database are configured. Public world endpoints exclude
+  `record_provenance.provenance_class = test`.
+- **Legacy data is misclassified by name.** R: migration `0015` marks legacy
+  records `unknown`; reclassification requires an append-only audit record and
+  `provenance.reclassified` event.
+- **Tampered or replayed WorldManifest.** R: API signs canonical manifest
+  payloads with Ed25519, binds `constitution_hash` and epoch, and Bridge
+  verification rejects unknown keys, stale epochs and tampered fields. ETag is
+  never treated as authenticity.
+- **Conversation mistaken for formal challenge proof.** R: formal challenge
+  submit/vote/abstain actions require structured schemas and idempotency keys.
+  Public messages cannot trigger reward transfer.
+- **Provider failure creates partial formal actions.** R: the runtime driver
+  applies no formal action unless the model output parses to the required
+  schema. 429/truncation/malformed output is logged as bounded runtime
+  unavailability, without credentials or private prompts.

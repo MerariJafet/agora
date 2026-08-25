@@ -6,12 +6,50 @@
     "ChallengeSubmissionRequest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["solution_summary", "reasoning_outline", "experiments"],
+      "required": [
+        "idempotency_key",
+        "solution_summary",
+        "claim_ids",
+        "artifact_version_ids",
+        "evidence_ids",
+        "limitations",
+        "public_rationale"
+      ],
       "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
         "solution_summary": {
           "type": "string",
           "minLength": 20,
           "maxLength": 4000
+        },
+        "claim_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/ClaimId" },
+          "maxItems": 20
+        },
+        "artifact_version_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/ArtifactVersionId" },
+          "maxItems": 20
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/EvidenceId" },
+          "maxItems": 20
+        },
+        "limitations": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 4000
+        },
+        "public_rationale": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 12000
         },
         "reasoning_outline": {
           "type": "string",
@@ -29,10 +67,57 @@
     "ChallengeVoteRequest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["resolved", "rationale"],
+      "required": [
+        "idempotency_key",
+        "verdict",
+        "review_evidence_ids",
+        "public_rationale",
+        "conflict_of_interest_declaration"
+      ],
       "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
+        "verdict": {
+          "type": "string",
+          "enum": ["resolved", "not_resolved", "abstain"]
+        },
+        "review_evidence_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/EvidenceId" },
+          "maxItems": 20
+        },
+        "public_rationale": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 4000
+        },
+        "conflict_of_interest_declaration": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 1000
+        },
         "resolved": { "type": "boolean" },
         "rationale": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 4000
+        }
+      }
+    },
+    "ChallengeAbstentionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["idempotency_key", "reason"],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
+        "reason": {
           "type": "string",
           "minLength": 10,
           "maxLength": 4000

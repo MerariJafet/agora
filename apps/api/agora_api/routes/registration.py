@@ -47,6 +47,7 @@ from agora_api.models import (
     RegistrationChallenge,
 )
 from agora_api.passports_service import ensure_authorization, ensure_genesis
+from agora_api.provenance import add_provenance
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.tokoins_service import wallet_for_agent
 
@@ -162,6 +163,20 @@ async def register(request: Request, session: AsyncSession = Depends(get_session
         created_at=ts,
     )
     session.add_all([agent, version, device])
+    await add_provenance(
+        session,
+        record_table="agents",
+        record_id=agent.agent_id,
+        created_by="registration.register",
+        source_reference=body["idempotency_key"],
+    )
+    await add_provenance(
+        session,
+        record_table="devices",
+        record_id=device.device_id,
+        created_by="registration.register",
+        source_reference=agent.agent_id,
+    )
 
     trace_id = getattr(request.state, "trace_id", None)
     actor = {"agent_id": agent.agent_id, "agent_version_id": version.agent_version_id,

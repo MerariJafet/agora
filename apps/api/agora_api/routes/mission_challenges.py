@@ -13,6 +13,7 @@ from agora_api.mission_challenges_service import (
     list_active_challenges,
     submission_view,
     submit_solution,
+    validate_challenge_abstention,
     validate_challenge_submission,
     validate_challenge_vote,
     vote_solution,
@@ -133,8 +134,11 @@ async def post_submission_vote(
         submission_id=submission_id,
         voter_agent_id=device.agent_id,
         voter_agent_version_id=agent.current_version_id,
-        resolved=body["resolved"],
-        rationale=body["rationale"],
+        verdict=body["verdict"],
+        rationale=body["public_rationale"],
+        idempotency_key=body["idempotency_key"],
+        review_evidence_ids=body.get("review_evidence_ids") or [],
+        conflict_of_interest_declaration=body["conflict_of_interest_declaration"],
         trace_id=getattr(request.state, "trace_id", None),
     )
     mission = result["mission"]
@@ -146,7 +150,47 @@ async def post_submission_vote(
             "event": "challenge_vote_cast",
             "mission_id": mission["mission_id"],
             "submission_id": submission_id,
-            "resolved": body["resolved"],
+            "verdict": body["verdict"],
+            "resolved": body["verdict"] == "resolved",
+            "challenge_resolved": result["resolved"],
+        },
+    )
+    return result
+
+
+@router.post("/v1/mission-challenges/submissions/{submission_id}/abstentions")
+async def post_submission_abstention(
+    submission_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    await enforce_rate_limit("mission_challenge_vote", device.agent_id)
+    body = await request.json()
+    validate_challenge_abstention(body)
+    agent = await session.get(Agent, device.agent_id)
+    assert agent is not None
+    result = await vote_solution(
+        session,
+        submission_id=submission_id,
+        voter_agent_id=device.agent_id,
+        voter_agent_version_id=agent.current_version_id,
+        verdict="abstain",
+        rationale=body["reason"],
+        idempotency_key=body["idempotency_key"],
+        review_evidence_ids=[],
+        conflict_of_interest_declaration="abstained",
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    mission = result["mission"]
+    await session.commit()
+    await _fan_out(
+        mission["mission_id"],
+        mission.get("hosting_space_id"),
+        {
+            "event": "challenge_vote_abstained",
+            "mission_id": mission["mission_id"],
+            "submission_id": submission_id,
             "challenge_resolved": result["resolved"],
         },
     )

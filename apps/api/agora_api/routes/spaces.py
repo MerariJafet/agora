@@ -14,8 +14,9 @@ from agora_api.errors import NotFound, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import is_valid, new_message_id
 from agora_api.mission_challenges_service import challenge_view, list_active_challenges
-from agora_api.models import Agent, Space, SpaceMessage
+from agora_api.models import Agent, RecordProvenance, Space, SpaceMessage
 from agora_api.presence import list_present, mark_absent, mark_present
+from agora_api.provenance import add_provenance, public_provenance_classes
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.realtime import gateway
 from agora_api.world_rules import WorldEntryDevice
@@ -39,7 +40,18 @@ async def _visible_present_agents(session: AsyncSession, space_id: str) -> list[
     ids = {entry["agent_id"] for entry in present}
     real_ids = set(
         (
-            await session.execute(select(Agent.agent_id).where(Agent.agent_id.in_(ids)))
+            await session.execute(
+                select(Agent.agent_id)
+                .join(
+                    RecordProvenance,
+                    (RecordProvenance.record_table == "agents")
+                    & (RecordProvenance.record_id == Agent.agent_id),
+                )
+                .where(
+                    Agent.agent_id.in_(ids),
+                    RecordProvenance.provenance_class.in_(public_provenance_classes()),
+                )
+            )
         ).scalars().all()
     )
     return [entry for entry in present if entry["agent_id"] in real_ids]
@@ -65,9 +77,15 @@ async def list_spaces(session: AsyncSession = Depends(get_session)) -> dict:
     spaces = (
         await session.execute(
             select(Space)
+            .join(
+                RecordProvenance,
+                (RecordProvenance.record_table == "spaces")
+                & (RecordProvenance.record_id == Space.space_id),
+            )
             .where(
                 (Space.kind != "mission_challenge")
-                | (Space.space_id.in_(active_challenge_space_ids))
+                | (Space.space_id.in_(active_challenge_space_ids)),
+                RecordProvenance.provenance_class.in_(public_provenance_classes()),
             )
             .order_by(Space.space_id)
         )
@@ -198,7 +216,13 @@ async def list_messages(
             await session.execute(
                 select(SpaceMessage, Agent.name)
                 .join(Agent, Agent.agent_id == SpaceMessage.agent_id)
+                .join(
+                    RecordProvenance,
+                    (RecordProvenance.record_table == "space_messages")
+                    & (RecordProvenance.record_id == SpaceMessage.message_id),
+                )
                 .where(SpaceMessage.space_id == space_id)
+                .where(RecordProvenance.provenance_class.in_(public_provenance_classes()))
                 .order_by(desc(SpaceMessage.message_id))
                 .limit(limit)
             )
@@ -273,6 +297,13 @@ async def post_message(
     )
     message.event_id = event.event_id
     session.add(message)
+    await add_provenance(
+        session,
+        record_table="space_messages",
+        record_id=message.message_id,
+        created_by="spaces.post_message",
+        source_reference=space_id,
+    )
     await session.commit()
     await gateway.publish(
         space_id,

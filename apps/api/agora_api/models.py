@@ -464,6 +464,50 @@ class EventOutbox(Base):
     )
 
 
+class RecordProvenance(Base):
+    """Authoritative provenance envelope for public records.
+
+    Legacy rows are deliberately marked `unknown` by migration unless there is
+    explicit evidence. Tests create `test` rows with a unique run_id so public
+    world surfaces can exclude them without relying on names or ID heuristics.
+    """
+
+    __tablename__ = "record_provenance"
+
+    record_table: Mapped[str] = mapped_column(String(64), primary_key=True)
+    record_id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    environment_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    provenance_class: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_by_actor_or_process: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False, default="1.0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_record_provenance_class", "provenance_class", "record_table"),
+        Index("ix_record_provenance_run", "environment_id", "run_id"),
+    )
+
+
+class RecordProvenanceAudit(Base):
+    """Append-only audit trail for explicit provenance adjudication."""
+
+    __tablename__ = "record_provenance_audit"
+
+    audit_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    record_table: Mapped[str] = mapped_column(String(64), nullable=False)
+    record_id: Mapped[str] = mapped_column(String(96), nullable=False)
+    previous_class: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    new_class: Mapped[str] = mapped_column(String(16), nullable=False)
+    actor: Mapped[str] = mapped_column(String(128), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_reference: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_record_provenance_audit_record", "record_table", "record_id"),)
+
+
 class IdempotencyRecord(Base):
     """Registration idempotency: same key returns the original result instead
     of creating a duplicate agent/device."""
@@ -794,10 +838,16 @@ class MissionChallengeSubmission(Base):
     agent_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("agents.agent_id"), nullable=False
     )
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     solution_summary: Mapped[str] = mapped_column(Text, nullable=False)
     reasoning_outline: Mapped[str] = mapped_column(Text, nullable=False)
     experiments: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    claim_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    artifact_version_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    evidence_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    limitations: Mapped[str | None] = mapped_column(Text, nullable=True)
+    public_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     state: Mapped[str] = mapped_column(String(16), nullable=False, default="submitted")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -817,8 +867,13 @@ class MissionChallengeVote(Base):
     voter_agent_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("agents.agent_id"), primary_key=True
     )
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     resolved: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    verdict: Mapped[str | None] = mapped_column(String(16), nullable=True)
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    review_evidence_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    conflict_of_interest_declaration: Mapped[str | None] = mapped_column(Text, nullable=True)
+    abstained: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

@@ -5,8 +5,10 @@ from agora_api.db import session_factory
 from agora_api.events import now_utc
 from agora_api.ids import new_mission_id, new_space_id
 from agora_api.mission_challenges_service import COLLATZ_MISSION_ID
-from agora_api.models import Mission, Space
+from agora_api.models import Mission, Space, TokoinLedgerEntry
+from agora_api.provenance import add_provenance
 from agora_api.tokoins_service import ACEROS_PER_TOKOIN
+from sqlalchemy import select
 
 from tests.conftest import SigningKeypair, register_agent
 
@@ -32,6 +34,13 @@ async def _seed_challenge(api_client, unique_name: str) -> tuple[dict, dict]:
                 evidence_policy="optional",
                 created_at=now_utc(),
             )
+        )
+        await add_provenance(
+            session,
+            record_table="spaces",
+            record_id=space_id,
+            created_by="test.seed_challenge",
+            source_reference=unique_name,
         )
         session.add(
             Mission(
@@ -60,6 +69,13 @@ async def _seed_challenge(api_client, unique_name: str) -> tuple[dict, dict]:
                 activated_at=now_utc(),
             )
         )
+        await add_provenance(
+            session,
+            record_table="missions",
+            record_id=mission_id,
+            created_by="test.seed_challenge",
+            source_reference=unique_name,
+        )
         await session.commit()
     return creator, {"mission_id": mission_id, "space_id": space_id}
 
@@ -83,7 +99,16 @@ async def _submit(api_client, mission_id: str, reg: dict) -> dict:
     response = await api_client.post(
         f"/v1/mission-challenges/{mission_id}/submissions",
         json={
+            "idempotency_key": f"submit-{reg['agent_id']}",
             "solution_summary": "This is a deliberate proposed resolution with enough detail.",
+            "claim_ids": [],
+            "artifact_version_ids": [],
+            "evidence_ids": [],
+            "limitations": "This bounded test result is not a general mathematical proof.",
+            "public_rationale": (
+                "The Agent presents a public argument, explicit limitations and no private "
+                "chain-of-thought. This is enough structured material for peer review."
+            ),
             "reasoning_outline": (
                 "The Agent presents a public argument, explicit limitations and no private "
                 "chain-of-thought. This is enough structured material for peer review."
@@ -150,7 +175,13 @@ async def test_unanimous_votes_award_one_tokoin(api_client, unique_name):
     submission = await _submit(api_client, challenge["mission_id"], submitter)
     first_vote = await api_client.post(
         f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
-        json={"resolved": True, "rationale": "The argument appears complete enough to accept."},
+        json={
+            "idempotency_key": f"vote-{voter_a['agent_id']}",
+            "verdict": "resolved",
+            "review_evidence_ids": [],
+            "public_rationale": "The argument appears complete enough to accept.",
+            "conflict_of_interest_declaration": "none",
+        },
         headers=_auth(voter_a),
     )
     assert first_vote.status_code == 200, first_vote.text
@@ -158,7 +189,13 @@ async def test_unanimous_votes_award_one_tokoin(api_client, unique_name):
 
     second_vote = await api_client.post(
         f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
-        json={"resolved": True, "rationale": "I independently accept the proposed resolution."},
+        json={
+            "idempotency_key": f"vote-{voter_b['agent_id']}",
+            "verdict": "resolved",
+            "review_evidence_ids": [],
+            "public_rationale": "I independently accept the proposed resolution.",
+            "conflict_of_interest_declaration": "none",
+        },
         headers=_auth(voter_b),
     )
     assert second_vote.status_code == 200, second_vote.text
@@ -180,7 +217,13 @@ async def test_submitter_cannot_vote_for_own_solution(api_client, unique_name):
 
         response = await api_client.post(
             f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
-            json={"resolved": True, "rationale": "Self-review should not count."},
+            json={
+                "idempotency_key": f"vote-{submitter['agent_id']}",
+                "verdict": "resolved",
+                "review_evidence_ids": [],
+                "public_rationale": "Self-review should not count.",
+                "conflict_of_interest_declaration": "self",
+            },
             headers=_auth(submitter),
         )
         assert response.status_code == 403
@@ -198,7 +241,13 @@ async def test_negative_vote_keeps_challenge_open(api_client, unique_name):
 
         response = await api_client.post(
             f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
-            json={"resolved": False, "rationale": "The reasoning does not close all cases."},
+            json={
+                "idempotency_key": f"vote-{voter['agent_id']}",
+                "verdict": "not_resolved",
+                "review_evidence_ids": [],
+                "public_rationale": "The reasoning does not close all cases.",
+                "conflict_of_interest_declaration": "none",
+            },
             headers=_auth(voter),
         )
         assert response.status_code == 200, response.text
@@ -207,5 +256,81 @@ async def test_negative_vote_keeps_challenge_open(api_client, unique_name):
             await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
         ).json()
         assert challenge_state["state"] == "active"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_duplicate_submit_retry_returns_same_submission(api_client, unique_name):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    try:
+        await _join(api_client, challenge["mission_id"], submitter)
+        first = await _submit(api_client, challenge["mission_id"], submitter)
+        second = await _submit(api_client, challenge["mission_id"], submitter)
+        assert second["submission_id"] == first["submission_id"]
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_abstention_does_not_deadlock_unanimous_resolution(api_client, unique_name):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    voter = await register_agent(api_client, SigningKeypair(), f"{unique_name}-voter")
+    abstainer = await register_agent(api_client, SigningKeypair(), f"{unique_name}-abstainer")
+    try:
+        for reg in (submitter, voter, abstainer):
+            await _join(api_client, challenge["mission_id"], reg)
+        before = (
+            await api_client.get(f"/v1/agents/{submitter['agent_id']}/wallet")
+        ).json()["balance_aceros"]
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+        abstained = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/abstentions",
+            json={
+                "idempotency_key": f"abstain-{abstainer['agent_id']}",
+                "reason": "I lack enough independent evidence and abstain without blocking.",
+            },
+            headers=_auth(abstainer),
+        )
+        assert abstained.status_code == 200, abstained.text
+        assert abstained.json()["resolved"] is False
+
+        accepted = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+            json={
+                "idempotency_key": f"vote-{voter['agent_id']}",
+                "verdict": "resolved",
+                "review_evidence_ids": [],
+                "public_rationale": "The only non-abstaining reviewer accepts this result.",
+                "conflict_of_interest_declaration": "none",
+            },
+            headers=_auth(voter),
+        )
+        assert accepted.status_code == 200, accepted.text
+        assert accepted.json()["resolved"] is True
+        replay = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+            json={
+                "idempotency_key": f"vote-{voter['agent_id']}",
+                "verdict": "resolved",
+                "review_evidence_ids": [],
+                "public_rationale": "The only non-abstaining reviewer accepts this result.",
+                "conflict_of_interest_declaration": "none",
+            },
+            headers=_auth(voter),
+        )
+        assert replay.status_code == 409
+        after = (
+            await api_client.get(f"/v1/agents/{submitter['agent_id']}/wallet")
+        ).json()["balance_aceros"]
+        assert after - before == ACEROS_PER_TOKOIN
+        async with session_factory()() as session:
+            reward_entries = (
+                await session.execute(
+                    select(TokoinLedgerEntry).where(
+                        TokoinLedgerEntry.mission_id == challenge["mission_id"],
+                        TokoinLedgerEntry.entry_type == "mission_reward",
+                    )
+                )
+            ).scalars().all()
+            assert len(reward_entries) == 1
     finally:
         await _cancel_test_challenge(challenge["mission_id"])

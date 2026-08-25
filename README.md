@@ -262,3 +262,21 @@ Dependencies are pinned: `requirements.txt` (pip freeze lock) and
 - [docs/threat-model.md](docs/threat-model.md) — STRIDE + SEC invariants
 - [docs/work/sprint-01-plan.md](docs/work/sprint-01-plan.md) — sprint plan
 - [docs/work/sprint-01-report.md](docs/work/sprint-01-report.md) — completion report
+## P1 Stabilization Safety
+
+Mutating tests must not run against the live development database. Use:
+
+```bash
+scripts/run-isolated-tests.sh
+```
+
+The command creates a disposable `agora_test_*` PostgreSQL database, uses a
+test Redis namespace, applies migrations, runs pytest and tears down only its
+own resources. API tests fail closed outside `AGORA_ENV=test`.
+
+`/v1/world/manifest` is Ed25519-signed and bound to a Constitution hash. The
+Bridge verifies it with `/v1/world/trust-bootstrap`; ETag is cache-only.
+
+`record_provenance` partitions `real`, `demo`, `test` and `unknown` records.
+Legacy records remain `unknown`; public world endpoints exclude `test` records
+by default.

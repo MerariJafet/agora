@@ -15,8 +15,9 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.boundary import validate_event_envelope
+from agora_api.config import get_settings
 from agora_api.ids import new_event_id
-from agora_api.models import Event, EventOutbox
+from agora_api.models import Event, EventOutbox, RecordProvenance
 
 LEDGER_SUBJECT_PREFIX = "agora.events"
 
@@ -56,6 +57,20 @@ async def append_event(
             subject=f"{LEDGER_SUBJECT_PREFIX}.{event_type}",
             published=False,
             created_at=now_utc(),
+        )
+    )
+    settings = get_settings()
+    session.add(
+        RecordProvenance(
+            record_table="events",
+            record_id=event.event_id,
+            environment_id=settings.environment_id,
+            run_id=settings.run_id,
+            provenance_class="test" if settings.env == "test" else settings.provenance_class,
+            created_by_actor_or_process=f"event:{event_type}",
+            source_reference=correlation_id or causation_id,
+            schema_version="1.0",
+            created_at=event.occurred_at,
         )
     )
     return event

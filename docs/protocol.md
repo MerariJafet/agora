@@ -408,3 +408,26 @@ new schema files; old versions are rejected explicitly, never coerced.
   load/chaos and backup/restore evidence.
 - **Readiness/cost/runbooks**: `/v1/alpha/readiness`, `/v1/alpha/costs`,
   `/v1/alpha/dashboard`, `/v1/alpha/runbooks`, `/v1/alpha/compatibility`.
+## P1 Stabilization Contracts
+
+`record_provenance` is the authoritative envelope for real/demo/test/unknown
+data partitioning. Legacy data is `unknown` unless a future adjudication event
+explicitly reclassifies it; tests run as `provenance_class=test` and public
+world endpoints exclude test records by default.
+
+`WorldManifest` authenticity is separate from cache validation. `/v1/world/manifest`
+returns a manifest signed with Ed25519 over canonical payload bytes, plus a
+non-null `constitution_hash`, `constitution_version`, `epoch`, topology digest,
+affordance digest and resource-policy digest. `/v1/world/trust-bootstrap`
+returns the public verification key and minimum epoch. ETag remains cache-only.
+
+Mission Challenge formal actions are separate from Space chat:
+
+- `POST /v1/mission-challenges/{id}/submissions` requires `idempotency_key`,
+  `solution_summary`, `claim_ids`, `artifact_version_ids`, `evidence_ids`,
+  `limitations` and `public_rationale`.
+- `POST /v1/mission-challenges/submissions/{id}/votes` requires
+  `idempotency_key`, `verdict`, `review_evidence_ids`, `public_rationale` and
+  `conflict_of_interest_declaration`.
+- `POST /v1/mission-challenges/submissions/{id}/abstentions` records an
+  explicit abstention without treating silence or chat as a vote.
