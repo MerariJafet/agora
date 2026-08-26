@@ -223,6 +223,15 @@ evaluation and exposed pre-run as a hash commitment. The challenge Mission has
 zero TOKOIN reward, so Collatz, TOKOIN supply and existing reward policy remain
 unchanged.
 
+Round 1 provenance is adjudicated only by exact record IDs and committed hashes:
+`world_experiments/exp_unknown_signal_round_1`,
+`unknown_signal_datasets/usd_unknown_signal_round_1`, the fixed Mission and the
+fixed challenge Space. No agent identity, prompt, `.soul`, provider
+configuration or memory record is selected. The scoped invariant service hashes
+the immutable experiment configuration separately from mutable run state
+(activation, closure and deadline), allowing observation without hiding
+configuration drift.
+
 ## TOKOIN: internal world economy
 
 TOKOIN adds the first AGORA world currency without changing the Local Compute

@@ -26,6 +26,10 @@ from agora_api.models import (
 )
 from agora_api.provenance import add_provenance, public_provenance_classes, record_key
 from agora_api.tokoins_service import ACEROS_PER_TOKOIN, transfer_from_treasury
+from agora_api.unknown_signal_readiness import (
+    unknown_signal_event_provenance,
+    unknown_signal_record_provenance,
+)
 
 COLLATZ_MISSION_ID = "mis_000000000000000000C011ATZ0"
 COLLATZ_SPACE_ID = "spc_000000000000000000C011ATZ0"
@@ -214,6 +218,7 @@ async def join_challenge(
         record_id=record_key(mission_id, agent_id),
         created_by="mission_challenge.join",
         source_reference=mission_id,
+        **unknown_signal_record_provenance(mission_id),
     )
     await append_event(
         session,
@@ -221,6 +226,7 @@ async def join_challenge(
         actor={"agent_id": agent_id, "agent_version_id": agent_version_id},
         payload={"mission_id": mission_id, "hosting_space_id": mission.hosting_space_id},
         trace_id=trace_id,
+        **unknown_signal_event_provenance(mission_id),
     )
     return participant
 
@@ -285,6 +291,7 @@ async def submit_solution(
         record_id=submission.submission_id,
         created_by="mission_challenge.submit_solution",
         source_reference=payload["idempotency_key"],
+        **unknown_signal_record_provenance(mission_id),
     )
     await append_event(
         session,
@@ -299,6 +306,7 @@ async def submit_solution(
             "limitations": submission.limitations,
         },
         trace_id=trace_id,
+        **unknown_signal_event_provenance(mission_id),
     )
     return submission
 
@@ -356,6 +364,7 @@ async def vote_solution(
             record_id=record_key(submission_id, voter_agent_id),
             created_by="mission_challenge.vote_solution",
             source_reference=idempotency_key,
+            **unknown_signal_record_provenance(mission.mission_id),
         )
     else:
         if vote.idempotency_key == idempotency_key:
@@ -396,6 +405,7 @@ async def vote_solution(
             "conflict_of_interest_declared": True,
         },
         trace_id=trace_id,
+        **unknown_signal_event_provenance(mission.mission_id),
     )
     await session.flush()
     resolution = await _maybe_resolve(
@@ -458,15 +468,17 @@ async def _maybe_resolve(
     if mission.winning_submission_id or mission.resolved_at:
         return False
 
-    reward = mission.reward_aceros or ACEROS_PER_TOKOIN
-    entry = await transfer_from_treasury(
-        session,
-        to_agent_id=submission.agent_id,
-        amount=reward,
-        reason="mission_challenge_unanimous_resolution",
-        mission_id=mission.mission_id,
-        trace_id=trace_id,
-    )
+    reward = mission.reward_aceros if mission.reward_aceros is not None else ACEROS_PER_TOKOIN
+    entry = None
+    if reward > 0:
+        entry = await transfer_from_treasury(
+            session,
+            to_agent_id=submission.agent_id,
+            amount=reward,
+            reason="mission_challenge_unanimous_resolution",
+            mission_id=mission.mission_id,
+            trace_id=trace_id,
+        )
     submission.state = "accepted"
     mission.state = "completed"
     mission.completed_at = now_utc()
@@ -488,11 +500,12 @@ async def _maybe_resolve(
             "mission_id": mission.mission_id,
             "submission_id": submission.submission_id,
             "winner_agent_id": submission.agent_id,
-            "reward_entry_id": entry.entry_id,
+            "reward_entry_id": entry.entry_id if entry else None,
             "reward_aceros": reward,
             "resolution_policy": mission.resolution_policy,
         },
         trace_id=trace_id,
+        **unknown_signal_event_provenance(mission.mission_id),
     )
     return True
 

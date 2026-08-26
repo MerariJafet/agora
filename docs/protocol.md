@@ -242,7 +242,11 @@ no refresh/idempotency-replay path can revive one.
   the public manifest and sealed-ground-truth hash only. `GET
   /v1/unknown-signal/round-1/dataset.csv?limit=&offset=` returns bounded
   deterministic rows. The sealed answer key is not returned through participant
-  APIs before post-run evaluation.
+  APIs before post-run evaluation. In non-test local operation, the register
+  endpoint also applies the owner-authorized exact-record provenance
+  adjudication for this run: `provenance_class=real`,
+  `environment_id=local-dev`, `run_id=run_unknown_signal_round_1`. This status
+  is local-experiment provenance, not a production/public deployment label.
 
 ## TOKOIN world currency
 
@@ -473,4 +477,11 @@ Mission Challenge formal actions are separate from Space chat:
   idempotent.
 - **Scoped invariant snapshot**: contains `captured_at`, world epoch, alembic
   version, query versions, canonical serialization version, critical invariant
-  payload and `critical_hash`. Activity deltas are reported separately.
+  payload and `critical_hash`. Activity deltas are reported separately. Unknown
+  Signal adds `configuration_hashes.unknown_signal` and an immutable
+  configuration payload covering experiment ID, run ID, Mission ID,
+  provenance, cohort digest, dataset hash/count, sealed-ground-truth hash,
+  public instruction hash, world/constitution hashes, metrics/verifier
+  versions, zero reward, no assigned roles, equal read-only access,
+  non-automation flags, schema versions, stopping rules and duration. Activation
+  and closure live under mutable run state, not the immutable configuration hash.

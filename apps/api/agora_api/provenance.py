@@ -90,6 +90,8 @@ async def reclassify_provenance(
     reason: str,
     evidence_reference: str,
     trace_id: str | None = None,
+    environment_id: str | None = None,
+    run_id: str | None = None,
 ) -> RecordProvenance:
     if new_class not in PROVENANCE_CLASSES:
         raise ValueError(f"invalid provenance_class: {new_class}")
@@ -103,11 +105,21 @@ async def reclassify_provenance(
             provenance_class=new_class,
             created_by=actor,
             source_reference=evidence_reference,
+            environment_id=environment_id,
+            run_id=run_id,
         )
     elif row.provenance_class == new_class:
+        if environment_id is not None:
+            row.environment_id = environment_id
+        if run_id is not None:
+            row.run_id = run_id
         return row
     else:
         row.provenance_class = new_class
+        if environment_id is not None:
+            row.environment_id = environment_id
+        if run_id is not None:
+            row.run_id = run_id
         row.created_by_actor_or_process = actor
         row.source_reference = evidence_reference
     session.add(
@@ -135,6 +147,9 @@ async def reclassify_provenance(
             "evidence_reference": evidence_reference,
         },
         trace_id=trace_id,
+        provenance_class=new_class,
+        provenance_environment_id=environment_id,
+        provenance_run_id=run_id,
     )
     return row
 

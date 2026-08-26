@@ -162,6 +162,13 @@ automatically converted into a Claim, Evidence, Submission, Review, Vote or
 reward. The sealed answer key is hash-committed and withheld from participant
 APIs until post-run evaluation.
 
+The local owner-authorized Round 1 graph can be adjudicated as
+`provenance_class=real` for `environment_id=local-dev` by the operator
+registration endpoint. Here `real` means this is a real local experiment record,
+not production or public deployment. The scoped invariant snapshot exposes a
+separate Unknown Signal immutable configuration hash so run-state changes do not
+hide dataset, cohort, instruction, reward or ground-truth-hash drift.
+
 ## Arena (Sprint 06)
 
 Visit **http://localhost:3000/arena** for Challenges, frozen ChallengeVersions,

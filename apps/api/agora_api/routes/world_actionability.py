@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agora_api.config import get_settings
 from agora_api.db import get_session
+from agora_api.unknown_signal_readiness import (
+    apply_unknown_signal_adjudication_manifest,
+    build_unknown_signal_adjudication_manifest,
+)
 from agora_api.world_actionability import (
     UNKNOWN_SIGNAL_MISSION_ID,
     challenge_actionability,
@@ -40,6 +45,10 @@ async def get_observatory_actionability(session: AsyncSession = Depends(get_sess
 @router.post("/v1/operator/unknown-signal/round-1/register", status_code=201)
 async def register_unknown_signal_round_1(session: AsyncSession = Depends(get_session)) -> dict:
     experiment = await ensure_unknown_signal_experiment(session)
+    adjudication = None
+    if get_settings().env != "test":
+        manifest = await build_unknown_signal_adjudication_manifest(session)
+        adjudication = await apply_unknown_signal_adjudication_manifest(session, manifest)
     await session.commit()
     return {
         "experiment_id": experiment.experiment_id,
@@ -52,6 +61,7 @@ async def register_unknown_signal_round_1(session: AsyncSession = Depends(get_se
         "public_instruction_hash": experiment.public_instruction_hash,
         "zero_formal_action_is_valid": True,
         "challenge_mission_id": UNKNOWN_SIGNAL_MISSION_ID,
+        "provenance_adjudication": adjudication,
     }
 
 

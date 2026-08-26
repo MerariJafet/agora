@@ -36,6 +36,9 @@ async def append_event(
     correlation_id: str | None = None,
     causation_id: str | None = None,
     trace_id: str | None = None,
+    provenance_class: str | None = None,
+    provenance_environment_id: str | None = None,
+    provenance_run_id: str | None = None,
 ) -> Event:
     """Append an immutable event + outbox row inside the caller's transaction."""
     event = Event(
@@ -60,13 +63,16 @@ async def append_event(
         )
     )
     settings = get_settings()
+    event_provenance_class = provenance_class or (
+        "test" if settings.env == "test" else settings.provenance_class
+    )
     session.add(
         RecordProvenance(
             record_table="events",
             record_id=event.event_id,
-            environment_id=settings.environment_id,
-            run_id=settings.run_id,
-            provenance_class="test" if settings.env == "test" else settings.provenance_class,
+            environment_id=provenance_environment_id or settings.environment_id,
+            run_id=provenance_run_id or settings.run_id,
+            provenance_class=event_provenance_class,
             created_by_actor_or_process=f"event:{event_type}",
             source_reference=correlation_id or causation_id,
             schema_version="1.0",

@@ -27,6 +27,7 @@ from agora_api.models import (
     TokoinWallet,
 )
 from agora_api.tokoins_service import MAX_SUPPLY_ACEROS, tokoin_status, verify_ledger_chain
+from agora_api.unknown_signal_readiness import unknown_signal_configuration_snapshot
 from agora_api.world import build_manifest
 from agora_api.world_signing import sign_manifest
 
@@ -54,6 +55,7 @@ async def migration_version(session: AsyncSession) -> str | None:
 
 async def capture_critical_invariants(session: AsyncSession) -> dict[str, Any]:
     manifest = sign_manifest(build_manifest())
+    unknown_signal = await unknown_signal_configuration_snapshot(session)
     mission = await session.get(Mission, COLLATZ_MISSION_ID)
     reward_entries = int(
         (
@@ -138,6 +140,12 @@ async def capture_critical_invariants(session: AsyncSession) -> dict[str, Any]:
             "key_id": manifest["signature"]["key_id"],
             "payload_hash": manifest["signature"]["payload_hash"],
         },
+        "unknown_signal": {
+            "schema_version": unknown_signal["schema_version"],
+            "registered": unknown_signal["registered"],
+            "immutable_configuration_hash": unknown_signal["configuration_hash"],
+            "immutable_configuration": unknown_signal["configuration"],
+        },
         "lineage": {"genesis_uniqueness_violations": genesis_duplicates},
         "outbox": {"failed_count": outbox_failed},
     }
@@ -160,20 +168,26 @@ async def capture_snapshot_manifest(
     before_event_count: int | None = None,
 ) -> dict[str, Any]:
     invariants = await capture_critical_invariants(session)
+    unknown_signal_state = await unknown_signal_configuration_snapshot(session)
     snapshot = {
         "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "world_epoch": invariants["manifest"]["epoch"],
         "database_migration_version": await migration_version(session),
         "provenance_scope": provenance_scope,
         "query_versions": {
-            "critical_invariants": "1.0",
+            "critical_invariants": "1.1",
             "tokoin_chain": "1.0",
             "collatz_policy": "1.0",
+            "unknown_signal_configuration": "1.0",
         },
         "canonical_serialization_version": "json-sort-compact-v1",
         "critical_invariants": invariants,
+        "mutable_run_state": {"unknown_signal": unknown_signal_state["mutable_run_state"]},
     }
     snapshot["critical_hash"] = canonical_hash(invariants)
+    snapshot["configuration_hashes"] = {
+        "unknown_signal": invariants["unknown_signal"]["immutable_configuration_hash"]
+    }
     if before_event_count is not None:
         snapshot["activity_delta"] = await activity_delta(session, before_event_count)
     return snapshot

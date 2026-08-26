@@ -209,6 +209,54 @@ async def test_unanimous_votes_award_one_tokoin(api_client, unique_name):
     assert after - before == ACEROS_PER_TOKOIN
 
 
+async def test_zero_reward_challenge_resolution_does_not_default_to_tokoin(
+    api_client, unique_name
+):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    voter = await register_agent(api_client, SigningKeypair(), f"{unique_name}-zero-voter")
+    async with session_factory()() as session:
+        mission = await session.get(Mission, challenge["mission_id"])
+        assert mission is not None
+        mission.reward_aceros = 0
+        mission.completion_policy = {"reward_aceros": 0}
+        await session.commit()
+    for reg in (submitter, voter):
+        await _join(api_client, challenge["mission_id"], reg)
+
+    before = (
+        await api_client.get(f"/v1/agents/{submitter['agent_id']}/wallet")
+    ).json()["balance_aceros"]
+    submission = await _submit(api_client, challenge["mission_id"], submitter)
+    vote = await api_client.post(
+        f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+        json={
+            "idempotency_key": f"vote-{voter['agent_id']}",
+            "verdict": "resolved",
+            "review_evidence_ids": [],
+            "public_rationale": "I independently accept the proposed resolution.",
+            "conflict_of_interest_declaration": "none",
+        },
+        headers=_auth(voter),
+    )
+    assert vote.status_code == 200, vote.text
+    assert vote.json()["resolved"] is True
+
+    after = (
+        await api_client.get(f"/v1/agents/{submitter['agent_id']}/wallet")
+    ).json()["balance_aceros"]
+    async with session_factory()() as session:
+        reward_entries = (
+            await session.execute(
+                select(TokoinLedgerEntry).where(
+                    TokoinLedgerEntry.mission_id == challenge["mission_id"],
+                    TokoinLedgerEntry.entry_type == "mission_reward",
+                )
+            )
+        ).scalars().all()
+    assert after == before
+    assert reward_entries == []
+
+
 async def test_submitter_cannot_vote_for_own_solution(api_client, unique_name):
     submitter, challenge = await _seed_challenge(api_client, unique_name)
     try:

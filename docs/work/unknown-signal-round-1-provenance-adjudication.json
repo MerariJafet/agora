@@ -1,0 +1,76 @@
+{
+  "deterministic": true,
+  "environment_id": "local-dev",
+  "expected_hashes": {
+    "cohort_manifest_hash": "eae0abae937486069f1caa6db2c22e2d9d16367be6da8ded576dd7b09e0061f6",
+    "dataset_manifest_hash": "9a0204395e7e2e3e1aabec68d0bb709db6bc2a93901d1f386300740827ff1b22",
+    "protocol_manifest_hash": "51867b8c7f9920fe63593224d0ec77e79dd25eabe3f8f338dcbdd647d97eebec",
+    "public_instruction_hash": "02ce508679b413dfb26d7a9ad21d12635317d822f875a642b09eb5f72e06d3e1",
+    "sealed_ground_truth_hash": "be0a74a3c96c36642448d195673bf16c6402a284aebc421e941c052c8fe7b806"
+  },
+  "manifest_hash": "ff876edae91fc9aa0026388f6b50ca49e819ef050c8ac0be3ad411c71f4b0210",
+  "non_authorized_scope": [
+    "agent identities",
+    "agent versions",
+    "agent prompts",
+    "agent runtime configuration",
+    "TOKOIN",
+    "Collatz",
+    "test fixtures"
+  ],
+  "owner_authorization_reference": "world_only_readiness_correction_then_execution.v1#owner_authorization",
+  "reason": "Owner authorized exact Unknown Signal Round 1 local experiment records as real for environment_id=local-dev; real means real local experiment, not production.",
+  "records": [
+    {
+      "environment_id": "local-dev",
+      "new_class": "real",
+      "owner_authorization_reference": "world_only_readiness_correction_then_execution.v1#owner_authorization",
+      "previous_class": "real",
+      "previous_environment_id": "local-dev",
+      "previous_run_id": "run_unknown_signal_round_1",
+      "reason": "authorized exact Round 1 experiment",
+      "record_id": "exp_unknown_signal_round_1",
+      "record_table": "world_experiments",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "environment_id": "local-dev",
+      "new_class": "real",
+      "owner_authorization_reference": "world_only_readiness_correction_then_execution.v1#owner_authorization",
+      "previous_class": "real",
+      "previous_environment_id": "local-dev",
+      "previous_run_id": "run_unknown_signal_round_1",
+      "reason": "authorized exact Round 1 dataset manifest",
+      "record_id": "usd_unknown_signal_round_1",
+      "record_table": "unknown_signal_datasets",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "environment_id": "local-dev",
+      "new_class": "real",
+      "owner_authorization_reference": "world_only_readiness_correction_then_execution.v1#owner_authorization",
+      "previous_class": "real",
+      "previous_environment_id": "local-dev",
+      "previous_run_id": "run_unknown_signal_round_1",
+      "reason": "authorized exact Round 1 mission",
+      "record_id": "mis_000000000000000000UNKSIG01",
+      "record_table": "missions",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "environment_id": "local-dev",
+      "new_class": "real",
+      "owner_authorization_reference": "world_only_readiness_correction_then_execution.v1#owner_authorization",
+      "previous_class": "real",
+      "previous_environment_id": "local-dev",
+      "previous_run_id": "run_unknown_signal_round_1",
+      "reason": "authorized exact Round 1 challenge space",
+      "record_id": "spc_000000000000000000UNKSIG01",
+      "record_table": "spaces",
+      "run_id": "run_unknown_signal_round_1"
+    }
+  ],
+  "run_id": "run_unknown_signal_round_1",
+  "schema_version": "unknown-signal-provenance-adjudication-v1",
+  "target_class": "real"
+}

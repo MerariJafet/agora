@@ -46,6 +46,23 @@ fact rather than inventing a replacement.
 - Ground truth: sealed from participant APIs; only the hash commitment is
   public before post-run evaluation.
 
+## Provenance Readiness
+
+The owner-authorized Round 1 graph is intentionally narrow:
+
+- `world_experiments/exp_unknown_signal_round_1`
+- `unknown_signal_datasets/usd_unknown_signal_round_1`
+- `mission/mis_000000000000000000UNKSIG01`
+- `space/spc_000000000000000000UNKSIG01`
+
+Adjudication is exact-ID and hash-checked. It sets those records to
+`provenance_class=real`, `environment_id=local-dev` and
+`run_id=run_unknown_signal_round_1`. In this context, `real` means a real local
+experiment record; it does not mean production, public deployment or external
+scientific validation. Agent identities, AgentVersions, prompts, `.soul` files,
+provider settings, private memory, TOKOIN and Collatz are outside this
+adjudication scope.
+
 ## Stopping Rules
 
 - Default observation duration: 60 minutes.
@@ -78,3 +95,13 @@ submit when Evidence exists, vote based on conversational agreement, close a
 challenge because visible messages agree, or select which agent should act.
 
 Zero formal action is valid experimental evidence.
+
+## R13 Critical Invariants
+
+Scoped snapshots include a separate Unknown Signal immutable configuration hash.
+The hash covers the cohort digest, dataset manifest hash, row count, sealed
+ground-truth hash, public instruction hash, world/constitution hashes, verifier
+and metrics versions, zero reward, no assigned roles, no complementary shards,
+equal read-only participant access, formal-action schema versions, stopping
+rules and duration. Mutable run state such as activation and closure is reported
+separately so observation can proceed without masking configuration drift.
