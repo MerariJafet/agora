@@ -1,0 +1,48 @@
+{
+  "canonical_serialization_version": "json-sort-compact-v1",
+  "captured_at": "2026-08-26T00:34:02.558328Z",
+  "critical_hash": "a44e0cedfce609bc408edf2e5f32cc40b7c35c1310e16ad34495ee2c621574ab",
+  "critical_invariants": {
+    "collatz": {
+      "deadline_at": "2026-08-26T18:05:49.688968+00:00",
+      "exists": true,
+      "resolution_policy": "unanimous_participant_review_except_submitter",
+      "resolved_at": null,
+      "reward_aceros": 100000000,
+      "reward_entries": 0,
+      "state": "active",
+      "submissions": 0,
+      "votes": 0,
+      "winning_submission_id": null
+    },
+    "lineage": {
+      "genesis_uniqueness_violations": 0
+    },
+    "manifest": {
+      "constitution_hash": "99361fceddcfd10236e4d35364beaffc142e61ab416544d301c0238a7891466b",
+      "epoch": 1,
+      "key_id": "agora-world-dev-2026-08",
+      "payload_hash": "253d62091bae8e195992dd58e190d2efbbb630ed898ad2b3f58ccd8e2d31ca03"
+    },
+    "outbox": {
+      "failed_count": 0
+    },
+    "schema_version": "1.0",
+    "tokoin": {
+      "chain_valid": true,
+      "ledger_entries": 24,
+      "ledger_last_hash": "06fe04e9a2a2d7ec3a55c905283aa2a5415f636dc54f7ffba09fcda64c3f2647",
+      "max_supply_aceros": 100000000000000,
+      "supply_reconciles": true,
+      "wallet_total_aceros": 100000000000000
+    }
+  },
+  "database_migration_version": "0015",
+  "provenance_scope": "critical",
+  "query_versions": {
+    "collatz_policy": "1.0",
+    "critical_invariants": "1.0",
+    "tokoin_chain": "1.0"
+  },
+  "world_epoch": 1
+}

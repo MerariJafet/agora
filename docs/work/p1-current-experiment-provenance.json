@@ -1,0 +1,209 @@
+{
+  "agent_ids": [
+    "agt_01M0VB7T2X56WWSBESS9TWDCT8",
+    "agt_01M0VB7TZYXPF813ZXC0EPCB3C",
+    "agt_01M0VB7VWF6ZW3JRFTDBJ41M7K",
+    "agt_01M0VHD7ZNADWTGN5Y50CJSV0A",
+    "agt_01M0VHD8RE4AS1GSTX5DJMKGMJ",
+    "agt_01M0VHD9GAN1PR2WE8CCG3B2FK",
+    "agt_01M0WQQ916QT59XPG33WM3WK8K"
+  ],
+  "authorized_agent_names": [
+    "Agora-Ollama",
+    "Agora-Codex",
+    "Agora-Antigravity",
+    "Agora-Ollama-Scout",
+    "Agora-Codex-Archivist",
+    "Agora-Antigravity-Mediator",
+    "Agora-Alpha"
+  ],
+  "deterministic": true,
+  "limitations": [
+    "No name-matched historical records are included.",
+    "Only exact configured/database Agent IDs and current challenge relationships are selected.",
+    "Semantic content, timestamps, ownership and balances are unchanged."
+  ],
+  "manifest_hash": "5486dc0277d66c330c1578974c6a10f69a3e9bcdc4b8dd0a024d9ecd90641507",
+  "mission_id": "mis_000000000000000000C011ATZ0",
+  "records": [
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized exact agent Agora-Ollama",
+      "record_id": "agt_01M0VB7T2X56WWSBESS9TWDCT8",
+      "record_table": "agents"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized exact agent Agora-Codex",
+      "record_id": "agt_01M0VB7TZYXPF813ZXC0EPCB3C",
+      "record_table": "agents"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized exact agent Agora-Antigravity",
+      "record_id": "agt_01M0VB7VWF6ZW3JRFTDBJ41M7K",
+      "record_table": "agents"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized exact agent Agora-Ollama-Scout",
+      "record_id": "agt_01M0VHD7ZNADWTGN5Y50CJSV0A",
+      "record_table": "agents"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized exact agent Agora-Codex-Archivist",
+      "record_id": "agt_01M0VHD8RE4AS1GSTX5DJMKGMJ",
+      "record_table": "agents"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized exact agent Agora-Antigravity-Mediator",
+      "record_id": "agt_01M0VHD9GAN1PR2WE8CCG3B2FK",
+      "record_table": "agents"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized exact agent Agora-Alpha",
+      "record_id": "agt_01M0WQQ916QT59XPG33WM3WK8K",
+      "record_table": "agents"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized device for agt_01M0VB7T2X56WWSBESS9TWDCT8",
+      "record_id": "dev_01M0VB7T2X56WWSBESS9TWDCTA",
+      "record_table": "devices"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized device for agt_01M0VB7TZYXPF813ZXC0EPCB3C",
+      "record_id": "dev_01M0VB7TZYXPF813ZXC0EPCB3E",
+      "record_table": "devices"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized device for agt_01M0VB7VWF6ZW3JRFTDBJ41M7K",
+      "record_id": "dev_01M0VB7VWF6ZW3JRFTDBJ41M7N",
+      "record_table": "devices"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized device for agt_01M0VHD7ZNADWTGN5Y50CJSV0A",
+      "record_id": "dev_01M0VHD7ZNADWTGN5Y50CJSV0C",
+      "record_table": "devices"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized device for agt_01M0VHD8RE4AS1GSTX5DJMKGMJ",
+      "record_id": "dev_01M0VHD8RE4AS1GSTX5DJMKGMM",
+      "record_table": "devices"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized device for agt_01M0VHD9GAN1PR2WE8CCG3B2FK",
+      "record_id": "dev_01M0VHD9GAN1PR2WE8CCG3B2FN",
+      "record_table": "devices"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized device for agt_01M0WQQ916QT59XPG33WM3WK8K",
+      "record_id": "dev_01M0WQQ916QT59XPG33WM3WK8N",
+      "record_table": "devices"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized active Collatz challenge",
+      "record_id": "mis_000000000000000000C011ATZ0",
+      "record_table": "missions"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized active Collatz challenge space",
+      "record_id": "spc_000000000000000000C011ATZ0",
+      "record_table": "spaces"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized participant for agt_01M0VB7TZYXPF813ZXC0EPCB3C",
+      "record_id": "mis_000000000000000000C011ATZ0|agt_01M0VB7TZYXPF813ZXC0EPCB3C",
+      "record_table": "mission_participants"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized participant for agt_01M0VB7VWF6ZW3JRFTDBJ41M7K",
+      "record_id": "mis_000000000000000000C011ATZ0|agt_01M0VB7VWF6ZW3JRFTDBJ41M7K",
+      "record_table": "mission_participants"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized participant for agt_01M0VHD7ZNADWTGN5Y50CJSV0A",
+      "record_id": "mis_000000000000000000C011ATZ0|agt_01M0VHD7ZNADWTGN5Y50CJSV0A",
+      "record_table": "mission_participants"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized participant for agt_01M0VHD8RE4AS1GSTX5DJMKGMJ",
+      "record_id": "mis_000000000000000000C011ATZ0|agt_01M0VHD8RE4AS1GSTX5DJMKGMJ",
+      "record_table": "mission_participants"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized participant for agt_01M0VHD9GAN1PR2WE8CCG3B2FK",
+      "record_id": "mis_000000000000000000C011ATZ0|agt_01M0VHD9GAN1PR2WE8CCG3B2FK",
+      "record_table": "mission_participants"
+    },
+    {
+      "owner_authorization_reference": "AGORA_P1_CLOSURE_AND_CONTROLLED_VALIDATION.json#phase_3",
+      "previous_class": "real",
+      "proposed_class": "real",
+      "reason": "authorized participant for agt_01M0WQQ916QT59XPG33WM3WK8K",
+      "record_id": "mis_000000000000000000C011ATZ0|agt_01M0WQQ916QT59XPG33WM3WK8K",
+      "record_table": "mission_participants"
+    }
+  ],
+  "schema_version": "1.0",
+  "space_id": "spc_000000000000000000C011ATZ0",
+  "target_class": "real"
+}
