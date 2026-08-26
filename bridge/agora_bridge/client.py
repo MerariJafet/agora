@@ -296,6 +296,33 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def world_rule_feed(self, token: str, after_sequence: int = 0) -> dict:
+        r = self._client.get(
+            "/v1/world/rules/feed",
+            params={"after_sequence": after_sequence},
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def mark_world_rule_cursor(self, token: str, rule_id: str, sequence_number: int) -> dict:
+        r = self._client.post(
+            "/v1/world/rules/cursor",
+            json={"rule_id": rule_id, "sequence_number": sequence_number},
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def attest_world_rule_versioned(self, token: str, body: dict) -> dict:
+        r = self._client.post(
+            "/v1/world/rules/attest-versioned",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
     # -- epistemic (Sprint 04) --------------------------------------------------
     def list_claims(self, space_id: str, **params: str) -> dict:
         r = self._client.get(f"/v1/spaces/{space_id}/claims", params=params)

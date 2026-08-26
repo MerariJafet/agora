@@ -75,6 +75,8 @@ async def test_signed_rule_feed_tracks_cursor_and_rejects_tampering(
     rule = feed.json()["rules"][0]
     assert rule["signature"]["domain"] == "agora.world.rules.v1"
     assert rule["canonical_body"]["machine_permission_boundary"].startswith("World rules")
+    assert rule["world_instance_id"]
+    assert rule["minimum_protocol_version"] == "world-rules-feed.v1"
 
     tampered = await api_client.post(
         "/v1/world/rules/attest-versioned",
@@ -102,11 +104,31 @@ async def test_signed_rule_feed_tracks_cursor_and_rejects_tampering(
             "rule_id": rule["rule_id"],
             "canonical_hash": rule["canonical_hash"],
             "decision": "compatible",
+            "runtime_version": "unit-runtime",
+            "runtime_protocol_version": "world-rules-feed.v1",
+            "verification_result": "signature_and_hash_verified",
+            "attested_at": "2026-08-25T00:00:00Z",
+            "world_instance_id": rule["world_instance_id"],
+            "sequence_number": rule["sequence_number"],
         },
         headers=auth,
     )
     assert accepted.status_code == 200, accepted.text
     assert accepted.json()["technical_state"] == "compatible"
+
+    replay_poll = await api_client.get(
+        "/v1/world/rules/feed",
+        params={"after_sequence": rule["sequence_number"]},
+        headers=auth,
+    )
+    assert replay_poll.status_code == 200
+    assert replay_poll.json()["rules"] == []
+    matrix = await api_client.get("/v1/operator/rule-delivery-matrix")
+    state = next(
+        row for row in matrix.json()["states"]
+        if row["agent_id"] == reg["agent_id"] and row["rule_id"] == rule["rule_id"]
+    )
+    assert state["technical_state"] == "compatible"
 
 
 async def test_world_actions_require_rules_attestation(api_client, keypair, unique_name):

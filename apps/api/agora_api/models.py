@@ -627,9 +627,20 @@ class RuleDeliveryState(Base):
     delivery_failed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cursor_advanced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_poll_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     technical_state: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
     technical_cause: Mapped[str | None] = mapped_column(String(128), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    runtime_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    runtime_protocol_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    verification_result: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    attestation_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     cursor_sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     delivery_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

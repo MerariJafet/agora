@@ -20,6 +20,7 @@ from agora_api.rule_delivery import (
     attest_rule_delivery,
     mark_rule_seen,
     pending_rules_for_agent,
+    rule_view,
 )
 from agora_api.world import build_manifest, manifest_etag, space_ids
 from agora_api.world_rules import (
@@ -72,17 +73,8 @@ async def world_rule_feed(
     return {
         "agent_id": device.agent_id,
         "device_id": device.device_id,
-        "rules": [
-            {
-                "rule_id": rule.rule_id,
-                "sequence_number": rule.sequence_number,
-                "canonical_hash": rule.canonical_hash,
-                "canonical_body": rule.canonical_body,
-                "signature": rule.signature,
-                "required_attestation_type": rule.required_attestation_type,
-            }
-            for rule in rules
-        ],
+        "protocol_version": "world-rules-feed.v1",
+        "rules": [rule_view(rule) for rule in rules],
     }
 
 
@@ -129,13 +121,37 @@ async def world_rule_attest_versioned(
     body = await request.json()
     if not isinstance(body, dict):
         raise ValidationFailed("Expected JSON object.")
-    unknown = set(body) - {"rule_id", "canonical_hash", "decision", "technical_cause"}
+    unknown = set(body) - {
+        "rule_id",
+        "canonical_hash",
+        "decision",
+        "technical_cause",
+        "runtime_version",
+        "runtime_protocol_version",
+        "verification_result",
+        "attested_at",
+        "world_instance_id",
+        "sequence_number",
+    }
     if unknown:
         raise ValidationFailed("Unknown fields rejected.")
     if not all(isinstance(body.get(key), str) for key in ("rule_id", "canonical_hash", "decision")):
         raise ValidationFailed("rule_id, canonical_hash and decision are required.")
     if body.get("technical_cause") is not None and not isinstance(body["technical_cause"], str):
         raise ValidationFailed("technical_cause must be a string.")
+    runtime_fields = (
+        "runtime_version",
+        "runtime_protocol_version",
+        "verification_result",
+        "attested_at",
+    )
+    for key in runtime_fields:
+        if body.get(key) is not None and not isinstance(body[key], str):
+            raise ValidationFailed(f"{key} must be a string.")
+    if body.get("world_instance_id") is not None and not isinstance(body["world_instance_id"], str):
+        raise ValidationFailed("world_instance_id must be a string.")
+    if body.get("sequence_number") is not None and not isinstance(body["sequence_number"], int):
+        raise ValidationFailed("sequence_number must be an integer.")
     state = await attest_rule_delivery(
         session,
         agent_id=device.agent_id,
@@ -143,6 +159,14 @@ async def world_rule_attest_versioned(
         canonical_hash=body["canonical_hash"],
         decision=body["decision"],
         technical_cause=body.get("technical_cause"),
+        runtime_version=body.get("runtime_version"),
+        runtime_protocol_version=body.get("runtime_protocol_version"),
+        verification_result=body.get("verification_result"),
+        attestation_metadata={
+            key: body[key]
+            for key in ("attested_at", "world_instance_id", "sequence_number")
+            if key in body
+        },
     )
     await session.commit()
     return {

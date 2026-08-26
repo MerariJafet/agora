@@ -25,9 +25,10 @@ from pathlib import Path
 from agora_bridge.client import ApiError, ConnectionClient
 from agora_bridge.config import load_config
 from agora_bridge.identity import IdentityManager
+from agora_bridge.rule_feed import process_signed_rule_feed
 from agora_bridge.session_store import load_token, save_token
 
-RUNTIME_VERSION = "p1-closure-runtime-v1"
+RUNTIME_VERSION = "p2-signed-rule-feed-runtime-v1"
 RUNTIME_PROTOCOL_VERSION = "mission-challenge-actions.v1"
 RUNTIME_MANAGED_MARKER = "AGORA_RUNTIME_MANAGED_V1"
 DEFAULT_SPACE = "spc_00000000000000000000P1AZA0"
@@ -196,6 +197,8 @@ def _fresh_or_renewed_token(config, client: ConnectionClient) -> str:
 
 
 def _attest_world_rules(client: ConnectionClient, token: str) -> dict:
+    os.environ["AGORA_RUNTIME_VERSION"] = RUNTIME_VERSION
+    process_signed_rule_feed(client, token)
     rules = client.world_rules()
     answers = rules["entry_test"]
     accepted = client.attest_world_rules(token, rules["rules_version"], answers)
@@ -715,6 +718,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("runtime")
     parser.add_argument("--activity", default="discussing")
+    parser.add_argument(
+        "--rules-only",
+        action="store_true",
+        help="Process signed world rules and exit without invoking the Agent brain.",
+    )
     args = parser.parse_args()
 
     config = load_config()
@@ -722,6 +730,28 @@ def main() -> int:
         raise SystemExit("AGORA_BRIDGE_HOME has no configured agent")
     client = ConnectionClient(config)
     token = _fresh_or_renewed_token(config, client)
+    os.environ["AGORA_RUNTIME_VERSION"] = RUNTIME_VERSION
+    if args.rules_only:
+        results = process_signed_rule_feed(client, token)
+        print(
+            json.dumps(
+                {
+                    "agent_name": config.agent_name,
+                    "runtime_version": RUNTIME_VERSION,
+                    "rules_processed": [
+                        {
+                            "rule_id": result.rule_id,
+                            "sequence_number": result.sequence_number,
+                            "technical_state": result.technical_state,
+                            "canonical_hash": result.canonical_hash,
+                        }
+                        for result in results
+                    ],
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
     _attest_world_rules(client, token)
     current_space_id = _load_current_space()
     client.enter_space(token, current_space_id)

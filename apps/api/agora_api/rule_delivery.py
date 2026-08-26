@@ -217,10 +217,22 @@ async def pending_rules_for_agent(
     if state is not None:
         now = now_utc()
         state.device_id = device_id
-        state.delivered_at = state.delivered_at or now
+        state.fetched_at = state.fetched_at or now
         state.delivery_attempts += 1
-        state.technical_state = "delivered"
         state.cursor_sequence = max(state.cursor_sequence, after_sequence)
+        state.last_poll_at = now
+        state.last_success_at = now
+        if rule.sequence_number > after_sequence:
+            state.delivered_at = state.delivered_at or now
+            if state.technical_state not in {
+                "compatible",
+                "incompatible",
+                "deferred",
+                "declined",
+            }:
+                state.technical_state = "delivered"
+        elif state.compatible_attested_at is not None:
+            state.technical_state = "compatible"
         state.updated_at = now
     return [rule] if rule.sequence_number > after_sequence else []
 
@@ -234,7 +246,9 @@ async def mark_rule_seen(
     now = now_utc()
     state.seen_at = state.seen_at or now
     state.cursor_sequence = max(state.cursor_sequence, sequence_number)
+    state.cursor_advanced_at = state.cursor_advanced_at or now
     state.technical_state = "seen"
+    state.last_success_at = now
     state.updated_at = now
     return state
 
@@ -247,8 +261,12 @@ async def attest_rule_delivery(
     canonical_hash: str,
     decision: str,
     technical_cause: str | None = None,
+    runtime_version: str | None = None,
+    runtime_protocol_version: str | None = None,
+    verification_result: str | None = None,
+    attestation_metadata: dict[str, Any] | None = None,
 ) -> RuleDeliveryState:
-    if decision not in {"compatible", "incompatible", "deferred", "declined"}:
+    if decision not in {"compatible", "incompatible", "deferred", "declined", "failed"}:
         raise ValidationFailed("Invalid rule attestation decision.")
     rule = await session.get(RuleDocument, rule_id)
     if rule is None:
@@ -280,11 +298,19 @@ async def attest_rule_delivery(
         state.incompatible_at = state.incompatible_at or now
     elif decision == "deferred":
         state.deferred_at = state.deferred_at or now
-    else:
+    elif decision == "declined":
         state.declined_at = state.declined_at or now
+    else:
+        state.delivery_failed_at = state.delivery_failed_at or now
     state.technical_state = decision
-    state.technical_cause = technical_cause
+    state.technical_cause = (technical_cause or "")[:128] or None
+    state.runtime_version = runtime_version
+    state.runtime_protocol_version = runtime_protocol_version
+    state.verification_result = verification_result
+    state.attestation_metadata = attestation_metadata
     state.cursor_sequence = max(state.cursor_sequence, rule.sequence_number)
+    state.cursor_advanced_at = state.cursor_advanced_at or now
+    state.last_success_at = now
     state.updated_at = now
     return state
 
@@ -313,6 +339,7 @@ async def rule_delivery_matrix(session: AsyncSession) -> dict[str, Any]:
                 "device_id": state.device_id,
                 "queued": state.queued,
                 "delivered_at": state.delivered_at.isoformat() if state.delivered_at else None,
+                "fetched_at": state.fetched_at.isoformat() if state.fetched_at else None,
                 "seen_at": state.seen_at.isoformat() if state.seen_at else None,
                 "signature_verified_at": (
                     state.signature_verified_at.isoformat()
@@ -321,8 +348,19 @@ async def rule_delivery_matrix(session: AsyncSession) -> dict[str, Any]:
                 ),
                 "technical_state": state.technical_state,
                 "technical_cause": state.technical_cause,
+                "runtime_version": state.runtime_version,
+                "runtime_protocol_version": state.runtime_protocol_version,
+                "verification_result": state.verification_result,
                 "cursor_sequence": state.cursor_sequence,
+                "cursor_advanced_at": (
+                    state.cursor_advanced_at.isoformat() if state.cursor_advanced_at else None
+                ),
                 "delivery_attempts": state.delivery_attempts,
+                "last_poll_at": state.last_poll_at.isoformat() if state.last_poll_at else None,
+                "last_success_at": (
+                    state.last_success_at.isoformat() if state.last_success_at else None
+                ),
+                "next_retry_at": state.next_retry_at.isoformat() if state.next_retry_at else None,
                 "updated_at": state.updated_at.isoformat(),
             }
             for state, name in states
