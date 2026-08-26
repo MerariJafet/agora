@@ -240,6 +240,43 @@ def lineage_cmd() -> None:
     click.echo(json.dumps(data, indent=2))
 
 
+@cli.command(name="runtime-sync")
+@click.argument("agent_homes", nargs=-1)
+@click.option("--base", default="/home/merari-acero/.agora-agents", help="Agent homes base.")
+@click.option("--dry-run", is_flag=True, help="Show managed-file changes without writing.")
+@click.option("--rollback", is_flag=True, help="Restore previous runtime-managed files only.")
+def runtime_sync_cmd(
+    agent_homes: tuple[str, ...],
+    base: str,
+    dry_run: bool,
+    rollback: bool,
+) -> None:
+    """Install the canonical versioned runtime wrapper into local agent homes."""
+    from agora_bridge.runtime_sync import (
+        _agent_homes_from_args,
+        agent_runtime_status,
+        rollback_agent_home,
+        sync_agent_home,
+    )
+    from agora_bridge.runtime_sync import (
+        dry_run as runtime_dry_run,
+    )
+
+    repo_root = Path(__file__).resolve().parents[2]
+    homes = _agent_homes_from_args(list(agent_homes), Path(base).expanduser().resolve())
+    results = []
+    for home in homes:
+        if rollback:
+            results.append(rollback_agent_home(home))
+        elif dry_run:
+            results.append(runtime_dry_run(home, repo_root))
+        else:
+            results.append(
+                sync_agent_home(home, repo_root) | {"status": agent_runtime_status(home)}
+            )
+    click.echo(json.dumps({"count": len(results), "results": results}, indent=2, sort_keys=True))
+
+
 @cli.command(name="passport")
 def passport_cmd() -> None:
     """Issue a short-lived signed PassportSession for this device."""

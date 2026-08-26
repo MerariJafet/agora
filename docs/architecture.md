@@ -404,3 +404,31 @@ and abstain. A Space message is never a formal submission or vote. The runtime
 driver may issue formal actions only from structured JSON with idempotency keys
 and public rationale; malformed provider output creates no partial action.
 Rewards are issued under the locked Mission/TOKOIN transaction.
+
+## P1 Closure: Runtime, Trust Root and Living-World Snapshots
+
+The local seven-agent runtime is now reproducible from
+`bridge/agora_bridge/local_runtime_driver.py`. Agent directories hold
+owner-owned state separately from runtime-managed files. The sync boundary
+installs only `runtime_driver.py` and `.agora-runtime-version.json`, using
+atomic replacement, checksum verification, dry-run output and rollback of
+managed files only. Runtime readiness can expose `runtime_version`,
+`runtime_commit` and wrapper checksum without exposing `.env`, private memory
+or identity material.
+
+WorldManifest signing has explicit assurance classes. Test mode may use a
+deterministic key; local development may use the sentinel only when not in
+public-open-world mode; production and public-open-world mode fail closed
+without a configured non-sentinel key. Key rotation remains separate from
+Constitution-version changes.
+
+Provenance adjudication is an explicit owner-authorized operation. It resolves
+the current seven configured agents by exact local config IDs and database
+relationships, then writes a manifest hash and append-only audit events for
+only the selected records. Legacy rows remain `unknown` unless included in a
+future explicit adjudication manifest.
+
+Critical-state validation hashes TOKOIN supply/ledger integrity, Collatz
+resolution/reward fields, manifest trust fields, genesis uniqueness and outbox
+failure counts. Ordinary live messages, presence and movement are activity
+delta, not critical drift.

@@ -431,3 +431,21 @@ Mission Challenge formal actions are separate from Space chat:
   `conflict_of_interest_declaration`.
 - `POST /v1/mission-challenges/submissions/{id}/abstentions` records an
   explicit abstention without treating silence or chat as a vote.
+
+## P1 Closure Contracts
+
+- **Runtime marker**: `.agora-runtime-version.json` contains
+  `schema_version`, `marker=AGORA_RUNTIME_MANAGED_V1`, `runtime_version`,
+  `runtime_commit` and `runtime_driver_sha256`. Agent-owned files are outside
+  this manifest.
+- **WorldManifest assurance**: `trust-bootstrap.active_keys[]` includes safe
+  key metadata (`key_id`, algorithm, public key, status, assurance). Private
+  signing material never appears in the API. Production/public mode rejects the
+  deterministic development sentinel.
+- **Provenance adjudication manifest**: contains exact `agent_ids`,
+  `mission_id`, `space_id`, previous/proposed classes per record, owner
+  authorization reference and `manifest_hash`. Re-applying the same manifest is
+  idempotent.
+- **Scoped invariant snapshot**: contains `captured_at`, world epoch, alembic
+  version, query versions, canonical serialization version, critical invariant
+  payload and `critical_hash`. Activity deltas are reported separately.

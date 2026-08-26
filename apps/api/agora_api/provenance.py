@@ -19,6 +19,7 @@ from agora_api.models import RecordProvenance, RecordProvenanceAudit
 
 PROVENANCE_CLASSES = {"real", "demo", "test", "unknown"}
 PUBLIC_DEFAULT_CLASSES = {"real", "demo", "unknown"}
+SYSTEM_ACTOR_ID = "agt_00000000000000000000000000"
 
 
 def default_provenance_class() -> str:
@@ -124,7 +125,7 @@ async def reclassify_provenance(
     await append_event(
         session,
         event_type="provenance.reclassified",
-        actor={"process": actor},
+        actor={"agent_id": SYSTEM_ACTOR_ID},
         payload={
             "record_table": record_table,
             "record_id": record_id,

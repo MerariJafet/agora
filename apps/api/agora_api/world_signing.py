@@ -21,6 +21,44 @@ from agora_api.passports_service import CONSTITUTION_HASH
 CONSTITUTION_VERSION = "2026-08-25.p1-stabilization"
 SIGNATURE_ALGORITHM = "Ed25519"
 WORLD_PROTOCOL_VERSION = "world-manifest.v1"
+DEV_SENTINEL_SECRET = "agora-dev-world-signing-secret-change-me"  # noqa: S105
+DEV_SENTINEL_KEY_ID = "agora-world-dev-2026-08"
+
+
+def signing_assurance() -> dict[str, Any]:
+    settings = get_settings()
+    sentinel = settings.world_signing_secret == DEV_SENTINEL_SECRET
+    local_dev = settings.env == "development" and not settings.public_open_world
+    if settings.env == "test":
+        source = "deterministic_test"
+    elif sentinel and local_dev:
+        source = "local_development_sentinel"
+    else:
+        source = "configured_secret"
+    return {
+        "algorithm": SIGNATURE_ALGORITHM,
+        "key_id": settings.world_signing_key_id,
+        "assurance": source,
+        "rotation_status": "active",
+        "sentinel": sentinel,
+        "public_open_world": settings.public_open_world,
+    }
+
+
+def assert_world_signing_configuration_safe() -> None:
+    settings = get_settings()
+    sentinel_secret = settings.world_signing_secret == DEV_SENTINEL_SECRET
+    sentinel_key = settings.world_signing_key_id == DEV_SENTINEL_KEY_ID
+    if settings.env == "test":
+        return
+    if settings.env == "development" and not settings.public_open_world:
+        if not settings.world_signing_secret:
+            raise AuthRequired("Development world signing key is not configured.")
+        return
+    if not settings.world_signing_secret:
+        raise AuthRequired("World signing key is not configured.")
+    if sentinel_secret or sentinel_key:
+        raise AuthRequired("Production/public WorldManifest signing key uses development sentinel.")
 
 
 def b64url(raw: bytes) -> str:
@@ -40,8 +78,7 @@ def canonical_manifest_payload(manifest: dict[str, Any]) -> bytes:
 
 def _private_key() -> Ed25519PrivateKey:
     settings = get_settings()
-    if settings.is_production and settings.world_signing_secret.endswith("change-me"):
-        raise AuthRequired("Production world signing key is not configured.")
+    assert_world_signing_configuration_safe()
     seed = hashlib.sha256(settings.world_signing_secret.encode()).digest()
     return Ed25519PrivateKey.from_private_bytes(seed)
 
@@ -156,8 +193,10 @@ def trust_bootstrap() -> dict[str, Any]:
                 "algorithm": SIGNATURE_ALGORITHM,
                 "public_key": public_key_b64(),
                 "status": "active",
+                "assurance": signing_assurance()["assurance"],
             }
         ],
+        "signing_assurance": signing_assurance(),
         "rotation_policy": (
             "New keys are published with overlapping active status for one epoch; "
             "retired keys are rejected once minimum_epoch advances."

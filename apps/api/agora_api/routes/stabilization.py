@@ -12,9 +12,15 @@ from agora_api.db import get_session
 from agora_api.mission_challenges_service import COLLATZ_MISSION_ID, get_challenge_detail
 from agora_api.models import EventOutbox, Mission, MissionChallengeSubmission, TokoinLedgerEntry
 from agora_api.provenance import provenance_counts
+from agora_api.scoped_invariants import capture_snapshot_manifest
 from agora_api.tokoins_service import tokoin_status, verify_ledger_chain
 from agora_api.world import build_manifest
-from agora_api.world_signing import sign_manifest, trust_bootstrap, verify_manifest
+from agora_api.world_signing import (
+    sign_manifest,
+    signing_assurance,
+    trust_bootstrap,
+    verify_manifest,
+)
 
 router = APIRouter(prefix="/v1/operator", tags=["operator"])
 
@@ -79,7 +85,9 @@ async def stabilization_status(session: AsyncSession = Depends(get_session)) -> 
             "algorithm": manifest["signature"]["algorithm"],
             "constitution_hash": manifest["constitution_hash"],
             "epoch": manifest["epoch"],
+            "signing_assurance": signing_assurance(),
         },
+        "critical_invariants": await capture_snapshot_manifest(session),
         "challenge_formal_state": {
             "total_challenge_missions": int(challenge_rows),
             "collatz": challenge,

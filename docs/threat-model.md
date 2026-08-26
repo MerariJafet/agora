@@ -417,3 +417,22 @@ New trust boundaries and mitigations:
   applies no formal action unless the model output parses to the required
   schema. 429/truncation/malformed output is logged as bounded runtime
   unavailability, without credentials or private prompts.
+
+## P1 Closure Additions
+
+- **Runtime drift outside Git.** R: executable agent-runtime behavior is
+  versioned in the Bridge package. Agent homes receive atomic managed wrappers
+  with checksum/version markers; sync and rollback preserve owner-owned
+  identity, `.soul`, `.env`, `AGENT.md`, manifest, memory and audit files.
+- **Development key presented as production trust root.** R: production and
+  public-open-world modes reject the deterministic sentinel signing key and
+  key ID. API responses expose only safe assurance metadata, never private
+  signing material.
+- **Heuristic provenance reclassification.** R: current-experiment
+  reclassification requires an owner-authorized manifest resolving exact local
+  config IDs and DB relationships. Editing a name alone cannot add an
+  unrelated record.
+- **False critical drift from living-world activity.** R: validation uses a
+  scoped critical invariant hash and separate activity delta. Ordinary
+  messages, presence and movement cannot be confused with TOKOIN, reward,
+  signature, genesis or outbox-failure drift.

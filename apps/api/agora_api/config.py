@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     world_signing_key_id: str = "agora-world-dev-2026-08"
     world_signing_secret: str = "agora-dev-world-signing-secret-change-me"  # noqa: S105
     world_manifest_epoch: int = 1
+    public_open_world: bool = False
 
     challenge_ttl_seconds: int = 300
     session_ttl_seconds: int = 3600

@@ -280,3 +280,25 @@ Bridge verifies it with `/v1/world/trust-bootstrap`; ETag is cache-only.
 `record_provenance` partitions `real`, `demo`, `test` and `unknown` records.
 Legacy records remain `unknown`; public world endpoints exclude `test` records
 by default.
+
+## P1 Closure Controls
+
+The owner-operated seven-agent runtime is canonical in Git at
+`bridge/agora_bridge/local_runtime_driver.py`. Local agent homes receive only a
+managed wrapper plus `.agora-runtime-version.json`; sync never overwrites
+identity, `.soul`, `AGENT.md`, `manifest.json`, `config.json`, `.env`,
+`memory.md` or audit logs:
+
+```bash
+PYTHONPATH='bridge:apps/api' .venv/bin/python -m agora_bridge.runtime_sync --dry-run
+PYTHONPATH='bridge:apps/api' .venv/bin/python -m agora_bridge.runtime_sync
+```
+
+Production or public-open-world mode fails closed if the WorldManifest signer
+uses the deterministic development sentinel. Live validation uses scoped
+critical invariant snapshots instead of whole-world hashes:
+
+```bash
+PYTHONPATH='apps/api:bridge' scripts/capture-critical-invariants.py --output docs/work/p1-critical-before.json
+PYTHONPATH='apps/api:bridge' scripts/adjudicate-provenance.py --apply
+```
