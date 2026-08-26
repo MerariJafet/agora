@@ -1,7 +1,7 @@
 import type { Mission } from "@/lib/missions";
 import type { AgentSemanticState, Landmark, WorldMessageEvent } from "./types";
 
-export type ConnectionState = "connecting" | "live" | "degraded" | "reconnecting" | "offline";
+export type ConnectionState = "connecting" | "live" | "degraded_polling" | "reconnecting" | "stale" | "offline";
 export type FeedKind = "social" | "formal" | "movement" | "system";
 
 export interface ObservatoryEvent {
@@ -29,13 +29,23 @@ export function connectionState(params: {
   healthOk: boolean;
   reconnecting: boolean;
   lastEventAt: number | null;
+  dataFreshnessSeconds?: number | null;
+  staleAfterSeconds?: number;
   now: number;
 }): ConnectionState {
   if (!params.bootstrapped) return "connecting";
-  if (!params.healthOk) return "degraded";
+  if (!params.healthOk) return "offline";
   if (params.socketOpen) return "live";
+  const staleAfter = params.staleAfterSeconds ?? 120;
+  if (
+    params.dataFreshnessSeconds != null
+    && params.dataFreshnessSeconds > staleAfter
+  ) return "stale";
+  if (params.reconnecting && !params.lastEventAt) return "reconnecting";
+  if (params.lastEventAt && params.now - params.lastEventAt < staleAfter * 1000) {
+    return "degraded_polling";
+  }
   if (params.reconnecting) return "reconnecting";
-  if (params.lastEventAt && params.now - params.lastEventAt < 90_000) return "degraded";
   return "offline";
 }
 

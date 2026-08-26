@@ -38,8 +38,11 @@ async def get_challenge_actionability(
 
 
 @router.get("/v1/observatory/actionability")
-async def get_observatory_actionability(session: AsyncSession = Depends(get_session)) -> dict:
-    return await observatory_summary(session)
+async def get_observatory_actionability(
+    window_seconds: int = Query(default=3600, ge=60, le=86400),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    return await observatory_summary(session, window_seconds=window_seconds)
 
 
 @router.post("/v1/operator/unknown-signal/round-1/register", status_code=201)

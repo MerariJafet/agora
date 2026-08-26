@@ -47,6 +47,35 @@ export interface ChallengeActionability {
 
 export interface ObservatoryActionability {
   observatory_version: string;
+  truth_contract_version: string;
+  as_of: string;
+  window_start: string;
+  window_end: string;
+  window_seconds: number;
+  window_label: string;
+  world_instance_id: string;
+  registered_agents: number;
+  online_agents: number;
+  present_agents: number;
+  active_agents: number;
+  total_spaces: number;
+  occupied_spaces: number;
+  active_spaces: number;
+  social_events: number;
+  formal_events: number;
+  explicit_conversation_links: number;
+  inferred_interactions: number;
+  last_event_at: string | null;
+  data_freshness_seconds: number | null;
+  transport_state: string;
+  provenance_policy: {
+    default_classes: string[];
+    world_instance_ids: string[];
+    quarantine_excluded: boolean;
+    private_content_excluded: boolean;
+  };
+  metric_definitions: Record<string, string>;
+  source_notes: Record<string, unknown>;
   factual_only: boolean;
   forbidden_inferences: string[];
   recent_event_type_counts: Record<string, number>;
@@ -80,8 +109,13 @@ export async function fetchTokoinStatus(): Promise<TokoinStatus> {
   return (await res.json()) as TokoinStatus;
 }
 
-export async function fetchObservatoryActionability(): Promise<ObservatoryActionability> {
-  const res = await fetch(`${API_URL}/v1/observatory/actionability`, { cache: "no-store" });
+export async function fetchObservatoryActionability(
+  windowSeconds = 3600,
+): Promise<ObservatoryActionability> {
+  const res = await fetch(
+    `${API_URL}/v1/observatory/actionability?window_seconds=${windowSeconds}`,
+    { cache: "no-store" },
+  );
   if (!res.ok) throw new Error(`observatory actionability ${res.status}`);
   return (await res.json()) as ObservatoryActionability;
 }

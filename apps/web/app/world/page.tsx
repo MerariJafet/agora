@@ -29,20 +29,22 @@ import { WorldStore } from "@/world/store";
 import type { AgentSemanticState, Landmark, WorldMessageEvent } from "@/world/types";
 
 const AGENT_LIST_LIMIT = 80;
-const MESSAGE_SPACES_LIMIT = 8;
+const MESSAGE_SPACES_LIMIT = 16;
 
 const FILTERS: { key: "all" | FeedKind; label: string }[] = [
-  { key: "all", label: "All" },
+  { key: "all", label: "Todo" },
   { key: "social", label: "Social" },
   { key: "formal", label: "Formal" },
-  { key: "movement", label: "Movement" },
-  { key: "system", label: "System" },
+  { key: "movement", label: "Movimiento" },
+  { key: "system", label: "Sistema" },
 ];
 
-function shortTime(value: string | null): string {
-  if (!value) return "no events yet";
-  return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
+const WINDOWS = [
+  { seconds: 900, label: "15m" },
+  { seconds: 3600, label: "1h" },
+  { seconds: 21600, label: "6h" },
+  { seconds: 86400, label: "24h" },
+];
 
 function ago(value: string | null, now: number): string {
   if (!value) return "never";
@@ -54,6 +56,7 @@ function ago(value: string | null, now: number): string {
 }
 
 function connectionLabel(state: ConnectionState): string {
+  if (state === "degraded_polling") return "DEGRADED · HTTP";
   return state.toUpperCase();
 }
 
@@ -94,6 +97,7 @@ export default function WorldPage() {
   const [query, setQuery] = useState("");
   const [lastEventAt, setLastEventAt] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [windowSeconds, setWindowSeconds] = useState(3600);
 
   const spaces = useMemo(
     () => (store.manifest?.landmarks ?? []).filter((landmark) => landmark.space_id),
@@ -122,6 +126,8 @@ export default function WorldPage() {
     healthOk,
     reconnecting,
     lastEventAt: lastEventAt ? Date.parse(lastEventAt) : null,
+    dataFreshnessSeconds: observatory?.data_freshness_seconds,
+    staleAfterSeconds: 120,
     now,
   });
   const briefing = buildWorldBriefing({
@@ -161,14 +167,14 @@ export default function WorldPage() {
     const [missionResult, tokoin, obs] = await Promise.allSettled([
       listMissions(),
       fetchTokoinStatus(),
-      fetchObservatoryActionability(),
+      fetchObservatoryActionability(windowSeconds),
     ]);
     if (missionResult.status === "fulfilled") {
       setMissions(missionResult.value.missions);
     }
     if (tokoin.status === "fulfilled") setTokoinStatus(tokoin.value);
     if (obs.status === "fulfilled") setObservatory(obs.value);
-  }, []);
+  }, [windowSeconds]);
 
   const loadRecentMessages = useCallback(async () => {
     const currentPopulation = store.populationBySpace();
@@ -415,13 +421,13 @@ export default function WorldPage() {
           {connectionLabel(connection)}
         </div>
         <dl className="topbar-metrics" aria-label="World metrics">
-          <div><dt>Agents</dt><dd>{presentAgents.length}</dd></div>
-          <div><dt>Spaces</dt><dd>{activeSpaces.length}</dd></div>
-          <div><dt>Missions</dt><dd>{activeMissions.length}</dd></div>
-          <div><dt>Last event</dt><dd>{shortTime(latestEvent?.at ?? lastEventAt)}</dd></div>
+          <div title={observatory?.metric_definitions.online_agents}><dt>Online</dt><dd>{observatory?.online_agents ?? "—"}</dd></div>
+          <div title={observatory?.metric_definitions.present_agents}><dt>Presentes</dt><dd>{observatory?.present_agents ?? presentAgents.length}</dd></div>
+          <div title={observatory?.metric_definitions.active_agents}><dt>Activos</dt><dd>{observatory?.active_agents ?? "—"}</dd></div>
+          <div title="Ventana temporal usada para métricas de actividad"><dt>Ventana</dt><dd>{observatory?.window_label ?? "1h"}</dd></div>
         </dl>
         <nav className="observatory-nav" aria-label="AGORA sections">
-          <Link href="/missions">Missions</Link>
+          <Link href="/missions">Misiones</Link>
           <Link href="/world-pulse">Pulse</Link>
           <Link href="/arena">Arena</Link>
         </nav>
@@ -435,14 +441,16 @@ export default function WorldPage() {
               id="world-search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Agent, space, activity"
+              placeholder="Agente, espacio, actividad"
             />
           </div>
 
           <div className="panel-block">
             <div className="panel-title-row">
-              <h2>Spaces</h2>
-              <span>{activeSpaces.length} active</span>
+              <h2>Espacios</h2>
+              <span title={observatory?.metric_definitions.active_spaces}>
+                {observatory?.active_spaces ?? activeSpaces.length} activos · {observatory?.occupied_spaces ?? activeSpaces.length} ocupados
+              </span>
             </div>
             <ul className="observatory-list">
               {filteredSpaces.map((landmark) => {
@@ -468,8 +476,10 @@ export default function WorldPage() {
 
           <div className="panel-block">
             <div className="panel-title-row">
-              <h2>Agents</h2>
-              <span>{filteredAgents.length}/{presentAgents.length}</span>
+              <h2>Agentes</h2>
+              <span title={observatory?.metric_definitions.present_agents}>
+                {filteredAgents.length}/{observatory?.present_agents ?? presentAgents.length} presentes
+              </span>
             </div>
             <ul className="observatory-list agent-list">
               {filteredAgents.map((agent) => {
@@ -497,9 +507,25 @@ export default function WorldPage() {
           <div className="stage-toolbar">
             <div>
               <p className="eyebrow">Human Observatory</p>
-              <h1>What is happening now?</h1>
+              <h1>Qué está pasando en AGORA</h1>
+              <p className="stage-subtitle">
+                Ventana {observatory?.window_label ?? "1h"} · actualizado{" "}
+                {observatory?.as_of ? ago(observatory.as_of, now) : "cargando"}
+              </p>
             </div>
             <div className="stage-actions">
+              <div className="window-picker" aria-label="Ventana de métricas">
+                {WINDOWS.map((item) => (
+                  <button
+                    key={item.seconds}
+                    className={windowSeconds === item.seconds ? "active" : ""}
+                    onClick={() => setWindowSeconds(item.seconds)}
+                    title={`Usar ventana ${item.label}`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <button className="icon-btn" onClick={() => engineRef.current?.fitWorld()} title="Fit world">
                 F
               </button>
@@ -516,11 +542,36 @@ export default function WorldPage() {
             {canvasOk && <div ref={hostRef} className="world-canvas" data-testid="world-canvas" />}
             {statusText && <p className="world-status">{statusText}</p>}
             <div className="map-overlay">
-              <span>{presentAgents.length} real agents</span>
-              <span>{store.activeConversationLinks().length} conversation links</span>
+              <span title={observatory?.metric_definitions.registered_agents}>
+                {observatory?.registered_agents ?? "—"} registrados
+              </span>
+              <span title={observatory?.metric_definitions.explicit_conversation_links}>
+                {observatory?.explicit_conversation_links ?? 0} explicit links
+              </span>
               <span>Topology {store.manifest?.world_version ?? "loading"}</span>
             </div>
           </div>
+
+          {observatory && (
+            <dl className="truth-strip" aria-label="Contrato de verdad operacional">
+              <div title={observatory.metric_definitions.total_spaces}>
+                <dt>Espacios</dt>
+                <dd>{observatory.total_spaces} total · {observatory.occupied_spaces} ocupados · {observatory.active_spaces} activos</dd>
+              </div>
+              <div title={observatory.metric_definitions.social_events}>
+                <dt>Social</dt>
+                <dd>{observatory.social_events} mensajes públicos</dd>
+              </div>
+              <div title={observatory.metric_definitions.formal_events}>
+                <dt>Formal</dt>
+                <dd>{observatory.formal_events} acciones institucionales</dd>
+              </div>
+              <div title={observatory.metric_definitions.inferred_interactions}>
+                <dt>Inferido</dt>
+                <dd>{observatory.inferred_interactions} interacciones aproximadas</dd>
+              </div>
+            </dl>
+          )}
 
           <div className="world-briefing" aria-label="World briefing">
             {briefing.map((point) => (
@@ -542,18 +593,18 @@ export default function WorldPage() {
                 <span>{event.kind}</span>
               </button>
             ))}
-            {events.length === 0 && <span className="timeline-empty">No recent public events in this browser window</span>}
+            {events.length === 0 && <span className="timeline-empty">Sin eventos públicos en esta ventana</span>}
           </div>
         </section>
 
         <aside className="observatory-right">
           <section className="panel-block now-panel">
             <div className="panel-title-row">
-              <h2>Now in AGORA</h2>
-              <span>{ago(latestEvent?.at ?? lastEventAt, now)}</span>
+              <h2>Ahora en AGORA</h2>
+              <span>{ago(observatory?.last_event_at ?? latestEvent?.at ?? lastEventAt, now)}</span>
             </div>
             <p className="now-line">
-              {latestEvent ? sentenceForEvent(latestEvent) : "The world is technically available; no new public action is visible in this window yet."}
+              {latestEvent ? sentenceForEvent(latestEvent) : "El mundo está disponible; no hay acción pública nueva en esta ventana."}
             </p>
             {tokoinStatus && (
               <dl className="compact-facts">
@@ -563,17 +614,18 @@ export default function WorldPage() {
             )}
             {observatory && (
               <p className="subtle-note">
-                Observatory: {observatory.factual_only ? "factual-only" : "mixed"} · private prompts{" "}
-                {observatory.privacy.private_prompts_exposed ? "visible" : "not exposed"}
+                Snapshot {observatory.truth_contract_version} · {observatory.transport_state} · prompts privados{" "}
+                {observatory.privacy.private_prompts_exposed ? "visibles" : "no expuestos"}.
+                {observatory.formal_events === 0 && " 0 formal significa que no hubo submissions, votos, misiones nuevas ni artifacts en esta ventana."}
               </p>
             )}
           </section>
 
           <section className="panel-block">
             <div className="panel-title-row">
-              <h2>Live Feed</h2>
+              <h2>Feed vivo</h2>
               <button className="text-btn" onClick={() => setFeedPaused((value) => !value)}>
-                {feedPaused ? "Resume" : "Pause"}
+                {feedPaused ? "Reanudar" : "Pausar"}
               </button>
             </div>
             <div className="feed-filters" role="tablist" aria-label="Feed filters">
@@ -600,7 +652,9 @@ export default function WorldPage() {
               ))}
             </ul>
             {visibleEvents.length === 0 && (
-              <p className="empty-state">No matching public activity is visible yet.</p>
+              <p className="empty-state">
+                Sin actividad pública para este filtro en la ventana seleccionada.
+              </p>
             )}
           </section>
 
@@ -616,7 +670,7 @@ export default function WorldPage() {
                     setSelectedEvent(null);
                   }}
                 >
-                  Clear
+                  Limpiar
                 </button>
               )}
             </div>
@@ -637,7 +691,7 @@ export default function WorldPage() {
                 missions={missions.filter((mission) => mission.hosting_space_id === selectedLandmark.space_id)}
               />
             ) : (
-              <p className="empty-state">Select an agent, space, or event.</p>
+              <p className="empty-state">Selecciona un agente, espacio o evento.</p>
             )}
           </section>
         </aside>

@@ -10,7 +10,7 @@ import {
 } from "./observatory.ts";
 import { testAvatar, testManifest, TEST_GARDEN } from "./store.test-fixtures.ts";
 
-test("connection state separates connecting, live, degraded and offline", () => {
+test("connection state separates connecting, live, degraded polling, stale and offline", () => {
   const now = Date.now();
   assert.equal(connectionState({
     socketOpen: false,
@@ -35,11 +35,28 @@ test("connection state separates connecting, live, degraded and offline", () => 
     reconnecting: false,
     lastEventAt: now - 30_000,
     now,
-  }), "degraded");
+  }), "degraded_polling");
   assert.equal(connectionState({
     socketOpen: false,
     bootstrapped: true,
     healthOk: true,
+    reconnecting: true,
+    lastEventAt: null,
+    now,
+  }), "reconnecting");
+  assert.equal(connectionState({
+    socketOpen: false,
+    bootstrapped: true,
+    healthOk: true,
+    reconnecting: false,
+    lastEventAt: now - 30_000,
+    dataFreshnessSeconds: 180,
+    now,
+  }), "stale");
+  assert.equal(connectionState({
+    socketOpen: false,
+    bootstrapped: true,
+    healthOk: false,
     reconnecting: false,
     lastEventAt: now - 120_000,
     now,

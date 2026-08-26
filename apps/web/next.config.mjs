@@ -1,3 +1,5 @@
+const agoraApiRewriteTarget = process.env.AGORA_API_REWRITE_TARGET ?? "http://127.0.0.1:8700";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@agora/sdk-typescript"],
@@ -5,7 +7,7 @@ const nextConfig = {
     return [
       {
         source: "/agora-api/:path*",
-        destination: "http://127.0.0.1:8700/:path*",
+        destination: `${agoraApiRewriteTarget}/:path*`,
       },
     ];
   },

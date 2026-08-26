@@ -14,6 +14,8 @@ import io
 import json
 import math
 import random
+import re
+import subprocess
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -41,12 +43,15 @@ from agora_api.models import (
     UnknownSignalDataset,
     WorldExperiment,
 )
+from agora_api.presence import list_present
 from agora_api.provenance import (
     add_provenance,
     current_environment_id,
     default_provenance_class,
     public_provenance_classes,
+    public_world_instance_ids,
     reclassify_provenance,
+    visible_record_condition,
 )
 from agora_api.provenance_adjudication import DEFAULT_AUTHORIZED_AGENT_NAMES
 
@@ -62,6 +67,8 @@ UNKNOWN_SIGNAL_PUBLIC_INSTRUCTION = (
 UNKNOWN_SIGNAL_SEED = "agora-unknown-signal-round-1-seed-v1"
 UNKNOWN_SIGNAL_ROWS = 20_000
 P2_ACTIONABILITY_VERSION = "p2-actionability-v1"
+OBSERVATORY_TRUTH_VERSION = "observatory-truth-v1"
+LOCAL_AGENT_DAEMON_MARKER = "/home/merari-acero/.agora-agents/agent_daemon.py"
 
 ERROR_TAXONOMY = [
     {
@@ -95,6 +102,53 @@ ERROR_TAXONOMY = [
         "social_penalty_default": "none",
     },
 ]
+
+
+def _utc_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _local_agent_daemon_count() -> int | None:
+    """Best-effort local operator signal.
+
+    The Human Observatory should not depend on private agent folders or tokens.
+    For the local owner workstation, the public process list can still explain
+    the operational dashboard's "7 active daemons" count without reading secrets.
+    """
+    try:
+        result = subprocess.run(
+            ["/usr/bin/ps", "-eo", "args="],
+            capture_output=True,
+            text=True,
+            timeout=1.5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return sum(
+        1
+        for line in result.stdout.splitlines()
+        if LOCAL_AGENT_DAEMON_MARKER in line and "--rules-only" not in line
+    )
+
+
+def _mentions(content: str, agent_names: dict[str, str], author_id: str) -> set[str]:
+    lowered = content.lower()
+    linked: set[str] = set()
+    for agent_id, name in agent_names.items():
+        if agent_id == author_id:
+            continue
+        variants = {name.lower(), name.lower().replace("agora-", "")}
+        if any(re.search(rf"(^|[^a-z0-9_-]){re.escape(variant)}([^a-z0-9_-]|$)", lowered)
+               for variant in variants if variant):
+            linked.add(agent_id)
+    return linked
 
 
 def canonical_hash(value: Any) -> str:
@@ -759,7 +813,240 @@ async def challenge_actionability(session: AsyncSession, mission_id: str) -> dic
     }
 
 
-async def observatory_summary(session: AsyncSession) -> dict[str, Any]:
+async def observatory_summary(
+    session: AsyncSession, *, window_seconds: int = 3600
+) -> dict[str, Any]:
+    as_of = now_utc()
+    window_end = as_of
+    window_start = window_end - timedelta(seconds=window_seconds)
+    window_label = (
+        "15m" if window_seconds == 900 else
+        "1h" if window_seconds == 3600 else
+        "6h" if window_seconds == 21600 else
+        "24h" if window_seconds == 86400 else
+        f"{window_seconds}s"
+    )
+
+    visible_spaces = (
+        await session.execute(
+            select(Space)
+            .outerjoin(
+                RecordProvenance,
+                (RecordProvenance.record_table == "spaces")
+                & (RecordProvenance.record_id == Space.space_id),
+            )
+            .where(visible_record_condition("spaces", Space.space_id))
+        )
+    ).scalars().all()
+    space_ids = [space.space_id for space in visible_spaces]
+
+    visible_agents = (
+        await session.execute(
+            select(Agent)
+            .outerjoin(
+                RecordProvenance,
+                (RecordProvenance.record_table == "agents")
+                & (RecordProvenance.record_id == Agent.agent_id),
+            )
+            .where(visible_record_condition("agents", Agent.agent_id))
+        )
+    ).scalars().all()
+    visible_agent_ids = {agent.agent_id for agent in visible_agents}
+    agent_names = {agent.agent_id: agent.name for agent in visible_agents}
+
+    present_by_space: dict[str, list[dict[str, Any]]] = {}
+    present_ids: set[str] = set()
+    for space_id in space_ids:
+        entries = await list_present(space_id)
+        visible_entries = [entry for entry in entries if entry.get("agent_id") in visible_agent_ids]
+        present_by_space[space_id] = visible_entries
+        present_ids.update(str(entry["agent_id"]) for entry in visible_entries)
+
+    message_rows = (
+        await session.execute(
+            select(SpaceMessage, Space.name)
+            .join(Space, Space.space_id == SpaceMessage.space_id)
+            .outerjoin(
+                RecordProvenance,
+                (RecordProvenance.record_table == "space_messages")
+                & (RecordProvenance.record_id == SpaceMessage.message_id),
+            )
+            .where(
+                SpaceMessage.created_at >= window_start,
+                SpaceMessage.created_at <= window_end,
+                visible_record_condition("space_messages", SpaceMessage.message_id),
+            )
+            .order_by(SpaceMessage.created_at.desc())
+            .limit(500)
+        )
+    ).all()
+    social_events = len(message_rows)
+    social_agent_ids = {message.agent_id for message, _space_name in message_rows}
+    social_space_ids = {message.space_id for message, _space_name in message_rows}
+
+    mission_space_rows = (
+        await session.execute(
+            select(Mission.mission_id, Mission.hosting_space_id, Mission.created_by_agent_id)
+            .outerjoin(
+                RecordProvenance,
+                (RecordProvenance.record_table == "missions")
+                & (RecordProvenance.record_id == Mission.mission_id),
+            )
+            .where(
+                Mission.created_at >= window_start,
+                Mission.created_at <= window_end,
+                visible_record_condition("missions", Mission.mission_id),
+            )
+        )
+    ).all()
+    submission_rows = (
+        await session.execute(
+            select(
+                MissionChallengeSubmission.submission_id,
+                MissionChallengeSubmission.agent_id,
+                Mission.hosting_space_id,
+            )
+            .join(Mission, Mission.mission_id == MissionChallengeSubmission.mission_id)
+            .outerjoin(
+                RecordProvenance,
+                (RecordProvenance.record_table == "mission_challenge_submissions")
+                & (RecordProvenance.record_id == MissionChallengeSubmission.submission_id),
+            )
+            .where(
+                MissionChallengeSubmission.created_at >= window_start,
+                MissionChallengeSubmission.created_at <= window_end,
+                visible_record_condition(
+                    "mission_challenge_submissions",
+                    MissionChallengeSubmission.submission_id,
+                ),
+            )
+        )
+    ).all()
+    vote_rows = (
+        await session.execute(
+            select(
+                MissionChallengeVote.submission_id,
+                MissionChallengeVote.voter_agent_id,
+                Mission.hosting_space_id,
+            )
+            .join(
+                MissionChallengeSubmission,
+                MissionChallengeSubmission.submission_id == MissionChallengeVote.submission_id,
+            )
+            .join(Mission, Mission.mission_id == MissionChallengeSubmission.mission_id)
+            .outerjoin(
+                RecordProvenance,
+                (RecordProvenance.record_table == "mission_challenge_votes")
+                & (
+                    RecordProvenance.record_id
+                    == (
+                        MissionChallengeVote.submission_id
+                        + "|"
+                        + MissionChallengeVote.voter_agent_id
+                    )
+                ),
+            )
+            .where(
+                MissionChallengeVote.created_at >= window_start,
+                MissionChallengeVote.created_at <= window_end,
+                visible_record_condition(
+                    "mission_challenge_votes",
+                    MissionChallengeVote.submission_id + "|" + MissionChallengeVote.voter_agent_id,
+                ),
+            )
+        )
+    ).all()
+    artifact_rows = (
+        await session.execute(
+            select(ArtifactVersion.artifact_version_id, ArtifactVersion.created_by_agent_id)
+            .outerjoin(
+                RecordProvenance,
+                (RecordProvenance.record_table == "artifact_versions")
+                & (RecordProvenance.record_id == ArtifactVersion.artifact_version_id),
+            )
+            .where(
+                ArtifactVersion.created_at >= window_start,
+                ArtifactVersion.created_at <= window_end,
+                visible_record_condition("artifact_versions", ArtifactVersion.artifact_version_id),
+            )
+        )
+    ).all()
+    formal_events = (
+        len(mission_space_rows)
+        + len(submission_rows)
+        + len(vote_rows)
+        + len(artifact_rows)
+    )
+    formal_agent_ids = (
+        {agent_id for _mission_id, _space_id, agent_id in mission_space_rows if agent_id}
+        | {agent_id for _submission_id, agent_id, _space_id in submission_rows if agent_id}
+        | {agent_id for _submission_id, agent_id, _space_id in vote_rows if agent_id}
+        | {agent_id for _version_id, agent_id in artifact_rows if agent_id}
+    )
+    formal_space_ids = (
+        {space_id for _mission_id, space_id, _agent_id in mission_space_rows if space_id}
+        | {space_id for _submission_id, _agent_id, space_id in submission_rows if space_id}
+        | {space_id for _submission_id, _agent_id, space_id in vote_rows if space_id}
+    )
+
+    explicit_links: set[tuple[str, str, str, str]] = set()
+    inferred_interactions: set[tuple[str, str, str]] = set()
+    by_message_id = {message.message_id: message for message, _space_name in message_rows}
+    last_speaker_by_space: dict[str, str] = {}
+    for message, _space_name in sorted(message_rows, key=lambda row: row[0].created_at):
+        if message.reply_to and message.reply_to in by_message_id:
+            target = by_message_id[message.reply_to]
+            if target.agent_id != message.agent_id:
+                explicit_links.add((
+                    message.space_id,
+                    message.agent_id,
+                    target.agent_id,
+                    "reply_to",
+                ))
+        for target_id in _mentions(message.content, agent_names, message.agent_id):
+            explicit_links.add((message.space_id, message.agent_id, target_id, "mention"))
+        prior = last_speaker_by_space.get(message.space_id)
+        if prior and prior != message.agent_id:
+            inferred_interactions.add((message.space_id, prior, message.agent_id))
+        last_speaker_by_space[message.space_id] = message.agent_id
+
+    active_agent_ids = social_agent_ids | formal_agent_ids
+    occupied_spaces = sum(1 for entries in present_by_space.values() if entries)
+    active_space_ids = social_space_ids | formal_space_ids
+    last_social = max((message.created_at for message, _space_name in message_rows), default=None)
+    last_event = (
+        await session.execute(
+            select(func.max(Event.occurred_at))
+            .outerjoin(
+                RecordProvenance,
+                (RecordProvenance.record_table == "events")
+                & (RecordProvenance.record_id == Event.event_id),
+            )
+            .where(
+                Event.occurred_at >= window_start,
+                Event.occurred_at <= window_end,
+                visible_record_condition("events", Event.event_id),
+            )
+        )
+    ).scalar_one()
+    last_event_at = max(
+        [value for value in (last_social, last_event) if value is not None],
+        default=None,
+    )
+    data_freshness = (
+        int((as_of - last_event_at).total_seconds())
+        if last_event_at is not None
+        else None
+    )
+    daemon_count = _local_agent_daemon_count()
+    online_agents = max(len(present_ids), daemon_count or 0)
+    if daemon_count is None:
+        online_source = "presence_ttl_only"
+    elif daemon_count >= len(present_ids):
+        online_source = "local_agent_daemon_processes"
+    else:
+        online_source = "presence_ttl_exceeds_local_process_count"
+
     recent_events = (
         await session.execute(select(Event).order_by(Event.event_id.desc()).limit(50))
     ).scalars().all()
@@ -778,8 +1065,62 @@ async def observatory_summary(session: AsyncSession) -> dict[str, Any]:
     counts: dict[str, dict[str, int]] = {}
     for table, pclass, count in provenance_counts:
         counts.setdefault(table, {})[pclass] = int(count)
+
+    metric_definitions = {
+        "registered_agents": "Agentes reales registrados y visibles en el mundo actual.",
+        "online_agents": "Daemons locales sanos cuando están disponibles; si no, presencia TTL.",
+        "present_agents": "Agentes cuya presencia Redis TTL sigue vigente en un espacio.",
+        "active_agents": "Agentes con al menos un evento social o formal dentro de la ventana.",
+        "total_spaces": "Espacios públicos reales visibles.",
+        "occupied_spaces": "Espacios con presencia vigente.",
+        "active_spaces": "Espacios con eventos sociales o formales dentro de la ventana.",
+        "social_events": "Mensajes públicos dentro de la ventana.",
+        "formal_events": (
+            "Misiones creadas, submissions, votos o artifact versions dentro de la ventana."
+        ),
+        "explicit_conversation_links": "Relaciones con reply_to o mención verificable.",
+        "inferred_interactions": (
+            "Turnos próximos por espacio; inferencia, no conversación probada."
+        ),
+    }
+
     return {
         "observatory_version": P2_ACTIONABILITY_VERSION,
+        "truth_contract_version": OBSERVATORY_TRUTH_VERSION,
+        "as_of": _utc_iso(as_of),
+        "window_start": _utc_iso(window_start),
+        "window_end": _utc_iso(window_end),
+        "window_seconds": window_seconds,
+        "window_label": window_label,
+        "world_instance_id": next(iter(public_world_instance_ids())),
+        "registered_agents": len(visible_agents),
+        "online_agents": online_agents,
+        "present_agents": len(present_ids),
+        "active_agents": len(active_agent_ids),
+        "total_spaces": len(visible_spaces),
+        "occupied_spaces": occupied_spaces,
+        "active_spaces": len(active_space_ids),
+        "social_events": social_events,
+        "formal_events": formal_events,
+        "explicit_conversation_links": len(explicit_links),
+        "inferred_interactions": len(inferred_interactions),
+        "last_event_at": _utc_iso(last_event_at),
+        "data_freshness_seconds": data_freshness,
+        "transport_state": "HTTP_SNAPSHOT_FRESH",
+        "provenance_policy": {
+            "default_classes": sorted(public_provenance_classes()),
+            "world_instance_ids": sorted(public_world_instance_ids()),
+            "quarantine_excluded": True,
+            "private_content_excluded": True,
+        },
+        "metric_definitions": metric_definitions,
+        "source_notes": {
+            "online_agents_source": online_source,
+            "daemon_count": daemon_count,
+            "presence_ttl_seconds": 30,
+            "dashboard_8765_active_count": "local process count, not public activity",
+            "human_observatory_active_count": "windowed public activity",
+        },
         "factual_only": True,
         "forbidden_inferences": [
             "friendship",

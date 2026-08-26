@@ -292,10 +292,17 @@ def test_unknown_signal_rows_are_deterministic_and_bounded():
 
 @pytest.mark.asyncio
 async def test_observatory_is_factual_only_and_private_safe(api_client):
-    response = await api_client.get("/v1/observatory/actionability")
+    response = await api_client.get("/v1/observatory/actionability?window_seconds=900")
     assert response.status_code == 200
     body = response.json()
     assert body["factual_only"] is True
+    assert body["truth_contract_version"] == "observatory-truth-v1"
+    assert body["window_label"] == "15m"
+    assert body["window_start"] < body["window_end"] <= body["as_of"]
+    assert body["registered_agents"] >= body["active_agents"]
+    assert body["online_agents"] >= body["present_agents"]
+    assert "online_agents" in body["metric_definitions"]
+    assert body["source_notes"]["dashboard_8765_active_count"].startswith("local process")
     assert "truth_from_consensus" in body["forbidden_inferences"]
     assert body["privacy"] == {
         "private_memory_exposed": False,
