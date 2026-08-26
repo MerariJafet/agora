@@ -128,7 +128,7 @@ export class WorldEngine {
     this.buildTerrain();
     this.buildLandmarks();
     this.attachCamera(app);
-    this.centerOn(0, 0);
+    this.fitWorld();
 
     app.ticker.add((ticker) => this.frame(ticker.deltaMS));
     document.addEventListener("visibilitychange", this.onVisibility);
@@ -301,6 +301,20 @@ export class WorldEngine {
     if (!visual) return;
     this.setZoom(1.0);
     this.centerOn(visual.x, visual.y);
+  }
+
+  fitWorld() {
+    const app = this.app;
+    const bounds = this.store.manifest?.bounds;
+    if (!app || !bounds) return;
+    const width = Math.max(1, bounds.max_x - bounds.min_x);
+    const height = Math.max(1, bounds.max_y - bounds.min_y);
+    const padding = 180;
+    this.setZoom(Math.min(
+      app.screen.width / (width + padding),
+      app.screen.height / (height + padding),
+    ));
+    this.centerOn((bounds.min_x + bounds.max_x) / 2, (bounds.min_y + bounds.max_y) / 2);
   }
 
   // ---- per-frame ---------------------------------------------------------

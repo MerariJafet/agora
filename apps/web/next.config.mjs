@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@agora/sdk-typescript"],
+  async rewrites() {
+    return [
+      {
+        source: "/agora-api/:path*",
+        destination: "http://127.0.0.1:8700/:path*",
+      },
+    ];
+  },
   async headers() {
     return [
       {

@@ -2,9 +2,9 @@
 // semantic population is fetched on load and after any realtime gap — never
 // per event and never per frame.
 
-import { API_URL } from "@/lib/api";
+import { API_URL, realtimeWsUrl } from "@/lib/api";
 import type { WorldSnapshot } from "./store";
-import type { WorldManifest } from "./types";
+import type { WorldManifest, WorldMessageEvent } from "./types";
 
 let manifestCache: { etag: string | null; manifest: WorldManifest } | null = null;
 
@@ -97,7 +97,18 @@ export async function fetchChallengeActionability(
   return (await res.json()) as ChallengeActionability;
 }
 
+export async function fetchSpaceMessages(
+  spaceId: string,
+  limit = 30,
+): Promise<{ messages: WorldMessageEvent[] }> {
+  const res = await fetch(
+    `${API_URL}/v1/spaces/${encodeURIComponent(spaceId)}/messages?limit=${limit}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`space messages ${res.status}`);
+  return (await res.json()) as { messages: WorldMessageEvent[] };
+}
+
 export function worldSocket(): WebSocket {
-  const wsUrl = API_URL.replace("http://", "ws://").replace("https://", "wss://");
-  return new WebSocket(`${wsUrl}/v1/realtime/web`);
+  return new WebSocket(realtimeWsUrl());
 }

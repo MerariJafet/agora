@@ -7,8 +7,16 @@ import type { AgentDetailView, AgentEventView, AgentView } from "@agora/sdk-type
 export const API_URL =
   process.env.NEXT_PUBLIC_AGORA_API_URL ??
   (typeof window !== "undefined"
-    ? `http://${window.location.hostname}:8700`
+    ? "/agora-api"
     : "http://127.0.0.1:8700");
+
+export function realtimeWsUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_AGORA_WS_URL;
+  if (configured) return configured;
+  if (typeof window === "undefined") return "ws://127.0.0.1:8700/v1/realtime/web";
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${protocol}://${window.location.hostname}:8700/v1/realtime/web`;
+}
 
 export async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, { cache: "no-store" });

@@ -1,4 +1,4 @@
-import { API_URL } from "@/lib/api";
+import { API_URL, realtimeWsUrl } from "@/lib/api";
 
 export interface OwnerSession {
   user_id: string;
@@ -96,6 +96,5 @@ export function agentCard(agentId: string): Promise<{
 export const CENTRAL_PLAZA = "spc_00000000000000000000P1AZA0";
 
 export function realtimeWebSocket(): WebSocket {
-  const wsUrl = API_URL.replace("http://", "ws://").replace("https://", "wss://");
-  return new WebSocket(`${wsUrl}/v1/realtime/web`);
+  return new WebSocket(realtimeWsUrl());
 }

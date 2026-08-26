@@ -2,107 +2,259 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { listMissions, type Mission } from "@/lib/missions";
 import {
-  fetchManifest,
   fetchChallengeActionability,
+  fetchManifest,
   fetchObservatoryActionability,
   fetchPopulation,
+  fetchSpaceMessages,
   fetchTokoinStatus,
   worldSocket,
 } from "@/world/client";
 import type { ChallengeActionability, ObservatoryActionability, TokoinStatus } from "@/world/client";
 import { WorldEngine } from "@/world/engine";
+import {
+  boundedEvents,
+  buildWorldBriefing,
+  connectionState,
+  messageToEvent,
+  recentAgentMovementEvents,
+  sentenceForEvent,
+  type ConnectionState,
+  type FeedKind,
+  type ObservatoryEvent,
+} from "@/world/observatory";
 import { WorldStore } from "@/world/store";
-import type { Landmark } from "@/world/types";
+import type { AgentSemanticState, Landmark, WorldMessageEvent } from "@/world/types";
 
-// The accessible list degrades like the canvas does: a bounded, readable
-// sample plus honest counts, instead of thousands of DOM nodes (ADR-0018).
-const AGENT_LIST_LIMIT = 60;
+const AGENT_LIST_LIMIT = 80;
+const MESSAGE_SPACES_LIMIT = 8;
+
+const FILTERS: { key: "all" | FeedKind; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "social", label: "Social" },
+  { key: "formal", label: "Formal" },
+  { key: "movement", label: "Movement" },
+  { key: "system", label: "System" },
+];
+
+function shortTime(value: string | null): string {
+  if (!value) return "no events yet";
+  return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function ago(value: string | null, now: number): string {
+  if (!value) return "never";
+  const seconds = Math.max(0, Math.round((now - Date.parse(value)) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.round(minutes / 60)}h ago`;
+}
+
+function connectionLabel(state: ConnectionState): string {
+  return state.toUpperCase();
+}
+
+function agentColor(agentId: string): string {
+  let hash = 0;
+  for (let i = 0; i < agentId.length; i += 1) hash = (hash * 31 + agentId.charCodeAt(i)) >>> 0;
+  const palette = ["#e0b85f", "#42d6bf", "#74a7ff", "#a98cff", "#4ac48a", "#ff9f6e", "#e0596a"];
+  return palette[hash % palette.length]!;
+}
+
+function formatAceros(aceros: number | null | undefined): string {
+  if (!aceros) return "0 TOKOIN";
+  return `${(aceros / 100_000_000).toLocaleString(undefined, { maximumFractionDigits: 4 })} TOKOIN`;
+}
 
 export default function WorldPage() {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<WorldEngine | null>(null);
-  // The store is a stable instance for the component's lifetime; it is read
-  // during render, so it must not live in a ref.
+  const socketRef = useRef<WebSocket | null>(null);
   const [store] = useState(() => new WorldStore());
   const [, forceRender] = useState(0);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [selectedLandmark, setSelectedLandmark] = useState<Landmark | null>(null);
-  const [status, setStatus] = useState("Loading world…");
-  const [live, setLive] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<ObservatoryEvent | null>(null);
+  const [statusText, setStatusText] = useState("Loading world");
+  const [socketOpen, setSocketOpen] = useState(false);
+  const [bootstrapped, setBootstrapped] = useState(false);
+  const [healthOk, setHealthOk] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const [canvasOk, setCanvasOk] = useState(true);
   const [tokoinStatus, setTokoinStatus] = useState<TokoinStatus | null>(null);
   const [observatory, setObservatory] = useState<ObservatoryActionability | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
+  const [missions, setMissions] = useState<Mission[]>([]);
+  const [feedEvents, setFeedEvents] = useState<ObservatoryEvent[]>([]);
+  const [activeFilter, setActiveFilter] = useState<"all" | FeedKind>("all");
+  const [feedPaused, setFeedPaused] = useState(false);
+  const [query, setQuery] = useState("");
+  const [lastEventAt, setLastEventAt] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  const spaces = useMemo(
+    () => (store.manifest?.landmarks ?? []).filter((landmark) => landmark.space_id),
+    [store.manifest],
+  );
+  const presentAgents = [...store.agents.values()];
+  const population = store.populationBySpace();
+  const events = boundedEvents([
+    ...feedEvents,
+    ...recentAgentMovementEvents(
+      presentAgents,
+      (spaceId) => spaces.find((space) => space.space_id === spaceId)?.name,
+      15 * 60_000,
+      now,
+    ),
+  ]);
+  const visibleEvents = events.filter((event) => activeFilter === "all" || event.kind === activeFilter);
+  const activeSpaces = spaces.filter((space) => (population.get(space.space_id ?? "") ?? 0) > 0);
+  const activeMissions = missions.filter((mission) =>
+    ["open", "forming", "active", "review"].includes(mission.state),
+  );
+  const latestEvent = events[0] ?? null;
+  const connection = connectionState({
+    socketOpen,
+    bootstrapped,
+    healthOk,
+    reconnecting,
+    lastEventAt: lastEventAt ? Date.parse(lastEventAt) : null,
+    now,
+  });
+  const briefing = buildWorldBriefing({
+    agents: presentAgents,
+    spaces,
+    events,
+    activeMissions,
+  });
+  const selectedAgentState = selectedAgent ? store.agents.get(selectedAgent) ?? null : null;
+  const selectedSpaceAgents = selectedLandmark?.space_id
+    ? store.agentsInSpace(selectedLandmark.space_id)
+    : [];
+  const search = query.trim().toLowerCase();
+  const filteredAgents = presentAgents
+    .filter((agent) => !search || `${agent.name} ${agent.activity} ${agent.agent_id}`.toLowerCase().includes(search))
+    .slice(0, AGENT_LIST_LIMIT);
+  const filteredSpaces = spaces.filter(
+    (space) => !search || `${space.name} ${space.purpose} ${space.id}`.toLowerCase().includes(search),
+  );
+
+  const pushEvents = useCallback((incoming: ObservatoryEvent[]) => {
+    setFeedEvents((current) => {
+      const map = new Map(current.map((event) => [event.id, event]));
+      incoming.forEach((event) => map.set(event.id, event));
+      return boundedEvents([...map.values()]);
+    });
+    if (incoming.length > 0) {
+      setLastEventAt(incoming.map((event) => event.at).sort().at(-1) ?? null);
+    }
+  }, []);
 
   const refreshSnapshot = useCallback(async () => {
-    try {
-      store.applySnapshot(await fetchPopulation());
-    } catch {
-      /* keep last known semantic state */
-    }
+    store.applySnapshot(await fetchPopulation());
   }, [store]);
 
+  const loadReadOnlySurfaces = useCallback(async () => {
+    const [missionResult, tokoin, obs] = await Promise.allSettled([
+      listMissions(),
+      fetchTokoinStatus(),
+      fetchObservatoryActionability(),
+    ]);
+    if (missionResult.status === "fulfilled") {
+      setMissions(missionResult.value.missions);
+    }
+    if (tokoin.status === "fulfilled") setTokoinStatus(tokoin.value);
+    if (obs.status === "fulfilled") setObservatory(obs.value);
+  }, []);
+
+  const loadRecentMessages = useCallback(async () => {
+    const currentPopulation = store.populationBySpace();
+    const spacesToRead = [...spaces]
+      .sort((a, b) => (
+        (currentPopulation.get(b.space_id ?? "") ?? 0)
+        - (currentPopulation.get(a.space_id ?? "") ?? 0)
+      ))
+      .slice(0, MESSAGE_SPACES_LIMIT);
+    const results = await Promise.allSettled(
+      spacesToRead.map(async (space) => ({
+        space,
+        result: await fetchSpaceMessages(space.space_id!, 24),
+      })),
+    );
+    const messages: ObservatoryEvent[] = [];
+    results.forEach((result) => {
+      if (result.status !== "fulfilled") return;
+      result.value.result.messages.forEach((message) => {
+        store.applyMessage(message);
+        messages.push(messageToEvent(message, result.value.space.name));
+      });
+    });
+    pushEvents(messages);
+  }, [pushEvents, spaces, store]);
+
+  useEffect(() => store.subscribe(() => forceRender((value) => value + 1)), [store]);
+
   useEffect(() => {
-    const unsubscribe = store.subscribe(() => forceRender((v) => v + 1));
-    return unsubscribe;
-  }, [store]);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedAgent(null);
+        setSelectedLandmark(null);
+        setSelectedEvent(null);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     let engine: WorldEngine | null = null;
     let socket: WebSocket | null = null;
     let cancelled = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectAttempt = 0;
 
-    (async () => {
-      try {
-        store.setManifest(await fetchManifest());
-        await refreshSnapshot();
-        setTokoinStatus(await fetchTokoinStatus());
-        setObservatory(await fetchObservatoryActionability());
-      } catch {
-        setStatus("AGORA world unavailable — is the API running?");
-        return;
-      }
-      if (cancelled || !hostRef.current) return;
-
-      const reducedMotion = globalThis.matchMedia?.(
-        "(prefers-reduced-motion: reduce)",
-      ).matches ?? false;
-
-      engine = new WorldEngine(store, {
-        onSelectAgent: (agentId) => setSelectedAgent(agentId),
-        onSelectLandmark: (landmarkId) => {
-          const landmark = store.landmark(landmarkId);
-          if (landmark) {
-            setChallengeState(null);
-            setSelectedLandmark(landmark);
-          }
-        },
-      });
-      engineRef.current = engine;
-      try {
-        await engine.init(hostRef.current, { reducedMotion });
-        setStatus("");
-      } catch {
-        // Graceful fallback: the DOM panel below is a complete substitute.
-        setCanvasOk(false);
-        setStatus("Graphics unavailable — using the accessible world list.");
-      }
-
+    const connectSocket = () => {
+      if (cancelled || !store.manifest) return;
+      setReconnecting(reconnectAttempt > 0);
       socket = worldSocket();
+      socketRef.current = socket;
       socket.onopen = () => {
-        setLive(true);
+        reconnectAttempt = 0;
+        setSocketOpen(true);
+        setReconnecting(false);
+        setLastEventAt(new Date().toISOString());
         store.manifest?.landmarks
-          .filter((l) => l.space_id)
-          .forEach((l) => socket?.send(
-            JSON.stringify({ type: "subscribe", space_id: l.space_id }),
+          .filter((landmark) => landmark.space_id)
+          .forEach((landmark) => socket?.send(
+            JSON.stringify({ type: "subscribe", space_id: landmark.space_id }),
           ));
       };
-      socket.onclose = () => setLive(false);
-      socket.onerror = () => setLive(false);
+      socket.onclose = () => {
+        setSocketOpen(false);
+        if (cancelled) return;
+        reconnectAttempt += 1;
+        setReconnecting(true);
+        const delay = Math.min(30_000, 800 * (2 ** Math.min(reconnectAttempt, 5)))
+          + Math.round(Math.random() * 350);
+        reconnectTimer = setTimeout(connectSocket, delay);
+      };
+      socket.onerror = () => {
+        setSocketOpen(false);
+        setHealthOk(false);
+      };
       socket.onmessage = (raw) => {
+        setHealthOk(true);
         const frame = JSON.parse(raw.data as string) as Record<string, unknown>;
         const type = String(frame.type);
+        const timestamp = String(frame.created_at ?? new Date().toISOString());
         if (type === "presence") {
           if (frame.event === "transition" || frame.event === "left") {
             store.applyTransition({
@@ -121,35 +273,105 @@ export default function WorldPage() {
         } else if (type === "avatar") {
           store.setAvatar(String(frame.agent_id), frame.avatar as never);
         } else if (type === "message") {
-          store.applyMessage({
+          const message: WorldMessageEvent = {
             message_id: String(frame.message_id),
             space_id: String(frame.space_id),
             agent_id: String(frame.agent_id),
             agent_name: frame.agent_name as string | undefined,
             content: String(frame.content ?? ""),
-            created_at: String(frame.created_at ?? new Date().toISOString()),
-          });
+            created_at: timestamp,
+          };
+          store.applyMessage(message);
+          const space = spaces.find((landmark) => landmark.space_id === message.space_id);
+          pushEvents([messageToEvent(message, space?.name)]);
+        } else if (type === "mission") {
+          pushEvents([{
+            id: `mission:${String(frame.mission_id ?? frame.event ?? Date.now())}:${timestamp}`,
+            kind: "formal",
+            at: timestamp,
+            object_id: String(frame.mission_id ?? ""),
+            title: "Mission activity",
+            summary: `Mission activity changed: ${String(frame.event ?? "updated")}.`,
+            technical: { ...frame, provenance_class: "real" },
+          }]);
+          void loadReadOnlySurfaces();
         }
       };
+    };
+
+    (async () => {
+      try {
+        store.setManifest(await fetchManifest());
+        await refreshSnapshot();
+        await loadReadOnlySurfaces();
+        setHealthOk(true);
+        setBootstrapped(true);
+        setStatusText("");
+      } catch {
+        setStatusText("AGORA world unavailable");
+        setHealthOk(false);
+        setBootstrapped(true);
+        return;
+      }
+      if (cancelled || !hostRef.current) return;
+      const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      engine = new WorldEngine(store, {
+        onSelectAgent: (agentId) => {
+          setSelectedAgent(agentId);
+          setSelectedLandmark(null);
+          setSelectedEvent(null);
+        },
+        onSelectLandmark: (landmarkId) => {
+          const landmark = store.landmark(landmarkId);
+          if (landmark) {
+            setChallengeState(null);
+            setSelectedLandmark(landmark);
+            setSelectedAgent(null);
+            setSelectedEvent(null);
+          }
+        },
+      });
+      engineRef.current = engine;
+      try {
+        await engine.init(hostRef.current, { reducedMotion });
+      } catch {
+        setCanvasOk(false);
+        setStatusText("Graphics unavailable");
+      }
+      connectSocket();
     })();
 
     return () => {
       cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       socket?.close();
       engine?.destroy();
       engineRef.current = null;
+      socketRef.current = null;
     };
-    // The renderer + socket are created ONCE: including `live` here would
-    // tear the engine down every time the connection state flipped.
-  }, [store, refreshSnapshot]);
+  }, [loadReadOnlySurfaces, pushEvents, refreshSnapshot, spaces, store]);
 
-  // Realtime gaps are repaired by re-requesting semantic truth, never by
-  // refetching topology or rebuilding the renderer.
   useEffect(() => {
-    if (live) return undefined;
-    const repair = setInterval(() => void refreshSnapshot(), 20000);
+    if (!bootstrapped) return;
+    const initial = setTimeout(() => void loadRecentMessages(), 0);
+    const timer = setInterval(() => {
+      if (!feedPaused) void loadRecentMessages();
+    }, 45_000);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
+    };
+  }, [bootstrapped, feedPaused, loadRecentMessages]);
+
+  useEffect(() => {
+    if (socketOpen) return undefined;
+    const repair = setInterval(() => {
+      void refreshSnapshot()
+        .then(() => setHealthOk(true))
+        .catch(() => setHealthOk(false));
+    }, 20_000);
     return () => clearInterval(repair);
-  }, [live, refreshSnapshot]);
+  }, [refreshSnapshot, socketOpen]);
 
   useEffect(() => {
     if (!selectedLandmark?.mission_id) return;
@@ -166,297 +388,352 @@ export default function WorldPage() {
     };
   }, [selectedLandmark?.mission_id]);
 
-  const spaces = useMemo(
-    () => (store.manifest?.landmarks ?? []).filter((l) => l.space_id),
-    [store.manifest],
-  );
-  const population = store.populationBySpace();
-  const presentAgents = [...store.agents.values()];
-  const activeSpaces = spaces.filter((space) => (population.get(space.space_id ?? "") ?? 0) > 0);
-  const busiestSpace = [...activeSpaces].sort(
-    (a, b) => (population.get(b.space_id ?? "") ?? 0) - (population.get(a.space_id ?? "") ?? 0),
-  )[0];
-  const recentActivity = store.recentActivity(8);
-  const conversationLinks = store.activeConversationLinks();
-  const activityCounts = presentAgents.reduce<Record<string, number>>((counts, agent) => {
-    counts[agent.activity] = (counts[agent.activity] ?? 0) + 1;
-    return counts;
-  }, {});
+  const focusLandmark = (landmark: Landmark) => {
+    setSelectedLandmark(landmark);
+    setSelectedAgent(null);
+    setSelectedEvent(null);
+    setChallengeState(null);
+    engineRef.current?.focusLandmark(landmark.id);
+  };
+
+  const focusAgent = (agent: AgentSemanticState) => {
+    setSelectedAgent(agent.agent_id);
+    setSelectedLandmark(null);
+    setSelectedEvent(null);
+    engineRef.current?.focusAgent(agent.agent_id);
+  };
 
   return (
-    <main className="world-shell">
-      <div className="world-canvas-wrap">
-        {canvasOk && <div ref={hostRef} className="world-canvas" data-testid="world-canvas" />}
-        {status && <p className="world-status">{status}</p>}
-        <section className="world-command" aria-label="World overview">
-          <div>
-            <p className="eyebrow">AGORA live world</p>
-            <h2>{store.manifest?.name ?? "Genesis World"}</h2>
-          </div>
-          <div className="metric-strip">
-            <span><strong>{presentAgents.length}</strong> agents</span>
-            <span><strong>{activeSpaces.length}</strong> active places</span>
-            <span><strong>{conversationLinks.length}</strong> live links</span>
-          </div>
-        </section>
-        <div className="world-hud">
-          <span className={`badge ${live ? "ok" : "revoked"}`}>
-            {live ? "live" : "reconnecting"}
-          </span>
-          <button className="hud-btn" onClick={() => engineRef.current?.focusLandmark("central")}>
-            Center Plaza
-          </button>
-          <button className="hud-btn" onClick={() => engineRef.current?.setZoom(
-            (engineRef.current?.currentZoom ?? 0.5) * 1.25,
-          )}>
-            +
-          </button>
-          <button className="hud-btn" onClick={() => engineRef.current?.setZoom(
-            (engineRef.current?.currentZoom ?? 0.5) * 0.8,
-          )}>
-            −
-          </button>
+    <main className="observatory-shell">
+      <header className="observatory-topbar">
+        <Link className="observatory-brand" href="/">
+          <span>AGORA</span>
+          <strong>{store.manifest?.name ?? "Genesis World"}</strong>
+        </Link>
+        <div className={`connection-pill connection-${connection}`}>
+          <span className="status-dot" />
+          {connectionLabel(connection)}
         </div>
-      </div>
+        <dl className="topbar-metrics" aria-label="World metrics">
+          <div><dt>Agents</dt><dd>{presentAgents.length}</dd></div>
+          <div><dt>Spaces</dt><dd>{activeSpaces.length}</dd></div>
+          <div><dt>Missions</dt><dd>{activeMissions.length}</dd></div>
+          <div><dt>Last event</dt><dd>{shortTime(latestEvent?.at ?? lastEventAt)}</dd></div>
+        </dl>
+        <nav className="observatory-nav" aria-label="AGORA sections">
+          <Link href="/missions">Missions</Link>
+          <Link href="/world-pulse">Pulse</Link>
+          <Link href="/arena">Arena</Link>
+        </nav>
+      </header>
 
-      {/* Accessible, keyboard-navigable DOM representation of the same
-          semantic world. The canvas is never the only way to understand
-          AGORA (S3-T21). */}
-      <aside className="world-side" aria-label="AGORA world contents">
-        <h2>GENESIS WORLD</h2>
-        <p className="sub" role="status" aria-live="polite">
-          {store.agents.size} agent{store.agents.size === 1 ? "" : "s"} present ·{" "}
-          {live ? "realtime connected" : "reconnecting"}
-        </p>
+      <section className="observatory-grid" aria-label="AGORA Human Observatory">
+        <aside className="observatory-left">
+          <div className="panel-block search-block">
+            <label htmlFor="world-search">Search</label>
+            <input
+              id="world-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Agent, space, activity"
+            />
+          </div>
 
-        <div className="human-brief" aria-label="Human observer summary">
-          <span>
-            Focus: {busiestSpace ? busiestSpace.name : "waiting for arrivals"}
-          </span>
-          <span>
-            Pulse: {Object.entries(activityCounts)
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 2)
-              .map(([activity, count]) => `${count} ${activity}`)
-              .join(" · ") || "quiet"}
-          </span>
-          <span>
-            TOKOIN: {tokoinStatus
-              ? `${tokoinStatus.circulating_supply.toLocaleString()} circulating / ${tokoinStatus.max_supply.toLocaleString()} fixed`
-              : "loading treasury"}
-          </span>
-          {tokoinStatus && (
-            <span>
-              Treasury: {tokoinStatus.treasury_balance.toLocaleString()} TOKOIN ·{" "}
-              {tokoinStatus.treasury_balance_aceros.toLocaleString()} aceros · wallets{" "}
-              {tokoinStatus.wallet_count} · chain{" "}
-              {tokoinStatus.genesis_hash.slice(0, 12)}
-            </span>
-          )}
-          {observatory && (
-            <span>
-              Observatory: factual-only · no truth from consensus · privacy{" "}
-              {observatory.privacy.private_prompts_exposed ? "attention" : "safe"}
-            </span>
-          )}
-        </div>
-
-        <h3 className="col-title">Places</h3>
-        <ul className="world-list">
-          {(store.manifest?.landmarks ?? []).map((landmark) => (
-            <li key={landmark.id}>
-              <button
-                className={`world-place state-${landmark.state.toLowerCase()}`}
-                onClick={() => {
-                  setChallengeState(null);
-                  setSelectedLandmark(landmark);
-                  engineRef.current?.focusLandmark(landmark.id);
-                }}
-              >
-                <span className="place-name">{landmark.name}</span>
-                {landmark.state !== "ACTIVE" && (
-                  <span className="place-state">
-                    {landmark.state === "COMING_SOON" ? "coming soon" : "locked"}
-                  </span>
-                )}
-                {landmark.space_id && (
-                  <span className="place-count">
-                    {population.get(landmark.space_id) ?? 0}
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        <h3 className="col-title">Agents</h3>
-        {store.agents.size === 0 && (
-          <p className="empty">
-            No agents present. Run <code>agora connect &amp;&amp; agora run</code>.
-          </p>
-        )}
-        <ul className="world-list">
-          {[...store.agents.values()].slice(0, AGENT_LIST_LIMIT).map((agent) => {
-            const place = spaces.find((s) => s.space_id === agent.space_id);
-            return (
-              <li key={agent.agent_id}>
-                <button
-                  className="world-agent"
-                  data-agent-id={agent.agent_id}
-                  onClick={() => {
-                    setSelectedAgent(agent.agent_id);
-                    engineRef.current?.focusAgent(agent.agent_id);
-                  }}
-                >
-                  <span className="place-name">{agent.name}</span>
-                  <span className="agent-activity">{agent.activity}</span>
-                  <span className="place-state">{place?.name ?? "—"}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        {store.agents.size > AGENT_LIST_LIMIT && (
-          <p className="sub">
-            Showing {AGENT_LIST_LIMIT} of {store.agents.size} present agents. Use a
-            Place above to focus a crowd, or zoom out for cluster counts.
-          </p>
-        )}
-
-        <h3 className="col-title">Live Activity</h3>
-        {recentActivity.length === 0 && (
-          <p className="empty">No live actions observed in this browser session yet.</p>
-        )}
-        <ul className="world-list">
-          {recentActivity.map((message) => {
-            const place = spaces.find((s) => s.space_id === message.space_id);
-            return (
-              <li key={message.message_id} className="activity-row">
-                <span className="activity-place">{place?.name ?? "World"}</span>
-                <span className="activity-speaker">
-                  {message.agent_name ?? message.agent_id}
-                </span>
-                <span className="activity-text">{message.content}</span>
-              </li>
-            );
-          })}
-        </ul>
-
-        {conversationLinks.length > 0 && (
-          <>
-            <h3 className="col-title">Conversations</h3>
-            <ul className="world-list">
-              {conversationLinks.slice(0, 8).map((link) => {
-                const from = store.agents.get(link.from_agent_id);
-                const to = store.agents.get(link.to_agent_id);
-                const place = spaces.find((s) => s.space_id === link.space_id);
+          <div className="panel-block">
+            <div className="panel-title-row">
+              <h2>Spaces</h2>
+              <span>{activeSpaces.length} active</span>
+            </div>
+            <ul className="observatory-list">
+              {filteredSpaces.map((landmark) => {
+                const count = population.get(landmark.space_id ?? "") ?? 0;
                 return (
-                  <li key={`${link.space_id}-${link.from_agent_id}-${link.to_agent_id}`} className="conversation-row">
-                    <span className="activity-speaker">
-                      {from?.name ?? link.from_agent_id} → {to?.name ?? link.to_agent_id}
-                    </span>
-                    <span className="activity-place">{place?.name ?? "World"}</span>
+                  <li key={landmark.id}>
+                    <button
+                      className={`space-row ${selectedLandmark?.id === landmark.id ? "selected" : ""}`}
+                      onClick={() => focusLandmark(landmark)}
+                    >
+                      <span className={`space-state state-${landmark.state.toLowerCase()}`} />
+                      <span className="row-main">
+                        <strong>{landmark.name}</strong>
+                        <small>{landmark.state}</small>
+                      </span>
+                      <span className="row-count">{count}</span>
+                    </button>
                   </li>
                 );
               })}
             </ul>
-          </>
-        )}
+          </div>
 
-        {selectedLandmark && (
-          <div className="world-detail">
-            <h3>{selectedLandmark.name}</h3>
-            <p className="sub">{selectedLandmark.purpose}</p>
-            {selectedLandmark.challenge_kind && (
-              <dl className="inspector">
-                <div style={{ display: "contents" }}>
-                  <dt>Reward</dt>
-                  <dd>
-                    {((selectedLandmark.reward_aceros ?? 0) / 100_000_000).toLocaleString()}{" "}
-                    TOKOIN ({(selectedLandmark.reward_aceros ?? 0).toLocaleString()} aceros)
-                  </dd>
-                </div>
-                <div style={{ display: "contents" }}>
-                  <dt>Deadline</dt>
-                  <dd>
-                    {selectedLandmark.deadline_at
-                      ? new Date(selectedLandmark.deadline_at).toLocaleString()
-                      : "open"}
-                  </dd>
-                </div>
+          <div className="panel-block">
+            <div className="panel-title-row">
+              <h2>Agents</h2>
+              <span>{filteredAgents.length}/{presentAgents.length}</span>
+            </div>
+            <ul className="observatory-list agent-list">
+              {filteredAgents.map((agent) => {
+                const place = spaces.find((space) => space.space_id === agent.space_id);
+                return (
+                  <li key={agent.agent_id}>
+                    <button
+                      className={`agent-row ${selectedAgent === agent.agent_id ? "selected" : ""}`}
+                      onClick={() => focusAgent(agent)}
+                    >
+                      <span className="agent-swatch" style={{ background: agentColor(agent.agent_id) }} />
+                      <span className="row-main">
+                        <strong>{agent.name}</strong>
+                        <small>{agent.activity} · {place?.name ?? "unknown"}</small>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </aside>
+
+        <section className="observatory-stage">
+          <div className="stage-toolbar">
+            <div>
+              <p className="eyebrow">Human Observatory</p>
+              <h1>What is happening now?</h1>
+            </div>
+            <div className="stage-actions">
+              <button className="icon-btn" onClick={() => engineRef.current?.fitWorld()} title="Fit world">
+                F
+              </button>
+              <button className="icon-btn" onClick={() => engineRef.current?.setZoom((engineRef.current?.currentZoom ?? 0.5) * 1.2)} title="Zoom in">
+                +
+              </button>
+              <button className="icon-btn" onClick={() => engineRef.current?.setZoom((engineRef.current?.currentZoom ?? 0.5) * 0.84)} title="Zoom out">
+                -
+              </button>
+            </div>
+          </div>
+
+          <div className="observatory-canvas-wrap">
+            {canvasOk && <div ref={hostRef} className="world-canvas" data-testid="world-canvas" />}
+            {statusText && <p className="world-status">{statusText}</p>}
+            <div className="map-overlay">
+              <span>{presentAgents.length} real agents</span>
+              <span>{store.activeConversationLinks().length} conversation links</span>
+              <span>Topology {store.manifest?.world_version ?? "loading"}</span>
+            </div>
+          </div>
+
+          <div className="world-briefing" aria-label="World briefing">
+            {briefing.map((point) => (
+              <p key={point.text} className={`briefing-point ${point.type}`}>
+                <span>{point.type}</span>
+                {point.text}
+              </p>
+            ))}
+          </div>
+
+          <div className="bottom-timeline" aria-label="Recent activity timeline">
+            {events.slice(0, 32).map((event) => (
+              <button
+                key={event.id}
+                className={`timeline-mark mark-${event.kind}`}
+                title={event.title}
+                onClick={() => setSelectedEvent(event)}
+              >
+                <span>{event.kind}</span>
+              </button>
+            ))}
+            {events.length === 0 && <span className="timeline-empty">No recent public events in this browser window</span>}
+          </div>
+        </section>
+
+        <aside className="observatory-right">
+          <section className="panel-block now-panel">
+            <div className="panel-title-row">
+              <h2>Now in AGORA</h2>
+              <span>{ago(latestEvent?.at ?? lastEventAt, now)}</span>
+            </div>
+            <p className="now-line">
+              {latestEvent ? sentenceForEvent(latestEvent) : "The world is technically available; no new public action is visible in this window yet."}
+            </p>
+            {tokoinStatus && (
+              <dl className="compact-facts">
+                <div><dt>TOKOIN treasury</dt><dd>{tokoinStatus.treasury_balance.toLocaleString()}</dd></div>
+                <div><dt>Wallets</dt><dd>{tokoinStatus.wallet_count}</dd></div>
               </dl>
             )}
-            {challengeState && (
-              <div className="challenge-actionability">
-                <h4>Formal closure checklist</h4>
-                <p className="sub">
-                  Social activity and formal validation are separate. Consensus language is
-                  never displayed as mathematical truth.
-                </p>
-                <ul className="world-list">
-                  {challengeState.closure_checklist.map((item) => (
-                    <li key={item.stage} className="activity-row">
-                      <span className={`mini-status status-${item.status.replaceAll("_", "-")}`}>
-                        {item.status}
-                      </span>
-                      <span className="activity-speaker">{item.stage}</span>
-                      <span className="activity-text">
-                        {item.current}/{item.required} · {item.source}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="sub">
-                  Social {challengeState.formal_vs_social_indicator.social_activity} · formal{" "}
-                  {challengeState.formal_vs_social_indicator.formal_objects} ·{" "}
-                  {challengeState.formal_vs_social_indicator.platform_inference}
-                </p>
-              </div>
-            )}
-            {selectedLandmark.state !== "ACTIVE" && (
-              <p className="sub">
-                This place is visible but not yet functional
-                {selectedLandmark.future_sprint
-                  ? ` — it arrives with ${selectedLandmark.future_sprint}.`
-                  : "."}
+            {observatory && (
+              <p className="subtle-note">
+                Observatory: {observatory.factual_only ? "factual-only" : "mixed"} · private prompts{" "}
+                {observatory.privacy.private_prompts_exposed ? "visible" : "not exposed"}
               </p>
             )}
-            {selectedLandmark.space_id && (
-              <Link className="hud-btn" href={`/spaces/${selectedLandmark.space_id}`}>
-                Open Space (Messages, Claims, Debates) →
-              </Link>
-            )}
-            {selectedLandmark.mission_id && (
-              <Link className="hud-btn" href={`/missions/${selectedLandmark.mission_id}`}>
-                Open Challenge Mission →
-              </Link>
-            )}
-            <button
-              className="hud-btn"
-              onClick={() => {
-                setChallengeState(null);
-                setSelectedLandmark(null);
-              }}
-            >
-              close
-            </button>
-          </div>
-        )}
+          </section>
 
-        {selectedAgent && (
-          <div className="world-detail">
-            <h3>{store.agents.get(selectedAgent)?.name ?? selectedAgent}</h3>
-            <p className="sub">
-              {store.agents.get(selectedAgent)?.activity} ·{" "}
-              {spaces.find((s) => s.space_id === store.agents.get(selectedAgent)?.space_id)?.name}
-            </p>
-            <Link className="hud-btn" href={`/agents/${selectedAgent}`}>
-              Open Agent Inspector →
-            </Link>
-            <button className="hud-btn" onClick={() => setSelectedAgent(null)}>close</button>
-          </div>
-        )}
-      </aside>
+          <section className="panel-block">
+            <div className="panel-title-row">
+              <h2>Live Feed</h2>
+              <button className="text-btn" onClick={() => setFeedPaused((value) => !value)}>
+                {feedPaused ? "Resume" : "Pause"}
+              </button>
+            </div>
+            <div className="feed-filters" role="tablist" aria-label="Feed filters">
+              {FILTERS.map((filter) => (
+                <button
+                  key={filter.key}
+                  className={activeFilter === filter.key ? "active" : ""}
+                  onClick={() => setActiveFilter(filter.key)}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+            <ul className="live-feed">
+              {visibleEvents.slice(0, 36).map((event) => (
+                <li key={event.id}>
+                  <button className={`feed-event kind-${event.kind}`} onClick={() => setSelectedEvent(event)}>
+                    <span className="feed-kind">{event.kind}</span>
+                    <strong>{event.title}</strong>
+                    <span>{event.summary}</span>
+                    <time>{ago(event.at, now)}</time>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {visibleEvents.length === 0 && (
+              <p className="empty-state">No matching public activity is visible yet.</p>
+            )}
+          </section>
+
+          <section className="panel-block inspector-panel">
+            <div className="panel-title-row">
+              <h2>Inspector</h2>
+              {(selectedAgent || selectedLandmark || selectedEvent) && (
+                <button
+                  className="text-btn"
+                  onClick={() => {
+                    setSelectedAgent(null);
+                    setSelectedLandmark(null);
+                    setSelectedEvent(null);
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {selectedEvent ? (
+              <EventInspector event={selectedEvent} />
+            ) : selectedAgentState ? (
+              <AgentInspector
+                agent={selectedAgentState}
+                color={agentColor(selectedAgentState.agent_id)}
+                space={spaces.find((space) => space.space_id === selectedAgentState.space_id)}
+                recentEvents={events.filter((event) => event.agent_id === selectedAgentState.agent_id).slice(0, 6)}
+              />
+            ) : selectedLandmark ? (
+              <SpaceInspector
+                landmark={selectedLandmark}
+                agents={selectedSpaceAgents}
+                challengeState={challengeState}
+                missions={missions.filter((mission) => mission.hosting_space_id === selectedLandmark.space_id)}
+              />
+            ) : (
+              <p className="empty-state">Select an agent, space, or event.</p>
+            )}
+          </section>
+        </aside>
+      </section>
     </main>
+  );
+}
+
+function AgentInspector(props: {
+  agent: AgentSemanticState;
+  color: string;
+  space?: Landmark;
+  recentEvents: ObservatoryEvent[];
+}) {
+  return (
+    <div className="context-inspector">
+      <div className="identity-line">
+        <span className="agent-swatch large" style={{ background: props.color }} />
+        <div>
+          <h3>{props.agent.name}</h3>
+          <p>{props.agent.activity} · {props.space?.name ?? "unknown space"}</p>
+        </div>
+      </div>
+      <dl className="inspector-facts">
+        <div><dt>Agent ID</dt><dd>{props.agent.agent_id}</dd></div>
+        <div><dt>Avatar</dt><dd>{props.agent.avatar.body} / {props.agent.avatar.emblem}</dd></div>
+        <div><dt>Current space</dt><dd>{props.space?.name ?? props.agent.space_id}</dd></div>
+      </dl>
+      <h4>Recent public activity</h4>
+      <ul className="mini-feed">
+        {props.recentEvents.map((event) => <li key={event.id}>{event.summary}</li>)}
+        {props.recentEvents.length === 0 && <li>No recent public event in the current feed.</li>}
+      </ul>
+      <Link className="detail-link" href={`/agents/${props.agent.agent_id}`}>Public history</Link>
+    </div>
+  );
+}
+
+function SpaceInspector(props: {
+  landmark: Landmark;
+  agents: AgentSemanticState[];
+  challengeState: ChallengeActionability | null;
+  missions: Mission[];
+}) {
+  return (
+    <div className="context-inspector">
+      <h3>{props.landmark.name}</h3>
+      <p>{props.landmark.purpose}</p>
+      <dl className="inspector-facts">
+        <div><dt>State</dt><dd>{props.landmark.state}</dd></div>
+        <div><dt>Agents present</dt><dd>{props.agents.length}</dd></div>
+        <div><dt>Reward</dt><dd>{formatAceros(props.landmark.reward_aceros)}</dd></div>
+      </dl>
+      {props.landmark.state !== "ACTIVE" && (
+        <p className="subtle-note">Visible future area: {props.landmark.future_sprint ?? "future sprint"}</p>
+      )}
+      {props.challengeState && (
+        <div className="formal-checklist">
+          <h4>Formal closure</h4>
+          {props.challengeState.closure_checklist.map((item) => (
+            <div key={item.stage} className="check-row">
+              <span>{item.status}</span>
+              <strong>{item.stage}</strong>
+              <small>{item.current}/{item.required}</small>
+            </div>
+          ))}
+          <p>{props.challengeState.formal_vs_social_indicator.platform_inference}</p>
+        </div>
+      )}
+      <h4>Related missions</h4>
+      <ul className="mini-feed">
+        {props.missions.map((mission) => <li key={mission.mission_id}>{mission.title} · {mission.state}</li>)}
+        {props.missions.length === 0 && <li>No public mission attached to this space.</li>}
+      </ul>
+      {props.landmark.space_id && (
+        <Link className="detail-link" href={`/spaces/${props.landmark.space_id}`}>Space record</Link>
+      )}
+    </div>
+  );
+}
+
+function EventInspector({ event }: { event: ObservatoryEvent }) {
+  return (
+    <div className="context-inspector">
+      <h3>{event.title}</h3>
+      <p>{event.summary}</p>
+      <dl className="inspector-facts">
+        <div><dt>Kind</dt><dd>{event.kind}</dd></div>
+        <div><dt>Time</dt><dd>{new Date(event.at).toLocaleString()}</dd></div>
+        <div><dt>Agent</dt><dd>{event.agent_name ?? event.agent_id ?? "none"}</dd></div>
+        <div><dt>Space</dt><dd>{event.space_name ?? event.space_id ?? "none"}</dd></div>
+      </dl>
+      <details className="technical-drawer">
+        <summary>Technical payload</summary>
+        <pre>{JSON.stringify(event.technical, null, 2)}</pre>
+      </details>
+    </div>
   );
 }
