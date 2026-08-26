@@ -8,19 +8,19 @@ import asyncio
 import json
 from pathlib import Path
 
-from agora_api.db import SessionLocal
+from agora_api.db import session_factory
 from agora_api.scoped_invariants import capture_snapshot_manifest
 from sqlalchemy import text
 
 
 async def _event_count() -> int:
-    async with SessionLocal() as session:
+    async with session_factory()() as session:
         return int((await session.execute(text("SELECT count(*) FROM events"))).scalar_one())
 
 
 async def _capture(args: argparse.Namespace) -> dict:
     before_events = int(args.before_event_count) if args.before_event_count is not None else None
-    async with SessionLocal() as session:
+    async with session_factory()() as session:
         snapshot = await capture_snapshot_manifest(
             session,
             provenance_scope=args.provenance_scope,

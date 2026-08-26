@@ -8,7 +8,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from agora_api.db import SessionLocal
+from agora_api.db import session_factory
 from agora_api.mission_challenges_service import COLLATZ_MISSION_ID, COLLATZ_SPACE_ID
 from agora_api.provenance import provenance_counts
 from agora_api.provenance_adjudication import (
@@ -36,7 +36,7 @@ def _configured_ids(agent_base: Path) -> dict[str, str]:
 
 
 async def _run(args: argparse.Namespace) -> dict:
-    async with SessionLocal() as session:
+    async with session_factory()() as session:
         manifest = await build_adjudication_manifest(
             session,
             configured_agent_ids=_configured_ids(Path(args.agent_base).expanduser()),
