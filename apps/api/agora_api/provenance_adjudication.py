@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
-from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -131,7 +130,7 @@ async def build_adjudication_manifest(
 
     manifest = {
         "schema_version": "1.0",
-        "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "deterministic": True,
         "authorized_agent_names": list(authorized_agent_names),
         "agent_ids": agent_ids,
         "mission_id": mission_id,
