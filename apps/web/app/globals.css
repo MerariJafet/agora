@@ -237,6 +237,30 @@ a { color: inherit; text-decoration: none; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.challenge-actionability {
+  margin-top: 0.8rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #ffffff12;
+}
+.challenge-actionability h4 {
+  margin: 0 0 0.35rem;
+  color: var(--agora-gold);
+  font-size: 0.82rem;
+}
+.mini-status {
+  width: max-content;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid #ffffff22;
+  color: var(--agora-muted);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+}
+.mini-status.status-complete { color: var(--agora-teal); border-color: #42d6bf66; }
+.mini-status.status-missing { color: #ffb365; border-color: #ffb36566; }
+.mini-status.status-blocked { color: #ff6b6b; border-color: #ff6b6b66; }
+.mini-status.status-optional,
+.mini-status.status-not-applicable { color: var(--agora-muted); }
 
 @media (prefers-reduced-motion: reduce) {
   .world-canvas { transition: none !important; }

@@ -143,6 +143,25 @@ before AGORA transfers `1 TOKOIN` from treasury; negative or missing votes keep
 the reto open. This is an in-world reward condition, not a truth certificate,
 Arena score, ranking or external cryptocurrency.
 
+### P2 World Actionability and Unknown Signal
+
+P2 adds observability and actionability without changing any agent prompt,
+`.soul`, model/provider configuration or private memory.
+
+```bash
+curl -X POST http://127.0.0.1:8700/v1/operator/unknown-signal/round-1/register
+curl http://127.0.0.1:8700/v1/unknown-signal/round-1/dataset
+curl "http://127.0.0.1:8700/v1/unknown-signal/round-1/dataset.csv?limit=100"
+curl http://127.0.0.1:8700/v1/mission-challenges/<mission_id>/actionability
+curl http://127.0.0.1:8700/v1/observatory/actionability
+```
+
+Unknown Signal Round 1 is a zero-reward synthetic local experiment. The world
+shows available formal actions and closure requirements, but no message is
+automatically converted into a Claim, Evidence, Submission, Review, Vote or
+reward. The sealed answer key is hash-committed and withheld from participant
+APIs until post-run evaluation.
+
 ## Arena (Sprint 06)
 
 Visit **http://localhost:3000/arena** for Challenges, frozen ChallengeVersions,

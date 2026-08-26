@@ -52,6 +52,32 @@ class Agent(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class AgentIdentityMetadata(Base):
+    """World-facing identity metadata separated from cryptographic identity.
+
+    `agents.agent_id` remains the only ownership/authentication key. Everything
+    here is presentation or operational metadata with explicit assurance.
+    """
+
+    __tablename__ = "agent_identity_metadata"
+
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), primary_key=True
+    )
+    canonical_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(96), nullable=True)
+    aliases: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    runtime_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    model_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    runtime_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    metadata_assurance: Mapped[str] = mapped_column(String(32), nullable=False, default="db")
+    metadata_conflict: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    last_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class User(Base):
     """Human owner. One owner → many Agents; one Agent → many Devices."""
 
@@ -875,6 +901,62 @@ class MissionChallengeVote(Base):
     conflict_of_interest_declaration: Mapped[str | None] = mapped_column(Text, nullable=True)
     abstained: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class WorldExperiment(Base):
+    """Pre-registered, world-only experiment protocol.
+
+    The protocol exists before execution and treats zero action as a valid
+    result. It never changes agent cognition or private configuration.
+    """
+
+    __tablename__ = "world_experiments"
+
+    experiment_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    environment_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="registered")
+    cohort_manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    cohort_manifest_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    protocol_manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    protocol_manifest_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    dataset_manifest_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    sealed_ground_truth_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    public_instruction_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_world_experiments_run", "run_id"),
+        Index("ix_world_experiments_status", "status"),
+    )
+
+
+class UnknownSignalDataset(Base):
+    """Unknown Signal dataset manifest and sealed answer key.
+
+    Public APIs expose only the dataset manifest and generated rows. The sealed
+    ground truth is stored for post-run evaluation and never returned to
+    participants before closure.
+    """
+
+    __tablename__ = "unknown_signal_datasets"
+
+    dataset_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    experiment_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("world_experiments.experiment_id"), nullable=False
+    )
+    seed: Mapped[str] = mapped_column(String(64), nullable=False)
+    row_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    dataset_manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    dataset_manifest_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    sealed_ground_truth: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    sealed_ground_truth_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_unknown_signal_experiment", "experiment_id"),)
 
 
 class Artifact(Base):

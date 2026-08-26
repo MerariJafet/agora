@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchManifest,
+  fetchChallengeActionability,
+  fetchObservatoryActionability,
   fetchPopulation,
   fetchTokoinStatus,
   worldSocket,
 } from "@/world/client";
-import type { TokoinStatus } from "@/world/client";
+import type { ChallengeActionability, ObservatoryActionability, TokoinStatus } from "@/world/client";
 import { WorldEngine } from "@/world/engine";
 import { WorldStore } from "@/world/store";
 import type { Landmark } from "@/world/types";
@@ -30,6 +32,8 @@ export default function WorldPage() {
   const [live, setLive] = useState(false);
   const [canvasOk, setCanvasOk] = useState(true);
   const [tokoinStatus, setTokoinStatus] = useState<TokoinStatus | null>(null);
+  const [observatory, setObservatory] = useState<ObservatoryActionability | null>(null);
+  const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
 
   const refreshSnapshot = useCallback(async () => {
     try {
@@ -54,6 +58,7 @@ export default function WorldPage() {
         store.setManifest(await fetchManifest());
         await refreshSnapshot();
         setTokoinStatus(await fetchTokoinStatus());
+        setObservatory(await fetchObservatoryActionability());
       } catch {
         setStatus("AGORA world unavailable — is the API running?");
         return;
@@ -68,7 +73,10 @@ export default function WorldPage() {
         onSelectAgent: (agentId) => setSelectedAgent(agentId),
         onSelectLandmark: (landmarkId) => {
           const landmark = store.landmark(landmarkId);
-          if (landmark) setSelectedLandmark(landmark);
+          if (landmark) {
+            setChallengeState(null);
+            setSelectedLandmark(landmark);
+          }
         },
       });
       engineRef.current = engine;
@@ -142,6 +150,21 @@ export default function WorldPage() {
     const repair = setInterval(() => void refreshSnapshot(), 20000);
     return () => clearInterval(repair);
   }, [live, refreshSnapshot]);
+
+  useEffect(() => {
+    if (!selectedLandmark?.mission_id) return;
+    let cancelled = false;
+    fetchChallengeActionability(selectedLandmark.mission_id)
+      .then((state) => {
+        if (!cancelled) setChallengeState(state);
+      })
+      .catch(() => {
+        if (!cancelled) setChallengeState(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedLandmark?.mission_id]);
 
   const spaces = useMemo(
     () => (store.manifest?.landmarks ?? []).filter((l) => l.space_id),
@@ -230,6 +253,12 @@ export default function WorldPage() {
               {tokoinStatus.genesis_hash.slice(0, 12)}
             </span>
           )}
+          {observatory && (
+            <span>
+              Observatory: factual-only · no truth from consensus · privacy{" "}
+              {observatory.privacy.private_prompts_exposed ? "attention" : "safe"}
+            </span>
+          )}
         </div>
 
         <h3 className="col-title">Places</h3>
@@ -239,6 +268,7 @@ export default function WorldPage() {
               <button
                 className={`world-place state-${landmark.state.toLowerCase()}`}
                 onClick={() => {
+                  setChallengeState(null);
                   setSelectedLandmark(landmark);
                   engineRef.current?.focusLandmark(landmark.id);
                 }}
@@ -356,6 +386,33 @@ export default function WorldPage() {
                 </div>
               </dl>
             )}
+            {challengeState && (
+              <div className="challenge-actionability">
+                <h4>Formal closure checklist</h4>
+                <p className="sub">
+                  Social activity and formal validation are separate. Consensus language is
+                  never displayed as mathematical truth.
+                </p>
+                <ul className="world-list">
+                  {challengeState.closure_checklist.map((item) => (
+                    <li key={item.stage} className="activity-row">
+                      <span className={`mini-status status-${item.status.replaceAll("_", "-")}`}>
+                        {item.status}
+                      </span>
+                      <span className="activity-speaker">{item.stage}</span>
+                      <span className="activity-text">
+                        {item.current}/{item.required} · {item.source}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="sub">
+                  Social {challengeState.formal_vs_social_indicator.social_activity} · formal{" "}
+                  {challengeState.formal_vs_social_indicator.formal_objects} ·{" "}
+                  {challengeState.formal_vs_social_indicator.platform_inference}
+                </p>
+              </div>
+            )}
             {selectedLandmark.state !== "ACTIVE" && (
               <p className="sub">
                 This place is visible but not yet functional
@@ -374,7 +431,15 @@ export default function WorldPage() {
                 Open Challenge Mission →
               </Link>
             )}
-            <button className="hud-btn" onClick={() => setSelectedLandmark(null)}>close</button>
+            <button
+              className="hud-btn"
+              onClick={() => {
+                setChallengeState(null);
+                setSelectedLandmark(null);
+              }}
+            >
+              close
+            </button>
           </div>
         )}
 

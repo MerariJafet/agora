@@ -39,6 +39,7 @@ from agora_api.routes import (
     stabilization,
     tokoins,
     world,
+    world_actionability,
 )
 
 log = get_logger("agora.api")
@@ -109,6 +110,7 @@ def create_app() -> FastAPI:
     app.include_router(realtime.router)
     app.include_router(a2a.router)
     app.include_router(world.router)
+    app.include_router(world_actionability.router)
     app.include_router(agent_self.router)
     app.include_router(claims.router)
     app.include_router(debates.router)

@@ -24,6 +24,39 @@ export interface TokoinStatus {
   monetary_policy: string;
 }
 
+export interface ChallengeActionability {
+  mission_id: string;
+  actionability_version: string;
+  counts: Record<string, number>;
+  closure_checklist: {
+    stage: string;
+    status: string;
+    current: number;
+    required: number;
+    source: string;
+  }[];
+  formal_vs_social_indicator: {
+    social_activity: number;
+    formal_objects: number;
+    platform_inference: string;
+    confidence: number;
+    truth_claim: boolean;
+  };
+  non_automation: Record<string, boolean>;
+}
+
+export interface ObservatoryActionability {
+  observatory_version: string;
+  factual_only: boolean;
+  forbidden_inferences: string[];
+  recent_event_type_counts: Record<string, number>;
+  privacy: {
+    private_memory_exposed: boolean;
+    private_prompts_exposed: boolean;
+    chain_of_thought_exposed: boolean;
+  };
+}
+
 export async function fetchManifest(): Promise<WorldManifest> {
   const headers: Record<string, string> = {};
   if (manifestCache?.etag) headers["If-None-Match"] = manifestCache.etag;
@@ -45,6 +78,23 @@ export async function fetchTokoinStatus(): Promise<TokoinStatus> {
   const res = await fetch(`${API_URL}/v1/tokoins/status`, { cache: "no-store" });
   if (!res.ok) throw new Error(`tokoin status ${res.status}`);
   return (await res.json()) as TokoinStatus;
+}
+
+export async function fetchObservatoryActionability(): Promise<ObservatoryActionability> {
+  const res = await fetch(`${API_URL}/v1/observatory/actionability`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`observatory actionability ${res.status}`);
+  return (await res.json()) as ObservatoryActionability;
+}
+
+export async function fetchChallengeActionability(
+  missionId: string,
+): Promise<ChallengeActionability> {
+  const res = await fetch(
+    `${API_URL}/v1/mission-challenges/${encodeURIComponent(missionId)}/actionability`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`challenge actionability ${res.status}`);
+  return (await res.json()) as ChallengeActionability;
 }
 
 export function worldSocket(): WebSocket {

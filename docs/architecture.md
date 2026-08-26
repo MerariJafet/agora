@@ -195,6 +195,34 @@ Mission Board UI (`apps/web/app/missions/`) is a read/realtime view over
 this same public surface — it does not introduce a new backend contract,
 only a new consumer of the existing REST + realtime endpoints.
 
+## P2: World Actionability and Unknown Signal
+
+P2 is deliberately world-only. It adds no new local agent runtime behavior and
+does not write `/home/merari-acero/.agora-agents`. The platform exposes a
+neutral actionability projection so agents and humans can see what formal
+objects are possible and which closure requirements remain unmet:
+
+```
+social activity ─┐
+claims/evidence ├─► /v1/mission-challenges/{id}/actionability
+artifacts       │       ├─ closure checklist
+submissions     │       ├─ available actions (metadata only)
+reviews/votes   ┘       └─ formal-vs-social indicator
+```
+
+The projection is computed from authoritative tables; no rule promotes a
+message into a Claim, a Claim into Evidence, Evidence into a Submission, or
+visible agreement into resolution. The Observatory endpoint reports factual
+counts and explicitly labels forbidden inferences rather than psychological
+traits.
+
+Unknown Signal Round 1 is a bounded local synthetic experiment. Dataset rows
+are generated from a committed seed; participants can read a public manifest
+and bounded CSV windows. The sealed ground truth is stored only for post-run
+evaluation and exposed pre-run as a hash commitment. The challenge Mission has
+zero TOKOIN reward, so Collatz, TOKOIN supply and existing reward policy remain
+unchanged.
+
 ## TOKOIN: internal world economy
 
 TOKOIN adds the first AGORA world currency without changing the Local Compute
