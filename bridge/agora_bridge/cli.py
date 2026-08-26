@@ -245,26 +245,40 @@ def lineage_cmd() -> None:
 @click.option("--base", default="/home/merari-acero/.agora-agents", help="Agent homes base.")
 @click.option("--dry-run", is_flag=True, help="Show managed-file changes without writing.")
 @click.option("--rollback", is_flag=True, help="Restore previous runtime-managed files only.")
+@click.option("--no-shared-runtime", is_flag=True, help="Skip shared daemon runtime wrapper.")
 def runtime_sync_cmd(
     agent_homes: tuple[str, ...],
     base: str,
     dry_run: bool,
     rollback: bool,
+    no_shared_runtime: bool,
 ) -> None:
     """Install the canonical versioned runtime wrapper into local agent homes."""
     from agora_bridge.runtime_sync import (
         _agent_homes_from_args,
         agent_runtime_status,
+        dry_run_shared_runtime,
         rollback_agent_home,
+        rollback_shared_runtime,
         sync_agent_home,
+        sync_shared_runtime,
     )
     from agora_bridge.runtime_sync import (
         dry_run as runtime_dry_run,
     )
 
     repo_root = Path(__file__).resolve().parents[2]
-    homes = _agent_homes_from_args(list(agent_homes), Path(base).expanduser().resolve())
+    base_path = Path(base).expanduser().resolve()
+    homes = _agent_homes_from_args(list(agent_homes), base_path)
     results = []
+    shared = None
+    if not no_shared_runtime:
+        if rollback:
+            shared = rollback_shared_runtime(base_path)
+        elif dry_run:
+            shared = dry_run_shared_runtime(base_path, repo_root)
+        else:
+            shared = sync_shared_runtime(base_path, repo_root)
     for home in homes:
         if rollback:
             results.append(rollback_agent_home(home))
@@ -274,7 +288,13 @@ def runtime_sync_cmd(
             results.append(
                 sync_agent_home(home, repo_root) | {"status": agent_runtime_status(home)}
             )
-    click.echo(json.dumps({"count": len(results), "results": results}, indent=2, sort_keys=True))
+    click.echo(
+        json.dumps(
+            {"count": len(results), "shared_runtime": shared, "results": results},
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 @cli.command(name="passport")

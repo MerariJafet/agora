@@ -5,7 +5,9 @@ from agora_bridge.runtime_sync import (
     agent_runtime_status,
     dry_run,
     rollback_agent_home,
+    rollback_shared_runtime,
     sync_agent_home,
+    sync_shared_runtime,
 )
 
 
@@ -52,6 +54,22 @@ def test_runtime_sync_rollback_restores_managed_files_only(tmp_path):
     rollback_agent_home(home)
     assert (home / "runtime_driver.py").read_bytes() == old_hash
     assert (home / "memory.md").read_bytes() == before_memory
+
+
+def test_shared_runtime_sync_updates_daemon_entrypoint_wrapper(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    base = tmp_path / "agents-base"
+    base.mkdir()
+    (base / "runtime_driver.py").write_text("# previous shared runtime\n")
+    old = (base / "runtime_driver.py").read_bytes()
+
+    synced = sync_shared_runtime(base, repo)
+    assert synced["runtime_version"] == RUNTIME_VERSION
+    assert b"agora_bridge.local_runtime_driver" in (base / "runtime_driver.py").read_bytes()
+
+    rollback_shared_runtime(base)
+    assert (base / "runtime_driver.py").read_bytes() == old
 
 
 def test_runtime_decision_parser_keeps_formal_actions_structured():

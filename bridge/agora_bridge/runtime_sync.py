@@ -44,6 +44,10 @@ MANAGED_FILENAMES = {
     "runtime_driver.py",
     ".agora-runtime-version.json",
 }
+SHARED_MANAGED_FILENAMES = {
+    "runtime_driver.py",
+    ".agora-runtime-version.json",
+}
 
 
 class RuntimeSyncError(RuntimeError):
@@ -162,6 +166,29 @@ def dry_run(agent_home: Path, repo_root: Path) -> dict:
     }
 
 
+def dry_run_shared_runtime(base: Path, repo_root: Path) -> dict:
+    artifacts = expected_artifacts(repo_root)
+    changes = []
+    for artifact in artifacts:
+        target = base / artifact.relative_path
+        current = file_sha256(target) if target.exists() else None
+        changes.append(
+            {
+                "path": str(target),
+                "exists": target.exists(),
+                "current_sha256": current,
+                "expected_sha256": artifact.sha256,
+                "would_change": current != artifact.sha256,
+            }
+        )
+    return {
+        "shared_runtime_base": str(base),
+        "runtime_version": RUNTIME_VERSION,
+        "runtime_commit": _runtime_commit(repo_root),
+        "changes": changes,
+    }
+
+
 def sync_agent_home(agent_home: Path, repo_root: Path) -> dict:
     if not agent_home.exists():
         agent_home.mkdir(parents=True, mode=0o700)
@@ -190,6 +217,28 @@ def sync_agent_home(agent_home: Path, repo_root: Path) -> dict:
     }
 
 
+def sync_shared_runtime(base: Path, repo_root: Path) -> dict:
+    base.mkdir(parents=True, mode=0o700, exist_ok=True)
+    backup_dir = base / ".agora-runtime-backup"
+    backup_dir.mkdir(mode=0o700, exist_ok=True)
+    for name in SHARED_MANAGED_FILENAMES:
+        current = base / name
+        if current.exists():
+            shutil.copy2(current, backup_dir / name)
+    for artifact in expected_artifacts(repo_root):
+        _write_atomic(base / artifact.relative_path, artifact.content, artifact.mode)
+    marker = _read_existing_marker(base)
+    wrapper_hash = file_sha256(base / "runtime_driver.py")
+    if marker is None or marker.get("runtime_driver_sha256") != wrapper_hash:
+        raise RuntimeSyncError("shared runtime checksum mismatch after sync")
+    return {
+        "shared_runtime_base": str(base),
+        "runtime_version": marker["runtime_version"],
+        "runtime_commit": marker["runtime_commit"],
+        "runtime_driver_sha256": wrapper_hash,
+    }
+
+
 def rollback_agent_home(agent_home: Path) -> dict:
     backup_dir = agent_home / ".agora-runtime-backup"
     if not backup_dir.exists():
@@ -208,6 +257,23 @@ def rollback_agent_home(agent_home: Path) -> dict:
     if before_owned != _owned_state_hashes(agent_home):
         raise RuntimeSyncError("agent-owned state changed during rollback")
     return {"agent_home": str(agent_home), "restored": restored}
+
+
+def rollback_shared_runtime(base: Path) -> dict:
+    backup_dir = base / ".agora-runtime-backup"
+    if not backup_dir.exists():
+        raise RuntimeSyncError("no shared runtime backup exists")
+    restored: list[str] = []
+    for name in SHARED_MANAGED_FILENAMES:
+        source = backup_dir / name
+        target = base / name
+        if source.exists():
+            shutil.copy2(source, target)
+            restored.append(name)
+        else:
+            target.unlink(missing_ok=True)
+            restored.append(f"{name}:removed")
+    return {"shared_runtime_base": str(base), "restored": restored}
 
 
 def agent_runtime_status(agent_home: Path) -> dict:
@@ -235,6 +301,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("agent_homes", nargs="*")
     parser.add_argument("--repo-root", default="/home/merari-acero/agora")
     parser.add_argument("--base", default="/home/merari-acero/.agora-agents")
+    parser.add_argument("--no-shared-runtime", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--rollback", action="store_true")
     args = parser.parse_args(argv)
@@ -242,6 +309,15 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = Path(args.repo_root).expanduser().resolve()
     homes = _agent_homes_from_args(args.agent_homes, Path(args.base).expanduser().resolve())
     rows = []
+    shared = None
+    base = Path(args.base).expanduser().resolve()
+    if not args.no_shared_runtime:
+        if args.rollback:
+            shared = rollback_shared_runtime(base)
+        elif args.dry_run:
+            shared = dry_run_shared_runtime(base, repo_root)
+        else:
+            shared = sync_shared_runtime(base, repo_root)
     for home in homes:
         if args.rollback:
             rows.append(rollback_agent_home(home))
@@ -249,7 +325,13 @@ def main(argv: list[str] | None = None) -> int:
             rows.append(dry_run(home, repo_root))
         else:
             rows.append(sync_agent_home(home, repo_root))
-    print(json.dumps({"count": len(rows), "results": rows}, indent=2, sort_keys=True))
+    print(
+        json.dumps(
+            {"count": len(rows), "shared_runtime": shared, "results": rows},
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 0
 
 
