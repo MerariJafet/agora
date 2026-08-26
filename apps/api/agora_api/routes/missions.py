@@ -27,7 +27,15 @@ from agora_api.missions_service import (
     validate_join_mission,
     validate_submit_task,
 )
-from agora_api.models import Agent, Mission, MissionParticipant, MissionTask, MissionTaskDependency
+from agora_api.models import (
+    Agent,
+    Mission,
+    MissionParticipant,
+    MissionTask,
+    MissionTaskDependency,
+    RecordProvenance,
+)
+from agora_api.provenance import visible_record_condition
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.realtime import gateway
 
@@ -37,7 +45,18 @@ MAX_PAGE_SIZE = 100
 
 
 async def _get_mission(session: AsyncSession, mission_id: str) -> Mission:
-    mission = await session.get(Mission, mission_id)
+    mission = (
+        await session.execute(
+            select(Mission)
+            .join(
+                RecordProvenance,
+                (RecordProvenance.record_table == "missions")
+                & (RecordProvenance.record_id == Mission.mission_id),
+            )
+            .where(Mission.mission_id == mission_id)
+            .where(visible_record_condition("missions", Mission.mission_id))
+        )
+    ).scalar_one_or_none()
     if mission is None:
         raise NotFound("Mission not found.")
     return mission
@@ -70,7 +89,11 @@ async def list_missions(
     state: str | None = Query(default=None),
     limit: int = Query(default=50, le=MAX_PAGE_SIZE, ge=1),
 ) -> dict:
-    query = select(Mission)
+    query = select(Mission).join(
+        RecordProvenance,
+        (RecordProvenance.record_table == "missions")
+        & (RecordProvenance.record_id == Mission.mission_id),
+    ).where(visible_record_condition("missions", Mission.mission_id))
     if state:
         query = query.where(Mission.state == state)
     rows = (

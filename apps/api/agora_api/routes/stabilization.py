@@ -10,8 +10,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.db import get_session
 from agora_api.mission_challenges_service import COLLATZ_MISSION_ID, get_challenge_detail
-from agora_api.models import EventOutbox, Mission, MissionChallengeSubmission, TokoinLedgerEntry
-from agora_api.provenance import provenance_counts
+from agora_api.models import (
+    EventOutbox,
+    Mission,
+    MissionChallengeSubmission,
+    RecordProvenance,
+    RecordQuarantine,
+    TokoinLedgerEntry,
+)
+from agora_api.provenance import (
+    provenance_counts,
+    quarantine_mission_participant_provenance_mismatches,
+)
+from agora_api.rule_delivery import queue_canary_for_real_agents, rule_delivery_matrix
 from agora_api.scoped_invariants import capture_snapshot_manifest
 from agora_api.tokoins_service import tokoin_status, verify_ledger_chain
 from agora_api.world import build_manifest
@@ -102,3 +113,73 @@ async def stabilization_status(session: AsyncSession = Depends(get_session)) -> 
         "provider_degradation": _provider_degradation(),
         "scope": "implemented|isolated-tested|live-experimental-local; not production-ready",
     }
+
+
+@router.get("/data-hygiene")
+async def data_hygiene_status(session: AsyncSession = Depends(get_session)) -> dict:
+    counts = (
+        await session.execute(
+            select(
+                RecordProvenance.world_instance_id,
+                RecordProvenance.provenance_class,
+                RecordProvenance.record_table,
+                func.count(RecordProvenance.record_id),
+            ).group_by(
+                RecordProvenance.world_instance_id,
+                RecordProvenance.provenance_class,
+                RecordProvenance.record_table,
+            )
+        )
+    ).all()
+    quarantine_counts = (
+        await session.execute(
+            select(
+                RecordQuarantine.record_table,
+                RecordQuarantine.reason,
+                func.count(RecordQuarantine.quarantine_id),
+            ).group_by(RecordQuarantine.record_table, RecordQuarantine.reason)
+        )
+    ).all()
+    return {
+        "status": "ok",
+        "public_surface_policy": {
+            "default_classes": ["real"],
+            "world_instance_id": "agora-local-real",
+            "quarantine_excluded": True,
+            "history_deleted": False,
+        },
+        "provenance_by_world": [
+            {
+                "world_instance_id": world,
+                "provenance_class": pclass,
+                "record_table": table,
+                "count": int(count),
+            }
+            for world, pclass, table, count in counts
+        ],
+        "quarantine": [
+            {"record_table": table, "reason": reason, "count": int(count)}
+            for table, reason, count in quarantine_counts
+        ],
+    }
+
+
+@router.post("/data-hygiene/quarantine-mismatches")
+async def quarantine_data_hygiene_mismatches(
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    result = await quarantine_mission_participant_provenance_mismatches(session)
+    await session.commit()
+    return {"status": "applied", **result}
+
+
+@router.post("/rule-delivery/canary")
+async def start_rule_delivery_canary(session: AsyncSession = Depends(get_session)) -> dict:
+    result = await queue_canary_for_real_agents(session)
+    await session.commit()
+    return {"status": "queued", **result}
+
+
+@router.get("/rule-delivery-matrix")
+async def get_rule_delivery_matrix(session: AsyncSession = Depends(get_session)) -> dict:
+    return await rule_delivery_matrix(session)

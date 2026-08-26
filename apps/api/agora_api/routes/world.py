@@ -5,7 +5,7 @@ immutable-until-version-bump (ETag/304 forever), population is ephemeral
 (Redis aggregate, never per-agent DB queries, never heartbeat-level data).
 """
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,12 @@ from agora_api.db import get_session
 from agora_api.errors import NotFound
 from agora_api.models import Agent, Mission, RecordProvenance
 from agora_api.presence import list_present
-from agora_api.provenance import public_provenance_classes
+from agora_api.provenance import visible_record_condition
+from agora_api.rule_delivery import (
+    attest_rule_delivery,
+    mark_rule_seen,
+    pending_rules_for_agent,
+)
 from agora_api.world import build_manifest, manifest_etag, space_ids
 from agora_api.world_rules import (
     WORLD_RULES_VERSION,
@@ -51,6 +56,102 @@ async def attest_world_rules(request: Request, device: CurrentDevice) -> dict:
     }
 
 
+@router.get("/rules/feed")
+async def world_rule_feed(
+    device: CurrentDevice,
+    after_sequence: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    rules = await pending_rules_for_agent(
+        session,
+        agent_id=device.agent_id,
+        device_id=device.device_id,
+        after_sequence=after_sequence,
+    )
+    await session.commit()
+    return {
+        "agent_id": device.agent_id,
+        "device_id": device.device_id,
+        "rules": [
+            {
+                "rule_id": rule.rule_id,
+                "sequence_number": rule.sequence_number,
+                "canonical_hash": rule.canonical_hash,
+                "canonical_body": rule.canonical_body,
+                "signature": rule.signature,
+                "required_attestation_type": rule.required_attestation_type,
+            }
+            for rule in rules
+        ],
+    }
+
+
+@router.post("/rules/cursor")
+async def world_rule_cursor(
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    from agora_api.errors import ValidationFailed
+
+    if not isinstance(body, dict):
+        raise ValidationFailed("Expected JSON object.")
+    unknown = set(body) - {"rule_id", "sequence_number"}
+    if unknown:
+        raise ValidationFailed("Unknown fields rejected.")
+    if not isinstance(body.get("rule_id"), str) or not isinstance(
+        body.get("sequence_number"), int
+    ):
+        raise ValidationFailed("rule_id and sequence_number are required.")
+    state = await mark_rule_seen(
+        session,
+        agent_id=device.agent_id,
+        rule_id=body["rule_id"],
+        sequence_number=body["sequence_number"],
+    )
+    await session.commit()
+    return {
+        "agent_id": state.agent_id,
+        "rule_id": state.rule_id,
+        "technical_state": state.technical_state,
+    }
+
+
+@router.post("/rules/attest-versioned")
+async def world_rule_attest_versioned(
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    from agora_api.errors import ValidationFailed
+
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise ValidationFailed("Expected JSON object.")
+    unknown = set(body) - {"rule_id", "canonical_hash", "decision", "technical_cause"}
+    if unknown:
+        raise ValidationFailed("Unknown fields rejected.")
+    if not all(isinstance(body.get(key), str) for key in ("rule_id", "canonical_hash", "decision")):
+        raise ValidationFailed("rule_id, canonical_hash and decision are required.")
+    if body.get("technical_cause") is not None and not isinstance(body["technical_cause"], str):
+        raise ValidationFailed("technical_cause must be a string.")
+    state = await attest_rule_delivery(
+        session,
+        agent_id=device.agent_id,
+        rule_id=body["rule_id"],
+        canonical_hash=body["canonical_hash"],
+        decision=body["decision"],
+        technical_cause=body.get("technical_cause"),
+    )
+    await session.commit()
+    return {
+        "agent_id": state.agent_id,
+        "rule_id": state.rule_id,
+        "technical_state": state.technical_state,
+    }
+
+
 async def _challenge_landmarks(session: AsyncSession) -> list[dict]:
     rows = (
         await session.execute(
@@ -64,7 +165,7 @@ async def _challenge_landmarks(session: AsyncSession) -> list[dict]:
                 Mission.challenge_kind.is_not(None),
                 Mission.state.in_(["forming", "active", "review"]),
                 Mission.hosting_space_id.is_not(None),
-                RecordProvenance.provenance_class.in_(public_provenance_classes()),
+                visible_record_condition("missions", Mission.mission_id),
             )
         )
     ).scalars().all()
@@ -138,7 +239,7 @@ async def world_population(session: AsyncSession = Depends(get_session)) -> dict
                 )
                 .where(
                     Agent.agent_id.in_(present_ids),
-                    RecordProvenance.provenance_class.in_(public_provenance_classes()),
+                    visible_record_condition("agents", Agent.agent_id),
                 )
             )
         ).scalars().all()

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.authz import CurrentDevice
 from agora_api.db import get_session
+from agora_api.errors import ProvenanceMismatch
 from agora_api.mission_challenges_service import (
     challenge_population_count,
     challenge_view,
@@ -60,13 +61,17 @@ async def post_join_challenge(
     await enforce_rate_limit("mission_challenge_join", device.agent_id)
     agent = await session.get(Agent, device.agent_id)
     assert agent is not None
-    participant = await join_challenge(
-        session,
-        mission_id=mission_id,
-        agent_id=device.agent_id,
-        agent_version_id=agent.current_version_id,
-        trace_id=getattr(request.state, "trace_id", None),
-    )
+    try:
+        participant = await join_challenge(
+            session,
+            mission_id=mission_id,
+            agent_id=device.agent_id,
+            agent_version_id=agent.current_version_id,
+            trace_id=getattr(request.state, "trace_id", None),
+        )
+    except ProvenanceMismatch:
+        await session.commit()
+        raise
     mission = await get_challenge_detail(session, mission_id)
     await session.commit()
     await _fan_out(

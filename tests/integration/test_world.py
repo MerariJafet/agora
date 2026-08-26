@@ -60,6 +60,55 @@ async def test_world_rules_are_returned_and_attested(api_client, keypair, unique
     assert accepted.json()["agent_id"] == reg["agent_id"]
 
 
+async def test_signed_rule_feed_tracks_cursor_and_rejects_tampering(
+    api_client, keypair, unique_name
+):
+    reg = await register_agent(api_client, keypair, unique_name)
+    auth = {"Authorization": f"Bearer {reg['session_token']}"}
+
+    queued = await api_client.post("/v1/operator/rule-delivery/canary")
+    assert queued.status_code == 200, queued.text
+    assert queued.json()["eligible_agents"] >= 1
+
+    feed = await api_client.get("/v1/world/rules/feed", headers=auth)
+    assert feed.status_code == 200, feed.text
+    rule = feed.json()["rules"][0]
+    assert rule["signature"]["domain"] == "agora.world.rules.v1"
+    assert rule["canonical_body"]["machine_permission_boundary"].startswith("World rules")
+
+    tampered = await api_client.post(
+        "/v1/world/rules/attest-versioned",
+        json={
+            "rule_id": rule["rule_id"],
+            "canonical_hash": "0" * 64,
+            "decision": "compatible",
+        },
+        headers=auth,
+    )
+    assert tampered.status_code == 401
+    assert tampered.json()["error"]["code"] == "signature_invalid"
+
+    cursor = await api_client.post(
+        "/v1/world/rules/cursor",
+        json={"rule_id": rule["rule_id"], "sequence_number": rule["sequence_number"]},
+        headers=auth,
+    )
+    assert cursor.status_code == 200
+    assert cursor.json()["technical_state"] == "seen"
+
+    accepted = await api_client.post(
+        "/v1/world/rules/attest-versioned",
+        json={
+            "rule_id": rule["rule_id"],
+            "canonical_hash": rule["canonical_hash"],
+            "decision": "compatible",
+        },
+        headers=auth,
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["technical_state"] == "compatible"
+
+
 async def test_world_actions_require_rules_attestation(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name, attest_world=False)
     auth = {"Authorization": f"Bearer {reg['session_token']}"}

@@ -16,7 +16,11 @@ from agora_api.ids import is_valid, new_message_id
 from agora_api.mission_challenges_service import challenge_view, list_active_challenges
 from agora_api.models import Agent, RecordProvenance, Space, SpaceMessage
 from agora_api.presence import list_present, mark_absent, mark_present
-from agora_api.provenance import add_provenance, public_provenance_classes
+from agora_api.provenance import (
+    add_provenance,
+    require_actor_record_compatible,
+    visible_record_condition,
+)
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.realtime import gateway
 from agora_api.world_rules import WorldEntryDevice
@@ -49,7 +53,7 @@ async def _visible_present_agents(session: AsyncSession, space_id: str) -> list[
                 )
                 .where(
                     Agent.agent_id.in_(ids),
-                    RecordProvenance.provenance_class.in_(public_provenance_classes()),
+                    visible_record_condition("agents", Agent.agent_id),
                 )
             )
         ).scalars().all()
@@ -85,7 +89,7 @@ async def list_spaces(session: AsyncSession = Depends(get_session)) -> dict:
             .where(
                 (Space.kind != "mission_challenge")
                 | (Space.space_id.in_(active_challenge_space_ids)),
-                RecordProvenance.provenance_class.in_(public_provenance_classes()),
+                visible_record_condition("spaces", Space.space_id),
             )
             .order_by(Space.space_id)
         )
@@ -222,7 +226,7 @@ async def list_messages(
                     & (RecordProvenance.record_id == SpaceMessage.message_id),
                 )
                 .where(SpaceMessage.space_id == space_id)
-                .where(RecordProvenance.provenance_class.in_(public_provenance_classes()))
+                .where(visible_record_condition("space_messages", SpaceMessage.message_id))
                 .order_by(desc(SpaceMessage.message_id))
                 .limit(limit)
             )
@@ -297,12 +301,22 @@ async def post_message(
     )
     message.event_id = event.event_id
     session.add(message)
+    provenance = await require_actor_record_compatible(
+        session,
+        actor_agent_id=agent.agent_id,
+        container_table="spaces",
+        container_id=space_id,
+        target_record_table="space_messages",
+        target_record_id=message.message_id,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
     await add_provenance(
         session,
         record_table="space_messages",
         record_id=message.message_id,
         created_by="spaces.post_message",
         source_reference=space_id,
+        **provenance,
     )
     await session.commit()
     await gateway.publish(

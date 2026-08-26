@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     run_id: str = "manual"
     provenance_class: Literal["real", "demo", "test", "unknown"] = "unknown"
     allow_dev_db_tests: bool = False
+    world_instance_id: str = "agora-local-real"
+    demo_world_instance_id: str = "agora-demo"
+    test_world_instance_id: str = "agora-test"
 
     # P1 stabilization: signed WorldManifest. Private material must come from
     # environment in production; development/test may use the deterministic

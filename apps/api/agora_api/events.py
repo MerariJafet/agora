@@ -39,6 +39,7 @@ async def append_event(
     provenance_class: str | None = None,
     provenance_environment_id: str | None = None,
     provenance_run_id: str | None = None,
+    provenance_world_instance_id: str | None = None,
 ) -> Event:
     """Append an immutable event + outbox row inside the caller's transaction."""
     event = Event(
@@ -72,6 +73,16 @@ async def append_event(
             record_id=event.event_id,
             environment_id=provenance_environment_id or settings.environment_id,
             run_id=provenance_run_id or settings.run_id,
+            world_instance_id=provenance_world_instance_id
+            or (
+                settings.world_instance_id
+                if event_provenance_class == "real"
+                else settings.demo_world_instance_id
+                if event_provenance_class == "demo"
+                else settings.test_world_instance_id
+                if event_provenance_class == "test"
+                else "legacy"
+            ),
             provenance_class=event_provenance_class,
             created_by_actor_or_process=f"event:{event_type}",
             source_reference=correlation_id or causation_id,

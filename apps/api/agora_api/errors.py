@@ -58,6 +58,11 @@ class OwnerAuthorityRequired(AgoraError):
     code = "owner_authority_required"
 
 
+class ProvenanceMismatch(AgoraError):
+    status_code = 403
+    code = "provenance_mismatch"
+
+
 class WorldEntryRequired(AgoraError):
     status_code = 403
     code = "world_entry_required"

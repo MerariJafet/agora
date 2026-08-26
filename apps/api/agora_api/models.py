@@ -504,7 +504,10 @@ class RecordProvenance(Base):
     record_id: Mapped[str] = mapped_column(String(96), primary_key=True)
     environment_id: Mapped[str] = mapped_column(String(64), nullable=False)
     run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False, default="legacy")
     provenance_class: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_by_actor_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_by_actor_provenance: Mapped[str | None] = mapped_column(String(16), nullable=True)
     created_by_actor_or_process: Mapped[str] = mapped_column(String(128), nullable=False)
     source_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
     schema_version: Mapped[str] = mapped_column(String(16), nullable=False, default="1.0")
@@ -513,6 +516,32 @@ class RecordProvenance(Base):
     __table_args__ = (
         Index("ix_record_provenance_class", "provenance_class", "record_table"),
         Index("ix_record_provenance_run", "environment_id", "run_id"),
+        Index("ix_record_provenance_world", "world_instance_id", "provenance_class"),
+    )
+
+
+class RecordQuarantine(Base):
+    """Logical invalidation for contaminated records.
+
+    Quarantine never deletes historical ledger data. It excludes records from
+    live real-world surfaces while preserving an auditable reason and evidence
+    pointer for later review.
+    """
+
+    __tablename__ = "record_quarantine"
+
+    quarantine_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    record_table: Mapped[str] = mapped_column(String(64), nullable=False)
+    record_id: Mapped[str] = mapped_column(String(96), nullable=False)
+    reason: Mapped[str] = mapped_column(String(96), nullable=False)
+    evidence_reference: Mapped[str] = mapped_column(Text, nullable=False)
+    invalidated_state: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_by_actor_or_process: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("record_table", "record_id", "reason", name="uq_record_quarantine"),
+        Index("ix_record_quarantine_record", "record_table", "record_id"),
     )
 
 
@@ -532,6 +561,83 @@ class RecordProvenanceAudit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (Index("ix_record_provenance_audit_record", "record_table", "record_id"),)
+
+
+class RuleDocument(Base):
+    """Durable, signed world-rule document delivered to eligible Agents."""
+
+    __tablename__ = "rule_documents"
+
+    rule_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    rule_class: Mapped[str] = mapped_column(String(32), nullable=False)
+    version: Mapped[str] = mapped_column(String(32), nullable=False)
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    scope: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    canonical_body: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    canonical_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    issuer_key_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    signature: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    effective_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    minimum_protocol_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    supersedes_rule_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    required_attestation_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    consequence_if_unattested: Mapped[str] = mapped_column(Text, nullable=False)
+    appeal_mechanism: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rollback_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("world_instance_id", "sequence_number", name="uq_rule_sequence_world"),
+        Index("ix_rule_documents_world_state", "world_instance_id", "state"),
+    )
+
+
+class RuleDeliveryState(Base):
+    """Per-agent rule delivery cursor and compatibility state."""
+
+    __tablename__ = "rule_delivery_states"
+
+    rule_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("rule_documents.rule_id"), primary_key=True
+    )
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), primary_key=True
+    )
+    agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    device_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    eligible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    queued: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    signature_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    compatible_attested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    incompatible_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deferred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    declined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivery_failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    technical_state: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
+    technical_cause: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cursor_sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    delivery_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_rule_delivery_agent_state", "agent_id", "technical_state"),
+        Index("ix_rule_delivery_rule_state", "rule_id", "technical_state"),
+    )
 
 
 class IdempotencyRecord(Base):

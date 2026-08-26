@@ -16,7 +16,14 @@ from agora_api.boundary import validate_boundary
 from agora_api.errors import AgoraError, NotFound, OwnerAuthorityRequired, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import new_mission_id, new_mission_task_id
-from agora_api.models import Mission, MissionParticipant, MissionTask, MissionTaskDependency
+from agora_api.models import (
+    Mission,
+    MissionParticipant,
+    MissionTask,
+    MissionTaskDependency,
+    RecordProvenance,
+)
+from agora_api.provenance import add_provenance, record_key, require_actor_record_compatible
 
 LEASE_DURATION = timedelta(minutes=15)
 
@@ -171,6 +178,22 @@ async def create_mission(
         created_at=now_utc(),
     )
     session.add(mission)
+    actor_provenance = await session.get(RecordProvenance, ("agents", agent_id))
+    await add_provenance(
+        session,
+        record_table="missions",
+        record_id=mission.mission_id,
+        provenance_class=actor_provenance.provenance_class if actor_provenance else None,
+        environment_id=actor_provenance.environment_id if actor_provenance else None,
+        run_id=actor_provenance.run_id if actor_provenance else None,
+        world_instance_id=actor_provenance.world_instance_id if actor_provenance else None,
+        created_by="missions.create",
+        source_reference=agent_id,
+        created_by_actor_id=agent_id,
+        created_by_actor_provenance=(
+            actor_provenance.provenance_class if actor_provenance else None
+        ),
+    )
     await append_event(
         session,
         event_type="mission.created",
@@ -217,6 +240,23 @@ async def join_mission(
         roles=roles or ["observer"], joined_at=now_utc(),
     )
     session.add(participant)
+    provenance = await require_actor_record_compatible(
+        session,
+        actor_agent_id=agent_id,
+        container_table="missions",
+        container_id=mission_id,
+        target_record_table="mission_participants",
+        target_record_id=record_key(mission_id, agent_id),
+        trace_id=trace_id,
+    )
+    await add_provenance(
+        session,
+        record_table="mission_participants",
+        record_id=record_key(mission_id, agent_id),
+        created_by="missions.join",
+        source_reference=mission_id,
+        **provenance,
+    )
     if mission.state == "open":
         mission.state = "forming"
     await append_event(

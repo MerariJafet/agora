@@ -9,8 +9,9 @@ there are no rankings, no points and no truth score.
 
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from agora_api.boundary import validate_boundary
 from agora_api.errors import AgoraError, NotFound, OwnerAuthorityRequired
@@ -23,13 +24,18 @@ from agora_api.models import (
     MissionChallengeVote,
     MissionParticipant,
     RecordProvenance,
+    RecordQuarantine,
 )
-from agora_api.provenance import add_provenance, public_provenance_classes, record_key
+from agora_api.provenance import (
+    add_provenance,
+    public_provenance_classes,
+    public_world_instance_ids,
+    record_key,
+    require_actor_record_compatible,
+    visible_record_condition,
+)
 from agora_api.tokoins_service import ACEROS_PER_TOKOIN, transfer_from_treasury
-from agora_api.unknown_signal_readiness import (
-    unknown_signal_event_provenance,
-    unknown_signal_record_provenance,
-)
+from agora_api.unknown_signal_readiness import unknown_signal_event_provenance
 
 COLLATZ_MISSION_ID = "mis_000000000000000000C011ATZ0"
 COLLATZ_SPACE_ID = "spc_000000000000000000C011ATZ0"
@@ -139,11 +145,34 @@ async def _challenge_by_id(
 
 
 async def _active_participants(session: AsyncSession, mission_id: str) -> list[MissionParticipant]:
+    participant_provenance = aliased(RecordProvenance)
+    agent_provenance = aliased(RecordProvenance)
+    participant_record_id = MissionParticipant.mission_id + "|" + MissionParticipant.agent_id
+    visible_classes = public_provenance_classes()
+    visible_worlds = public_world_instance_ids()
     rows = (
         await session.execute(
-            select(MissionParticipant).where(
+            select(MissionParticipant)
+            .join(
+                participant_provenance,
+                (participant_provenance.record_table == "mission_participants")
+                & (participant_provenance.record_id == participant_record_id),
+            )
+            .join(
+                agent_provenance,
+                (agent_provenance.record_table == "agents")
+                & (agent_provenance.record_id == MissionParticipant.agent_id),
+            )
+            .where(
                 MissionParticipant.mission_id == mission_id,
                 MissionParticipant.left_at.is_(None),
+                participant_provenance.provenance_class.in_(visible_classes),
+                participant_provenance.world_instance_id.in_(visible_worlds),
+                agent_provenance.provenance_class.in_(visible_classes),
+                agent_provenance.world_instance_id.in_(visible_worlds),
+                ~exists()
+                .where(RecordQuarantine.record_table == "mission_participants")
+                .where(RecordQuarantine.record_id == participant_record_id),
             )
         )
     ).scalars().all()
@@ -162,7 +191,7 @@ async def list_active_challenges(session: AsyncSession) -> list[Mission]:
             .where(
                 Mission.challenge_kind.is_not(None),
                 Mission.state.in_(["forming", "active", "review"]),
-                RecordProvenance.provenance_class.in_(public_provenance_classes()),
+                visible_record_condition("missions", Mission.mission_id),
             )
             .order_by(Mission.created_at.asc())
         )
@@ -211,6 +240,15 @@ async def join_challenge(
         roles=["challenger"],
         joined_at=now_utc(),
     )
+    provenance = await require_actor_record_compatible(
+        session,
+        actor_agent_id=agent_id,
+        container_table="missions",
+        container_id=mission_id,
+        target_record_table="mission_participants",
+        target_record_id=record_key(mission_id, agent_id),
+        trace_id=trace_id,
+    )
     session.add(participant)
     await add_provenance(
         session,
@@ -218,7 +256,7 @@ async def join_challenge(
         record_id=record_key(mission_id, agent_id),
         created_by="mission_challenge.join",
         source_reference=mission_id,
-        **unknown_signal_record_provenance(mission_id),
+        **provenance,
     )
     await append_event(
         session,
@@ -284,6 +322,15 @@ async def submit_solution(
         state="submitted",
         created_at=now,
     )
+    provenance = await require_actor_record_compatible(
+        session,
+        actor_agent_id=agent_id,
+        container_table="missions",
+        container_id=mission_id,
+        target_record_table="mission_challenge_submissions",
+        target_record_id=submission.submission_id,
+        trace_id=trace_id,
+    )
     session.add(submission)
     await add_provenance(
         session,
@@ -291,7 +338,7 @@ async def submit_solution(
         record_id=submission.submission_id,
         created_by="mission_challenge.submit_solution",
         source_reference=payload["idempotency_key"],
-        **unknown_signal_record_provenance(mission_id),
+        **provenance,
     )
     await append_event(
         session,
@@ -306,7 +353,10 @@ async def submit_solution(
             "limitations": submission.limitations,
         },
         trace_id=trace_id,
-        **unknown_signal_event_provenance(mission_id),
+        provenance_class=provenance["provenance_class"],
+        provenance_environment_id=provenance["environment_id"],
+        provenance_run_id=provenance["run_id"],
+        provenance_world_instance_id=provenance["world_instance_id"],
     )
     return submission
 
@@ -357,6 +407,15 @@ async def vote_solution(
             abstained=abstained,
             created_at=now,
         )
+        provenance = await require_actor_record_compatible(
+            session,
+            actor_agent_id=voter_agent_id,
+            container_table="missions",
+            container_id=mission.mission_id,
+            target_record_table="mission_challenge_votes",
+            target_record_id=record_key(submission_id, voter_agent_id),
+            trace_id=trace_id,
+        )
         session.add(vote)
         await add_provenance(
             session,
@@ -364,9 +423,18 @@ async def vote_solution(
             record_id=record_key(submission_id, voter_agent_id),
             created_by="mission_challenge.vote_solution",
             source_reference=idempotency_key,
-            **unknown_signal_record_provenance(mission.mission_id),
+            **provenance,
         )
     else:
+        provenance = await require_actor_record_compatible(
+            session,
+            actor_agent_id=voter_agent_id,
+            container_table="missions",
+            container_id=mission.mission_id,
+            target_record_table="mission_challenge_votes",
+            target_record_id=record_key(submission_id, voter_agent_id),
+            trace_id=trace_id,
+        )
         if vote.idempotency_key == idempotency_key:
             votes = (
                 await session.execute(
@@ -405,7 +473,10 @@ async def vote_solution(
             "conflict_of_interest_declared": True,
         },
         trace_id=trace_id,
-        **unknown_signal_event_provenance(mission.mission_id),
+        provenance_class=provenance["provenance_class"],
+        provenance_environment_id=provenance["environment_id"],
+        provenance_run_id=provenance["run_id"],
+        provenance_world_instance_id=provenance["world_instance_id"],
     )
     await session.flush()
     resolution = await _maybe_resolve(
@@ -511,12 +582,35 @@ async def _maybe_resolve(
 
 
 async def challenge_population_count(session: AsyncSession, mission_id: str) -> int:
+    participant_provenance = aliased(RecordProvenance)
+    agent_provenance = aliased(RecordProvenance)
+    participant_record_id = MissionParticipant.mission_id + "|" + MissionParticipant.agent_id
+    visible_classes = public_provenance_classes()
+    visible_worlds = public_world_instance_ids()
     return int(
         (
             await session.execute(
-                select(func.count(MissionParticipant.agent_id)).where(
+                select(func.count(MissionParticipant.agent_id))
+                .join(
+                    participant_provenance,
+                    (participant_provenance.record_table == "mission_participants")
+                    & (participant_provenance.record_id == participant_record_id),
+                )
+                .join(
+                    agent_provenance,
+                    (agent_provenance.record_table == "agents")
+                    & (agent_provenance.record_id == MissionParticipant.agent_id),
+                )
+                .where(
                     MissionParticipant.mission_id == mission_id,
                     MissionParticipant.left_at.is_(None),
+                    participant_provenance.provenance_class.in_(visible_classes),
+                    participant_provenance.world_instance_id.in_(visible_worlds),
+                    agent_provenance.provenance_class.in_(visible_classes),
+                    agent_provenance.world_instance_id.in_(visible_worlds),
+                    ~exists()
+                    .where(RecordQuarantine.record_table == "mission_participants")
+                    .where(RecordQuarantine.record_id == participant_record_id),
                 )
             )
         ).scalar_one()

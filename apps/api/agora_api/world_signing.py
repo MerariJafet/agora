@@ -149,6 +149,56 @@ def sign_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     return secured
 
 
+def sign_canonical_payload(payload: dict[str, Any], *, domain: str) -> dict[str, Any]:
+    """Sign an arbitrary canonical world payload with explicit domain separation."""
+    signed_payload = {"domain": domain, "payload": payload}
+    raw = json.dumps(
+        signed_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+    ).encode()
+    signature = _private_key().sign(raw)
+    return {
+        "schema_version": "1.0",
+        "domain": domain,
+        "algorithm": SIGNATURE_ALGORITHM,
+        "key_id": get_settings().world_signing_key_id,
+        "public_key": public_key_b64(),
+        "signature": b64url(signature),
+        "payload_hash": hashlib.sha256(raw).hexdigest(),
+    }
+
+
+def verify_canonical_payload(
+    payload: dict[str, Any],
+    signature: dict[str, Any],
+    *,
+    domain: str,
+    trusted_public_keys: dict[str, str],
+) -> bool:
+    if signature.get("domain") != domain:
+        raise SignatureInvalid("Signed payload domain mismatch.")
+    if signature.get("algorithm") != SIGNATURE_ALGORITHM:
+        raise SignatureInvalid("Unsupported payload signature algorithm.")
+    key_id = signature.get("key_id")
+    public_key = trusted_public_keys.get(str(key_id))
+    if not public_key:
+        raise SignatureInvalid("Unknown payload signing key.")
+    raw = json.dumps(
+        {"domain": domain, "payload": payload},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode()
+    if signature.get("payload_hash") != hashlib.sha256(raw).hexdigest():
+        raise SignatureInvalid("Signed payload hash mismatch.")
+    try:
+        key = Ed25519PublicKey.from_public_bytes(b64url_decode(public_key))
+        key.verify(b64url_decode(str(signature.get("signature"))), raw)
+    except Exception as exc:  # noqa: BLE001
+        raise SignatureInvalid("Signed payload verification failed.") from exc
+    return True
+
+
 def verify_manifest(
     manifest: dict[str, Any],
     *,

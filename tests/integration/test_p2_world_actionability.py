@@ -1,7 +1,15 @@
 import pytest
 from agora_api.config import get_settings
+from agora_api.events import now_utc
 from agora_api.mission_challenges_service import COLLATZ_MISSION_ID
-from agora_api.models import Event, RecordProvenance, RecordProvenanceAudit
+from agora_api.models import (
+    Event,
+    MissionParticipant,
+    RecordProvenance,
+    RecordProvenanceAudit,
+    RecordQuarantine,
+)
+from agora_api.provenance import add_provenance, record_key
 from agora_api.scoped_invariants import canonical_hash, capture_snapshot_manifest
 from agora_api.unknown_signal_readiness import (
     UNKNOWN_SIGNAL_ENVIRONMENT_ID,
@@ -163,7 +171,9 @@ async def test_unknown_signal_provenance_adjudication_exact_idempotent_and_audit
 
 
 @pytest.mark.asyncio
-async def test_unknown_signal_new_formal_events_inherit_real_provenance(api_client, unique_name):
+async def test_unknown_signal_rejects_test_actor_joining_real_challenge(
+    api_client, unique_name
+):
     reg = await register_agent(api_client, SigningKeypair(), unique_name)
     await api_client.post("/v1/operator/unknown-signal/round-1/register")
 
@@ -178,13 +188,14 @@ async def test_unknown_signal_new_formal_events_inherit_real_provenance(api_clie
         f"/v1/mission-challenges/{UNKNOWN_SIGNAL_MISSION_ID}/join",
         headers={"Authorization": f"Bearer {reg['session_token']}"},
     )
-    assert joined.status_code in (200, 201)
+    assert joined.status_code == 403
+    assert joined.json()["error"]["code"] == "provenance_mismatch"
 
     async with Session() as session:
         event = (
             await session.execute(
                 select(Event)
-                .where(Event.event_type == "mission.challenge_joined")
+                .where(Event.event_type == "provenance.mismatch_rejected")
                 .order_by(Event.occurred_at.desc())
                 .limit(1)
             )
@@ -200,8 +211,62 @@ async def test_unknown_signal_new_formal_events_inherit_real_provenance(api_clie
     assert event_provenance.provenance_class == "real"
     assert event_provenance.environment_id == UNKNOWN_SIGNAL_ENVIRONMENT_ID
     assert event_provenance.run_id == UNKNOWN_SIGNAL_RUN_ID
-    assert participant_provenance is not None
-    assert participant_provenance.provenance_class == "real"
+    assert participant_provenance is None
+
+
+@pytest.mark.asyncio
+async def test_operator_quarantines_participant_actor_provenance_mismatches(
+    api_client, unique_name
+):
+    reg = await register_agent(api_client, SigningKeypair(), unique_name)
+    await api_client.post("/v1/operator/unknown-signal/round-1/register")
+
+    engine = create_async_engine(get_settings().database_url)
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with Session() as session:
+        manifest = await build_unknown_signal_adjudication_manifest(session)
+        await apply_unknown_signal_adjudication_manifest(session, manifest)
+        session.add(
+            MissionParticipant(
+                mission_id=UNKNOWN_SIGNAL_MISSION_ID,
+                agent_id=reg["agent_id"],
+                agent_version_id=reg["agent_version_id"],
+                roles=["challenger"],
+                joined_at=now_utc(),
+            )
+        )
+        await add_provenance(
+            session,
+            record_table="mission_participants",
+            record_id=record_key(UNKNOWN_SIGNAL_MISSION_ID, reg["agent_id"]),
+            provenance_class="real",
+            environment_id=UNKNOWN_SIGNAL_ENVIRONMENT_ID,
+            run_id=UNKNOWN_SIGNAL_RUN_ID,
+            world_instance_id="agora-local-real",
+            created_by="test.intentional_mismatch",
+            source_reference="world-data-hygiene-test",
+            created_by_actor_id=reg["agent_id"],
+            created_by_actor_provenance="test",
+        )
+        await session.commit()
+
+    applied = await api_client.post("/v1/operator/data-hygiene/quarantine-mismatches")
+    assert applied.status_code == 200, applied.text
+    assert applied.json()["quarantined_new"] >= 1
+
+    async with Session() as session:
+        row = (
+            await session.execute(
+                select(RecordQuarantine).where(
+                    RecordQuarantine.record_table == "mission_participants",
+                    RecordQuarantine.record_id
+                    == record_key(UNKNOWN_SIGNAL_MISSION_ID, reg["agent_id"]),
+                    RecordQuarantine.reason == "PROVENANCE_ACTOR_RELATION_MISMATCH",
+                )
+            )
+        ).scalar_one_or_none()
+    await engine.dispose()
+    assert row is not None
 
 
 def test_unknown_signal_rows_are_deterministic_and_bounded():
@@ -276,7 +341,8 @@ async def test_unknown_signal_snapshot_hash_is_stable_and_ground_truth_safe(
         f"/v1/mission-challenges/{UNKNOWN_SIGNAL_MISSION_ID}/join",
         headers={"Authorization": f"Bearer {reg['session_token']}"},
     )
-    assert joined.status_code in (200, 201)
+    assert joined.status_code == 403
+    assert joined.json()["error"]["code"] == "provenance_mismatch"
     async with Session() as session:
         after_formal_action = await capture_snapshot_manifest(session)
     await engine.dispose()
