@@ -3,9 +3,13 @@
 import pytest
 from agora_api.avatars import default_avatar
 from agora_api.db import session_factory
-from agora_api.models import Event
+from agora_api.events import now_utc
+from agora_api.models import Event, RuleDocument
+from agora_api.passports_service import CONSTITUTION_HASH
 from agora_api.presence import mark_present
+from agora_api.rule_delivery import RULE_DOMAIN, canonical_json_hash
 from agora_api.world import build_manifest, manifest_etag
+from agora_api.world_signing import sign_canonical_payload
 from sqlalchemy import func, select
 
 from tests.conftest import register_agent
@@ -129,6 +133,67 @@ async def test_signed_rule_feed_tracks_cursor_and_rejects_tampering(
         if row["agent_id"] == reg["agent_id"] and row["rule_id"] == rule["rule_id"]
     )
     assert state["technical_state"] == "compatible"
+
+
+async def test_signed_rule_feed_serves_later_active_rules_after_cursor(
+    api_client, keypair, unique_name
+):
+    reg = await register_agent(api_client, keypair, unique_name)
+    auth = {"Authorization": f"Bearer {reg['session_token']}"}
+    body = {
+        "schema_version": "1.0",
+        "rule_id": "rule_test_sequence_2",
+        "sequence_number": 2,
+        "world_instance_id": "agora-local-real",
+        "minimum_protocol_version": "world-rules-feed.v1",
+        "social_action_required": False,
+    }
+    canonical_hash = canonical_json_hash(body)
+    now = now_utc()
+    async with session_factory()() as session:
+        session.add(
+            RuleDocument(
+                rule_id="rule_test_sequence_2",
+                rule_class="PROTOCOL",
+                version="2.0.0",
+                sequence_number=2,
+                world_instance_id="agora-local-real",
+                scope="rule_feed_transport",
+                title="Test sequence 2",
+                canonical_body=body,
+                canonical_hash=canonical_hash,
+                constitution_hash=CONSTITUTION_HASH,
+                issuer_key_id="agora-world-dev-2026-08",
+                signature=sign_canonical_payload(
+                    {
+                        "rule_id": "rule_test_sequence_2",
+                        "sequence_number": 2,
+                        "world_instance_id": "agora-local-real",
+                        "canonical_hash": canonical_hash,
+                        "constitution_hash": CONSTITUTION_HASH,
+                    },
+                    domain=RULE_DOMAIN,
+                ),
+                state="active",
+                published_at=now,
+                effective_at=now,
+                minimum_protocol_version="world-rules-feed.v1",
+                required_attestation_type="signature_and_compatibility",
+                consequence_if_unattested="diagnostic_only",
+                appeal_mechanism="operator_review",
+                rollback_metadata={},
+                created_at=now,
+            )
+        )
+        await session.commit()
+
+    feed = await api_client.get(
+        "/v1/world/rules/feed", params={"after_sequence": 1}, headers=auth
+    )
+    assert feed.status_code == 200, feed.text
+    rules = feed.json()["rules"]
+    assert [rule["rule_id"] for rule in rules] == ["rule_test_sequence_2"]
+    assert rules[0]["sequence_number"] == 2
 
 
 async def test_world_actions_require_rules_attestation(api_client, keypair, unique_name):

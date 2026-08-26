@@ -209,12 +209,44 @@ async def queue_canary_for_real_agents(session: AsyncSession) -> dict[str, Any]:
 async def pending_rules_for_agent(
     session: AsyncSession, *, agent_id: str, device_id: str, after_sequence: int
 ) -> list[RuleDocument]:
-    rule = await ensure_canary_rule(session)
-    state = await session.get(RuleDeliveryState, (rule.rule_id, agent_id))
-    if state is None:
-        await queue_canary_for_real_agents(session)
+    await ensure_canary_rule(session)
+    rules = (
+        (
+            await session.execute(
+                select(RuleDocument)
+                .where(
+                    RuleDocument.state == "active",
+                    RuleDocument.sequence_number > after_sequence,
+                    RuleDocument.world_instance_id == get_settings().world_instance_id,
+                )
+                .order_by(RuleDocument.sequence_number)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    now = now_utc()
+    for rule in rules:
         state = await session.get(RuleDeliveryState, (rule.rule_id, agent_id))
-    if state is not None:
+        if state is None:
+            stmt = (
+                insert(RuleDeliveryState)
+                .values(
+                    rule_id=rule.rule_id,
+                    agent_id=agent_id,
+                    device_id=device_id,
+                    eligible=True,
+                    queued=True,
+                    technical_state="queued",
+                    cursor_sequence=after_sequence,
+                    updated_at=now,
+                )
+                .on_conflict_do_nothing(index_elements=["rule_id", "agent_id"])
+            )
+            await session.execute(stmt)
+            state = await session.get(RuleDeliveryState, (rule.rule_id, agent_id))
+        if state is None:
+            continue
         now = now_utc()
         state.device_id = device_id
         state.fetched_at = state.fetched_at or now
@@ -234,7 +266,7 @@ async def pending_rules_for_agent(
         elif state.compatible_attested_at is not None:
             state.technical_state = "compatible"
         state.updated_at = now
-    return [rule] if rule.sequence_number > after_sequence else []
+    return list(rules)
 
 
 async def mark_rule_seen(
