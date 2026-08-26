@@ -1,0 +1,2939 @@
+{
+  "entity_counts_by_provenance": [
+    {
+      "count": 7,
+      "environment_id": "legacy",
+      "provenance_class": "real",
+      "record_table": "agents",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 313,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "agents",
+      "run_id": "manual"
+    },
+    {
+      "count": 312,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "agents",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 55,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "agents",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 7549,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "agents",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 7,
+      "environment_id": "legacy",
+      "provenance_class": "real",
+      "record_table": "devices",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 313,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "devices",
+      "run_id": "manual"
+    },
+    {
+      "count": 312,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "devices",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 55,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "devices",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 7529,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "devices",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 47,
+      "environment_id": "local-dev",
+      "provenance_class": "real",
+      "record_table": "events",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "count": 1734,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "events",
+      "run_id": "manual"
+    },
+    {
+      "count": 1733,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "events",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 311,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "events",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 38286,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "events",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 1171,
+      "environment_id": "local-dev",
+      "provenance_class": "unknown",
+      "record_table": "events",
+      "run_id": "manual"
+    },
+    {
+      "count": 6,
+      "environment_id": "legacy",
+      "provenance_class": "real",
+      "record_table": "mission_participants",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 10,
+      "environment_id": "local-dev",
+      "provenance_class": "real",
+      "record_table": "mission_participants",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "count": 10,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_participants",
+      "run_id": "manual"
+    },
+    {
+      "count": 12,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_participants",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 36,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_participants",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 209,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "mission_participants",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 1,
+      "environment_id": "legacy",
+      "provenance_class": "real",
+      "record_table": "missions",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 1,
+      "environment_id": "local-dev",
+      "provenance_class": "real",
+      "record_table": "missions",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "count": 6,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "missions",
+      "run_id": "manual"
+    },
+    {
+      "count": 7,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "missions",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 21,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "missions",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 476,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "missions",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 5,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "space_messages",
+      "run_id": "manual"
+    },
+    {
+      "count": 5,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "space_messages",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 4,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "space_messages",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 3880,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "space_messages",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 569,
+      "environment_id": "local-dev",
+      "provenance_class": "unknown",
+      "record_table": "space_messages",
+      "run_id": "manual"
+    },
+    {
+      "count": 1,
+      "environment_id": "legacy",
+      "provenance_class": "real",
+      "record_table": "spaces",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 1,
+      "environment_id": "local-dev",
+      "provenance_class": "real",
+      "record_table": "spaces",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "count": 6,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "spaces",
+      "run_id": "manual"
+    },
+    {
+      "count": 7,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "spaces",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 21,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "spaces",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 38,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "spaces",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 3,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_ledger_entries",
+      "run_id": "manual"
+    },
+    {
+      "count": 3,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_ledger_entries",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 6,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_ledger_entries",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 24,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "tokoin_ledger_entries",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 313,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_wallets",
+      "run_id": "manual"
+    },
+    {
+      "count": 312,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_wallets",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 55,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_wallets",
+      "run_id": "test-p2-readiness"
+    }
+  ],
+  "outbox": [
+    {
+      "count": 1211,
+      "published": true,
+      "status": "not_failed"
+    }
+  ],
+  "provenance_counts": [
+    {
+      "count": 7869,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "agent_identity_metadata",
+      "run_id": "manual"
+    },
+    {
+      "count": 222,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "agent_identity_metadata",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 129,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "agent_identity_metadata",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 7,
+      "environment_id": "legacy",
+      "provenance_class": "real",
+      "record_table": "agents",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 7549,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "agents",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 313,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "agents",
+      "run_id": "manual"
+    },
+    {
+      "count": 312,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "agents",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 55,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "agents",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 7,
+      "environment_id": "legacy",
+      "provenance_class": "real",
+      "record_table": "devices",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 7529,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "devices",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 313,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "devices",
+      "run_id": "manual"
+    },
+    {
+      "count": 312,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "devices",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 55,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "devices",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 38286,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "events",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 1734,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "events",
+      "run_id": "manual"
+    },
+    {
+      "count": 1171,
+      "environment_id": "local-dev",
+      "provenance_class": "unknown",
+      "record_table": "events",
+      "run_id": "manual"
+    },
+    {
+      "count": 47,
+      "environment_id": "local-dev",
+      "provenance_class": "real",
+      "record_table": "events",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "count": 1733,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "events",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 311,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "events",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 27,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "mission_challenge_submissions",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 5,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_challenge_submissions",
+      "run_id": "manual"
+    },
+    {
+      "count": 6,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_challenge_submissions",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 18,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_challenge_submissions",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 27,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "mission_challenge_votes",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 5,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_challenge_votes",
+      "run_id": "manual"
+    },
+    {
+      "count": 6,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_challenge_votes",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 18,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_challenge_votes",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 6,
+      "environment_id": "legacy",
+      "provenance_class": "real",
+      "record_table": "mission_participants",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 209,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "mission_participants",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 10,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_participants",
+      "run_id": "manual"
+    },
+    {
+      "count": 10,
+      "environment_id": "local-dev",
+      "provenance_class": "real",
+      "record_table": "mission_participants",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "count": 12,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_participants",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 36,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "mission_participants",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 1,
+      "environment_id": "legacy",
+      "provenance_class": "real",
+      "record_table": "missions",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 476,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "missions",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 6,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "missions",
+      "run_id": "manual"
+    },
+    {
+      "count": 1,
+      "environment_id": "local-dev",
+      "provenance_class": "real",
+      "record_table": "missions",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "count": 7,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "missions",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 21,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "missions",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 3880,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "space_messages",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 5,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "space_messages",
+      "run_id": "manual"
+    },
+    {
+      "count": 569,
+      "environment_id": "local-dev",
+      "provenance_class": "unknown",
+      "record_table": "space_messages",
+      "run_id": "manual"
+    },
+    {
+      "count": 5,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "space_messages",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 4,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "space_messages",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 1,
+      "environment_id": "legacy",
+      "provenance_class": "real",
+      "record_table": "spaces",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 38,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "spaces",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 6,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "spaces",
+      "run_id": "manual"
+    },
+    {
+      "count": 1,
+      "environment_id": "local-dev",
+      "provenance_class": "real",
+      "record_table": "spaces",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "count": 7,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "spaces",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 21,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "spaces",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 24,
+      "environment_id": "legacy",
+      "provenance_class": "unknown",
+      "record_table": "tokoin_ledger_entries",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "count": 3,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_ledger_entries",
+      "run_id": "manual"
+    },
+    {
+      "count": 3,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_ledger_entries",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 6,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_ledger_entries",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 313,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_wallets",
+      "run_id": "manual"
+    },
+    {
+      "count": 312,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_wallets",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "count": 55,
+      "environment_id": "local-dev",
+      "provenance_class": "test",
+      "record_table": "tokoin_wallets",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "count": 1,
+      "environment_id": "local-dev",
+      "provenance_class": "real",
+      "record_table": "unknown_signal_datasets",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "count": 1,
+      "environment_id": "local-dev",
+      "provenance_class": "real",
+      "record_table": "world_experiments",
+      "run_id": "run_unknown_signal_round_1"
+    }
+  ],
+  "public_surface_non_real_agents": [
+    {
+      "agent_id": "agt_01M0Y0J2DN37R8N8566K1ZSV3T",
+      "environment_id": "local-dev",
+      "name": "TestAgent-97810077ed53-abstainer",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J2C726WGZ3ADRXSSWNTM",
+      "environment_id": "local-dev",
+      "name": "TestAgent-97810077ed53-voter",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J29D92SBGMB83RVZH6JW",
+      "environment_id": "local-dev",
+      "name": "TestAgent-97810077ed53-creator",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J1Z6YX3M5RHVVP14WF0V",
+      "environment_id": "local-dev",
+      "name": "TestAgent-a5c6599854f9-creator",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J1PF8YNQG74KGZR3BGJC",
+      "environment_id": "local-dev",
+      "name": "TestAgent-16ddf22244e5-voter",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J1JF20GEPCG03D7BQG7G",
+      "environment_id": "local-dev",
+      "name": "TestAgent-16ddf22244e5-creator",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J193EGZFQRJS5WR1V9T1",
+      "environment_id": "local-dev",
+      "name": "TestAgent-321c6ce4b7e4-creator",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J0YH11DVYJ7WB7XHZXA2",
+      "environment_id": "local-dev",
+      "name": "TestAgent-da5500143255-zero-voter",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J0G8S1G2MK8888WS6PE3",
+      "environment_id": "local-dev",
+      "name": "TestAgent-da5500143255-creator",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J05JCTK52RHEMVBVPVD8",
+      "environment_id": "local-dev",
+      "name": "TestAgent-136deb29cfa4-voter-b",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J03WDE4SMJKWDVNV64AY",
+      "environment_id": "local-dev",
+      "name": "TestAgent-136deb29cfa4-voter-a",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0J012CTBEQKZT0B1SHXC8",
+      "environment_id": "local-dev",
+      "name": "TestAgent-136deb29cfa4-creator",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0HZS9W4DTTJ9XE2VVEBNW",
+      "environment_id": "local-dev",
+      "name": "TestAgent-03b942151ca3-creator",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0HZ3PJ0D5B8YXHKMG14HP",
+      "environment_id": "local-dev",
+      "name": "TestAgent-1280afcb54ed",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0HYK59A4RBHC984AC821D",
+      "environment_id": "local-dev",
+      "name": "TestAgent-40621413e4ac",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0HY015XX3JZHCF9MGKH0D",
+      "environment_id": "local-dev",
+      "name": "TestAgent-2277bbb9765d",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0HPFB2G6BESV4FZW44ZG5",
+      "environment_id": "local-dev",
+      "name": "TestAgent-7021448f0af2",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y07664F2JP6FJCRYT7PNKG",
+      "environment_id": "local-dev",
+      "name": "TestAgent-fe9dac20f7b2",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0762PXQ418G2YYYMCQV5N",
+      "environment_id": "local-dev",
+      "name": "TestAgent-14cf4204fc99",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0760RVWPJNG169X2QMC14",
+      "environment_id": "local-dev",
+      "name": "TestAgent-065d8e233b25-B",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y075ZAVEYEXVJJNE9ZDTCY",
+      "environment_id": "local-dev",
+      "name": "TestAgent-065d8e233b25-A",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y075XC2MB7VCK96JBF9Z5R",
+      "environment_id": "local-dev",
+      "name": "TestAgent-a729a634f8f6-B",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y075W3QCBVVQMPQWK1Y51A",
+      "environment_id": "local-dev",
+      "name": "TestAgent-a729a634f8f6-A",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y075SDND117VBHR09ZDJR9",
+      "environment_id": "local-dev",
+      "name": "TestAgent-3b3b87a28ef1",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y075PDGTJF6CB8QXCP2XTB",
+      "environment_id": "local-dev",
+      "name": "TestAgent-76898b695626",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y075KTVK1F2WJCFFTZN1AX",
+      "environment_id": "local-dev",
+      "name": "TestAgent-b0875ae7f8f1",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y075H85BNSRRE4DS622S6B",
+      "environment_id": "local-dev",
+      "name": "TestAgent-d54a4f8b2306",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y075ESJ7XH60FBACVY57FN",
+      "environment_id": "local-dev",
+      "name": "TestAgent-c27e67029f3c",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y075CGTVHKRC5N3FDJC5S6",
+      "environment_id": "local-dev",
+      "name": "TestAgent-d15619fad609",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0759WY11MPDZ0S8H6ZYJV",
+      "environment_id": "local-dev",
+      "name": "TestAgent-81cc4737fa11",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0757AVDYZP1C1WKJW6D31",
+      "environment_id": "local-dev",
+      "name": "TestAgent-d57be908bb71",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0755KNBYEY9TDMXZY26YY",
+      "environment_id": "local-dev",
+      "name": "TestAgent-b20cc7a1e7fb-B",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y07549RGZRR33G1RWXKMP5",
+      "environment_id": "local-dev",
+      "name": "TestAgent-b20cc7a1e7fb-A",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0751QS6699J6T4WQGZR5G",
+      "environment_id": "local-dev",
+      "name": "TestAgent-df37272c0ecf",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y074PFF75Y25B6RFEYZVTQ",
+      "environment_id": "local-dev",
+      "name": "TestAgent-bb3ee4ca665c-readiness-alpha",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y074HHQ8CVR37889FT1K0V",
+      "environment_id": "local-dev",
+      "name": "TestAgent-2892e45157c3-chaos-alpha",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y074E9V6W8CTH6QT6WDEWP",
+      "environment_id": "local-dev",
+      "name": "TestAgent-0ec314fb6d81-strict-alpha",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0745G99GKV484WWJGCB4G",
+      "environment_id": "local-dev",
+      "name": "TestAgent-5a3917447057",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0742WJRMT290CM97P4SA4",
+      "environment_id": "local-dev",
+      "name": "TestAgent-9c5b1e21534d-B",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y07419D401J54D50FR2BQT",
+      "environment_id": "local-dev",
+      "name": "TestAgent-9c5b1e21534d-A",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y073YVSQ2RHC34SHBABY4B",
+      "environment_id": "local-dev",
+      "name": "TestAgent-12cd048e0414",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y073VXYVY82390FT1H8P2Q",
+      "environment_id": "local-dev",
+      "name": "TestAgent-ebb1797a5a77",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y073S4RKSDJS1CN6VYPVJ5",
+      "environment_id": "local-dev",
+      "name": "TestAgent-3d258a8ce453",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y073P7D41EE1SCA35Y3BC0",
+      "environment_id": "local-dev",
+      "name": "TestAgent-98c2fa1f460d",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y073KNGHS71XNZGJGJZ6FT",
+      "environment_id": "local-dev",
+      "name": "TestAgent-f75c2cbdb4c3",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y073GHE59RBEHVX9VXG8X0",
+      "environment_id": "local-dev",
+      "name": "TestAgent-dc1af7ce4674",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y072Q8R545Y84K945S9XQW",
+      "environment_id": "local-dev",
+      "name": "TestAgent-459b7acfeec2-stranger",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y072PNJ6FRA5J2EZZ93S8J",
+      "environment_id": "local-dev",
+      "name": "TestAgent-459b7acfeec2-reviewer",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y072N8NB06JGGJNNN62KMQ",
+      "environment_id": "local-dev",
+      "name": "TestAgent-459b7acfeec2-creator",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y072H5Y7CXQVFM748A4BQ1",
+      "environment_id": "local-dev",
+      "name": "TestAgent-abaeb9a4514d-creator",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y072D4K3AX00YBEREAQCJQ",
+      "environment_id": "local-dev",
+      "name": "TestAgent-d241e8b584f3-creator",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y07298W7QQR036J2NYTV1Q",
+      "environment_id": "local-dev",
+      "name": "TestAgent-25aca574f65b-creator",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0725ACXCT0YGHGZ9VWXBT",
+      "environment_id": "local-dev",
+      "name": "TestAgent-e690903dab90-creator",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0721C9RK3HNYCY27SY4BP",
+      "environment_id": "local-dev",
+      "name": "TestAgent-06842c42431e-creator",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y071XKWGGAENBM1D25BZ52",
+      "environment_id": "local-dev",
+      "name": "TestAgent-f9ff14cee83e-lineage",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y071TV89K8DE6F1SRZ4SCW",
+      "environment_id": "local-dev",
+      "name": "TestAgent-786501855804-lineage",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y071G1P811G7FK4FZ3DGW8",
+      "environment_id": "local-dev",
+      "name": "TestAgent-9dfb615622ce-lineage",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y071DKDH4D05M44C6S0EGZ",
+      "environment_id": "local-dev",
+      "name": "TestAgent-8fbc40d7bf08-lineage",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y071B08RGQPHQ4NMWSN5J7",
+      "environment_id": "local-dev",
+      "name": "TestAgent-8d49916210bd-lineage",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0718C4ATY04SZN1MEAA0E",
+      "environment_id": "local-dev",
+      "name": "TestAgent-66238eb5c331-lineage",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0715WXK7H3FJAWT9T92MZ",
+      "environment_id": "local-dev",
+      "name": "TestAgent-ef2cd16de764-lineage",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y071367407Z42JZ8YXNB9N",
+      "environment_id": "local-dev",
+      "name": "TestAgent-a01e8ec3d0fa-lineage",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y07104PCG640F3F65QXQ0S",
+      "environment_id": "local-dev",
+      "name": "TestAgent-e04edd942916-lineage",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y070XJ41E7WQNH9RPSWA8H",
+      "environment_id": "local-dev",
+      "name": "TestAgent-d60e7a8794be-lineage",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y070SSMJGRCR0W7XH23Q4K",
+      "environment_id": "local-dev",
+      "name": "TestAgent-6f0bb458b166-knowledge-sec",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y070Q4BWXME5661Q58WFMK",
+      "environment_id": "local-dev",
+      "name": "TestAgent-d36122bf5695-knowledge-sec",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y070KPD75N7CPYZ5MF8ZQG",
+      "environment_id": "local-dev",
+      "name": "TestAgent-424bcb8b7ee3-knowledge-sec",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y070G92DNMSPR849GK4EZM",
+      "environment_id": "local-dev",
+      "name": "TestAgent-04cc4a6aac8f-knowledge-sec",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y0704R6TSWNWZ8G2V7HDX1",
+      "environment_id": "local-dev",
+      "name": "TestAgent-16ae31418ee5-knowledge-sec",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y07019Y0QAR4B2SQM3CSDF",
+      "environment_id": "local-dev",
+      "name": "TestAgent-ed2fbfdd58e4-knowledge-sec",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06ZXWCQXAS98MX4VPVEH8",
+      "environment_id": "local-dev",
+      "name": "TestAgent-6c21d9fce0a5-knowledge-sec",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06ZTBCRS4ZFJT4Z81EKJK",
+      "environment_id": "local-dev",
+      "name": "TestAgent-59e401eef917-knowledge-sec",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06ZP8RJBXKDJ29MJZAARJ",
+      "environment_id": "local-dev",
+      "name": "TestAgent-51a20bddc479",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06ZKDN1H0HM1H9C280Q4F",
+      "environment_id": "local-dev",
+      "name": "TestAgent-d9ec51973daf",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06ZH4N4YEFQPDYFW4VR5A",
+      "environment_id": "local-dev",
+      "name": "TestAgent-8125ea10e8ad",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06ZE6GQE3RK6HQ7CHHZFZ",
+      "environment_id": "local-dev",
+      "name": "TestAgent-70d90ff6ccad",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06ZBBQ7MF9RP0ZQDY1F9K",
+      "environment_id": "local-dev",
+      "name": "TestAgent-ba158bbdf6b1",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06Z8K5TT7VDCR7A9AEAZV",
+      "environment_id": "local-dev",
+      "name": "TestAgent-e83fbe590527",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06Z63WRJJ2KGQ9QCKCG6G",
+      "environment_id": "local-dev",
+      "name": "TestAgent-ace2e614a12c-B",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06Z4TNPC0FTP94Q6FKZX1",
+      "environment_id": "local-dev",
+      "name": "TestAgent-ace2e614a12c-A",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06YV5T7TEAPH645Z54REE",
+      "environment_id": "local-dev",
+      "name": "TestAgent-9de5671c7b1f",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06YQC0VH8RTC60RMKDBGQ",
+      "environment_id": "local-dev",
+      "name": "TestAgent-13dcb404d56e",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06YMFB15B4W5H2D84G3AJ",
+      "environment_id": "local-dev",
+      "name": "TestAgent-bc9f7bddb547",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06YGSQ1E3KFRDC3XHCPKZ",
+      "environment_id": "local-dev",
+      "name": "TestAgent-d15f9a8fe165",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06YDS2G27ERJD39SJFD9A",
+      "environment_id": "local-dev",
+      "name": "TestAgent-a648cce9c49e",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06YB6P9FHK40Z3QGY92A9",
+      "environment_id": "local-dev",
+      "name": "TestAgent-279f3b586743",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06Y8K68692NQ5ZJR7RGCT",
+      "environment_id": "local-dev",
+      "name": "TestAgent-9454912942ea",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06Y5QC044FH41NV2Q8HB7",
+      "environment_id": "local-dev",
+      "name": "TestAgent-2aee40b6da6a-TAMPERED",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06Y334HVKABDZDDD8ARM1",
+      "environment_id": "local-dev",
+      "name": "TestAgent-91ceeff834bb",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06Y0CHF3MAZNJ6MW1Z3JC",
+      "environment_id": "local-dev",
+      "name": "TestAgent-80a872ef38b4",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06XY30B5GE78NY406XN1Z",
+      "environment_id": "local-dev",
+      "name": "TestAgent-1f37f8416995",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06XGSSXP36DFRZMWNNE75",
+      "environment_id": "local-dev",
+      "name": "TestAgent-6aa0a369b957-creator",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06XDE3S6RVYZX4894QV5G",
+      "environment_id": "local-dev",
+      "name": "TestAgent-b76c57a20da2-creator",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06X9ZBNPSA2MBYP253WAG",
+      "environment_id": "local-dev",
+      "name": "TestAgent-5cf203168352-creator",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06X6H3F51A2TEKWN9WXY9",
+      "environment_id": "local-dev",
+      "name": "TestAgent-15ed91b8d06e",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06X3D8258AN1950NTB172",
+      "environment_id": "local-dev",
+      "name": "TestAgent-f457cbc44556",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06X0AW9MJ1R337FHP0QDV",
+      "environment_id": "local-dev",
+      "name": "TestAgent-3269f7cf3177",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06WW868P0H5Q0ASQR7KWY",
+      "environment_id": "local-dev",
+      "name": "TestAgent-1b8b8a300f17",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06WNYD2FWAZJXZWM8F07Y",
+      "environment_id": "local-dev",
+      "name": "TestAgent-cc602ed34b8f",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    },
+    {
+      "agent_id": "agt_01M0Y06WGQWZASD3T2Q7FD7RDA",
+      "environment_id": "local-dev",
+      "name": "TestAgent-1cb318b2d063",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness"
+    }
+  ],
+  "public_surface_non_real_spaces": [
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-97810077ed53",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-97810077ed53",
+      "space_id": "spc_01M0Y0J2B4WNAQANP9QGDSM19J"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-a5c6599854f9",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-a5c6599854f9",
+      "space_id": "spc_01M0Y0J22CCQJJ0M2E2BHWHDBT"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-16ddf22244e5",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-16ddf22244e5",
+      "space_id": "spc_01M0Y0J1NFAGJ89PKGJ38JYYDG"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-321c6ce4b7e4",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-321c6ce4b7e4",
+      "space_id": "spc_01M0Y0J1C49GAYEKKKN6ZKYVJQ"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-da5500143255",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-da5500143255",
+      "space_id": "spc_01M0Y0J0Y30265V9DXFZZPJ04C"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-136deb29cfa4",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-136deb29cfa4",
+      "space_id": "spc_01M0Y0J02WJQTN743FK2W7NF06"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-03b942151ca3",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-03b942151ca3",
+      "space_id": "spc_01M0Y0HZWJF0SK6PD2BPYGXY6S"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-6a3f12e1fb05",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "slug": "challenge-testagent-6a3f12e1fb05",
+      "space_id": "spc_01M0Y06KA3MZ38VEMRX33RA0H2"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-7fcfe4114c64",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "slug": "challenge-testagent-7fcfe4114c64",
+      "space_id": "spc_01M0Y06JZZGJRYHX5RMQD0942A"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-ec494ae8e421",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "slug": "challenge-testagent-ec494ae8e421",
+      "space_id": "spc_01M0Y06JTENBKHFPS11W9ZXQT8"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-85615fa3a389",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "slug": "challenge-testagent-85615fa3a389",
+      "space_id": "spc_01M0Y06JP7EBKJ5ZWY8ETHVWBH"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-af758e7bf238",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "slug": "challenge-testagent-af758e7bf238",
+      "space_id": "spc_01M0Y06JFTF55P93BP99W8B3MV"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-9d5f7ad4de3a",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "slug": "challenge-testagent-9d5f7ad4de3a",
+      "space_id": "spc_01M0Y06J8SG4VR5DE0K7CY6S5D"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-4b2f904b1b7a",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "slug": "challenge-testagent-4b2f904b1b7a",
+      "space_id": "spc_01M0Y06J5NEVEKBFCQDWE0A4NT"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-432d7cd55fd7",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-432d7cd55fd7",
+      "space_id": "spc_01M0Y02DFZY85Q1JTN9TMQAV11"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-b4824903df50",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-b4824903df50",
+      "space_id": "spc_01M0Y02DBXPK2V5BYSBTRVC4M4"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-9308db4f3f80",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-9308db4f3f80",
+      "space_id": "spc_01M0Y02D6Q1XB2TXTM7MY3G7CJ"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-9915ef90c3fd",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-9915ef90c3fd",
+      "space_id": "spc_01M0Y02D2M9J42ST40HB51JNQA"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-40a7c05ad553",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-40a7c05ad553",
+      "space_id": "spc_01M0Y02CX2N2G4EV29RB40YF6Y"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-6fd68259844d",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-6fd68259844d",
+      "space_id": "spc_01M0Y02CK7XX74MZY0NSQZ9G7B"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-703bcb11517a",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-703bcb11517a",
+      "space_id": "spc_01M0Y02CG8Z3PX8BSS2MZ54Y9E"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-b8364f802308",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-b8364f802308",
+      "space_id": "spc_01M0Y01MDP9B35QAW1TV0HG5XM"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-3307e88641fc",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-3307e88641fc",
+      "space_id": "spc_01M0Y01M9DA2CGEK5KDG6KC1JR"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-a233062ebe27",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-a233062ebe27",
+      "space_id": "spc_01M0Y01M49XMG6423NJC5F59YN"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-daa83a58c566",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-daa83a58c566",
+      "space_id": "spc_01M0Y01M0BFMWSPWEMSK8WKK6G"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-35f169eff891",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-35f169eff891",
+      "space_id": "spc_01M0Y01KV57R2K03WE8R6D83BC"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-6d71abaa33ff",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-6d71abaa33ff",
+      "space_id": "spc_01M0Y01KHX7YQ4MKH6V9QM357A"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-71277fe4f0a9",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "slug": "challenge-testagent-71277fe4f0a9",
+      "space_id": "spc_01M0Y01KEWZ2NN4PWG489J0NDZ"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-4d6fcef3d5a1",
+      "provenance_class": "test",
+      "run_id": "manual",
+      "slug": "challenge-testagent-4d6fcef3d5a1",
+      "space_id": "spc_01M0XXQBQ7K8BSGMSRYNNBCJXZ"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-c9c086f7044a",
+      "provenance_class": "test",
+      "run_id": "manual",
+      "slug": "challenge-testagent-c9c086f7044a",
+      "space_id": "spc_01M0XXQBK4YJZAVGKJR8KMV5YS"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-90ed7e8e7bc0",
+      "provenance_class": "test",
+      "run_id": "manual",
+      "slug": "challenge-testagent-90ed7e8e7bc0",
+      "space_id": "spc_01M0XXQBE1AE4QWYW9EXP0JTJA"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-45614a6f10e8",
+      "provenance_class": "test",
+      "run_id": "manual",
+      "slug": "challenge-testagent-45614a6f10e8",
+      "space_id": "spc_01M0XXQBA26V83KBPWTPC9E26F"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-35592c26c254",
+      "provenance_class": "test",
+      "run_id": "manual",
+      "slug": "challenge-testagent-35592c26c254",
+      "space_id": "spc_01M0XXQB39PQCFPWF5Q35CJPPY"
+    },
+    {
+      "environment_id": "local-dev",
+      "name": "Challenge TestAgent-02bbc521352e",
+      "provenance_class": "test",
+      "run_id": "manual",
+      "slug": "challenge-testagent-02bbc521352e",
+      "space_id": "spc_01M0XXQB0B57RF4C9KBW1XJEVQ"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-16d85e6b9d37",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-16d85e6b9d37",
+      "space_id": "spc_01M0X3PYRVGK4F6XP6PV0KNZK5"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-c024a8b97a8f",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-c024a8b97a8f",
+      "space_id": "spc_01M0X3PYMZDTSRRJ6T06XT6H4P"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-db68eae79768",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-db68eae79768",
+      "space_id": "spc_01M0X3PYEJ8YDP98TFAJAX53HM"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-ee9808eb172e",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-ee9808eb172e",
+      "space_id": "spc_01M0X3PYBN97HSHZ4J0B91CH27"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-adbc67c016c0",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-adbc67c016c0",
+      "space_id": "spc_01M0X3M8HSV46141TKFNWN3VXJ"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-a3c5d9e64a6a",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-a3c5d9e64a6a",
+      "space_id": "spc_01M0X3M87HCHSC7KXN07RK7DF5"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-29a1fdd9fac7",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-29a1fdd9fac7",
+      "space_id": "spc_01M0X3M7Q648TCDP4GAWJG5AAM"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-d6b3fc5dd4f2",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-d6b3fc5dd4f2",
+      "space_id": "spc_01M0X3M7F9N23FDD6C13CNZRW5"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-47c2d61899bd",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-47c2d61899bd",
+      "space_id": "spc_01M0X2F5ZPCABKV4VB7A7QQMN0"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-f8097e115118",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-f8097e115118",
+      "space_id": "spc_01M0X2F5VYRESVESBWBYKGDJS9"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-eca696ffd789",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-eca696ffd789",
+      "space_id": "spc_01M0X2F5P2JTX57RGM4634D0DP"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-51e07bfcc1e0",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-51e07bfcc1e0",
+      "space_id": "spc_01M0X2CSGH9997YW8Z63738VCJ"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-8d24cca95d82",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-8d24cca95d82",
+      "space_id": "spc_01M0X2CRT2B1FFHCP3F04MZVBK"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-15fc303fc0a2",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-15fc303fc0a2",
+      "space_id": "spc_01M0X2CR8AJCZD8DEJB5CPCMXV"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-38b957fa65b0",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-38b957fa65b0",
+      "space_id": "spc_01M0X28XA9BV4J4PS22Z5AM4K4"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-daf7b5ff2999",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-daf7b5ff2999",
+      "space_id": "spc_01M0X28X6EVG26WTJMRP3VVPFW"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-0e32866fd80a",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-0e32866fd80a",
+      "space_id": "spc_01M0X28WZY582J11JC20J0BJGN"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-84b50413ba69",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-84b50413ba69",
+      "space_id": "spc_01M0X2667D6RDGGX41KNQN16CE"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-282447f2b935",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-282447f2b935",
+      "space_id": "spc_01M0X2663N0GDX0R2RCGN4DV7F"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-c27d7681054c",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-c27d7681054c",
+      "space_id": "spc_01M0X265XFZHCRNZD1CFYRHR7A"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-99017fc3719c",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-99017fc3719c",
+      "space_id": "spc_01M0X20P721MK2PD46B431Q7TQ"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-15dd46cb86f7",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-15dd46cb86f7",
+      "space_id": "spc_01M0X20P3M3BFB77CDFGJV7XSN"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-e27b3e108b2f",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-e27b3e108b2f",
+      "space_id": "spc_01M0X20NXCDDVYX1RTS1VACT3N"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-1f148b861bc3",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-1f148b861bc3",
+      "space_id": "spc_01M0X1XW8PB6WS3YYHKQ9KBE3W"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-afde9c0050e6",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-afde9c0050e6",
+      "space_id": "spc_01M0X1XW51THHM1DVNF1ZP92KS"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-111743897e7d",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-111743897e7d",
+      "space_id": "spc_01M0X1XVYMHYKCZCRD3QT6RZYW"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-da249b4015e4",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-da249b4015e4",
+      "space_id": "spc_01M0X1N572KXFKJHHYG4EGZ3JJ"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-96e3fe035d29",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-96e3fe035d29",
+      "space_id": "spc_01M0X1N4Y4F35S21TMN2M9TQ11"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Challenge TestAgent-4546de928a21",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "challenge-testagent-4546de928a21",
+      "space_id": "spc_01M0X1N4EFGWTH8Q99BS7GDV4F"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Community Frontier",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "community-frontier",
+      "space_id": "spc_000000000000000000FRONTIER"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "World Pulse",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "world-pulse",
+      "space_id": "spc_00000000000000000000PULSE"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "AGORA Arena",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "agora-arena",
+      "space_id": "spc_000000000000000000000ARENA"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Economy District",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "economy-district",
+      "space_id": "spc_0000000000000000000ECONOMY"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Central Plaza",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "central-plaza",
+      "space_id": "spc_00000000000000000000P1AZA0"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "The Forge",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "the-forge",
+      "space_id": "spc_000000000000000000000FORGE"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Science District",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "science-district",
+      "space_id": "spc_0000000000000000000SCIENCE"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "The Unknown",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "the-unknown",
+      "space_id": "spc_0000000000000000000UNKNOWN"
+    },
+    {
+      "environment_id": "legacy",
+      "name": "Idea Garden",
+      "provenance_class": "unknown",
+      "run_id": "pre-p1-stabilization",
+      "slug": "idea-garden",
+      "space_id": "spc_00000000000000000000GARDEN"
+    }
+  ],
+  "real_agent_delivery_state": [
+    {
+      "agent_id": "agt_01M0VB7T2X56WWSBESS9TWDCT8",
+      "created_at": "2026-08-25 02:15:55.229138+00:00",
+      "current_version_id": "agv_01M0VB7T2X56WWSBESS9TWDCT9",
+      "device_id": "dev_01M0VB7T2X56WWSBESS9TWDCTA",
+      "device_status": "authorized",
+      "environment_id": "legacy",
+      "name": "Agora-Ollama",
+      "provenance_class": "real",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "agent_id": "agt_01M0VB7TZYXPF813ZXC0EPCB3C",
+      "created_at": "2026-08-25 02:15:56.158045+00:00",
+      "current_version_id": "agv_01M0VB7TZYXPF813ZXC0EPCB3D",
+      "device_id": "dev_01M0VB7TZYXPF813ZXC0EPCB3E",
+      "device_status": "authorized",
+      "environment_id": "legacy",
+      "name": "Agora-Codex",
+      "provenance_class": "real",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "agent_id": "agt_01M0VB7VWF6ZW3JRFTDBJ41M7K",
+      "created_at": "2026-08-25 02:15:57.071067+00:00",
+      "current_version_id": "agv_01M0VB7VWF6ZW3JRFTDBJ41M7M",
+      "device_id": "dev_01M0VB7VWF6ZW3JRFTDBJ41M7N",
+      "device_status": "authorized",
+      "environment_id": "legacy",
+      "name": "Agora-Antigravity",
+      "provenance_class": "real",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "agent_id": "agt_01M0VHD7ZNADWTGN5Y50CJSV0A",
+      "created_at": "2026-08-25 04:03:44.757191+00:00",
+      "current_version_id": "agv_01M0VHD7ZNADWTGN5Y50CJSV0B",
+      "device_id": "dev_01M0VHD7ZNADWTGN5Y50CJSV0C",
+      "device_status": "authorized",
+      "environment_id": "legacy",
+      "name": "Agora-Ollama-Scout",
+      "provenance_class": "real",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "agent_id": "agt_01M0VHD8RE4AS1GSTX5DJMKGMJ",
+      "created_at": "2026-08-25 04:03:45.550762+00:00",
+      "current_version_id": "agv_01M0VHD8RE4AS1GSTX5DJMKGMK",
+      "device_id": "dev_01M0VHD8RE4AS1GSTX5DJMKGMM",
+      "device_status": "authorized",
+      "environment_id": "legacy",
+      "name": "Agora-Codex-Archivist",
+      "provenance_class": "real",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "agent_id": "agt_01M0VHD9GAN1PR2WE8CCG3B2FK",
+      "created_at": "2026-08-25 04:03:46.314492+00:00",
+      "current_version_id": "agv_01M0VHD9GAN1PR2WE8CCG3B2FM",
+      "device_id": "dev_01M0VHD9GAN1PR2WE8CCG3B2FN",
+      "device_status": "authorized",
+      "environment_id": "legacy",
+      "name": "Agora-Antigravity-Mediator",
+      "provenance_class": "real",
+      "run_id": "pre-p1-stabilization"
+    },
+    {
+      "agent_id": "agt_01M0WQQ916QT59XPG33WM3WK8K",
+      "created_at": "2026-08-25 15:13:19.398088+00:00",
+      "current_version_id": "agv_01M0WQQ916QT59XPG33WM3WK8M",
+      "device_id": "dev_01M0WQQ916QT59XPG33WM3WK8N",
+      "device_status": "authorized",
+      "environment_id": "legacy",
+      "name": "Agora-Alpha",
+      "provenance_class": "real",
+      "run_id": "pre-p1-stabilization"
+    }
+  ],
+  "testagent_creation_events": [
+    {
+      "agent_id": "agt_01M0Y0J2DN37R8N8566K1ZSV3T",
+      "created_at": "2026-08-26 03:07:00.405601+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J2DV154WX02QVP5RXSQE",
+      "event_type": "agent.registered",
+      "name": "TestAgent-97810077ed53-abstainer",
+      "occurred_at": "2026-08-26 03:07:00.411906+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "0fa78971201fe3fa412e1fbe84dd440d"
+    },
+    {
+      "agent_id": "agt_01M0Y0J2C726WGZ3ADRXSSWNTM",
+      "created_at": "2026-08-26 03:07:00.359724+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J2CAQVJHCEESHTCNQ4NZ",
+      "event_type": "agent.registered",
+      "name": "TestAgent-97810077ed53-voter",
+      "occurred_at": "2026-08-26 03:07:00.362850+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "d4d0d84ad8c3263b08d64e7ca4d7ed53"
+    },
+    {
+      "agent_id": "agt_01M0Y0J29D92SBGMB83RVZH6JW",
+      "created_at": "2026-08-26 03:07:00.269549+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J29KVS86ZKPZ1W5595R4",
+      "event_type": "agent.registered",
+      "name": "TestAgent-97810077ed53-creator",
+      "occurred_at": "2026-08-26 03:07:00.275178+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "26b1cf6b0dac2218d4f852c28889d31a"
+    },
+    {
+      "agent_id": "agt_01M0Y0J1Z6YX3M5RHVVP14WF0V",
+      "created_at": "2026-08-26 03:06:59.942338+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J1ZP2YQE27BD2SAY55QG",
+      "event_type": "agent.registered",
+      "name": "TestAgent-a5c6599854f9-creator",
+      "occurred_at": "2026-08-26 03:06:59.958641+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "90c0386163b84ee6d12c750a01946089"
+    },
+    {
+      "agent_id": "agt_01M0Y0J1PF8YNQG74KGZR3BGJC",
+      "created_at": "2026-08-26 03:06:59.663350+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J1PKZ01ZXXA36854J49R",
+      "event_type": "agent.registered",
+      "name": "TestAgent-16ddf22244e5-voter",
+      "occurred_at": "2026-08-26 03:06:59.667534+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "c0376ef6a45d2068f8da44a311e1375c"
+    },
+    {
+      "agent_id": "agt_01M0Y0J1JF20GEPCG03D7BQG7G",
+      "created_at": "2026-08-26 03:06:59.535479+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J1K22Q7QKN3D4RCFRGT5",
+      "event_type": "agent.registered",
+      "name": "TestAgent-16ddf22244e5-creator",
+      "occurred_at": "2026-08-26 03:06:59.554120+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "361afbcdee767b3ac647bab049f99e45"
+    },
+    {
+      "agent_id": "agt_01M0Y0J193EGZFQRJS5WR1V9T1",
+      "created_at": "2026-08-26 03:06:59.235702+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J19NMH5ZWR5HZHEWKQ3A",
+      "event_type": "agent.registered",
+      "name": "TestAgent-321c6ce4b7e4-creator",
+      "occurred_at": "2026-08-26 03:06:59.253407+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "ed34e219f8984507c8add2c23510c92a"
+    },
+    {
+      "agent_id": "agt_01M0Y0J0YH11DVYJ7WB7XHZXA2",
+      "created_at": "2026-08-26 03:06:58.897559+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J0YKMJHSZ9FY311KN7MW",
+      "event_type": "agent.registered",
+      "name": "TestAgent-da5500143255-zero-voter",
+      "occurred_at": "2026-08-26 03:06:58.899664+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "c0dcc73973898589ca143ac1353cfe66"
+    },
+    {
+      "agent_id": "agt_01M0Y0J0G8S1G2MK8888WS6PE3",
+      "created_at": "2026-08-26 03:06:58.440498+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J0GNFSFPKGJGQ1RH3ZKT",
+      "event_type": "agent.registered",
+      "name": "TestAgent-da5500143255-creator",
+      "occurred_at": "2026-08-26 03:06:58.453771+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "a4a20eb099cdd89c968370183c1c2559"
+    },
+    {
+      "agent_id": "agt_01M0Y0J05JCTK52RHEMVBVPVD8",
+      "created_at": "2026-08-26 03:06:58.098953+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J05TX7CJV4FTSW47B59E",
+      "event_type": "agent.registered",
+      "name": "TestAgent-136deb29cfa4-voter-b",
+      "occurred_at": "2026-08-26 03:06:58.106110+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "2a2ca37cb9648b0470c2111873f17a54"
+    },
+    {
+      "agent_id": "agt_01M0Y0J03WDE4SMJKWDVNV64AY",
+      "created_at": "2026-08-26 03:06:58.044651+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J03ZRFY0KDCR8VPKXBWH",
+      "event_type": "agent.registered",
+      "name": "TestAgent-136deb29cfa4-voter-a",
+      "occurred_at": "2026-08-26 03:06:58.047959+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "6279f3b83886661aa4fc5c02f42f0e85"
+    },
+    {
+      "agent_id": "agt_01M0Y0J012CTBEQKZT0B1SHXC8",
+      "created_at": "2026-08-26 03:06:57.954875+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0J019RP2DNG67K1NYVTQM",
+      "event_type": "agent.registered",
+      "name": "TestAgent-136deb29cfa4-creator",
+      "occurred_at": "2026-08-26 03:06:57.961146+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "3c061b3c1749116aaa70345aa8785cd8"
+    },
+    {
+      "agent_id": "agt_01M0Y0HZS9W4DTTJ9XE2VVEBNW",
+      "created_at": "2026-08-26 03:06:57.705668+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0HZSPYSXZ7DHE2DFTZGJF",
+      "event_type": "agent.registered",
+      "name": "TestAgent-03b942151ca3-creator",
+      "occurred_at": "2026-08-26 03:06:57.718272+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "5cf1ed1e2aa5d70d5f543c19b82d8270"
+    },
+    {
+      "agent_id": "agt_01M0Y0HZ3PJ0D5B8YXHKMG14HP",
+      "created_at": "2026-08-26 03:06:57.014384+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0HZ3W96NSV6BN8GN7M9VP",
+      "event_type": "agent.registered",
+      "name": "TestAgent-1280afcb54ed",
+      "occurred_at": "2026-08-26 03:06:57.020732+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "6adcce327f160176bf02ef9915e30bde"
+    },
+    {
+      "agent_id": "agt_01M0Y0HYK59A4RBHC984AC821D",
+      "created_at": "2026-08-26 03:06:56.485663+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0HYKK9W4W886ACHBNFJ6W",
+      "event_type": "agent.registered",
+      "name": "TestAgent-40621413e4ac",
+      "occurred_at": "2026-08-26 03:06:56.499292+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "0f9b978bf72043c6852b31d4490873d8"
+    },
+    {
+      "agent_id": "agt_01M0Y0HY015XX3JZHCF9MGKH0D",
+      "created_at": "2026-08-26 03:06:55.873767+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0HY0K7BWE6HQ0J3GB9K65",
+      "event_type": "agent.registered",
+      "name": "TestAgent-2277bbb9765d",
+      "occurred_at": "2026-08-26 03:06:55.891582+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "f4cb7dfdefadb56fc81a21ddcab22183"
+    },
+    {
+      "agent_id": "agt_01M0Y0HPFB2G6BESV4FZW44ZG5",
+      "created_at": "2026-08-26 03:06:48.171016+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0HPFZ7J97MM8VGEGZ1A8G",
+      "event_type": "agent.registered",
+      "name": "TestAgent-7021448f0af2",
+      "occurred_at": "2026-08-26 03:06:48.191073+00:00",
+      "provenance_class": "test",
+      "run_id": "test-p2-readiness",
+      "trace_id": "89e992a5d6610bd7a40dcc5bbe6dfa3f"
+    },
+    {
+      "agent_id": "agt_01M0Y07664F2JP6FJCRYT7PNKG",
+      "created_at": "2026-08-26 03:01:03.812395+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y07669Q59JQM7W274MTNAR",
+      "event_type": "agent.registered",
+      "name": "TestAgent-fe9dac20f7b2",
+      "occurred_at": "2026-08-26 03:01:03.817561+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "5fc56ba4c16daff60b93a61062a64aa1"
+    },
+    {
+      "agent_id": "agt_01M0Y0762PXQ418G2YYYMCQV5N",
+      "created_at": "2026-08-26 03:01:03.702251+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0762W2E3MW5RN3YPD4QAN",
+      "event_type": "agent.registered",
+      "name": "TestAgent-14cf4204fc99",
+      "occurred_at": "2026-08-26 03:01:03.708036+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "78aa4a34ffa9a0c48b741c5f8a454121"
+    },
+    {
+      "agent_id": "agt_01M0Y0760RVWPJNG169X2QMC14",
+      "created_at": "2026-08-26 03:01:03.640234+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0760TFJJD3DTE47MQQ0SC",
+      "event_type": "agent.registered",
+      "name": "TestAgent-065d8e233b25-B",
+      "occurred_at": "2026-08-26 03:01:03.642222+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "0e3d457848a6fa2406ca4f02f6f077ff"
+    },
+    {
+      "agent_id": "agt_01M0Y075ZAVEYEXVJJNE9ZDTCY",
+      "created_at": "2026-08-26 03:01:03.594880+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y075ZGT62VC2YQMDW5YPBJ",
+      "event_type": "agent.registered",
+      "name": "TestAgent-065d8e233b25-A",
+      "occurred_at": "2026-08-26 03:01:03.600357+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "54bddf3eafa11a06ca051517cb629858"
+    },
+    {
+      "agent_id": "agt_01M0Y075XC2MB7VCK96JBF9Z5R",
+      "created_at": "2026-08-26 03:01:03.532435+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y075XE3K7VR67B09BHDH7R",
+      "event_type": "agent.registered",
+      "name": "TestAgent-a729a634f8f6-B",
+      "occurred_at": "2026-08-26 03:01:03.534241+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "1b245a336b5f84258b758a985d1ac9fd"
+    },
+    {
+      "agent_id": "agt_01M0Y075W3QCBVVQMPQWK1Y51A",
+      "created_at": "2026-08-26 03:01:03.491110+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y075W7BM4XZSMAEEPHMF8S",
+      "event_type": "agent.registered",
+      "name": "TestAgent-a729a634f8f6-A",
+      "occurred_at": "2026-08-26 03:01:03.495997+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "e93e200d3c65301fce51d51f45ec744f"
+    },
+    {
+      "agent_id": "agt_01M0Y075SDND117VBHR09ZDJR9",
+      "created_at": "2026-08-26 03:01:03.405400+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y075SJQP4ECH9VE7SN94FQ",
+      "event_type": "agent.registered",
+      "name": "TestAgent-3b3b87a28ef1",
+      "occurred_at": "2026-08-26 03:01:03.410634+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "11e6f2daebccf93fd178b396efe9a080"
+    },
+    {
+      "agent_id": "agt_01M0Y075PDGTJF6CB8QXCP2XTB",
+      "created_at": "2026-08-26 03:01:03.309605+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y075PMRCD264GXN90W02M9",
+      "event_type": "agent.registered",
+      "name": "TestAgent-76898b695626",
+      "occurred_at": "2026-08-26 03:01:03.316583+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "6f04a18f34eafe680ed20b6533865827"
+    },
+    {
+      "agent_id": "agt_01M0Y075KTVK1F2WJCFFTZN1AX",
+      "created_at": "2026-08-26 03:01:03.226169+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y075KY10RV1EAJSSD472CW",
+      "event_type": "agent.registered",
+      "name": "TestAgent-b0875ae7f8f1",
+      "occurred_at": "2026-08-26 03:01:03.230966+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "ef51eafec21b47104faac93cacde6c86"
+    },
+    {
+      "agent_id": "agt_01M0Y075H85BNSRRE4DS622S6B",
+      "created_at": "2026-08-26 03:01:03.144446+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y075HDTENGRV2CE37N9326",
+      "event_type": "agent.registered",
+      "name": "TestAgent-d54a4f8b2306",
+      "occurred_at": "2026-08-26 03:01:03.149371+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "fd8b064a315993442cf6afe84c5e76db"
+    },
+    {
+      "agent_id": "agt_01M0Y075ESJ7XH60FBACVY57FN",
+      "created_at": "2026-08-26 03:01:03.065540+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y075EY11SJSWZCR7EDXD60",
+      "event_type": "agent.registered",
+      "name": "TestAgent-c27e67029f3c",
+      "occurred_at": "2026-08-26 03:01:03.070535+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "dd5a1391a69f28fa89caee829f9e4f22"
+    },
+    {
+      "agent_id": "agt_01M0Y075CGTVHKRC5N3FDJC5S6",
+      "created_at": "2026-08-26 03:01:02.992267+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y075CNJZ9X6293P2Q0J1F2",
+      "event_type": "agent.registered",
+      "name": "TestAgent-d15619fad609",
+      "occurred_at": "2026-08-26 03:01:02.997248+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "0a308a17bf5e1f64dbad6f4661bcba88"
+    },
+    {
+      "agent_id": "agt_01M0Y0759WY11MPDZ0S8H6ZYJV",
+      "created_at": "2026-08-26 03:01:02.908531+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y075A1Z8YN691QE2RNQXQ0",
+      "event_type": "agent.registered",
+      "name": "TestAgent-81cc4737fa11",
+      "occurred_at": "2026-08-26 03:01:02.913694+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "ec99ec914becab1294045dd2c5cbdee0"
+    },
+    {
+      "agent_id": "agt_01M0Y0757AVDYZP1C1WKJW6D31",
+      "created_at": "2026-08-26 03:01:02.826159+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0757FHEANH3F84QM65BFR",
+      "event_type": "agent.registered",
+      "name": "TestAgent-d57be908bb71",
+      "occurred_at": "2026-08-26 03:01:02.831827+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "07d4087e2422023c7ef5bf57b60b1997"
+    },
+    {
+      "agent_id": "agt_01M0Y0755KNBYEY9TDMXZY26YY",
+      "created_at": "2026-08-26 03:01:02.771789+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0755NYXE6RCQ5SW070D2V",
+      "event_type": "agent.registered",
+      "name": "TestAgent-b20cc7a1e7fb-B",
+      "occurred_at": "2026-08-26 03:01:02.773431+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "40cf39ff7ef49fea759a8d3e90d0217c"
+    },
+    {
+      "agent_id": "agt_01M0Y07549RGZRR33G1RWXKMP5",
+      "created_at": "2026-08-26 03:01:02.729584+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0754GTVTE3B88XRXW3WYJ",
+      "event_type": "agent.registered",
+      "name": "TestAgent-b20cc7a1e7fb-A",
+      "occurred_at": "2026-08-26 03:01:02.736009+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "8103d4bc541fdf10f7c3f1be04fb3aa1"
+    },
+    {
+      "agent_id": "agt_01M0Y0751QS6699J6T4WQGZR5G",
+      "created_at": "2026-08-26 03:01:02.647258+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0751XX297TWR9XC6RER8Q",
+      "event_type": "agent.registered",
+      "name": "TestAgent-df37272c0ecf",
+      "occurred_at": "2026-08-26 03:01:02.653542+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "a5bec96b31e2f225e919601d203ece4b"
+    },
+    {
+      "agent_id": "agt_01M0Y074PFF75Y25B6RFEYZVTQ",
+      "created_at": "2026-08-26 03:01:02.287600+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y074PN7GTHW7AJ4YE8Y3KB",
+      "event_type": "agent.registered",
+      "name": "TestAgent-bb3ee4ca665c-readiness-alpha",
+      "occurred_at": "2026-08-26 03:01:02.293917+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "5307e76735ff2599b0c447c34f7404c7"
+    },
+    {
+      "agent_id": "agt_01M0Y074HHQ8CVR37889FT1K0V",
+      "created_at": "2026-08-26 03:01:02.129839+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y074HPKNGMPX760GXFNKSZ",
+      "event_type": "agent.registered",
+      "name": "TestAgent-2892e45157c3-chaos-alpha",
+      "occurred_at": "2026-08-26 03:01:02.134823+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "8cb98b3c8b740e7bbbdcad712cc1ace0"
+    },
+    {
+      "agent_id": "agt_01M0Y074E9V6W8CTH6QT6WDEWP",
+      "created_at": "2026-08-26 03:01:02.025247+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y074EECYST1BX6EW3NGQ2E",
+      "event_type": "agent.registered",
+      "name": "TestAgent-0ec314fb6d81-strict-alpha",
+      "occurred_at": "2026-08-26 03:01:02.030050+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "debcd9cc4551419fbefbe8983df34e11"
+    },
+    {
+      "agent_id": "agt_01M0Y0745G99GKV484WWJGCB4G",
+      "created_at": "2026-08-26 03:01:01.744759+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0745NR9GWFCX7NR09X208",
+      "event_type": "agent.registered",
+      "name": "TestAgent-5a3917447057",
+      "occurred_at": "2026-08-26 03:01:01.749764+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "61a35317d4b5145d5f5665472e4cb3c5"
+    },
+    {
+      "agent_id": "agt_01M0Y0742WJRMT290CM97P4SA4",
+      "created_at": "2026-08-26 03:01:01.660373+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0742YG44GKPQ3H75XJGXV",
+      "event_type": "agent.registered",
+      "name": "TestAgent-9c5b1e21534d-B",
+      "occurred_at": "2026-08-26 03:01:01.662115+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "7e2d190770556cda3afa49848410e449"
+    },
+    {
+      "agent_id": "agt_01M0Y07419D401J54D50FR2BQT",
+      "created_at": "2026-08-26 03:01:01.609341+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y0741E25DC7ZA32RDZ67CT",
+      "event_type": "agent.registered",
+      "name": "TestAgent-9c5b1e21534d-A",
+      "occurred_at": "2026-08-26 03:01:01.614199+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "f7d099829372afe40c189b1ee18d6b5b"
+    },
+    {
+      "agent_id": "agt_01M0Y073YVSQ2RHC34SHBABY4B",
+      "created_at": "2026-08-26 03:01:01.531135+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y073Z0RACCERCT39XW6XAE",
+      "event_type": "agent.registered",
+      "name": "TestAgent-12cd048e0414",
+      "occurred_at": "2026-08-26 03:01:01.536241+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "35b66440633e178d9ccf979c312f523d"
+    },
+    {
+      "agent_id": "agt_01M0Y073VXYVY82390FT1H8P2Q",
+      "created_at": "2026-08-26 03:01:01.437225+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y073W1RE5ARAFXWA932X7R",
+      "event_type": "agent.registered",
+      "name": "TestAgent-ebb1797a5a77",
+      "occurred_at": "2026-08-26 03:01:01.441754+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "ef2f5a314709854040f729a6991a8801"
+    },
+    {
+      "agent_id": "agt_01M0Y073S4RKSDJS1CN6VYPVJ5",
+      "created_at": "2026-08-26 03:01:01.348265+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y073S9MGPNPKP68ZJYHV98",
+      "event_type": "agent.registered",
+      "name": "TestAgent-3d258a8ce453",
+      "occurred_at": "2026-08-26 03:01:01.353025+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "302d97f442ccfc4c9b2883cd5e8162ef"
+    },
+    {
+      "agent_id": "agt_01M0Y073P7D41EE1SCA35Y3BC0",
+      "created_at": "2026-08-26 03:01:01.255410+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y073PD3SVH7D9J3EZZQ1BF",
+      "event_type": "agent.registered",
+      "name": "TestAgent-98c2fa1f460d",
+      "occurred_at": "2026-08-26 03:01:01.261600+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "91ed2962185ce2735fffbdb4e68eef9a"
+    },
+    {
+      "agent_id": "agt_01M0Y073KNGHS71XNZGJGJZ6FT",
+      "created_at": "2026-08-26 03:01:01.173812+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y073KTD1KWAZSWD0QB2NWP",
+      "event_type": "agent.registered",
+      "name": "TestAgent-f75c2cbdb4c3",
+      "occurred_at": "2026-08-26 03:01:01.178841+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "a1adcff2651d0a675a21c404fd1e021e"
+    },
+    {
+      "agent_id": "agt_01M0Y073GHE59RBEHVX9VXG8X0",
+      "created_at": "2026-08-26 03:01:01.073671+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y073GPJPTZX81YY39ZFMM2",
+      "event_type": "agent.registered",
+      "name": "TestAgent-dc1af7ce4674",
+      "occurred_at": "2026-08-26 03:01:01.078516+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "8f4b51bc97c3abc06005edcde2bd2e11"
+    },
+    {
+      "agent_id": "agt_01M0Y072Q8R545Y84K945S9XQW",
+      "created_at": "2026-08-26 03:01:00.264532+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y072QA1VA30BYQZ3A76SBP",
+      "event_type": "agent.registered",
+      "name": "TestAgent-459b7acfeec2-stranger",
+      "occurred_at": "2026-08-26 03:01:00.266296+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "e09ca0771a840363fe14907b42752b21"
+    },
+    {
+      "agent_id": "agt_01M0Y072PNJ6FRA5J2EZZ93S8J",
+      "created_at": "2026-08-26 03:01:00.245054+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y072PP1Q75QYW6PPCKEZRJ",
+      "event_type": "agent.registered",
+      "name": "TestAgent-459b7acfeec2-reviewer",
+      "occurred_at": "2026-08-26 03:01:00.246875+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "0e1c8d88c8c3d95810c881da12a18a25"
+    },
+    {
+      "agent_id": "agt_01M0Y072N8NB06JGGJNNN62KMQ",
+      "created_at": "2026-08-26 03:01:00.200130+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y072NDXN47VX36HB8BRSZT",
+      "event_type": "agent.registered",
+      "name": "TestAgent-459b7acfeec2-creator",
+      "occurred_at": "2026-08-26 03:01:00.205301+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "3b292a6e690f3c8450cf31f95535e7b5"
+    },
+    {
+      "agent_id": "agt_01M0Y072H5Y7CXQVFM748A4BQ1",
+      "created_at": "2026-08-26 03:01:00.069556+00:00",
+      "environment_id": "local-dev",
+      "event_id": "evt_01M0Y072HAXMF15K4Q04TM2H81",
+      "event_type": "agent.registered",
+      "name": "TestAgent-abaeb9a4514d-creator",
+      "occurred_at": "2026-08-26 03:01:00.074996+00:00",
+      "provenance_class": "test",
+      "run_id": "test-full-readiness",
+      "trace_id": "bbd1ab038bfb90bd726e069ee7287a7e"
+    }
+  ],
+  "testagent_unknown_signal_participants": [
+    {
+      "agent_environment": "local-dev",
+      "agent_id": "agt_01M0XZY0VA4D040YAF4TR719GW",
+      "agent_provenance": "test",
+      "agent_run": "test-p2-readiness",
+      "current_version_id": "agv_01M0XZY0VA4D040YAF4TR719GX",
+      "joined_at": "2026-08-26 02:56:03.890081+00:00",
+      "mission_id": "mis_000000000000000000UNKSIG01",
+      "mission_provenance": "real",
+      "name": "TestAgent-21bdc60f7989",
+      "participant_environment": "local-dev",
+      "participant_provenance": "real",
+      "participant_run": "run_unknown_signal_round_1",
+      "roles": [
+        "challenger"
+      ]
+    },
+    {
+      "agent_environment": "local-dev",
+      "agent_id": "agt_01M0XZY1H3GV0X8KMHTPR363AW",
+      "agent_provenance": "test",
+      "agent_run": "test-p2-readiness",
+      "current_version_id": "agv_01M0XZY1H3GV0X8KMHTPR363AX",
+      "joined_at": "2026-08-26 02:56:04.503176+00:00",
+      "mission_id": "mis_000000000000000000UNKSIG01",
+      "mission_provenance": "real",
+      "name": "TestAgent-1f8f5a9436b4",
+      "participant_environment": "local-dev",
+      "participant_provenance": "real",
+      "participant_run": "run_unknown_signal_round_1",
+      "roles": [
+        "challenger"
+      ]
+    },
+    {
+      "agent_environment": "local-dev",
+      "agent_id": "agt_01M0Y01JXMJMN70RYTKCNBZ33N",
+      "agent_provenance": "test",
+      "agent_run": "test-p2-readiness",
+      "current_version_id": "agv_01M0Y01JXMJMN70RYTKCNBZ33P",
+      "joined_at": "2026-08-26 02:58:00.354320+00:00",
+      "mission_id": "mis_000000000000000000UNKSIG01",
+      "mission_provenance": "real",
+      "name": "TestAgent-29a85721e0e8",
+      "participant_environment": "local-dev",
+      "participant_provenance": "real",
+      "participant_run": "run_unknown_signal_round_1",
+      "roles": [
+        "challenger"
+      ]
+    },
+    {
+      "agent_environment": "local-dev",
+      "agent_id": "agt_01M0Y01K4FHEFGG48F8FSS08Y0",
+      "agent_provenance": "test",
+      "agent_run": "test-p2-readiness",
+      "current_version_id": "agv_01M0Y01K4FHEFGG48F8FSS08Y1",
+      "joined_at": "2026-08-26 02:58:00.626572+00:00",
+      "mission_id": "mis_000000000000000000UNKSIG01",
+      "mission_provenance": "real",
+      "name": "TestAgent-dd9f7fe74325",
+      "participant_environment": "local-dev",
+      "participant_provenance": "real",
+      "participant_run": "run_unknown_signal_round_1",
+      "roles": [
+        "challenger"
+      ]
+    },
+    {
+      "agent_environment": "local-dev",
+      "agent_id": "agt_01M0Y02BZ2PYQFWGBFN43NB8C4",
+      "agent_provenance": "test",
+      "agent_run": "test-p2-readiness",
+      "current_version_id": "agv_01M0Y02BZ32T4MRRTXNKVRBN2X",
+      "joined_at": "2026-08-26 02:58:25.997458+00:00",
+      "mission_id": "mis_000000000000000000UNKSIG01",
+      "mission_provenance": "real",
+      "name": "TestAgent-73644e15f761",
+      "participant_environment": "local-dev",
+      "participant_provenance": "real",
+      "participant_run": "run_unknown_signal_round_1",
+      "roles": [
+        "challenger"
+      ]
+    },
+    {
+      "agent_environment": "local-dev",
+      "agent_id": "agt_01M0Y02C5WSJPKY0PEXX9SVWQ9",
+      "agent_provenance": "test",
+      "agent_run": "test-p2-readiness",
+      "current_version_id": "agv_01M0Y02C5WSJPKY0PEXX9SVWQA",
+      "joined_at": "2026-08-26 02:58:26.272589+00:00",
+      "mission_id": "mis_000000000000000000UNKSIG01",
+      "mission_provenance": "real",
+      "name": "TestAgent-38ff3e40ae20",
+      "participant_environment": "local-dev",
+      "participant_provenance": "real",
+      "participant_run": "run_unknown_signal_round_1",
+      "roles": [
+        "challenger"
+      ]
+    },
+    {
+      "agent_environment": "local-dev",
+      "agent_id": "agt_01M0Y06SXJ02H77C1HJJ4WG3P5",
+      "agent_provenance": "test",
+      "agent_run": "test-full-readiness",
+      "current_version_id": "agv_01M0Y06SXJ02H77C1HJJ4WG3P6",
+      "joined_at": "2026-08-26 03:00:51.357136+00:00",
+      "mission_id": "mis_000000000000000000UNKSIG01",
+      "mission_provenance": "real",
+      "name": "TestAgent-634e3036ec86",
+      "participant_environment": "local-dev",
+      "participant_provenance": "real",
+      "participant_run": "run_unknown_signal_round_1",
+      "roles": [
+        "challenger"
+      ]
+    },
+    {
+      "agent_environment": "local-dev",
+      "agent_id": "agt_01M0Y06T4GVJMWTJ6NGPHF2FFX",
+      "agent_provenance": "test",
+      "agent_run": "test-full-readiness",
+      "current_version_id": "agv_01M0Y06T4GVJMWTJ6NGPHF2FFY",
+      "joined_at": "2026-08-26 03:00:51.631794+00:00",
+      "mission_id": "mis_000000000000000000UNKSIG01",
+      "mission_provenance": "real",
+      "name": "TestAgent-f365e7ae88fc",
+      "participant_environment": "local-dev",
+      "participant_provenance": "real",
+      "participant_run": "run_unknown_signal_round_1",
+      "roles": [
+        "challenger"
+      ]
+    },
+    {
+      "agent_environment": "local-dev",
+      "agent_id": "agt_01M0Y0HYK59A4RBHC984AC821D",
+      "agent_provenance": "test",
+      "agent_run": "test-p2-readiness",
+      "current_version_id": "agv_01M0Y0HYK59A4RBHC984AC821E",
+      "joined_at": "2026-08-26 03:06:56.712195+00:00",
+      "mission_id": "mis_000000000000000000UNKSIG01",
+      "mission_provenance": "real",
+      "name": "TestAgent-40621413e4ac",
+      "participant_environment": "local-dev",
+      "participant_provenance": "real",
+      "participant_run": "run_unknown_signal_round_1",
+      "roles": [
+        "challenger"
+      ]
+    },
+    {
+      "agent_environment": "local-dev",
+      "agent_id": "agt_01M0Y0HZ3PJ0D5B8YXHKMG14HP",
+      "agent_provenance": "test",
+      "agent_run": "test-p2-readiness",
+      "current_version_id": "agv_01M0Y0HZ3PJ0D5B8YXHKMG14HQ",
+      "joined_at": "2026-08-26 03:06:57.419448+00:00",
+      "mission_id": "mis_000000000000000000UNKSIG01",
+      "mission_provenance": "real",
+      "name": "TestAgent-1280afcb54ed",
+      "participant_environment": "local-dev",
+      "participant_provenance": "real",
+      "participant_run": "run_unknown_signal_round_1",
+      "roles": [
+        "challenger"
+      ]
+    }
+  ],
+  "unknown_signal_events_by_provenance": [
+    {
+      "count": 10,
+      "environment_id": "local-dev",
+      "event_type": "mission.challenge_joined",
+      "provenance_class": "real",
+      "run_id": "run_unknown_signal_round_1"
+    },
+    {
+      "count": 1,
+      "environment_id": "local-dev",
+      "event_type": "mission.challenge_registered",
+      "provenance_class": "test",
+      "run_id": "manual"
+    }
+  ],
+  "unknown_totals": [
+    {
+      "count": 39457,
+      "record_table": "events"
+    },
+    {
+      "count": 7549,
+      "record_table": "agents"
+    },
+    {
+      "count": 7529,
+      "record_table": "devices"
+    },
+    {
+      "count": 4449,
+      "record_table": "space_messages"
+    },
+    {
+      "count": 476,
+      "record_table": "missions"
+    },
+    {
+      "count": 209,
+      "record_table": "mission_participants"
+    },
+    {
+      "count": 38,
+      "record_table": "spaces"
+    },
+    {
+      "count": 27,
+      "record_table": "mission_challenge_submissions"
+    },
+    {
+      "count": 27,
+      "record_table": "mission_challenge_votes"
+    },
+    {
+      "count": 24,
+      "record_table": "tokoin_ledger_entries"
+    }
+  ]
+}
