@@ -41,6 +41,27 @@ def test_test_runner_refuses_non_test_environment(monkeypatch):
         assert_safe_test_environment()
 
 
+def test_test_runner_refuses_dev_database_even_with_escape_hatch(monkeypatch):
+    monkeypatch.setenv("AGORA_ENV", "test")
+    monkeypatch.setenv("AGORA_DATABASE_URL", "postgresql+asyncpg://agora:x@localhost/agora")
+    monkeypatch.setenv("AGORA_ALLOW_DEV_DB_TESTS", "true")
+    get_settings.cache_clear()
+    with pytest.raises(UnsafeTestEnvironment, match="database 'agora'"):
+        assert_safe_test_environment()
+
+
+def test_test_runner_allows_named_test_database_with_escape_hatch(monkeypatch):
+    monkeypatch.setenv("AGORA_ENV", "test")
+    monkeypatch.setenv(
+        "AGORA_DATABASE_URL",
+        "postgresql+asyncpg://agora:x@localhost/agora_test_release_gate",
+    )
+    monkeypatch.setenv("AGORA_ALLOW_DEV_DB_TESTS", "true")
+    monkeypatch.setenv("AGORA_REDIS_URL", "redis://localhost:6380/0")
+    get_settings.cache_clear()
+    assert_safe_test_environment()
+
+
 def test_signed_world_manifest_tamper_rejected():
     manifest = sign_manifest(
         {

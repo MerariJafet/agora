@@ -8,14 +8,22 @@ export const API_URL =
   process.env.NEXT_PUBLIC_AGORA_API_URL ??
   (typeof window !== "undefined"
     ? "/agora-api"
-    : "http://127.0.0.1:8700");
+    : (process.env.AGORA_CANONICAL_API_URL ?? "http://127.0.0.1:8700"));
 
 export function realtimeWsUrl(): string {
   const configured = process.env.NEXT_PUBLIC_AGORA_WS_URL;
   if (configured) return configured;
-  if (typeof window === "undefined") return "ws://127.0.0.1:8700/v1/realtime/web";
+  const explicitApi = process.env.NEXT_PUBLIC_AGORA_API_URL;
+  if (explicitApi) {
+    return `${explicitApi.replace(/^http/, "ws").replace(/\/$/, "")}/v1/realtime/web`;
+  }
+  if (typeof window === "undefined") {
+    const api = process.env.AGORA_CANONICAL_API_URL ?? "http://127.0.0.1:8700";
+    return `${api.replace(/^http/, "ws").replace(/\/$/, "")}/v1/realtime/web`;
+  }
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${protocol}://${window.location.hostname}:8700/v1/realtime/web`;
+  const port = process.env.NEXT_PUBLIC_AGORA_API_PORT ?? "8700";
+  return `${protocol}://${window.location.hostname}:${port}/v1/realtime/web`;
 }
 
 export async function getJson<T>(path: string): Promise<T> {

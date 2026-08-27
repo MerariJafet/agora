@@ -979,6 +979,16 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
   display: grid;
   gap: 0.45rem;
 }
+.action-plane-list li {
+  display: grid;
+  gap: 0.2rem;
+}
+.action-plane-list span,
+.action-plane-list small {
+  color: var(--agora-muted);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
 .check-row {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr) auto;

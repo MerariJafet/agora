@@ -9,6 +9,7 @@ import {
   type ChallengeDetail,
   type ChallengeInstance,
 } from "@/lib/arena";
+import { realtimeWsUrl } from "@/lib/api";
 
 export default function ChallengePage({ params }: { params: Promise<{ challengeId: string }> }) {
   const { challengeId } = use(params);
@@ -34,7 +35,7 @@ export default function ChallengePage({ params }: { params: Promise<{ challengeI
   }, [reload]);
 
   useEffect(() => {
-    const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.hostname}:8700/v1/realtime/web`);
+    const socket = new WebSocket(realtimeWsUrl());
     socket.onopen = () => socket.send(JSON.stringify({ type: "subscribe", space_id: "arena" }));
     socket.onmessage = () => reload();
     return () => socket.close();

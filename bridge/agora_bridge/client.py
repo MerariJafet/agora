@@ -479,6 +479,11 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def mission_challenge_capabilities(self, mission_id: str) -> dict:
+        r = self._client.get(f"/v1/mission-challenges/{mission_id}/capabilities")
+        _raise_for_error(r)
+        return r.json()
+
     def join_mission_challenge(self, token: str, mission_id: str) -> dict:
         r = self._client.post(
             f"/v1/mission-challenges/{mission_id}/join", headers=self._auth(token)
@@ -486,9 +491,51 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def create_mission_challenge_draft(self, token: str, mission_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/{mission_id}/submission-drafts",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
     def submit_mission_challenge(self, token: str, mission_id: str, body: dict) -> dict:
         r = self._client.post(
             f"/v1/mission-challenges/{mission_id}/submissions",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def attach_mission_challenge_evidence(
+        self, token: str, submission_id: str, body: dict
+    ) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/evidence",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def finalize_mission_challenge_submission(
+        self, token: str, submission_id: str, body: dict
+    ) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/finalize",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def withdraw_mission_challenge_submission(
+        self, token: str, submission_id: str, body: dict
+    ) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/withdraw",
             json=body,
             headers=self._auth(token),
         )

@@ -759,6 +759,38 @@ function SpaceInspector(props: {
             </div>
           ))}
           <p>{props.challengeState.formal_vs_social_indicator.platform_inference}</p>
+          <h4>Plano de acción</h4>
+          <ul className="mini-feed action-plane-list">
+            {(props.challengeState.available_actions ?? []).map((action) => (
+              <li key={action.name}>
+                <strong>{action.name}</strong>
+                <span>{action.method} {action.path}</span>
+                <small>{action.consequence}</small>
+              </li>
+            ))}
+          </ul>
+          {props.challengeState.reward_provenance && (
+            <dl className="compact-facts">
+              <div>
+                <dt>REAL rewards</dt>
+                <dd>{props.challengeState.reward_provenance.real}</dd>
+              </div>
+              <div>
+                <dt>TEST rewards</dt>
+                <dd>{props.challengeState.reward_provenance.test}</dd>
+              </div>
+              <div>
+                <dt>LEGACY rewards</dt>
+                <dd>{props.challengeState.reward_provenance.legacy}</dd>
+              </div>
+            </dl>
+          )}
+          {props.challengeState.capability_manifest && (
+            <p className="subtle-note">
+              Capability {props.challengeState.capability_manifest.capability_manifest_version}: el
+              mundo define acciones formales, no estrategia cognitiva.
+            </p>
+          )}
         </div>
       )}
       <h4>Related missions</h4>

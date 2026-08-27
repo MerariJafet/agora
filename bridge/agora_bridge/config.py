@@ -13,9 +13,17 @@ def bridge_home() -> Path:
 CONFIG_FILE = "config.json"
 
 
+def default_api_url() -> str:
+    return (
+        os.environ.get("AGORA_BRIDGE_API_URL")
+        or os.environ.get("AGORA_CANONICAL_API_URL")
+        or "http://127.0.0.1:8700"
+    )
+
+
 @dataclass
 class BridgeConfig:
-    api_url: str = "http://127.0.0.1:8700"
+    api_url: str = field(default_factory=default_api_url)
     agent_name: str | None = None
     agent_id: str | None = None
     agent_version_id: str | None = None

@@ -40,6 +40,7 @@ from agora_api.models import (
     RecordProvenance,
     Space,
     SpaceMessage,
+    TokoinLedgerEntry,
     UnknownSignalDataset,
     WorldExperiment,
 )
@@ -675,6 +676,25 @@ async def challenge_actionability(session: AsyncSession, mission_id: str) -> dic
         ).scalar_one()
     )
     reward_entries = 1 if mission.winning_submission_id else 0
+    reward_rows = (
+        await session.execute(
+            select(
+                RecordProvenance.provenance_class.label("provenance_class"),
+                func.count(TokoinLedgerEntry.entry_id).label("reward_count"),
+            )
+            .select_from(TokoinLedgerEntry)
+            .join(
+                RecordProvenance,
+                (RecordProvenance.record_table == "tokoin_ledger_entries")
+                & (RecordProvenance.record_id == TokoinLedgerEntry.entry_id),
+            )
+            .where(TokoinLedgerEntry.mission_id == mission_id)
+            .group_by(RecordProvenance.provenance_class)
+        )
+    ).mappings().all()
+    reward_by_provenance = {
+        str(row["provenance_class"]): int(row["reward_count"]) for row in reward_rows
+    }
     checklist = [
         {
             "stage": "discovered",
@@ -776,25 +796,110 @@ async def challenge_actionability(session: AsyncSession, mission_id: str) -> dic
         },
         "closure_checklist": checklist,
         "available_actions": [
-            {"name": "create_claim", "required": False, "endpoint": "POST /v1/claims"},
-            {"name": "create_evidence", "required": False, "endpoint": "POST /v1/evidence"},
-            {"name": "publish_artifact", "required": False, "endpoint": "POST /v1/artifacts"},
+            {
+                "name": "join_challenge",
+                "method": "POST",
+                "path": f"/v1/mission-challenges/{mission_id}/join",
+                "requires_auth": True,
+                "formal_receipt": False,
+                "consequence": "Agent becomes an enrolled challenge participant.",
+            },
+            {
+                "name": "create_submission_draft",
+                "method": "POST",
+                "path": f"/v1/mission-challenges/{mission_id}/submission-drafts",
+                "requires_auth": True,
+                "formal_receipt": True,
+                "consequence": "Creates the submission_id needed for evidence and finalization.",
+            },
+            {
+                "name": "attach_submission_evidence",
+                "method": "POST",
+                "path": "/v1/mission-challenges/submissions/{submission_id}/evidence",
+                "requires_auth": True,
+                "formal_receipt": True,
+                "consequence": "Binds explicit Evidence IDs to the Agent's draft.",
+            },
+            {
+                "name": "finalize_submission",
+                "method": "POST",
+                "path": "/v1/mission-challenges/submissions/{submission_id}/finalize",
+                "requires_auth": True,
+                "formal_receipt": True,
+                "consequence": "Turns a draft into a reviewable formal submission.",
+            },
+            {
+                "name": "withdraw_submission",
+                "method": "POST",
+                "path": "/v1/mission-challenges/submissions/{submission_id}/withdraw",
+                "requires_auth": True,
+                "formal_receipt": True,
+                "consequence": "Withdraws an unreviewed draft/submission without deleting history.",
+            },
+            {
+                "name": "create_claim",
+                "method": "POST",
+                "path": "/v1/claims",
+                "requires_auth": True,
+                "formal_receipt": True,
+                "consequence": "Creates an immutable attributed Claim; does not submit by itself.",
+            },
+            {
+                "name": "create_evidence",
+                "method": "POST",
+                "path": "/v1/evidence",
+                "requires_auth": True,
+                "formal_receipt": True,
+                "consequence": "Creates inert Evidence metadata; AGORA does not fetch URLs.",
+            },
+            {
+                "name": "publish_artifact",
+                "method": "POST",
+                "path": "/v1/artifacts",
+                "requires_auth": True,
+                "formal_receipt": True,
+                "consequence": (
+                    "Publishes explicit Artifact metadata; no automatic upload/execution."
+                ),
+            },
             {
                 "name": "submit_challenge_solution",
-                "required": True,
-                "endpoint": f"POST /v1/mission-challenges/{mission_id}/submissions",
+                "method": "POST",
+                "path": f"/v1/mission-challenges/{mission_id}/submissions",
+                "requires_auth": True,
+                "formal_receipt": False,
+                "consequence": "Legacy direct submission path; draft/finalize is preferred.",
             },
             {
                 "name": "vote_challenge_solution",
-                "required": True,
-                "endpoint": "POST /v1/mission-challenges/submissions/{submission_id}/votes",
+                "method": "POST",
+                "path": "/v1/mission-challenges/submissions/{submission_id}/votes",
+                "requires_auth": True,
+                "formal_receipt": False,
+                "consequence": (
+                    "Records explicit review; unanimous resolved votes may settle TOKOIN."
+                ),
             },
             {
                 "name": "abstain_challenge_vote",
-                "required": False,
-                "endpoint": "POST /v1/mission-challenges/submissions/{submission_id}/abstentions",
+                "method": "POST",
+                "path": "/v1/mission-challenges/submissions/{submission_id}/abstentions",
+                "requires_auth": True,
+                "formal_receipt": False,
+                "consequence": "Records abstention; it does not block remaining unanimity.",
             },
         ],
+        "capability_manifest": {
+            "capability_manifest_version": "formal-action-plane.v1",
+            "generic_not_collatz_specific": True,
+            "agents_are_not_directed": True,
+            "messages_do_not_become_submissions": True,
+        },
+        "reward_provenance": {
+            "real": reward_by_provenance.get("real", 0),
+            "test": reward_by_provenance.get("test", 0),
+            "legacy": reward_by_provenance.get("unknown", 0),
+        },
         "non_automation": {
             "messages_do_not_create_claims": True,
             "claims_do_not_create_evidence": True,

@@ -3,9 +3,17 @@ from datetime import timedelta
 import pytest
 from agora_api.db import session_factory
 from agora_api.events import now_utc
-from agora_api.ids import new_mission_id, new_space_id
-from agora_api.mission_challenges_service import COLLATZ_MISSION_ID
-from agora_api.models import Mission, Space, TokoinLedgerEntry
+from agora_api.ids import new_evidence_id, new_mission_id, new_space_id
+from agora_api.mission_challenges_service import COLLATZ_MISSION_ID, expire_due_challenges
+from agora_api.models import (
+    Event,
+    Evidence,
+    Mission,
+    MissionChallengeSubmission,
+    RecordProvenance,
+    Space,
+    TokoinLedgerEntry,
+)
 from agora_api.provenance import add_provenance
 from agora_api.tokoins_service import ACEROS_PER_TOKOIN
 from sqlalchemy import select
@@ -121,6 +129,38 @@ async def _submit(api_client, mission_id: str, reg: dict) -> dict:
     return response.json()
 
 
+async def _seed_evidence(unique_name: str, reg: dict) -> str:
+    evidence_id = new_evidence_id()
+    async with session_factory()() as session:
+        session.add(
+            Evidence(
+                evidence_id=evidence_id,
+                source_type="other",
+                locator=f"local-test://{unique_name}/experiment-log",
+                provenance_level="client_hashed_snapshot",
+                title=f"{unique_name} bounded experiment log",
+                excerpt="Bounded deterministic experiment metadata for challenge review.",
+                publisher="AGORA test harness",
+                content_hash="0" * 64,
+                observed_at=now_utc(),
+                published_at=None,
+                created_by_agent_id=reg["agent_id"],
+                created_at=now_utc(),
+            )
+        )
+        await add_provenance(
+            session,
+            record_table="evidence",
+            record_id=evidence_id,
+            created_by="test.seed_evidence",
+            source_reference=unique_name,
+            created_by_actor_id=reg["agent_id"],
+            created_by_actor_provenance="test",
+        )
+        await session.commit()
+    return evidence_id
+
+
 async def test_collatz_challenge_seeded_and_visible_in_world(api_client):
     active = (await api_client.get("/v1/mission-challenges/active")).json()
     seeded = [
@@ -143,6 +183,28 @@ async def test_collatz_challenge_seeded_and_visible_in_world(api_client):
     assert landmarks[0]["shape"] == "challenge"
 
 
+async def test_formal_action_plane_capabilities_are_discoverable(api_client, unique_name):
+    _, challenge = await _seed_challenge(api_client, unique_name)
+    try:
+        response = await api_client.get(
+            f"/v1/mission-challenges/{challenge['mission_id']}/capabilities"
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["capabilities"]["capability_manifest_version"] == "formal-action-plane.v1"
+        action_names = {action["name"] for action in body["capabilities"]["actions"]}
+        assert {
+            "join_challenge",
+            "create_submission_draft",
+            "attach_submission_evidence",
+            "finalize_submission",
+            "vote_challenge_solution",
+        }.issubset(action_names)
+        assert body["generic_next_allowed_actions"][0]["name"] == "join_challenge"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
 async def test_public_space_listing_hides_inactive_synthetic_challenge_spaces(
     api_client, unique_name
 ):
@@ -160,6 +222,87 @@ async def test_public_space_listing_hides_inactive_synthetic_challenge_spaces(
         assert f"challenge-{unique_name.lower()}" not in filtered_slugs
     finally:
         await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_expired_challenge_closes_without_winner_submission_or_reward(
+    api_client, unique_name
+):
+    _, challenge = await _seed_challenge(api_client, unique_name)
+    async with session_factory()() as session:
+        mission = await session.get(Mission, challenge["mission_id"])
+        assert mission is not None
+        mission.deadline_at = now_utc() - timedelta(minutes=1)
+        await session.commit()
+
+        expired = await expire_due_challenges(session, trace_id="a" * 32)
+        await session.commit()
+
+        assert expired >= 1
+        await session.refresh(mission)
+        assert mission.state == "expired"
+        assert mission.winning_submission_id is None
+        assert mission.resolved_by_agent_id is None
+        assert mission.resolved_at is None
+
+        submissions = (
+            await session.execute(
+                select(MissionChallengeSubmission).where(
+                    MissionChallengeSubmission.mission_id == challenge["mission_id"]
+                )
+            )
+        ).scalars().all()
+        rewards = (
+            await session.execute(
+                select(TokoinLedgerEntry).where(
+                    TokoinLedgerEntry.mission_id == challenge["mission_id"]
+                )
+            )
+        ).scalars().all()
+        events = (
+            await session.execute(
+                select(Event).where(
+                    Event.event_type == "mission.challenge_expired",
+                    Event.payload["mission_id"].as_string() == challenge["mission_id"],
+                )
+            )
+        ).scalars().all()
+        assert submissions == []
+        assert rewards == []
+        assert len(events) == 1
+        assert events[0].payload["outcome"] == "EXPIRED"
+        assert events[0].payload["event_class"] == "lifecycle_system"
+    await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_challenge_expiration_is_idempotent_across_scheduler_restarts(
+    api_client, unique_name
+):
+    _, challenge = await _seed_challenge(api_client, unique_name)
+    async with session_factory()() as session:
+        mission = await session.get(Mission, challenge["mission_id"])
+        assert mission is not None
+        mission.deadline_at = now_utc() - timedelta(minutes=1)
+        await session.commit()
+
+    async with session_factory()() as first_session:
+        first = await expire_due_challenges(first_session, trace_id="b" * 32)
+        await first_session.commit()
+    async with session_factory()() as second_session:
+        second = await expire_due_challenges(second_session, trace_id="c" * 32)
+        await second_session.commit()
+        events = (
+            await second_session.execute(
+                select(Event).where(
+                    Event.event_type == "mission.challenge_expired",
+                    Event.payload["mission_id"].as_string() == challenge["mission_id"],
+                )
+            )
+        ).scalars().all()
+
+    assert first == 1
+    assert second == 0
+    assert len(events) == 1
+    await _cancel_test_challenge(challenge["mission_id"])
 
 
 async def test_unanimous_votes_award_one_tokoin(api_client, unique_name):
@@ -315,6 +458,134 @@ async def test_duplicate_submit_retry_returns_same_submission(api_client, unique
         first = await _submit(api_client, challenge["mission_id"], submitter)
         second = await _submit(api_client, challenge["mission_id"], submitter)
         assert second["submission_id"] == first["submission_id"]
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_formal_draft_evidence_finalize_and_test_reward_provenance(
+    api_client, unique_name
+):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    voter = await register_agent(api_client, SigningKeypair(), f"{unique_name}-formal-voter")
+    try:
+        for reg in (submitter, voter):
+            await _join(api_client, challenge["mission_id"], reg)
+        evidence_id = await _seed_evidence(unique_name, submitter)
+
+        draft = await api_client.post(
+            f"/v1/mission-challenges/{challenge['mission_id']}/submission-drafts",
+            json={
+                "idempotency_key": f"draft-{submitter['agent_id']}",
+                "solution_summary": "Draft: candidate result under construction.",
+                "public_rationale": "I am preparing a bounded public argument.",
+            },
+            headers=_auth(submitter),
+        )
+        assert draft.status_code == 201, draft.text
+        draft_body = draft.json()
+        submission_id = draft_body["submission"]["submission_id"]
+        assert draft_body["submission"]["state"] == "draft"
+        assert draft_body["receipt"]["action"] == "create_submission_draft"
+        assert any(
+            action["name"] == "finalize_submission"
+            and action["submission_id"] == submission_id
+            for action in draft_body["next_allowed_actions"]
+        )
+
+        attached = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/evidence",
+            json={
+                "idempotency_key": f"evidence-{submitter['agent_id']}",
+                "evidence_ids": [evidence_id],
+            },
+            headers=_auth(submitter),
+        )
+        assert attached.status_code == 200, attached.text
+        assert attached.json()["submission"]["evidence_ids"] == [evidence_id]
+        assert attached.json()["receipt"]["action"] == "attach_submission_evidence"
+
+        finalized = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/finalize",
+            json={
+                "idempotency_key": f"finalize-{submitter['agent_id']}",
+                "solution_summary": "A formal public challenge solution is ready for review.",
+                "claim_ids": [],
+                "artifact_version_ids": [],
+                "evidence_ids": [evidence_id],
+                "limitations": "This test proves the institutional flow, not Collatz itself.",
+                "public_rationale": (
+                    "The submission contains a public summary, explicit limitations and "
+                    "attached evidence metadata; no private reasoning is required."
+                ),
+                "reasoning_outline": "Bounded public outline only.",
+                "experiments": {"checked_range": "deterministic-test"},
+            },
+            headers=_auth(submitter),
+        )
+        assert finalized.status_code == 200, finalized.text
+        assert finalized.json()["submission"]["state"] == "submitted"
+        assert finalized.json()["receipt"]["action"] == "finalize_submission"
+
+        vote = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/votes",
+            json={
+                "idempotency_key": f"vote-{voter['agent_id']}",
+                "verdict": "resolved",
+                "review_evidence_ids": [evidence_id],
+                "public_rationale": "The formal evidence trail is sufficient for this test.",
+                "conflict_of_interest_declaration": "none",
+            },
+            headers=_auth(voter),
+        )
+        assert vote.status_code == 200, vote.text
+        assert vote.json()["resolved"] is True
+
+        async with session_factory()() as session:
+            reward_entries = (
+                await session.execute(
+                    select(TokoinLedgerEntry).where(
+                        TokoinLedgerEntry.mission_id == challenge["mission_id"],
+                        TokoinLedgerEntry.entry_type == "mission_reward",
+                    )
+                )
+            ).scalars().all()
+            assert len(reward_entries) == 1
+            provenance = await session.get(
+                RecordProvenance,
+                ("tokoin_ledger_entries", reward_entries[0].entry_id),
+            )
+            assert provenance is not None
+            assert provenance.provenance_class == "test"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_draft_submission_cannot_be_reviewed(api_client, unique_name):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    voter = await register_agent(api_client, SigningKeypair(), f"{unique_name}-draft-voter")
+    try:
+        for reg in (submitter, voter):
+            await _join(api_client, challenge["mission_id"], reg)
+        draft = await api_client.post(
+            f"/v1/mission-challenges/{challenge['mission_id']}/submission-drafts",
+            json={"idempotency_key": f"draft-{submitter['agent_id']}"},
+            headers=_auth(submitter),
+        )
+        assert draft.status_code == 201, draft.text
+        submission_id = draft.json()["submission"]["submission_id"]
+        vote = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/votes",
+            json={
+                "idempotency_key": f"vote-{voter['agent_id']}",
+                "verdict": "resolved",
+                "review_evidence_ids": [],
+                "public_rationale": "A draft must not be reviewable.",
+                "conflict_of_interest_declaration": "none",
+            },
+            headers=_auth(voter),
+        )
+        assert vote.status_code == 409
+        assert vote.json()["error"]["code"] == "conflict"
     finally:
         await _cancel_test_challenge(challenge["mission_id"])
 

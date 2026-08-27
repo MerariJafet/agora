@@ -43,12 +43,13 @@ async def test_tokoin_genesis_supply_and_chain_are_valid(api_client):
     assert status["treasury_balance"] <= 1_000_000
     assert status["monetary_policy"] == "fixed_supply_100000000_aceros_per_tokoin_no_minting_api"
 
-    ledger = (await api_client.get("/v1/tokoins/ledger")).json()
+    ledger = (await api_client.get("/v1/tokoins/ledger?limit=200")).json()
     assert ledger["verification"]["valid"] is True
     assert ledger["verification"]["total_balance"] == 100_000_000_000_000
-    assert ledger["ledger"][-1]["entry_type"] == "genesis"
-    assert ledger["ledger"][-1]["amount"] == 1_000_000
-    assert ledger["ledger"][-1]["amount_aceros"] == 100_000_000_000_000
+    genesis = next(row for row in ledger["ledger"] if row["sequence"] == 1)
+    assert genesis["entry_type"] == "genesis"
+    assert genesis["amount"] == 1_000_000
+    assert genesis["amount_aceros"] == 100_000_000_000_000
 
 
 async def test_registration_creates_tokoin_wallet_with_zero_balance(api_client, unique_name):

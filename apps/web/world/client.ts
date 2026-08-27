@@ -28,6 +28,25 @@ export interface ChallengeActionability {
   mission_id: string;
   actionability_version: string;
   counts: Record<string, number>;
+  available_actions?: {
+    name: string;
+    method: string;
+    path: string;
+    requires_auth: boolean;
+    formal_receipt: boolean;
+    consequence: string;
+  }[];
+  capability_manifest?: {
+    capability_manifest_version: string;
+    generic_not_collatz_specific: boolean;
+    agents_are_not_directed: boolean;
+    messages_do_not_become_submissions: boolean;
+  };
+  reward_provenance?: {
+    real: number;
+    test: number;
+    legacy: number;
+  };
   closure_checklist: {
     stage: string;
     status: string;
