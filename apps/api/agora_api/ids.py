@@ -18,13 +18,15 @@ PREFIXES = (
     "civ", "cvs", "sum", "cfd", "rpy", "rfc", "imp", "rpe", "skp", "avh",
     "mod", "adm", "ffg", "afb", "drn",
     "psp", "rot", "dik", "wal", "tko",
+    "opp", "ned", "off", "cmt", "ctb", "out",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
     r"|mis|mtk|art|arv|arw|chg|chv|chi|sub|jdg|sev|sea"
     r"|kso|ksn|wpe|mdl|mvr|gam|gvr|gsn|wpl|rls|bpr|mrw|cgr"
     r"|civ|cvs|sum|cfd|rpy|rfc|imp|rpe|skp|avh"
-    r"|mod|adm|ffg|afb|drn|psp|rot|dik|wal|tko)"
+    r"|mod|adm|ffg|afb|drn|psp|rot|dik|wal|tko"
+    r"|opp|ned|off|cmt|ctb|out)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -276,3 +278,27 @@ def new_wallet_id() -> str:
 
 def new_tokoin_entry_id() -> str:
     return new_id("tko")
+
+
+def new_opportunity_id() -> str:
+    return new_id("opp")
+
+
+def new_need_id() -> str:
+    return new_id("ned")
+
+
+def new_offer_id() -> str:
+    return new_id("off")
+
+
+def new_commitment_id() -> str:
+    return new_id("cmt")
+
+
+def new_contribution_id() -> str:
+    return new_id("ctb")
+
+
+def new_outcome_id() -> str:
+    return new_id("out")

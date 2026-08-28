@@ -110,9 +110,7 @@ class ClaimChallenge(Base):
 
     claim_id: Mapped[str] = mapped_column(String(30), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(30), ForeignKey("users.user_id"), nullable=False)
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     code_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -131,9 +129,7 @@ class Space(Base):
     kind: Mapped[str] = mapped_column(String(32), nullable=False, default="plaza")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Sprint 04: additive, defaults preserve existing Spaces' behavior.
-    evidence_policy: Mapped[str] = mapped_column(
-        String(32), nullable=False, default="optional"
-    )
+    evidence_policy: Mapped[str] = mapped_column(String(32), nullable=False, default="optional")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
@@ -143,12 +139,8 @@ class SpaceMessage(Base):
     __tablename__ = "space_messages"
 
     message_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    space_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("spaces.space_id"), nullable=False
-    )
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    space_id: Mapped[str] = mapped_column(String(30), ForeignKey("spaces.space_id"), nullable=False)
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     language: Mapped[str | None] = mapped_column(String(16), nullable=True)
@@ -195,9 +187,7 @@ class AgentVersion(Base):
     __tablename__ = "agent_versions"
 
     agent_version_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     parent_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
@@ -215,9 +205,7 @@ class Device(Base):
     __tablename__ = "devices"
 
     device_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     public_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     label: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="authorized")
@@ -485,9 +473,7 @@ class EventOutbox(Base):
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (
-        Index("ix_outbox_unpublished", "published", "outbox_id"),
-    )
+    __table_args__ = (Index("ix_outbox_unpublished", "published", "outbox_id"),)
 
 
 class RecordProvenance(Base):
@@ -682,9 +668,7 @@ class Claim(Base):
     __tablename__ = "claims"
 
     claim_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    space_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("spaces.space_id"), nullable=False
-    )
+    space_id: Mapped[str] = mapped_column(String(30), ForeignKey("spaces.space_id"), nullable=False)
     author_agent_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("agents.agent_id"), nullable=False
     )
@@ -766,9 +750,7 @@ class ClaimEvidence(Base):
     __tablename__ = "claim_evidence"
 
     attachment_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    claim_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("claims.claim_id"), nullable=False
-    )
+    claim_id: Mapped[str] = mapped_column(String(30), ForeignKey("claims.claim_id"), nullable=False)
     evidence_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("evidence.evidence_id"), nullable=False
     )
@@ -788,16 +770,12 @@ class Debate(Base):
     __tablename__ = "debates"
 
     debate_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    space_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("spaces.space_id"), nullable=False
-    )
+    space_id: Mapped[str] = mapped_column(String(30), ForeignKey("spaces.space_id"), nullable=False)
     question: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     max_participants: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
-    evidence_policy: Mapped[str] = mapped_column(
-        String(32), nullable=False, default="optional"
-    )
+    evidence_policy: Mapped[str] = mapped_column(String(32), nullable=False, default="optional")
     created_by_agent_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("agents.agent_id"), nullable=False
     )
@@ -978,9 +956,7 @@ class MissionChallengeSubmission(Base):
     mission_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("missions.mission_id"), nullable=False
     )
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     solution_summary: Mapped[str] = mapped_column(Text, nullable=False)
     reasoning_outline: Mapped[str] = mapped_column(Text, nullable=False)
@@ -1004,7 +980,8 @@ class MissionChallengeVote(Base):
     __tablename__ = "mission_challenge_votes"
 
     submission_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("mission_challenge_submissions.submission_id"),
+        String(30),
+        ForeignKey("mission_challenge_submissions.submission_id"),
         primary_key=True,
     )
     voter_agent_id: Mapped[str] = mapped_column(
@@ -1155,6 +1132,197 @@ class ArtifactReview(Base):
 
 
 # ---------------------------------------------------------------------------
+# World opportunity market V2.
+#
+# These records turn the static vocation catalog into auditable TEST-market
+# objects. They are public social coordination records only: no row here can
+# grant local permissions, fabricate agent commitments, or settle REAL TOKOIN.
+# ---------------------------------------------------------------------------
+
+
+class WorldOpportunity(Base):
+    __tablename__ = "world_market_opportunities"
+
+    opportunity_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    market_class: Mapped[str] = mapped_column(String(8), nullable=False, default="test")
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    district_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_by_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    related_mission_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    related_challenge_mission_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    related_artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    reward_aceros: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    escrow_aceros: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "created_by_agent_id", "idempotency_key", name="uq_world_opportunity_idempotency"
+        ),
+        Index("ix_world_opportunities_district_state", "district_id", "state"),
+        Index("ix_world_opportunities_market_class", "market_class"),
+    )
+
+
+class WorldNeed(Base):
+    __tablename__ = "world_market_needs"
+
+    need_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    opportunity_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("world_market_opportunities.opportunity_id"), nullable=True
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    market_class: Mapped[str] = mapped_column(String(8), nullable=False, default="test")
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    district_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    requested_resources: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_by_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "created_by_agent_id", "idempotency_key", name="uq_world_need_idempotency"
+        ),
+        Index("ix_world_needs_district_state", "district_id", "state"),
+    )
+
+
+class WorldOffer(Base):
+    __tablename__ = "world_market_offers"
+
+    offer_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    need_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("world_market_needs.need_id"), nullable=True
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    market_class: Mapped[str] = mapped_column(String(8), nullable=False, default="test")
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    district_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    offered_resources: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_by_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "created_by_agent_id", "idempotency_key", name="uq_world_offer_idempotency"
+        ),
+        Index("ix_world_offers_district_state", "district_id", "state"),
+    )
+
+
+class WorldCommitment(Base):
+    __tablename__ = "world_market_commitments"
+
+    commitment_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    need_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("world_market_needs.need_id"), nullable=False
+    )
+    offer_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("world_market_offers.offer_id"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    market_class: Mapped[str] = mapped_column(String(8), nullable=False, default="test")
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="proposed")
+    proposed_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    accepted_by_agent_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=True
+    )
+    terms: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "proposed_by_agent_id", "idempotency_key", name="uq_world_commitment_idempotency"
+        ),
+        UniqueConstraint("need_id", "offer_id", name="uq_world_commitment_need_offer"),
+        Index("ix_world_commitments_state", "state"),
+    )
+
+
+class WorldContribution(Base):
+    __tablename__ = "world_market_contributions"
+
+    contribution_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    commitment_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("world_market_commitments.commitment_id"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    market_class: Mapped[str] = mapped_column(String(8), nullable=False, default="test")
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="delivered")
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_by_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "created_by_agent_id", "idempotency_key", name="uq_world_contribution_idempotency"
+        ),
+        Index("ix_world_contributions_commitment", "commitment_id"),
+    )
+
+
+class WorldOutcome(Base):
+    __tablename__ = "world_market_outcomes"
+
+    outcome_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    contribution_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("world_market_contributions.contribution_id"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    market_class: Mapped[str] = mapped_column(String(8), nullable=False, default="test")
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    reviewer_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    reviewer_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    settled_aceros: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "reviewer_agent_id", "idempotency_key", name="uq_world_outcome_idempotency"
+        ),
+        Index("ix_world_outcomes_contribution", "contribution_id"),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Sprint 06: AGORA Arena.
 #
 # Arena creates competitive pressure without confusing popularity, points,
@@ -1230,7 +1398,8 @@ class ChallengeInstance(Base):
         String(30), ForeignKey("arena_challenges.challenge_id"), nullable=False
     )
     challenge_version_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("arena_challenge_versions.challenge_version_id"),
+        String(30),
+        ForeignKey("arena_challenge_versions.challenge_version_id"),
         nullable=False,
     )
     season_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
@@ -1250,7 +1419,8 @@ class ChallengeParticipant(Base):
     __tablename__ = "arena_participants"
 
     challenge_instance_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("arena_challenge_instances.challenge_instance_id"),
+        String(30),
+        ForeignKey("arena_challenge_instances.challenge_instance_id"),
         primary_key=True,
     )
     agent_id: Mapped[str] = mapped_column(
@@ -1265,12 +1435,11 @@ class Submission(Base):
 
     submission_id: Mapped[str] = mapped_column(String(30), primary_key=True)
     challenge_instance_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("arena_challenge_instances.challenge_instance_id"),
+        String(30),
+        ForeignKey("arena_challenge_instances.challenge_instance_id"),
         nullable=False,
     )
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     answer: Mapped[dict] = mapped_column(JSONB, nullable=False)
     artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     state: Mapped[str] = mapped_column(String(16), nullable=False, default="submitted")
@@ -1304,15 +1473,14 @@ class ScoreEvent(Base):
 
     score_event_id: Mapped[str] = mapped_column(String(30), primary_key=True)
     challenge_instance_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("arena_challenge_instances.challenge_instance_id"),
+        String(30),
+        ForeignKey("arena_challenge_instances.challenge_instance_id"),
         nullable=False,
     )
     submission_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("arena_submissions.submission_id"), nullable=False
     )
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     score_delta: Mapped[float] = mapped_column(Float, nullable=False)
     rating_delta: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     formula_version: Mapped[str] = mapped_column(String(16), nullable=False)
@@ -1365,8 +1533,9 @@ class KnowledgeSource(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     upstream_call_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     cache_hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    circuit_open_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
-                                                                nullable=True)
+    circuit_open_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -1391,8 +1560,9 @@ class KnowledgeSnapshot(Base):
     raw_locator: Mapped[str] = mapped_column(String(500), nullable=False)
     freshness_contract: Mapped[str] = mapped_column(String(24), nullable=False)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
-                                                               nullable=True)
+    source_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     license_terms: Mapped[str] = mapped_column(String(300), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -1506,9 +1676,7 @@ class GameVersion(Base):
     __tablename__ = "game_versions"
 
     game_version_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    game_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("games.game_id"), nullable=False
-    )
+    game_id: Mapped[str] = mapped_column(String(30), ForeignKey("games.game_id"), nullable=False)
     module_version_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("module_versions.module_version_id"), nullable=False
     )
@@ -1606,8 +1774,9 @@ class ModuleReview(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint("module_version_id", "reviewer_agent_id",
-                         name="uq_module_review_version_reviewer"),
+        UniqueConstraint(
+            "module_version_id", "reviewer_agent_id", name="uq_module_review_version_reviewer"
+        ),
     )
 
 
@@ -1658,9 +1827,7 @@ class CivicSubscription(Base):
     role_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("civic_role_manifests.role_id"), nullable=False
     )
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     scope: Mapped[str] = mapped_column(String(120), nullable=False)
     filters: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
@@ -1754,9 +1921,7 @@ class ImprovementProposal(Base):
     __tablename__ = "improvement_proposals"
 
     proposal_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     observation: Mapped[str] = mapped_column(Text, nullable=False)
     hypothesis: Mapped[str] = mapped_column(Text, nullable=False)
@@ -1779,9 +1944,7 @@ class AgentVersionActivation(Base):
     __tablename__ = "agent_version_activations"
 
     activation_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     from_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     to_agent_version_id: Mapped[str] = mapped_column(String(30), nullable=False)
     reason: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -1792,9 +1955,7 @@ class ReputationEvent(Base):
     __tablename__ = "reputation_events"
 
     reputation_event_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     dimension: Mapped[str] = mapped_column(String(40), nullable=False)
     delta: Mapped[float] = mapped_column(Float, nullable=False)
     context: Mapped[str] = mapped_column(Text, nullable=False)
@@ -1809,9 +1970,7 @@ class SkillPassport(Base):
     __tablename__ = "skill_passports"
 
     passport_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    agent_id: Mapped[str] = mapped_column(
-        String(30), ForeignKey("agents.agent_id"), nullable=False
-    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
     skill: Mapped[str] = mapped_column(String(80), nullable=False)
     evidence_refs: Mapped[list] = mapped_column(JSONB, nullable=False)
     source_kind: Mapped[str] = mapped_column(String(32), nullable=False)

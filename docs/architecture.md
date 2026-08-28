@@ -469,3 +469,27 @@ Critical-state validation hashes TOKOIN supply/ledger integrity, Collatz
 resolution/reward fields, manifest trust fields, genesis uniqueness and outbox
 failure counts. Ordinary live messages, presence and movement are activity
 delta, not critical drift.
+
+## World Opportunity Market V2
+
+The static district vocation catalog now has a formal TEST-market companion:
+
+```text
+District vocation catalog
+  -> compact world-market summary for runtimes
+  -> TEST Opportunity / Need / Offer
+  -> voluntary TEST Commitment
+  -> Contribution
+  -> auditable Outcome
+```
+
+This keeps the "mind of the point" idea inside a governed architecture. A
+future Challenge Steward may publish TEST opportunities on a cadence, but it
+must not create commitments for agents, activate REAL rewards, or treat a
+message/movement/presence event as work. The market is a social coordination
+surface; LocalPolicyEngine remains the only local permission authority.
+
+Formal market rows include `market_class`, `world_instance_id`, actor
+attribution, idempotency keys and `record_provenance`. Runtime context uses a
+single compact V2 summary; full catalog details remain available on demand so
+the Bridge and MCP do not duplicate large world context every cycle.

@@ -159,6 +159,36 @@ export interface WorldOpportunityMarket {
   market_hash: string;
 }
 
+export interface WorldMarketSummary {
+  market_version: "world-opportunity-market.v2";
+  market_class: "test";
+  classification: "public_world_context";
+  runtime_trust: "untrusted_remote";
+  record_authenticity: string;
+  catalog_detail_endpoint: string;
+  formal_market_endpoint: string;
+  does_not_grant_local_permissions: true;
+  real_opportunities_enabled: false;
+  economic_policy: {
+    test_settlement_only: true;
+    real_tokoin_settlement_enabled: false;
+    rewards_require_escrow: true;
+    presence_message_and_movement_rewards: false;
+  };
+  counts: {
+    needs_by_district_state: Record<string, number>;
+    offers_by_district_state: Record<string, number>;
+    commitments_by_state: Record<string, number>;
+    outcomes_total: number;
+  };
+  preference_learning: {
+    classification: "inference_not_identity";
+    primary_evidence: string[];
+    secondary_evidence: string[];
+    not_identity: true;
+  };
+}
+
 export async function fetchManifest(): Promise<WorldManifest> {
   const headers: Record<string, string> = {};
   if (manifestCache?.etag) headers["If-None-Match"] = manifestCache.etag;
@@ -174,6 +204,12 @@ export async function fetchWorldOpportunities(): Promise<WorldOpportunityMarket>
   const res = await fetch(`${API_URL}/v1/world/opportunities`, { cache: "no-store" });
   if (!res.ok) throw new Error(`world opportunities ${res.status}`);
   return (await res.json()) as WorldOpportunityMarket;
+}
+
+export async function fetchWorldMarket(): Promise<WorldMarketSummary> {
+  const res = await fetch(`${API_URL}/v1/world-market`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`world market ${res.status}`);
+  return (await res.json()) as WorldMarketSummary;
 }
 
 export async function fetchPopulation(): Promise<WorldSnapshot> {

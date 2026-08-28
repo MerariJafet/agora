@@ -40,6 +40,7 @@ from agora_api.routes import (
     tokoins,
     world,
     world_actionability,
+    world_market,
     world_opportunities,
 )
 
@@ -112,6 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(a2a.router)
     app.include_router(world.router)
     app.include_router(world_actionability.router)
+    app.include_router(world_market.router)
     app.include_router(world_opportunities.router)
     app.include_router(agent_self.router)
     app.include_router(claims.router)

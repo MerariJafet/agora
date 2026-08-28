@@ -156,32 +156,30 @@ def test_local_context_provider_is_agent_home_read_only(monkeypatch, tmp_path):
 
 def test_runtime_summarizes_world_opportunities_as_untrusted_options():
     class FakeClient:
-        def world_opportunities(self):
+        def world_market(self):
             return {
-                "market_version": "world-vocation-opportunity-market.v1",
-                "market_hash": "a" * 64,
+                "market_version": "world-opportunity-market.v2",
+                "market_class": "test",
                 "classification": "public_world_context",
-                "directive_boundary": {
-                    "remote_content_trust": "untrusted_remote",
-                    "world_offers_options_not_orders": True,
-                    "does_not_grant_local_permissions": True,
+                "runtime_trust": "untrusted_remote",
+                "does_not_grant_local_permissions": True,
+                "real_opportunities_enabled": False,
+                "catalog_detail_endpoint": "/v1/world/opportunities",
+                "economic_policy": {
+                    "real_tokoin_settlement_enabled": False,
                 },
-                "preference_learning": {"classification": "inference_not_identity"},
-                "districts": [
-                    {
-                        "district_id": "science",
-                        "state": "ACTIVE",
-                        "vocation": "Produce inspectable knowledge.",
-                        "needs": ["falsifiers", "reproductions"],
-                        "opportunities": [{"title": "Review a public claim"}],
-                    }
-                ],
+                "counts": {
+                    "needs_by_district_state": {"science:open": 1},
+                    "offers_by_district_state": {},
+                    "commitments_by_state": {},
+                    "outcomes_total": 0,
+                },
             }
 
     summary = _opportunity_market_summary(FakeClient())
 
-    assert "world-vocation-opportunity-market.v1" in summary
-    assert "science:ACTIVE" in summary
+    assert "world-opportunity-market.v2" in summary
     assert "trust=untrusted_remote" in summary
-    assert "opciones_no_ordenes=True" in summary
-    assert "preferencias=inference_not_identity" in summary
+    assert "real_activo=False" in summary
+    assert "detalle_bajo_demanda=/v1/world/opportunities" in summary
+    assert "science:open" in summary

@@ -152,8 +152,7 @@ class ConnectionClient:
         constitution_hash: str,
     ) -> bytes:
         return (
-            f"agora.enrollment.v1|{challenge_id}|{nonce}|{agent_id}|{device_id}|"
-            f"{constitution_hash}"
+            f"agora.enrollment.v1|{challenge_id}|{nonce}|{agent_id}|{device_id}|{constitution_hash}"
         ).encode()
 
     def issue_passport(
@@ -195,8 +194,12 @@ class ConnectionClient:
     def claim(self, agent_id: str, code: str, device_id: str, signature: str) -> dict:
         r = self._client.post(
             "/v1/registration/claim",
-            json={"agent_id": agent_id, "code": code,
-                  "device_id": device_id, "signature": signature},
+            json={
+                "agent_id": agent_id,
+                "code": code,
+                "device_id": device_id,
+                "signature": signature,
+            },
         )
         _raise_for_error(r)
         return r.json()
@@ -234,8 +237,9 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
-    def post_message(self, token: str, space_id: str, content: str,
-                     language: str | None = None) -> dict:
+    def post_message(
+        self, token: str, space_id: str, content: str, language: str | None = None
+    ) -> dict:
         body: dict = {"content": content}
         if language:
             body["language"] = language
@@ -289,6 +293,11 @@ class ConnectionClient:
 
     def world_opportunities(self) -> dict:
         r = self._client.get("/v1/world/opportunities")
+        _raise_for_error(r)
+        return r.json()
+
+    def world_market(self) -> dict:
+        r = self._client.get("/v1/world-market")
         _raise_for_error(r)
         return r.json()
 
@@ -397,7 +406,8 @@ class ConnectionClient:
 
     def set_debate_position(self, token: str, debate_id: str, position_id: str) -> dict:
         r = self._client.post(
-            f"/v1/debates/{debate_id}/position", json={"position_id": position_id},
+            f"/v1/debates/{debate_id}/position",
+            json={"position_id": position_id},
             headers=self._auth(token),
         )
         _raise_for_error(r)
@@ -519,9 +529,7 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
-    def attach_mission_challenge_evidence(
-        self, token: str, submission_id: str, body: dict
-    ) -> dict:
+    def attach_mission_challenge_evidence(self, token: str, submission_id: str, body: dict) -> dict:
         r = self._client.post(
             f"/v1/mission-challenges/submissions/{submission_id}/evidence",
             json=body,
@@ -592,7 +600,7 @@ class ConnectionClient:
         import json as _json
 
         with open(file_path, "rb") as fh:  # noqa: PTH123 - local publish boundary, path
-                                            # is validated by the Bridge caller first
+            # is validated by the Bridge caller first
             r = self._client.post(
                 f"/v1/artifacts/{artifact_id}/versions",
                 files={"file": (metadata.get("display_filename", "artifact.bin"), fh, media_type)},
@@ -653,9 +661,7 @@ class ConnectionClient:
         return r.json()
 
     def join_challenge_instance(self, token: str, instance_id: str) -> dict:
-        r = self._client.post(
-            f"/v1/arena/instances/{instance_id}/join", headers=self._auth(token)
-        )
+        r = self._client.post(f"/v1/arena/instances/{instance_id}/join", headers=self._auth(token))
         _raise_for_error(r)
         return r.json()
 
@@ -869,8 +875,12 @@ class ConnectionClient:
     def a2a_send_message(self, token: str, target_agent_id: str, message: dict) -> dict:
         r = self._client.post(
             f"/v1/a2a/agents/{target_agent_id}/jsonrpc",
-            json={"jsonrpc": "2.0", "id": 1, "method": "message/send",
-                  "params": {"message": message}},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "message/send",
+                "params": {"message": message},
+            },
             headers=self._auth(token),
         )
         _raise_for_error(r)

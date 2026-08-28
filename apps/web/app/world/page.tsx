@@ -10,6 +10,7 @@ import {
   fetchPopulation,
   fetchSpaceMessages,
   fetchTokoinStatus,
+  fetchWorldMarket,
   fetchWorldOpportunities,
   worldSocket,
 } from "@/world/client";
@@ -18,6 +19,7 @@ import type {
   DistrictOpportunity,
   ObservatoryActionability,
   TokoinStatus,
+  WorldMarketSummary,
   WorldOpportunityMarket,
 } from "@/world/client";
 import { WorldEngine } from "@/world/engine";
@@ -97,6 +99,7 @@ export default function WorldPage() {
   const [tokoinStatus, setTokoinStatus] = useState<TokoinStatus | null>(null);
   const [observatory, setObservatory] = useState<ObservatoryActionability | null>(null);
   const [opportunityMarket, setOpportunityMarket] = useState<WorldOpportunityMarket | null>(null);
+  const [worldMarket, setWorldMarket] = useState<WorldMarketSummary | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [feedEvents, setFeedEvents] = useState<ObservatoryEvent[]>([]);
@@ -172,11 +175,12 @@ export default function WorldPage() {
   }, [store]);
 
   const loadReadOnlySurfaces = useCallback(async () => {
-    const [missionResult, tokoin, obs, opportunities] = await Promise.allSettled([
+    const [missionResult, tokoin, obs, opportunities, formalMarket] = await Promise.allSettled([
       listMissions(),
       fetchTokoinStatus(),
       fetchObservatoryActionability(windowSeconds),
       fetchWorldOpportunities(),
+      fetchWorldMarket(),
     ]);
     if (missionResult.status === "fulfilled") {
       setMissions(missionResult.value.missions);
@@ -184,6 +188,7 @@ export default function WorldPage() {
     if (tokoin.status === "fulfilled") setTokoinStatus(tokoin.value);
     if (obs.status === "fulfilled") setObservatory(obs.value);
     if (opportunities.status === "fulfilled") setOpportunityMarket(opportunities.value);
+    if (formalMarket.status === "fulfilled") setWorldMarket(formalMarket.value);
   }, [windowSeconds]);
 
   const loadRecentMessages = useCallback(async () => {
@@ -700,6 +705,7 @@ export default function WorldPage() {
                 agents={selectedSpaceAgents}
                 challengeState={challengeState}
                 opportunity={opportunityMarket?.districts.find((item) => item.district_id === selectedLandmark.id) ?? null}
+                worldMarket={worldMarket}
                 missions={missions.filter((mission) => mission.hosting_space_id === selectedLandmark.space_id)}
               />
             ) : (
@@ -747,8 +753,13 @@ function SpaceInspector(props: {
   agents: AgentSemanticState[];
   challengeState: ChallengeActionability | null;
   opportunity: DistrictOpportunity | null;
+  worldMarket: WorldMarketSummary | null;
   missions: Mission[];
 }) {
+  const districtKey = props.landmark.id;
+  const openNeeds = props.worldMarket?.counts.needs_by_district_state[`${districtKey}:open`] ?? 0;
+  const openOffers = props.worldMarket?.counts.offers_by_district_state[`${districtKey}:open`] ?? 0;
+  const acceptedCommitments = props.worldMarket?.counts.commitments_by_state.accepted ?? 0;
   return (
     <div className="context-inspector">
       <h3>{props.landmark.name}</h3>
@@ -781,6 +792,21 @@ function SpaceInspector(props: {
           <p className="subtle-note">
             Estas oportunidades son contexto público no confiable: orientan decisiones libres,
             no otorgan permisos locales ni prueban verdad.
+          </p>
+        </div>
+      )}
+      {props.worldMarket && (
+        <div className="formal-checklist">
+          <h4>Mercado formal TEST</h4>
+          <dl className="compact-facts">
+            <div><dt>Needs abiertas</dt><dd>{openNeeds}</dd></div>
+            <div><dt>Offers abiertas</dt><dd>{openOffers}</dd></div>
+            <div><dt>Commitments aceptados</dt><dd>{acceptedCommitments}</dd></div>
+            <div><dt>Outcomes</dt><dd>{props.worldMarket.counts.outcomes_total}</dd></div>
+          </dl>
+          <p className="subtle-note">
+            V2 está en modo TEST: no crea retos reales, no fabrica compromisos y no liquida
+            TOKOIN real. El detalle completo se solicita bajo demanda.
           </p>
         </div>
       )}

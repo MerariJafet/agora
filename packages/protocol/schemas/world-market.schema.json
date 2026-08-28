@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "world-market.schema.json",
+  "title": "AGORA World Opportunity Market V2",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "IdempotencyKey": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "MarketClass": {
+      "const": "test"
+    },
+    "DistrictId": {
+      "type": "string",
+      "enum": [
+        "central",
+        "science",
+        "economy",
+        "ideas",
+        "forge",
+        "unknown",
+        "world-pulse",
+        "arena",
+        "observatory",
+        "frontier"
+      ]
+    },
+    "PublicText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "Title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "ResourceList": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "Terms": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "$ref": "#/$defs/PublicText" },
+        "expected_artifact_version_id": {
+          "type": "string",
+          "pattern": "^arv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "reward_aceros": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000000
+        }
+      },
+      "required": ["summary"]
+    },
+    "CreateOpportunityRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": { "$ref": "#/$defs/IdempotencyKey" },
+        "market_class": { "$ref": "#/$defs/MarketClass" },
+        "district_id": { "$ref": "#/$defs/DistrictId" },
+        "title": { "$ref": "#/$defs/Title" },
+        "description": { "$ref": "#/$defs/PublicText" },
+        "reward_aceros": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000000
+        },
+        "escrow_aceros": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000000
+        },
+        "related_mission_id": {
+          "type": "string",
+          "pattern": "^mis_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "related_challenge_mission_id": {
+          "type": "string",
+          "pattern": "^mis_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "related_artifact_version_id": {
+          "type": "string",
+          "pattern": "^arv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["idempotency_key", "market_class", "district_id", "title", "description"]
+    },
+    "CreateNeedRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": { "$ref": "#/$defs/IdempotencyKey" },
+        "market_class": { "$ref": "#/$defs/MarketClass" },
+        "district_id": { "$ref": "#/$defs/DistrictId" },
+        "opportunity_id": {
+          "type": "string",
+          "pattern": "^opp_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "title": { "$ref": "#/$defs/Title" },
+        "description": { "$ref": "#/$defs/PublicText" },
+        "requested_resources": { "$ref": "#/$defs/ResourceList" },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "idempotency_key",
+        "market_class",
+        "district_id",
+        "title",
+        "description",
+        "requested_resources"
+      ]
+    },
+    "CreateOfferRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": { "$ref": "#/$defs/IdempotencyKey" },
+        "market_class": { "$ref": "#/$defs/MarketClass" },
+        "district_id": { "$ref": "#/$defs/DistrictId" },
+        "need_id": {
+          "type": "string",
+          "pattern": "^ned_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "title": { "$ref": "#/$defs/Title" },
+        "description": { "$ref": "#/$defs/PublicText" },
+        "offered_resources": { "$ref": "#/$defs/ResourceList" },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "idempotency_key",
+        "market_class",
+        "district_id",
+        "title",
+        "description",
+        "offered_resources"
+      ]
+    },
+    "ProposeCommitmentRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": { "$ref": "#/$defs/IdempotencyKey" },
+        "market_class": { "$ref": "#/$defs/MarketClass" },
+        "need_id": {
+          "type": "string",
+          "pattern": "^ned_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "offer_id": {
+          "type": "string",
+          "pattern": "^off_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "terms": { "$ref": "#/$defs/Terms" }
+      },
+      "required": ["idempotency_key", "market_class", "need_id", "offer_id", "terms"]
+    },
+    "DeliverContributionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": { "$ref": "#/$defs/IdempotencyKey" },
+        "market_class": { "$ref": "#/$defs/MarketClass" },
+        "commitment_id": {
+          "type": "string",
+          "pattern": "^cmt_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "artifact_version_id": {
+          "type": "string",
+          "pattern": "^arv_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "summary": { "$ref": "#/$defs/PublicText" }
+      },
+      "required": ["idempotency_key", "market_class", "commitment_id", "summary"]
+    },
+    "RecordOutcomeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": { "$ref": "#/$defs/IdempotencyKey" },
+        "market_class": { "$ref": "#/$defs/MarketClass" },
+        "verdict": {
+          "type": "string",
+          "enum": ["accepted", "needs_revision", "rejected"]
+        },
+        "summary": { "$ref": "#/$defs/PublicText" }
+      },
+      "required": ["idempotency_key", "market_class", "verdict", "summary"]
+    }
+  }
+}

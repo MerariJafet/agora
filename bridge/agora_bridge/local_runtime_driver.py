@@ -105,9 +105,7 @@ def _clean(text: str) -> str:
         "codex",
     )
     useful = [
-        line
-        for line in lines
-        if not line.startswith(noisy) and not _is_low_value_public_body(line)
+        line for line in lines if not line.startswith(noisy) and not _is_low_value_public_body(line)
     ]
     final = useful[-1] if useful else ""
     fragment = re.search(r'^"?(?:message|content|text)"?\s*:\s*"(.+)', final, flags=re.DOTALL)
@@ -223,10 +221,7 @@ def _save_state(current_space_id: str, visited_space_ids: list[str]) -> None:
     visited = list(dict.fromkeys([*visited_space_ids, current_space_id]))
     state["current_space_id"] = current_space_id
     state["visited_space_ids"] = visited
-    _state_path().write_text(
-        json.dumps(state, indent=2)
-        + "\n"
-    )
+    _state_path().write_text(json.dumps(state, indent=2) + "\n")
 
 
 def _runtime_metrics() -> dict:
@@ -320,9 +315,8 @@ def _world_observation(client: ConnectionClient, agent_id: str | None) -> dict:
 
 
 def _should_skip_public_cycle(observation: dict) -> bool:
-    return (
-        int(observation.get("active_challenge_count") or 0) == 0
-        and not observation.get("new_keys")
+    return int(observation.get("active_challenge_count") or 0) == 0 and not observation.get(
+        "new_keys"
     )
 
 
@@ -465,8 +459,7 @@ def _space_summary(client: ConnectionClient, space: dict) -> str:
     space_id = space["space_id"]
     detail = client.get_space(space_id)
     present = ", ".join(
-        agent.get("name") or agent["agent_id"]
-        for agent in detail.get("present_agents", [])[:8]
+        agent.get("name") or agent["agent_id"] for agent in detail.get("present_agents", [])[:8]
     )
     messages = client.space_messages(space_id, limit=8).get("messages", [])
     recent_messages: list[str] = []
@@ -488,12 +481,8 @@ def _context(client: ConnectionClient, current_space_id: str) -> str:
     spaces, by_slug = _spaces(client)
     state = _load_state()
     visited_ids = set(state.get("visited_space_ids", []))
-    visited_slugs = [
-        space["slug"] for space in spaces if space["space_id"] in visited_ids
-    ]
-    unvisited_slugs = [
-        space["slug"] for space in spaces if space["space_id"] not in visited_ids
-    ]
+    visited_slugs = [space["slug"] for space in spaces if space["space_id"] in visited_ids]
+    unvisited_slugs = [space["slug"] for space in spaces if space["space_id"] not in visited_ids]
     current = next(
         (space for space in spaces if space["space_id"] == current_space_id),
         by_slug.get("central-plaza", {"slug": "central-plaza", "name": "Central Plaza"}),
@@ -538,33 +527,20 @@ def _context(client: ConnectionClient, current_space_id: str) -> str:
 
 def _opportunity_market_summary(client: ConnectionClient) -> str:
     try:
-        market = client.world_opportunities()
+        market = client.world_market()
     except Exception as exc:  # noqa: BLE001 - public context should degrade safely
         return f"Mercado de oportunidades no observable ({type(exc).__name__})."
-    lines: list[str] = []
-    for district in (market.get("districts") or [])[:10]:
-        opportunities = district.get("opportunities") or []
-        titles = [
-            str(item.get("title") or "")[:90]
-            for item in opportunities[:2]
-            if isinstance(item, dict)
-        ]
-        lines.append(
-            f"{district.get('district_id')}:{district.get('state')} "
-            f"vocacion={district.get('vocation')} "
-            f"necesita={', '.join((district.get('needs') or [])[:3])} "
-            f"oportunidades={'; '.join(titles)}"
-        )
-    boundary = market.get("directive_boundary") or {}
-    preference = market.get("preference_learning") or {}
+    counts = market.get("counts") or {}
+    economics = market.get("economic_policy") or {}
     return (
-        f"Mercado {market.get('market_version')} hash={market.get('market_hash')}; "
+        f"Mercado formal {market.get('market_version')} clase={market.get('market_class')}; "
         f"clasificacion={market.get('classification')}; "
-        f"trust={boundary.get('remote_content_trust')}; "
-        f"opciones_no_ordenes={boundary.get('world_offers_options_not_orders')}; "
-        f"permisos_locales={boundary.get('does_not_grant_local_permissions')}; "
-        f"preferencias={preference.get('classification')}; "
-        f"distritos={' || '.join(lines)}"
+        f"trust={market.get('runtime_trust')}; "
+        f"permisos_locales={market.get('does_not_grant_local_permissions')}; "
+        f"real_activo={market.get('real_opportunities_enabled')}; "
+        f"settlement_real={economics.get('real_tokoin_settlement_enabled')}; "
+        f"conteos={json.dumps(counts, ensure_ascii=False)}; "
+        f"detalle_bajo_demanda={market.get('catalog_detail_endpoint')}"
     )
 
 
@@ -881,10 +857,8 @@ def ollama_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str
     )
     if len(prompt) > 7000:
         prompt = (
-            prompt[:2500]
-            + "\n\n[Contexto publico recortado para el modelo local pesado; "
-            "conserva reglas, estado reciente e instrucciones finales.]\n\n"
-            + prompt[-3500:]
+            prompt[:2500] + "\n\n[Contexto publico recortado para el modelo local pesado; "
+            "conserva reglas, estado reciente e instrucciones finales.]\n\n" + prompt[-3500:]
         )
     body = {
         "model": model,
@@ -969,9 +943,7 @@ def antigravity_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str
     )
     text = _raw_model_text((result.stdout or "") + "\n" + (result.stderr or ""))
     if not text:
-        text = (
-            "AGY CLI fue invocado como cerebro local, pero no produjo salida capturable."
-        )
+        text = "AGY CLI fue invocado como cerebro local, pero no produjo salida capturable."
     return text, "agy-cli:sandbox"
 
 
@@ -1268,10 +1240,7 @@ def main() -> int:
         return 0
     _increment_runtime_metrics(messages_created=1)
     _record_observation(observation)
-    print(
-        f"{config.agent_name} {action_taken} -> {published.get('message_id')}: "
-        f"{public_message}"
-    )
+    print(f"{config.agent_name} {action_taken} -> {published.get('message_id')}: {public_message}")
     return 0
 
 

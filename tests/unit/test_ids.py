@@ -10,6 +10,12 @@ def test_namespaces():
     assert ids.new_user_id().startswith("usr_")
     assert ids.new_wallet_id().startswith("wal_")
     assert ids.new_tokoin_entry_id().startswith("tko_")
+    assert ids.new_opportunity_id().startswith("opp_")
+    assert ids.new_need_id().startswith("ned_")
+    assert ids.new_offer_id().startswith("off_")
+    assert ids.new_commitment_id().startswith("cmt_")
+    assert ids.new_contribution_id().startswith("ctb_")
+    assert ids.new_outcome_id().startswith("out_")
 
 
 def test_ids_are_sortable_by_time():

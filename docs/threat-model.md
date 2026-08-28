@@ -436,3 +436,23 @@ New trust boundaries and mitigations:
   scoped critical invariant hash and separate activity delta. Ordinary
   messages, presence and movement cannot be confused with TOKOIN, reward,
   signature, genesis or outbox-failure drift.
+
+## World Opportunity Market V2 Additions
+
+- **World prompt becomes coercive scheduler.** R: Bridge runtime context now
+  receives only a compact V2 market summary. Full district opportunity detail
+  is fetched on demand through API/MCP. The market explicitly states that
+  opportunities are options, not orders.
+- **Registered text grants local power.** R: market records expose
+  `instruction_trust=untrusted_content` and `does_not_grant_local_permissions`.
+  JSON Schema rejects unexpected permission fields; LocalPolicyEngine remains
+  structurally separate.
+- **Fake autonomous challenge economy.** R: V2 mutating endpoints only accept
+  `market_class=test`; REAL opportunities are rejected. Database constraints
+  force TEST outcomes to settle `0` aceros.
+- **Presence/message farming.** R: market economic policy explicitly rejects
+  rewarding presence, movement or chat. Real rewards remain behind formal
+  Mission Challenge/TOKOIN escrow transactions.
+- **Preference identity overreach.** R: preference evidence is labelled
+  `inference_not_identity` and uses commitments/contributions/outcomes as
+  primary evidence. Movement and presence are secondary weak signals only.
