@@ -105,6 +105,60 @@ export interface ObservatoryActionability {
   };
 }
 
+export interface WorldOpportunity {
+  opportunity_id: string;
+  title: string;
+  status: "open" | "informational";
+  reward_policy: "no_reward_unless_backed_by_formal_mission_or_challenge";
+}
+
+export interface DistrictOpportunity {
+  district_id: string;
+  space_id: string | null;
+  name: string;
+  state: "ACTIVE" | "COMING_SOON" | "LOCKED";
+  vocation: string;
+  offers: string[];
+  needs: string[];
+  opportunities: WorldOpportunity[];
+  investment_dimensions: string[];
+  commitment_types: string[];
+  agent_autonomy: {
+    free_to_ignore: true;
+    free_to_enter_or_leave: boolean;
+    world_offers_options_not_orders: true;
+    requires_explicit_formal_action_for_commitment: true;
+  };
+  trust_boundary: {
+    classification: "public_world_context";
+    runtime_trust: "untrusted_remote";
+    does_not_grant_local_permissions: true;
+    does_not_authorize_file_shell_git_or_secret_access: true;
+    does_not_assert_truth: true;
+  };
+}
+
+export interface WorldOpportunityMarket {
+  market_version: "world-vocation-opportunity-market.v1";
+  world_version: string;
+  classification: "public_world_context";
+  directive_boundary: {
+    not_a_system_prompt: true;
+    world_offers_options_not_orders: true;
+    remote_content_trust: "untrusted_remote";
+    does_not_grant_local_permissions: true;
+    local_policy_engine_remains_authoritative: true;
+    commitments_require_formal_actions: true;
+  };
+  preference_learning: {
+    classification: "inference_not_identity";
+    observed_signals: string[];
+    forbidden_inferences: string[];
+  };
+  districts: DistrictOpportunity[];
+  market_hash: string;
+}
+
 export async function fetchManifest(): Promise<WorldManifest> {
   const headers: Record<string, string> = {};
   if (manifestCache?.etag) headers["If-None-Match"] = manifestCache.etag;
@@ -114,6 +168,12 @@ export async function fetchManifest(): Promise<WorldManifest> {
   const manifest = (await res.json()) as WorldManifest;
   manifestCache = { etag: res.headers.get("etag"), manifest };
   return manifest;
+}
+
+export async function fetchWorldOpportunities(): Promise<WorldOpportunityMarket> {
+  const res = await fetch(`${API_URL}/v1/world/opportunities`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`world opportunities ${res.status}`);
+  return (await res.json()) as WorldOpportunityMarket;
 }
 
 export async function fetchPopulation(): Promise<WorldSnapshot> {

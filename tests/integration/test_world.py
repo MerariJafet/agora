@@ -46,6 +46,29 @@ async def test_manifest_is_versioned_and_cacheable(api_client):
     assert revalidated.status_code == 304  # topology is not re-downloaded
 
 
+async def test_opportunity_market_is_cacheable_and_non_coercive(api_client):
+    first = await api_client.get("/v1/world/opportunities")
+    assert first.status_code == 200
+    assert first.headers["etag"]
+    market = first.json()
+    assert market["market_version"] == "world-vocation-opportunity-market.v1"
+    assert market["directive_boundary"]["not_a_system_prompt"] is True
+    assert market["directive_boundary"]["world_offers_options_not_orders"] is True
+    assert market["directive_boundary"]["does_not_grant_local_permissions"] is True
+    assert market["preference_learning"]["classification"] == "inference_not_identity"
+    assert any(
+        district["district_id"] == "science"
+        and "falsifiers" in district["needs"]
+        for district in market["districts"]
+    )
+
+    revalidated = await api_client.get(
+        "/v1/world/opportunities",
+        headers={"If-None-Match": first.headers["etag"]},
+    )
+    assert revalidated.status_code == 304
+
+
 async def test_world_rules_are_returned_and_attested(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
     rules = (await api_client.get("/v1/world/rules")).json()

@@ -336,6 +336,56 @@ def _agent_manifest() -> dict:
     return json.loads(path.read_text()) if path.exists() else {}
 
 
+def _local_context_provider(manifest: dict, max_chars: int = 5000) -> str:
+    provider = manifest.get("local_context_provider")
+    if not isinstance(provider, dict) or not provider.get("enabled"):
+        return "No local context provider configured."
+    if provider.get("mode") != "read_only":
+        return "Local context provider disabled: mode must be read_only."
+    script = str(provider.get("script") or "").strip()
+    if not script or script.startswith("/") or ".." in Path(script).parts:
+        return "Local context provider disabled: unsafe relative script path."
+    script_path = (_agent_home() / script).resolve()
+    try:
+        script_path.relative_to(_agent_home().resolve())
+    except ValueError:
+        return "Local context provider disabled: script escapes agent home."
+    if not script_path.exists():
+        return "Local context provider disabled: script missing."
+
+    timeout = max(1, min(int(provider.get("timeout_seconds") or 6), 20))
+    max_chars = max(1000, min(int(provider.get("max_chars") or max_chars), 12000))
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": str(Path.home()),
+        "AGORA_LOCAL_CONTEXT_MODE": "read_only",
+    }
+    if provider.get("project_root"):
+        env["ACERO_ROOT"] = str(provider["project_root"])
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            cwd=str(_agent_home()),
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        _increment_runtime_metrics(local_context_timeout=1)
+        return "Local context provider timed out; no local evidence injected."
+    output = (result.stdout or "").strip()
+    if result.returncode != 0:
+        _increment_runtime_metrics(local_context_error=1)
+        return (
+            "Local context provider failed safely; stderr omitted from public prompt. "
+            f"exit_code={result.returncode}."
+        )
+    _increment_runtime_metrics(local_context_invoked=1)
+    return output[:max_chars] if output else "Local context provider returned no data."
+
+
 def _load_agent_env_file() -> None:
     path = _agent_home() / ".env"
     if not path.exists():
@@ -486,6 +536,38 @@ def _context(client: ConnectionClient, current_space_id: str) -> str:
     )
 
 
+def _opportunity_market_summary(client: ConnectionClient) -> str:
+    try:
+        market = client.world_opportunities()
+    except Exception as exc:  # noqa: BLE001 - public context should degrade safely
+        return f"Mercado de oportunidades no observable ({type(exc).__name__})."
+    lines: list[str] = []
+    for district in (market.get("districts") or [])[:10]:
+        opportunities = district.get("opportunities") or []
+        titles = [
+            str(item.get("title") or "")[:90]
+            for item in opportunities[:2]
+            if isinstance(item, dict)
+        ]
+        lines.append(
+            f"{district.get('district_id')}:{district.get('state')} "
+            f"vocacion={district.get('vocation')} "
+            f"necesita={', '.join((district.get('needs') or [])[:3])} "
+            f"oportunidades={'; '.join(titles)}"
+        )
+    boundary = market.get("directive_boundary") or {}
+    preference = market.get("preference_learning") or {}
+    return (
+        f"Mercado {market.get('market_version')} hash={market.get('market_hash')}; "
+        f"clasificacion={market.get('classification')}; "
+        f"trust={boundary.get('remote_content_trust')}; "
+        f"opciones_no_ordenes={boundary.get('world_offers_options_not_orders')}; "
+        f"permisos_locales={boundary.get('does_not_grant_local_permissions')}; "
+        f"preferencias={preference.get('classification')}; "
+        f"distritos={' || '.join(lines)}"
+    )
+
+
 def _extract_decision(text: str) -> dict:
     raw = text.strip()
     candidates = [raw]
@@ -609,13 +691,17 @@ def _apply_exploration_bias(
     }
 
 
-def _bounded_message(message: str) -> str:
+def _bounded_message(message: str, limit: int = 300) -> str:
     cleaned = _clean(message)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
     if _is_low_value_public_body(cleaned):
         return (
             "Mantengo presencia segura; no publico salida sin contenido semantico "
             "y espero un dato publico verificable."
         )
+    if len(cleaned) > limit:
+        clipped = cleaned[: max(40, limit - 1)].rsplit(" ", 1)[0].strip()
+        cleaned = f"{clipped}."
     return cleaned or "Observo el mundo, mantengo seguridad local y continuo explorando."
 
 
@@ -1050,7 +1136,9 @@ def main() -> int:
         context_duplicate_suppressed=int(observation.get("duplicate_count") or 0),
     )
     context = _context(client, current_space_id)
+    opportunity_market = _opportunity_market_summary(client)
     manifest = _agent_manifest()
+    local_context = _local_context_provider(manifest)
     formal_capabilities, formal_tools = discover_formal_capabilities(
         client, agent_id=config.agent_id
     )
@@ -1076,6 +1164,8 @@ def main() -> int:
         "la politica local default-deny.\n"
         f"Manifiesto local seguro: {json.dumps(manifest, ensure_ascii=False)}\n"
         f"Contexto publico actual: {context}\n"
+        f"Mercado publico de vocaciones y oportunidades: {opportunity_market}\n"
+        f"Contexto local read-only aprobado por el dueno: {local_context}\n"
         f"Capacidades formales AGORA: {formal_action_summary(formal_capabilities)}\n"
         f"Memoria local reciente: {_local_memory()}\n"
         "Acciones JSON disponibles: speak, move, inspect, no_public_action, join_challenge, "

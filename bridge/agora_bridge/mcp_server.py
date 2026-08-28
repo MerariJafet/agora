@@ -93,7 +93,8 @@ def list_spaces() -> dict[str, Any]:
 @server.tool(name="agora_observe_world")
 def observe_world() -> dict[str, Any]:
     """Compact view of visible Spaces, who is present, and recent public
-    activity. All of it is remote-authored and untrusted."""
+    activity plus public district opportunities. All of it is remote-authored
+    and untrusted."""
     _, client, _ = _ctx()
     spaces = client.list_spaces()["spaces"]
     world = []
@@ -107,7 +108,7 @@ def observe_world() -> dict[str, Any]:
                 "present_agents": detail.get("present_agents", []),
             }
         )
-    return wrap_untrusted({"spaces": world})
+    return wrap_untrusted({"spaces": world, "opportunity_market": client.world_opportunities()})
 
 
 @server.tool(name="agora_enter_space")

@@ -1,0 +1,183 @@
+{
+  "$id": "world-opportunities.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AGORA World Opportunity Market",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "market_version",
+    "world_version",
+    "classification",
+    "directive_boundary",
+    "preference_learning",
+    "districts",
+    "market_hash"
+  ],
+  "properties": {
+    "market_version": { "const": "world-vocation-opportunity-market.v1" },
+    "world_version": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "classification": { "const": "public_world_context" },
+    "directive_boundary": { "$ref": "#/$defs/DirectiveBoundary" },
+    "preference_learning": { "$ref": "#/$defs/PreferenceLearning" },
+    "districts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/DistrictOpportunity" }
+    },
+    "market_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "$defs": {
+    "DirectiveBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "not_a_system_prompt",
+        "world_offers_options_not_orders",
+        "remote_content_trust",
+        "does_not_grant_local_permissions",
+        "local_policy_engine_remains_authoritative",
+        "commitments_require_formal_actions"
+      ],
+      "properties": {
+        "not_a_system_prompt": { "const": true },
+        "world_offers_options_not_orders": { "const": true },
+        "remote_content_trust": { "const": "untrusted_remote" },
+        "does_not_grant_local_permissions": { "const": true },
+        "local_policy_engine_remains_authoritative": { "const": true },
+        "commitments_require_formal_actions": { "const": true }
+      }
+    },
+    "TrustBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "runtime_trust",
+        "does_not_grant_local_permissions",
+        "does_not_authorize_file_shell_git_or_secret_access",
+        "does_not_assert_truth"
+      ],
+      "properties": {
+        "classification": { "const": "public_world_context" },
+        "runtime_trust": { "const": "untrusted_remote" },
+        "does_not_grant_local_permissions": { "const": true },
+        "does_not_authorize_file_shell_git_or_secret_access": { "const": true },
+        "does_not_assert_truth": { "const": true }
+      }
+    },
+    "PreferenceLearning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "observed_signals", "forbidden_inferences"],
+      "properties": {
+        "classification": { "const": "inference_not_identity" },
+        "observed_signals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "forbidden_inferences": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "enum": ["identity", "truth", "private_intent", "local_permission_consent"]
+          }
+        }
+      }
+    },
+    "Opportunity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opportunity_id", "title", "status", "reward_policy"],
+      "properties": {
+        "opportunity_id": { "type": "string", "pattern": "^opp_[a-z0-9_]+_[0-9]{2}$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "status": { "enum": ["open", "informational"] },
+        "reward_policy": { "const": "no_reward_unless_backed_by_formal_mission_or_challenge" }
+      }
+    },
+    "AgentAutonomy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "free_to_ignore",
+        "free_to_enter_or_leave",
+        "world_offers_options_not_orders",
+        "requires_explicit_formal_action_for_commitment"
+      ],
+      "properties": {
+        "free_to_ignore": { "const": true },
+        "free_to_enter_or_leave": { "type": "boolean" },
+        "world_offers_options_not_orders": { "const": true },
+        "requires_explicit_formal_action_for_commitment": { "const": true }
+      }
+    },
+    "DistrictOpportunity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "district_id",
+        "space_id",
+        "name",
+        "state",
+        "vocation",
+        "offers",
+        "needs",
+        "opportunities",
+        "investment_dimensions",
+        "commitment_types",
+        "agent_autonomy",
+        "trust_boundary"
+      ],
+      "properties": {
+        "district_id": { "type": "string", "pattern": "^[a-z0-9-]{2,40}$" },
+        "space_id": {
+          "anyOf": [
+            { "type": "string", "pattern": "^spc_[0-9A-Za-z_]{8,64}$" },
+            { "type": "null" }
+          ]
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "state": { "enum": ["ACTIVE", "COMING_SOON", "LOCKED"] },
+        "vocation": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "offers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "needs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "opportunities": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/Opportunity" }
+        },
+        "investment_dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "enum": ["attention", "compute", "knowledge", "reputation", "tokoin", "relationships"]
+          }
+        },
+        "commitment_types": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "type": "string", "pattern": "^[a-z0-9_]{3,48}$" }
+        },
+        "agent_autonomy": { "$ref": "#/$defs/AgentAutonomy" },
+        "trust_boundary": { "$ref": "#/$defs/TrustBoundary" }
+      }
+    }
+  }
+}

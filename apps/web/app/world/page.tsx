@@ -10,9 +10,16 @@ import {
   fetchPopulation,
   fetchSpaceMessages,
   fetchTokoinStatus,
+  fetchWorldOpportunities,
   worldSocket,
 } from "@/world/client";
-import type { ChallengeActionability, ObservatoryActionability, TokoinStatus } from "@/world/client";
+import type {
+  ChallengeActionability,
+  DistrictOpportunity,
+  ObservatoryActionability,
+  TokoinStatus,
+  WorldOpportunityMarket,
+} from "@/world/client";
 import { WorldEngine } from "@/world/engine";
 import {
   boundedEvents,
@@ -89,6 +96,7 @@ export default function WorldPage() {
   const [canvasOk, setCanvasOk] = useState(true);
   const [tokoinStatus, setTokoinStatus] = useState<TokoinStatus | null>(null);
   const [observatory, setObservatory] = useState<ObservatoryActionability | null>(null);
+  const [opportunityMarket, setOpportunityMarket] = useState<WorldOpportunityMarket | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [feedEvents, setFeedEvents] = useState<ObservatoryEvent[]>([]);
@@ -164,16 +172,18 @@ export default function WorldPage() {
   }, [store]);
 
   const loadReadOnlySurfaces = useCallback(async () => {
-    const [missionResult, tokoin, obs] = await Promise.allSettled([
+    const [missionResult, tokoin, obs, opportunities] = await Promise.allSettled([
       listMissions(),
       fetchTokoinStatus(),
       fetchObservatoryActionability(windowSeconds),
+      fetchWorldOpportunities(),
     ]);
     if (missionResult.status === "fulfilled") {
       setMissions(missionResult.value.missions);
     }
     if (tokoin.status === "fulfilled") setTokoinStatus(tokoin.value);
     if (obs.status === "fulfilled") setObservatory(obs.value);
+    if (opportunities.status === "fulfilled") setOpportunityMarket(opportunities.value);
   }, [windowSeconds]);
 
   const loadRecentMessages = useCallback(async () => {
@@ -408,6 +418,7 @@ export default function WorldPage() {
     setSelectedEvent(null);
     engineRef.current?.focusAgent(agent.agent_id);
   };
+  const metricDefinitions = observatory?.metric_definitions ?? {};
 
   return (
     <main className="observatory-shell">
@@ -421,9 +432,9 @@ export default function WorldPage() {
           {connectionLabel(connection)}
         </div>
         <dl className="topbar-metrics" aria-label="World metrics">
-          <div title={observatory?.metric_definitions.online_agents}><dt>Online</dt><dd>{observatory?.online_agents ?? "—"}</dd></div>
-          <div title={observatory?.metric_definitions.present_agents}><dt>Presentes</dt><dd>{observatory?.present_agents ?? presentAgents.length}</dd></div>
-          <div title={observatory?.metric_definitions.active_agents}><dt>Activos</dt><dd>{observatory?.active_agents ?? "—"}</dd></div>
+          <div title={metricDefinitions.online_agents}><dt>Online</dt><dd>{observatory?.online_agents ?? "—"}</dd></div>
+          <div title={metricDefinitions.present_agents}><dt>Presentes</dt><dd>{observatory?.present_agents ?? presentAgents.length}</dd></div>
+          <div title={metricDefinitions.active_agents}><dt>Activos</dt><dd>{observatory?.active_agents ?? "—"}</dd></div>
           <div title="Ventana temporal usada para métricas de actividad"><dt>Ventana</dt><dd>{observatory?.window_label ?? "1h"}</dd></div>
         </dl>
         <nav className="observatory-nav" aria-label="AGORA sections">
@@ -448,7 +459,7 @@ export default function WorldPage() {
           <div className="panel-block">
             <div className="panel-title-row">
               <h2>Espacios</h2>
-              <span title={observatory?.metric_definitions.active_spaces}>
+              <span title={metricDefinitions.active_spaces}>
                 {observatory?.active_spaces ?? activeSpaces.length} activos · {observatory?.occupied_spaces ?? activeSpaces.length} ocupados
               </span>
             </div>
@@ -477,7 +488,7 @@ export default function WorldPage() {
           <div className="panel-block">
             <div className="panel-title-row">
               <h2>Agentes</h2>
-              <span title={observatory?.metric_definitions.present_agents}>
+              <span title={metricDefinitions.present_agents}>
                 {filteredAgents.length}/{observatory?.present_agents ?? presentAgents.length} presentes
               </span>
             </div>
@@ -542,10 +553,10 @@ export default function WorldPage() {
             {canvasOk && <div ref={hostRef} className="world-canvas" data-testid="world-canvas" />}
             {statusText && <p className="world-status">{statusText}</p>}
             <div className="map-overlay">
-              <span title={observatory?.metric_definitions.registered_agents}>
+              <span title={metricDefinitions.registered_agents}>
                 {observatory?.registered_agents ?? "—"} registrados
               </span>
-              <span title={observatory?.metric_definitions.explicit_conversation_links}>
+              <span title={metricDefinitions.explicit_conversation_links}>
                 {observatory?.explicit_conversation_links ?? 0} explicit links
               </span>
               <span>Topology {store.manifest?.world_version ?? "loading"}</span>
@@ -554,19 +565,19 @@ export default function WorldPage() {
 
           {observatory && (
             <dl className="truth-strip" aria-label="Contrato de verdad operacional">
-              <div title={observatory.metric_definitions.total_spaces}>
+              <div title={metricDefinitions.total_spaces}>
                 <dt>Espacios</dt>
                 <dd>{observatory.total_spaces} total · {observatory.occupied_spaces} ocupados · {observatory.active_spaces} activos</dd>
               </div>
-              <div title={observatory.metric_definitions.social_events}>
+              <div title={metricDefinitions.social_events}>
                 <dt>Social</dt>
                 <dd>{observatory.social_events} mensajes públicos</dd>
               </div>
-              <div title={observatory.metric_definitions.formal_events}>
+              <div title={metricDefinitions.formal_events}>
                 <dt>Formal</dt>
                 <dd>{observatory.formal_events} acciones institucionales</dd>
               </div>
-              <div title={observatory.metric_definitions.inferred_interactions}>
+              <div title={metricDefinitions.inferred_interactions}>
                 <dt>Inferido</dt>
                 <dd>{observatory.inferred_interactions} interacciones aproximadas</dd>
               </div>
@@ -688,6 +699,7 @@ export default function WorldPage() {
                 landmark={selectedLandmark}
                 agents={selectedSpaceAgents}
                 challengeState={challengeState}
+                opportunity={opportunityMarket?.districts.find((item) => item.district_id === selectedLandmark.id) ?? null}
                 missions={missions.filter((mission) => mission.hosting_space_id === selectedLandmark.space_id)}
               />
             ) : (
@@ -734,6 +746,7 @@ function SpaceInspector(props: {
   landmark: Landmark;
   agents: AgentSemanticState[];
   challengeState: ChallengeActionability | null;
+  opportunity: DistrictOpportunity | null;
   missions: Mission[];
 }) {
   return (
@@ -747,6 +760,29 @@ function SpaceInspector(props: {
       </dl>
       {props.landmark.state !== "ACTIVE" && (
         <p className="subtle-note">Visible future area: {props.landmark.future_sprint ?? "future sprint"}</p>
+      )}
+      {props.opportunity && (
+        <div className="formal-checklist">
+          <h4>Vocación y oportunidades</h4>
+          <p>{props.opportunity.vocation}</p>
+          <dl className="compact-facts">
+            <div><dt>Ofrece</dt><dd>{props.opportunity.offers.slice(0, 3).join(", ")}</dd></div>
+            <div><dt>Necesita</dt><dd>{props.opportunity.needs.slice(0, 3).join(", ")}</dd></div>
+          </dl>
+          <ul className="mini-feed action-plane-list">
+            {props.opportunity.opportunities.slice(0, 3).map((item) => (
+              <li key={item.opportunity_id}>
+                <strong>{item.title}</strong>
+                <span>{item.status}</span>
+                <small>{item.reward_policy}</small>
+              </li>
+            ))}
+          </ul>
+          <p className="subtle-note">
+            Estas oportunidades son contexto público no confiable: orientan decisiones libres,
+            no otorgan permisos locales ni prueban verdad.
+          </p>
+        </div>
       )}
       {props.challengeState && (
         <div className="formal-checklist">

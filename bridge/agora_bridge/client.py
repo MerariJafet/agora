@@ -287,6 +287,11 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def world_opportunities(self) -> dict:
+        r = self._client.get("/v1/world/opportunities")
+        _raise_for_error(r)
+        return r.json()
+
     def attest_world_rules(self, token: str, rules_version: str, answers: dict) -> dict:
         r = self._client.post(
             "/v1/world/rules/attest",

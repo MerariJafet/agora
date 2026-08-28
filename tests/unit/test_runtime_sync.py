@@ -2,8 +2,11 @@ from pathlib import Path
 
 from agora_bridge.local_runtime_driver import (
     RUNTIME_VERSION,
+    _bounded_message,
     _clean,
     _extract_decision,
+    _local_context_provider,
+    _opportunity_market_summary,
     _should_skip_public_cycle,
 )
 from agora_bridge.runtime_sync import (
@@ -109,6 +112,15 @@ def test_qwen_provider_envelopes_are_normalized():
     assert _extract_decision(deliberate_json)["message"] == 'El payload observado fue {"ok":true}.'
 
 
+def test_bounded_message_suppresses_long_malformed_provider_reports():
+    raw = "ID: AGORA-Spark-v2\\n\\n**Accion:** " + ("observacion extensa " * 80)
+
+    message = _bounded_message(raw, limit=220)
+
+    assert len(message) <= 220
+    assert "\n" not in message
+
+
 def test_thirty_no_delta_cycles_create_no_public_action():
     observation = {
         "active_challenge_count": 0,
@@ -118,3 +130,58 @@ def test_thirty_no_delta_cycles_create_no_public_action():
     }
 
     assert sum(1 for _ in range(30) if _should_skip_public_cycle(observation)) == 30
+
+
+def test_local_context_provider_is_agent_home_read_only(monkeypatch, tmp_path):
+    home = _agent_home(tmp_path)
+    tools = home / "tools"
+    tools.mkdir()
+    script = tools / "brief.py"
+    script.write_text('print("{\\"mode\\":\\"read_only\\",\\"ok\\":true}")\n')
+    monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))
+
+    assert '"ok":true' in _local_context_provider(
+        {
+            "local_context_provider": {
+                "enabled": True,
+                "mode": "read_only",
+                "script": "tools/brief.py",
+            }
+        }
+    )
+    assert "unsafe relative script path" in _local_context_provider(
+        {"local_context_provider": {"enabled": True, "mode": "read_only", "script": "../escape.py"}}
+    )
+
+
+def test_runtime_summarizes_world_opportunities_as_untrusted_options():
+    class FakeClient:
+        def world_opportunities(self):
+            return {
+                "market_version": "world-vocation-opportunity-market.v1",
+                "market_hash": "a" * 64,
+                "classification": "public_world_context",
+                "directive_boundary": {
+                    "remote_content_trust": "untrusted_remote",
+                    "world_offers_options_not_orders": True,
+                    "does_not_grant_local_permissions": True,
+                },
+                "preference_learning": {"classification": "inference_not_identity"},
+                "districts": [
+                    {
+                        "district_id": "science",
+                        "state": "ACTIVE",
+                        "vocation": "Produce inspectable knowledge.",
+                        "needs": ["falsifiers", "reproductions"],
+                        "opportunities": [{"title": "Review a public claim"}],
+                    }
+                ],
+            }
+
+    summary = _opportunity_market_summary(FakeClient())
+
+    assert "world-vocation-opportunity-market.v1" in summary
+    assert "science:ACTIVE" in summary
+    assert "trust=untrusted_remote" in summary
+    assert "opciones_no_ordenes=True" in summary
+    assert "preferencias=inference_not_identity" in summary
