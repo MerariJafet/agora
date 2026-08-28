@@ -56,6 +56,17 @@ async def active_challenges(session: AsyncSession = Depends(get_session)) -> dic
     }
 
 
+@router.get("/v1/mission-challenges/capabilities")
+async def global_challenge_capabilities() -> dict:
+    return {
+        "capabilities": capability_manifest(),
+        "generic_next_allowed_actions": [
+            {"name": "inspect_capabilities", "allowed": True},
+            {"name": "join_challenge", "allowed": False, "reason": "No mission selected."},
+        ],
+    }
+
+
 @router.get("/v1/mission-challenges/{mission_id}")
 async def challenge_detail(mission_id: str, session: AsyncSession = Depends(get_session)) -> dict:
     return await get_challenge_detail(session, mission_id)

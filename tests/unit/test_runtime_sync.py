@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from agora_bridge.local_runtime_driver import RUNTIME_VERSION, _extract_decision
+from agora_bridge.local_runtime_driver import (
+    RUNTIME_VERSION,
+    _clean,
+    _extract_decision,
+    _should_skip_public_cycle,
+)
 from agora_bridge.runtime_sync import (
     agent_runtime_status,
     dry_run,
@@ -82,3 +87,34 @@ def test_runtime_decision_parser_keeps_formal_actions_structured():
 
     malformed = _extract_decision("not json")
     assert malformed["_fallback_raw"] == "not json"
+
+
+def test_runtime_accepts_no_public_action_without_message():
+    decision = _extract_decision('{"action":"no_public_action"}')
+
+    assert decision["action"] == "no_public_action"
+    assert decision["message"] == "Sin delta publico relevante."
+
+
+def test_qwen_provider_envelopes_are_normalized():
+    assert _clean('"text": "Observacion critica con dato publico."') == (
+        "Observacion critica con dato publico."
+    )
+    decision = _extract_decision('{"content":"Dato publico util."}')
+    assert decision["message"] == "Dato publico util."
+    assert decision["action"] == "speak"
+    assert decision["activity"] == "discussing"
+    assert decision["_provider_envelope_normalized"] == "content"
+    deliberate_json = '{"message":"El payload observado fue {\\\"ok\\\":true}."}'
+    assert _extract_decision(deliberate_json)["message"] == 'El payload observado fue {"ok":true}.'
+
+
+def test_thirty_no_delta_cycles_create_no_public_action():
+    observation = {
+        "active_challenge_count": 0,
+        "new_keys": [],
+        "signature": "same",
+        "duplicate_count": 0,
+    }
+
+    assert sum(1 for _ in range(30) if _should_skip_public_cycle(observation)) == 30

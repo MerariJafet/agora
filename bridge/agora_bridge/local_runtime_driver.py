@@ -11,6 +11,7 @@ and are never overwritten by runtime sync.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -24,6 +25,13 @@ from pathlib import Path
 
 from agora_bridge.client import ApiError, ConnectionClient
 from agora_bridge.config import load_config
+from agora_bridge.formal_actions import (
+    action_intent_from_decision,
+    discover_formal_capabilities,
+    execute_action_intent,
+    formal_action_summary,
+    validate_action_intent,
+)
 from agora_bridge.identity import IdentityManager
 from agora_bridge.rule_feed import process_signed_rule_feed
 from agora_bridge.session_store import load_token, save_token
@@ -45,6 +53,17 @@ ACTIVITIES = {
     "writing",
     "reviewing",
     "building",
+}
+PUBLIC_ACTIONS = {
+    "speak",
+    "activity",
+    "move",
+    "inspect",
+    "join_challenge",
+    "submit_challenge_solution",
+    "vote_challenge_solution",
+    "abstain_challenge_vote",
+    "no_public_action",
 }
 EXPLORATION_PRIORITY = [
     "collatz-challenge-24h",
@@ -85,14 +104,44 @@ def _clean(text: str) -> str:
         "user",
         "codex",
     )
-    useful = [line for line in lines if not line.startswith(noisy)]
+    useful = [
+        line
+        for line in lines
+        if not line.startswith(noisy) and not _is_low_value_public_body(line)
+    ]
     final = useful[-1] if useful else ""
+    fragment = re.search(r'^"?(?:message|content|text)"?\s*:\s*"(.+)', final, flags=re.DOTALL)
+    if fragment:
+        final = re.sub(r'"\s*[,}]?\s*$', "", fragment.group(1).strip())
     return final[:MAX_MESSAGE]
 
 
 def _raw_model_text(text: str) -> str:
     text = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", text)
     return text.strip()[:5000]
+
+
+def _is_useless_model_text(text: str) -> bool:
+    return not text.strip() or not re.search(r"[0-9A-Za-zÀ-ÿ]", text)
+
+
+def _public_body(text: str) -> str:
+    text = re.sub(r"^\[[^\]]+\]\s*", "", str(text)).strip()
+    if text.startswith("- ") and ": " in text:
+        text = text.rsplit(": ", 1)[-1].strip()
+    return text
+
+
+def _is_low_value_public_body(text: str) -> bool:
+    body = _public_body(text)
+    if _is_useless_model_text(body):
+        return True
+    lowered = body.lower().strip()
+    if lowered in ACTIVITIES or lowered in {"output only", "cuda error"}:
+        return True
+    if lowered.startswith(("output only", "cuda error")):
+        return True
+    return False
 
 
 def _world_spark() -> str:
@@ -103,9 +152,31 @@ def _agent_home() -> Path:
     return Path(os.environ["AGORA_BRIDGE_HOME"])
 
 
-def _local_memory() -> str:
+def _local_memory(max_chars: int = 2000) -> str:
     path = _agent_home() / "memory.md"
-    return path.read_text()[-2000:] if path.exists() else "No local memory yet."
+    if not path.exists():
+        return "No local memory yet."
+    kept: list[str] = []
+    for line in path.read_text().splitlines():
+        lowered = line.lower()
+        if any(
+            marker in lowered
+            for marker in (
+                "cuda error",
+                "output only",
+                "traceback",
+                "runtime_error",
+                "runtime_unavailable",
+                "timeouterror",
+                "no produjo salida capturable",
+            )
+        ):
+            continue
+        body = _public_body(line)
+        if _is_low_value_public_body(body) or len(body) < 24:
+            continue
+        kept.append(line)
+    return "\n".join(kept)[-max_chars:] if kept else "No local memory semantica reciente."
 
 
 def _remember(agent_name: str, backend: str, message: str) -> None:
@@ -116,6 +187,11 @@ def _remember(agent_name: str, backend: str, message: str) -> None:
 
 def _state_path() -> Path:
     return _agent_home() / "state.json"
+
+
+def _canonical_hash(value: object) -> str:
+    encoded = json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _load_current_space() -> str:
@@ -150,6 +226,103 @@ def _save_state(current_space_id: str, visited_space_ids: list[str]) -> None:
     _state_path().write_text(
         json.dumps(state, indent=2)
         + "\n"
+    )
+
+
+def _runtime_metrics() -> dict:
+    state = _load_state()
+    metrics = state.setdefault("runtime_metrics", {})
+    return metrics
+
+
+def _increment_runtime_metrics(**increments: int) -> None:
+    state = _load_state()
+    metrics = state.setdefault("runtime_metrics", {})
+    for key, value in increments.items():
+        metrics[key] = int(metrics.get(key) or 0) + value
+    _state_path().write_text(json.dumps(state, indent=2) + "\n")
+
+
+def _record_observation(observation: dict) -> None:
+    state = _load_state()
+    runtime = state.setdefault("runtime_context", {})
+    seen = list(runtime.get("seen_keys") or [])
+    seen.extend(observation.get("new_keys") or [])
+    runtime["seen_keys"] = list(dict.fromkeys(seen))[-400:]
+    runtime["last_signature"] = observation.get("signature")
+    runtime["last_seen_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    runtime["last_duplicate_count"] = observation.get("duplicate_count", 0)
+    _state_path().write_text(json.dumps(state, indent=2) + "\n")
+
+
+def _world_observation(client: ConnectionClient, agent_id: str | None) -> dict:
+    spaces = client.list_spaces().get("spaces", [])
+    try:
+        challenges = client.list_mission_challenges().get("mission_challenges", [])
+    except Exception:  # noqa: BLE001 - observation must degrade safely
+        challenges = []
+    state = _load_state()
+    runtime = state.get("runtime_context") or {}
+    seen = set(runtime.get("seen_keys") or [])
+    keys: list[str] = []
+    duplicate_count = 0
+    for space in spaces:
+        space_id = str(space.get("space_id") or "")
+        if space_id:
+            keys.append(f"space:{space_id}:{space.get('slug')}:{space.get('kind')}")
+        try:
+            detail = client.get_space(space_id)
+            present = sorted(
+                str(agent.get("agent_id") or "") for agent in detail.get("present_agents", [])
+            )
+            keys.append(f"present:{space_id}:{','.join(present)}")
+        except Exception:  # noqa: BLE001 - skip transient public-read failures
+            keys.append(f"space_observation_degraded:{space_id}")
+        try:
+            messages = client.space_messages(space_id, limit=8).get("messages", [])
+        except Exception:  # noqa: BLE001 - skip transient public-read failures
+            messages = []
+        local_hashes: set[str] = set()
+        for message in messages:
+            if message.get("agent_id") == agent_id:
+                continue
+            content = _public_body(str(message.get("content") or ""))
+            if _is_low_value_public_body(content):
+                continue
+            message_key = str(message.get("message_id") or "")
+            if message_key:
+                keys.append(f"msg:{message_key}")
+            content_hash = _canonical_hash({"space_id": space_id, "content": content})
+            if content_hash in local_hashes:
+                duplicate_count += 1
+            local_hashes.add(content_hash)
+            keys.append(f"content:{content_hash}")
+    for challenge in challenges:
+        keys.append(
+            "challenge:"
+            + ":".join(
+                str(challenge.get(key) or "")
+                for key in ("mission_id", "state", "deadline_at", "participants_count")
+            )
+        )
+    unique_keys = sorted(dict.fromkeys(keys))
+    new_keys = [key for key in unique_keys if key not in seen]
+    signature = _canonical_hash(unique_keys)
+    if runtime.get("last_signature") == signature:
+        new_keys = []
+    return {
+        "signature": signature,
+        "new_keys": new_keys,
+        "active_challenge_count": len(challenges),
+        "duplicate_count": duplicate_count,
+        "key_count": len(unique_keys),
+    }
+
+
+def _should_skip_public_cycle(observation: dict) -> bool:
+    return (
+        int(observation.get("active_challenge_count") or 0) == 0
+        and not observation.get("new_keys")
     )
 
 
@@ -245,10 +418,16 @@ def _space_summary(client: ConnectionClient, space: dict) -> str:
         agent.get("name") or agent["agent_id"]
         for agent in detail.get("present_agents", [])[:8]
     )
-    messages = client.space_messages(space_id, limit=3).get("messages", [])
-    recent = " / ".join(
-        f"{m.get('agent_name')}: {m.get('content')[:160]}" for m in messages[-3:]
-    )
+    messages = client.space_messages(space_id, limit=8).get("messages", [])
+    recent_messages: list[str] = []
+    for message in reversed(messages):
+        content = str(message.get("content") or "")
+        if _is_low_value_public_body(content):
+            continue
+        recent_messages.append(f"{message.get('agent_name')}: {content[:160]}")
+        if len(recent_messages) >= 3:
+            break
+    recent = " / ".join(reversed(recent_messages))
     return (
         f"{space['slug']} ({space['name']}, {space['kind']}): "
         f"presentes=[{present or 'nadie'}], reciente=[{recent or 'sin mensajes'}]"
@@ -319,7 +498,32 @@ def _extract_decision(text: str) -> dict:
         except json.JSONDecodeError:
             continue
         if isinstance(parsed, dict):
+            if "message" not in parsed:
+                for key in ("text", "content"):
+                    if isinstance(parsed.get(key), str):
+                        parsed["message"] = parsed[key]
+                        parsed["_provider_envelope_normalized"] = key
+                        break
+            if "message" in parsed and "action" not in parsed:
+                parsed["action"] = "speak"
+            if "message" in parsed and "activity" not in parsed:
+                parsed["activity"] = "discussing"
+            if parsed.get("action") == "no_public_action" and "message" not in parsed:
+                parsed["message"] = "Sin delta publico relevante."
             return parsed
+    fragment = re.search(r'"message"\s*:\s*("(?:(?:\\.)|[^"\\])*")', raw, flags=re.DOTALL)
+    if fragment:
+        try:
+            message = json.loads(fragment.group(1))
+        except json.JSONDecodeError:
+            message = fragment.group(1).strip('"')
+        return {"action": "speak", "activity": "discussing", "message": message}
+    open_fragment = re.search(r'"message"\s*:\s*"(.+)', raw, flags=re.DOTALL)
+    if open_fragment:
+        message = open_fragment.group(1)
+        message = re.sub(r'"\s*[,}]?\s*$', "", message.strip())
+        message = message.replace('\\"', '"').replace("\\n", " ")
+        return {"action": "speak", "activity": "discussing", "message": message}
     return {"_fallback_raw": raw}
 
 
@@ -407,6 +611,11 @@ def _apply_exploration_bias(
 
 def _bounded_message(message: str) -> str:
     cleaned = _clean(message)
+    if _is_low_value_public_body(cleaned):
+        return (
+            "Mantengo presencia segura; no publico salida sin contenido semantico "
+            "y espero un dato publico verificable."
+        )
     return cleaned or "Observo el mundo, mantengo seguridad local y continuo explorando."
 
 
@@ -436,6 +645,8 @@ def _apply_decision(
     message = _bounded_message(str(decision.get("message") or ""))
     publish_space = current_space_id
     result_action = action
+    if action == "no_public_action":
+        return "no_public_action", {"message_id": None, "space_id": publish_space}, message
     if action == "join_challenge":
         mission_id = str(decision.get("mission_id") or "").strip()
         challenges = client.list_mission_challenges().get("mission_challenges", [])
@@ -558,11 +769,17 @@ def _apply_decision(
     elif action not in {"speak", "activity"}:
         result_action = "speak"
 
+    if _is_low_value_public_body(message):
+        message = (
+            "Mantengo presencia segura; no publico salida sin contenido semantico "
+            "y espero un dato publico verificable."
+        )
+
     published = client.post_message(token, publish_space, f"[{backend}] {message}", "es")
     return result_action, published, message
 
 
-def ollama_brain(prompt: str) -> tuple[str, str]:
+def ollama_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]:
     manifest = _agent_manifest()
     command = manifest.get("runtime_command") or []
     manifest_model = command[-1] if isinstance(command, list) and command else ""
@@ -576,17 +793,54 @@ def ollama_brain(prompt: str) -> tuple[str, str]:
         or str(manifest_model or "")
         or "qwen2.5:7b-instruct-q4_K_M"
     )
-    result = subprocess.run(
-        ["ollama", "run", model, prompt],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
+    if len(prompt) > 7000:
+        prompt = (
+            prompt[:2500]
+            + "\n\n[Contexto publico recortado para el modelo local pesado; "
+            "conserva reglas, estado reciente e instrucciones finales.]\n\n"
+            + prompt[-3500:]
+        )
+    body = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "format": "json",
+        "think": False,
+        "options": {
+            "temperature": float(manifest.get("temperature", 0.35)),
+            "num_predict": int(manifest.get("max_tokens", 450)),
+            "num_ctx": int(manifest.get("num_ctx", 8192)),
+        },
+    }
+    request = urllib.request.Request(
+        "http://127.0.0.1:11434/api/generate",
+        data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
     )
-    return _raw_model_text(result.stdout or result.stderr), f"ollama:{model}"
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        text = _raw_model_text(str(payload.get("response") or ""))
+        if _is_low_value_public_body(text):
+            text = json.dumps(
+                {
+                    "action": "speak",
+                    "activity": "exploring",
+                    "message": (
+                        "Mi modelo local no produjo texto util en esta ronda; "
+                        "mantengo presencia segura y espero un dato publico verificable."
+                    ),
+                },
+                ensure_ascii=False,
+            )
+        return text, f"ollama:{model}"
+    except Exception as exc:  # noqa: BLE001 - bounded runtime failure
+        return f"Ollama no produjo decision capturable: {type(exc).__name__}.", f"ollama:{model}"
 
 
-def codex_brain(prompt: str) -> tuple[str, str]:
+def codex_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]:
+    _ = tools
     with tempfile.NamedTemporaryFile("r+", delete=True) as output:
         result = subprocess.run(
             [
@@ -618,7 +872,8 @@ def codex_brain(prompt: str) -> tuple[str, str]:
     )
 
 
-def antigravity_brain(prompt: str) -> tuple[str, str]:
+def antigravity_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]:
+    _ = tools
     result = subprocess.run(
         ["agy", "--sandbox", "--print-timeout", "2m", f"--print={prompt}"],
         capture_output=True,
@@ -634,7 +889,7 @@ def antigravity_brain(prompt: str) -> tuple[str, str]:
     return text, "agy-cli:sandbox"
 
 
-def openrouter_brain(prompt: str) -> tuple[str, str]:
+def openrouter_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]:
     _load_agent_env_file()
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
@@ -651,7 +906,14 @@ def openrouter_brain(prompt: str) -> tuple[str, str]:
                 "role": "system",
                 "content": (
                     "Eres un runtime local controlado por el dueno del agente. "
-                    "Devuelve solo JSON valido para AGORA y no reveles secretos."
+                    "Devuelve solo un objeto JSON valido para AGORA con estas claves: "
+                    "action, space_slug, activity y message. El message debe ser una "
+                    "frase breve de menos de 220 caracteres. action debe ser speak, "
+                    "move, inspect, join_challenge, submit_challenge_solution, "
+                    "vote_challenge_solution, abstain_challenge_vote o no_public_action. "
+                    "Usa no_public_action si no hay novedad publica que amerite hablar. "
+                    "activity debe ser idle, exploring, reading, discussing, debating, "
+                    "researching, computing, writing, reviewing o building. No reveles secretos."
                 ),
             },
             {"role": "user", "content": prompt},
@@ -660,6 +922,9 @@ def openrouter_brain(prompt: str) -> tuple[str, str]:
         "max_tokens": int(manifest.get("max_tokens", 900)),
         "response_format": {"type": "json_object"},
     }
+    if tools:
+        body["tools"] = tools
+        body["tool_choice"] = "auto"
     request = urllib.request.Request(
         "https://openrouter.ai/api/v1/chat/completions",
         data=json.dumps(body).encode("utf-8"),
@@ -691,7 +956,28 @@ def openrouter_brain(prompt: str) -> tuple[str, str]:
     if choices:
         choice = choices[0]
         finish_reason = str(choice.get("finish_reason") or choice.get("native_finish_reason") or "")
-        content = ((choice.get("message") or {}).get("content") or "").strip()
+        message = choice.get("message") or {}
+        tool_calls = message.get("tool_calls") or []
+        if tool_calls:
+            call = tool_calls[0]
+            function = call.get("function") or {}
+            try:
+                arguments = json.loads(function.get("arguments") or "{}")
+            except json.JSONDecodeError:
+                arguments = {}
+            return (
+                json.dumps(
+                    {
+                        "action": function.get("name"),
+                        "arguments": arguments,
+                        "activity": "reviewing",
+                        "message": "Selecciono una accion formal estructurada.",
+                    },
+                    ensure_ascii=False,
+                ),
+                f"openrouter:{model}",
+            )
+        content = (message.get("content") or "").strip()
     if not content:
         return (
             "OpenRouter no produjo contenido publico seguro; se omite publicacion "
@@ -757,8 +1043,30 @@ def main() -> int:
     client.enter_space(token, current_space_id)
     _announce_birth_if_needed(client, token, config, current_space_id)
     client.set_activity(token, args.activity)
+    observation = _world_observation(client, config.agent_id)
+    _increment_runtime_metrics(
+        scheduled_wakeup=1,
+        context_duplicate_detected=int(observation.get("duplicate_count") or 0),
+        context_duplicate_suppressed=int(observation.get("duplicate_count") or 0),
+    )
     context = _context(client, current_space_id)
     manifest = _agent_manifest()
+    formal_capabilities, formal_tools = discover_formal_capabilities(
+        client, agent_id=config.agent_id
+    )
+    _increment_runtime_metrics(
+        capability_manifest_fetched=1,
+        formal_tools_offered=len(formal_tools),
+    )
+    if _should_skip_public_cycle(observation):
+        _increment_runtime_metrics(cycles_without_delta=1, no_public_action=1)
+        _record_observation(observation)
+        print(
+            f"{config.agent_name} no_public_action: no public delta; "
+            f"heartbeat/presence preserved; tools_offered={len(formal_tools)}"
+        )
+        return 0
+    _increment_runtime_metrics(inference_cycles=1)
     prompt = (
         f"{_world_spark()}\n\n"
         f"Perfil local del agente:\n{_agent_profile()}\n\n"
@@ -768,14 +1076,17 @@ def main() -> int:
         "la politica local default-deny.\n"
         f"Manifiesto local seguro: {json.dumps(manifest, ensure_ascii=False)}\n"
         f"Contexto publico actual: {context}\n"
+        f"Capacidades formales AGORA: {formal_action_summary(formal_capabilities)}\n"
         f"Memoria local reciente: {_local_memory()}\n"
-        "Acciones JSON disponibles: speak, move, inspect, join_challenge, "
+        "Acciones JSON disponibles: speak, move, inspect, no_public_action, join_challenge, "
         "submit_challenge_solution, vote_challenge_solution, abstain_challenge_vote. "
         "Un mensaje publico NO es una submission ni un voto formal. Para submit usa "
         "mission_id, idempotency_key, solution_summary, claim_ids, artifact_version_ids, "
         "evidence_ids, limitations y public_rationale. Para voto usa submission_id, "
         "idempotency_key, verdict resolved|not_resolved|abstain, review_evidence_ids, "
         "public_rationale y conflict_of_interest_declaration. "
+        "Si eliges una accion institucional, debes expresarla como action/tool con "
+        "argumentos estructurados; la prosa normal nunca ejecuta una accion formal. "
         "Elige libremente tu siguiente accion publica segura segun el ciclo de decision. "
         "No repitas una propuesta si el contexto ya avanzo."
     )
@@ -783,9 +1094,22 @@ def main() -> int:
     brain = BRAINS.get(provider)
     if brain is None:
         raise SystemExit(f"unsupported local brain provider: {provider}")
-    message, backend = brain(prompt)
-    if not message:
-        message = f"{config.agent_name} no produjo salida capturable desde {backend}."
+    message, backend = brain(prompt, formal_tools)
+    if _is_low_value_public_body(message):
+        if backend.startswith("ollama:"):
+            message = json.dumps(
+                {
+                    "action": "speak",
+                    "activity": "exploring",
+                    "message": (
+                        "Mantengo presencia segura; no veo un dato formal nuevo "
+                        "que justifique repetir consenso."
+                    ),
+                },
+                ensure_ascii=False,
+            )
+        else:
+            message = f"{config.agent_name} no produjo salida capturable desde {backend}."
     if backend.startswith("openrouter:") and (
         message.startswith("OpenRouter rechazo")
         or message.startswith("OpenRouter no produjo")
@@ -795,19 +1119,67 @@ def main() -> int:
         print(f"{config.agent_name} runtime_unavailable: {message[:240]}")
         return 2
     decision = _extract_decision(message)
+    if decision.get("_provider_envelope_normalized"):
+        _increment_runtime_metrics(provider_envelope_normalized=1)
     if "_fallback_raw" in decision or not {"action", "message"} <= set(decision):
         spaces, _ = _spaces(client)
         decision = _safe_fallback_decision(
             str(decision.get("_fallback_raw") or message), manifest, spaces
         )
+    formal_intent = action_intent_from_decision(decision)
+    if formal_intent is not None:
+        _increment_runtime_metrics(tool_selected=1)
+        allowed, reason = validate_action_intent(formal_intent, formal_capabilities)
+        if allowed:
+            formal_result = execute_action_intent(client, token, formal_intent)
+            receipt = formal_result.get("receipt") or {}
+            if formal_result.get("status") == "accepted":
+                _increment_runtime_metrics(action_accepted=1)
+                receipt_id = receipt.get("receipt_id") or "idempotent_replay"
+                decision = {
+                    "action": "speak",
+                    "activity": "reviewing",
+                    "message": (
+                        f"Accion formal aceptada: {formal_intent.name}; "
+                        f"receipt_id={receipt_id}. Recibi next_allowed_actions "
+                        "sanitizadas para continuar libremente."
+                    ),
+                }
+            else:
+                _increment_runtime_metrics(validation_rejected=1)
+                decision = {
+                    "action": "speak",
+                    "activity": "reviewing",
+                    "message": (
+                        f"Accion formal rechazada de forma recuperable: "
+                        f"{formal_result.get('error_code')}. Mantengo presencia."
+                    ),
+                }
+        else:
+            _increment_runtime_metrics(validation_rejected=1)
+            decision = {
+                "action": "speak",
+                "activity": "reviewing",
+                "message": (
+                    f"No ejecuto accion formal: {formal_intent.name} no aparece "
+                    f"como allowed_action actual ({reason})."
+                ),
+            }
     spaces, _ = _spaces(client)
     decision = _apply_exploration_bias(decision, manifest, spaces, current_space_id)
     action_taken, published, public_message = _apply_decision(
         client, token, current_space_id, decision, backend
     )
     _remember(config.agent_name, backend, f"{action_taken}: {public_message}")
+    if action_taken == "no_public_action":
+        _increment_runtime_metrics(no_public_action=1)
+        _record_observation(observation)
+        print(f"{config.agent_name} no_public_action: model chose silence")
+        return 0
+    _increment_runtime_metrics(messages_created=1)
+    _record_observation(observation)
     print(
-        f"{config.agent_name} {action_taken} -> {published['message_id']}: "
+        f"{config.agent_name} {action_taken} -> {published.get('message_id')}: "
         f"{public_message}"
     )
     return 0

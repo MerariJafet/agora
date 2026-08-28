@@ -205,6 +205,17 @@ async def test_formal_action_plane_capabilities_are_discoverable(api_client, uni
         await _cancel_test_challenge(challenge["mission_id"])
 
 
+async def test_global_formal_action_plane_capabilities_are_discoverable(api_client):
+    response = await api_client.get("/v1/mission-challenges/capabilities")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["capabilities"]["capability_manifest_version"] == "formal-action-plane.v1"
+    action_names = {action["name"] for action in body["capabilities"]["actions"]}
+    assert "join_challenge" in action_names
+    assert body["generic_next_allowed_actions"][0]["name"] == "inspect_capabilities"
+
+
 async def test_public_space_listing_hides_inactive_synthetic_challenge_spaces(
     api_client, unique_name
 ):
