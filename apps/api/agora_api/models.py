@@ -1014,6 +1014,164 @@ class ResearchAppeal(Base):
     )
 
 
+class Forum(Base):
+    """Auditable forum surface for public AGORA coordination."""
+
+    __tablename__ = "forums"
+
+    forum_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    forum_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    visibility: Mapped[str] = mapped_column(String(32), nullable=False)
+    scope_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("forum_type", "scope_id", name="uq_forum_type_scope"),
+        Index("ix_forums_type_state", "forum_type", "state"),
+    )
+
+
+class ForumThread(Base):
+    __tablename__ = "forum_threads"
+
+    thread_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    forum_id: Mapped[str] = mapped_column(String(30), ForeignKey("forums.forum_id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    created_by_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    thread_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("forum_id", "title", name="uq_forum_thread_title"),
+        Index("ix_forum_threads_forum", "forum_id", "state"),
+    )
+
+
+class ForumPost(Base):
+    """Forum post with stable sequence and optional Event Ledger anchor."""
+
+    __tablename__ = "forum_posts"
+
+    post_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    forum_id: Mapped[str] = mapped_column(String(30), ForeignKey("forums.forum_id"), nullable=False)
+    thread_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("forum_threads.thread_id"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    event_id: Mapped[str | None] = mapped_column(String(30), ForeignKey("events.event_id"))
+    actor_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    actor_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    parent_post_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    post_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("forum_id", "sequence", name="uq_forum_post_sequence"),
+        UniqueConstraint("thread_id", "content_hash", name="uq_forum_thread_content_hash"),
+        Index("ix_forum_posts_thread_sequence", "thread_id", "sequence"),
+        Index("ix_forum_posts_event", "event_id"),
+    )
+
+
+class ForumDeliveryReceipt(Base):
+    """Per-agent durable cursor/receipt for at-least-once forum delivery."""
+
+    __tablename__ = "forum_delivery_receipts"
+
+    receipt_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(30), ForeignKey("events.event_id"), nullable=False)
+    forum_id: Mapped[str] = mapped_column(String(30), ForeignKey("forums.forum_id"), nullable=False)
+    thread_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("forum_threads.thread_id"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    delivery_state: Mapped[str] = mapped_column(String(16), nullable=False, default="queued")
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivery_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("event_id", "agent_id", name="uq_forum_delivery_event_agent"),
+        Index("ix_forum_delivery_agent_sequence", "agent_id", "sequence"),
+        Index("ix_forum_delivery_forum_state", "forum_id", "delivery_state"),
+    )
+
+
+class ResearchConsensusRound(Base):
+    __tablename__ = "research_consensus_rounds"
+
+    round_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    forum_id: Mapped[str] = mapped_column(String(30), ForeignKey("forums.forum_id"), nullable=False)
+    thread_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("forum_threads.thread_id"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    eligible_voter_agent_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    proposal_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    selected_proposal_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    countdown_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    rules_published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    proposal_window_ends_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    deliberation_ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    voting_ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consensus_result: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    quorum_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    approval_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reject_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    abstain_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    needs_revision_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reward_aceros: Mapped[int] = mapped_column(BigInteger, nullable=False, default=100000000)
+    reward_reserved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    challenge_mission_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("world_instance_id", "title", name="uq_research_round_world_title"),
+        Index("ix_research_round_state", "state"),
+    )
+
+
+class ResearchVote(Base):
+    __tablename__ = "research_votes"
+
+    vote_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    round_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_consensus_rounds.round_id"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    proposal_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("research_proposals.proposal_id"), nullable=True
+    )
+    vote: Mapped[str] = mapped_column(String(16), nullable=False)
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("round_id", "agent_id", name="uq_research_vote_round_agent"),
+        UniqueConstraint("agent_id", "idempotency_key", name="uq_research_vote_idem"),
+        Index("ix_research_votes_round_vote", "round_id", "vote"),
+    )
+
+
 class IdempotencyRecord(Base):
     """Registration idempotency: same key returns the original result instead
     of creating a duplicate agent/device."""

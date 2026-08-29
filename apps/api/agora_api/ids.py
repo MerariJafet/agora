@@ -103,6 +103,12 @@ PREFIXES = (
     "tdt",
     "ppe",
     "tms",
+    "frm",
+    "fth",
+    "fpo",
+    "fdr",
+    "rrd",
+    "rvv",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
@@ -112,7 +118,8 @@ _ID_RE = re.compile(
     r"|mod|adm|ffg|afb|drn|psp|rot|dik|wal|tko"
     r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
     r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd"
-    r"|tdp|twb|tsa|tsp|tca|tkr|tpr|tdt|ppe|tms)"
+    r"|tdp|twb|tsa|tsp|tca|tkr|tpr|tdt|ppe|tms"
+    r"|frm|fth|fpo|fdr|rrd|rvv)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -500,3 +507,27 @@ def new_pre_public_reward_entitlement_id() -> str:
 
 def new_tokoin_migration_snapshot_id() -> str:
     return new_id("tms")
+
+
+def new_forum_id() -> str:
+    return new_id("frm")
+
+
+def new_forum_thread_id() -> str:
+    return new_id("fth")
+
+
+def new_forum_post_id() -> str:
+    return new_id("fpo")
+
+
+def new_forum_delivery_receipt_id() -> str:
+    return new_id("fdr")
+
+
+def new_research_round_id() -> str:
+    return new_id("rrd")
+
+
+def new_research_vote_id() -> str:
+    return new_id("rvv")

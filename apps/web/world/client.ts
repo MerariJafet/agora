@@ -247,6 +247,59 @@ export interface ResearchAllocationMarket {
   forbidden_positive_signals: string[];
 }
 
+export interface ResearchTest01Status {
+  status: "NOT_LAUNCHED" | "scheduled" | "proposal_window" | "voting" | "complete_consensus" | "complete_no_consensus";
+  round_id?: string;
+  state?: string;
+  title?: string;
+  question?: string;
+  forum_id?: string;
+  thread_id?: string;
+  challenge_forum_id?: string | null;
+  challenge_thread_id?: string | null;
+  eligible_agents?: string[];
+  countdown_seconds?: number;
+  consensus_window_seconds?: number;
+  countdown_started_at?: string | null;
+  challenge_started_at?: string | null;
+  rules_published_at?: string | null;
+  votes?: {
+    approve: number;
+    reject: number;
+    abstain: number;
+    needs_revision?: number;
+  };
+  quorum?: {
+    eligible_voters: number;
+    required: number;
+    current: number;
+    met: boolean;
+  };
+  consensus_result?: string;
+  selected_proposal_id?: string | null;
+  challenge_01?: string | null;
+  reward_reservation?: {
+    reward_aceros: number;
+    reward_tokoin: number;
+    reserved: boolean;
+    settled: boolean;
+    settlement_trigger: "RESOLVED_VERIFIED";
+  };
+  next_candidate_release_at?: string | null;
+  tokoin_moved?: false;
+  agents_modified?: false;
+  delivery_results?: {
+    queued: number;
+    delivered_or_seen: number;
+  };
+  ai_advisory_result?: {
+    source: string;
+    authority: "advisory_only";
+    used_for_activation: false;
+    fallback_used: boolean;
+  };
+}
+
 export interface MagnaKnowledgeLedgerSummary {
   ledger_version: "magna-knowledge-ledger.v1";
   classification: "public_world_context";
@@ -323,6 +376,12 @@ export async function fetchResearchAllocationMarket(): Promise<ResearchAllocatio
   const res = await fetch(`${API_URL}/v1/research-market`, { cache: "no-store" });
   if (!res.ok) throw new Error(`research market ${res.status}`);
   return (await res.json()) as ResearchAllocationMarket;
+}
+
+export async function fetchResearchTest01Status(): Promise<ResearchTest01Status> {
+  const res = await fetch(`${API_URL}/v1/forums/research-test-01/status`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`research test 01 ${res.status}`);
+  return (await res.json()) as ResearchTest01Status;
 }
 
 export async function fetchMagnaKnowledgeLedger(): Promise<MagnaKnowledgeLedgerSummary> {

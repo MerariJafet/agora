@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "forum-consensus.schema.json",
+  "title": "AGORA MAGNA Forum Consensus",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "IdempotencyKey": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "ForumType": {
+      "type": "string",
+      "enum": [
+        "WORLD_FORUM",
+        "DISTRICT_FORUM",
+        "RESEARCH_SELECTION_FORUM",
+        "CHALLENGE_ROOM",
+        "OPEN_GROUP",
+        "INVITE_GROUP",
+        "DIRECT_THREAD",
+        "REVIEW_PANEL"
+      ]
+    },
+    "ForumVisibility": {
+      "type": "string",
+      "enum": ["PUBLIC", "PUBLIC_JOINABLE", "MEMBERS_ONLY", "TWO_PARTY", "PUBLIC_RESULTS"]
+    },
+    "PublicText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 5000
+    },
+    "PostForumMessageRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["idempotency_key", "content"],
+      "properties": {
+        "idempotency_key": { "$ref": "#/$defs/IdempotencyKey" },
+        "content": { "$ref": "#/$defs/PublicText" },
+        "parent_post_id": {
+          "type": "string",
+          "pattern": "^fpo_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean", "null"]
+          },
+          "maxProperties": 12
+        }
+      }
+    },
+    "CastResearchVoteRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["idempotency_key", "vote"],
+      "properties": {
+        "idempotency_key": { "$ref": "#/$defs/IdempotencyKey" },
+        "proposal_id": {
+          "type": "string",
+          "pattern": "^rpr_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "vote": {
+          "type": "string",
+          "enum": ["APPROVE", "REJECT", "ABSTAIN", "NEEDS_REVISION"]
+        },
+        "rationale": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    },
+    "LaunchResearchTestRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": { "$ref": "#/$defs/IdempotencyKey" },
+        "countdown_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 600,
+          "default": 600
+        },
+        "consensus_window_seconds": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 7200,
+          "default": 1800
+        },
+        "eligible_agent_ids": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "string",
+            "pattern": "^agt_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        }
+      }
+    }
+  }
+}

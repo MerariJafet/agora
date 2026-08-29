@@ -12,6 +12,7 @@ import {
   fetchObservatoryActionability,
   fetchPopulation,
   fetchResearchAllocationMarket,
+  fetchResearchTest01Status,
   fetchResearchReleasePolicy,
   fetchSpaceMessages,
   fetchTokoinStatus,
@@ -27,6 +28,7 @@ import type {
   MagnaTokoinTestnetStatus,
   ObservatoryActionability,
   ResearchAllocationMarket,
+  ResearchTest01Status,
   ResearchReleasePolicy,
   TokoinStatus,
   WorldMarketSummary,
@@ -116,6 +118,7 @@ export default function WorldPage() {
   const [tokoinTestnet, setTokoinTestnet] = useState<MagnaTokoinTestnetStatus | null>(null);
   const [releasePolicy, setReleasePolicy] = useState<ResearchReleasePolicy | null>(null);
   const [researchMarket, setResearchMarket] = useState<ResearchAllocationMarket | null>(null);
+  const [researchTest01, setResearchTest01] = useState<ResearchTest01Status | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [feedEvents, setFeedEvents] = useState<ObservatoryEvent[]>([]);
@@ -202,6 +205,7 @@ export default function WorldPage() {
       tokoinTestnetSurface,
       release,
       research,
+      researchTest,
     ] = await Promise.allSettled([
       listMissions(),
       fetchTokoinStatus(),
@@ -213,6 +217,7 @@ export default function WorldPage() {
       fetchMagnaTokoinTestnet(),
       fetchResearchReleasePolicy(),
       fetchResearchAllocationMarket(),
+      fetchResearchTest01Status(),
     ]);
     if (missionResult.status === "fulfilled") {
       setMissions(missionResult.value.missions);
@@ -228,6 +233,7 @@ export default function WorldPage() {
     }
     if (release.status === "fulfilled") setReleasePolicy(release.value);
     if (research.status === "fulfilled") setResearchMarket(research.value);
+    if (researchTest.status === "fulfilled") setResearchTest01(researchTest.value);
   }, [windowSeconds]);
 
   const loadRecentMessages = useCallback(async () => {
@@ -726,6 +732,53 @@ export default function WorldPage() {
                   Modo TEST: no mueve TOKOIN real, no crea wallets y no usa mensajes,
                   movimiento o riqueza como señales positivas de ranking.
                 </p>
+              </div>
+            )}
+            {researchTest01 && (
+              <div className="research-market-panel">
+                <div className="panel-title-row">
+                  <h3>Research Test 01</h3>
+                  <span>{researchTest01.state ?? researchTest01.status}</span>
+                </div>
+                {researchTest01.status === "NOT_LAUNCHED" ? (
+                  <p className="subtle-note">
+                    Aún no se ha lanzado el foro global de selección. Los agentes no han
+                    sido movidos ni modificados por el mundo.
+                  </p>
+                ) : (
+                  <>
+                    <p className="now-line">{researchTest01.question}</p>
+                    <dl className="compact-facts">
+                      <div>
+                        <dt>Elegibles</dt>
+                        <dd>{researchTest01.eligible_agents?.length ?? 0}</dd>
+                      </div>
+                      <div>
+                        <dt>Quorum</dt>
+                        <dd>
+                          {researchTest01.quorum?.current ?? 0}/{researchTest01.quorum?.required ?? "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Receipts</dt>
+                        <dd>{researchTest01.delivery_results?.queued ?? 0}</dd>
+                      </div>
+                      <div>
+                        <dt>Reserva</dt>
+                        <dd>{formatAceros(researchTest01.reward_reservation?.reward_aceros)}</dd>
+                      </div>
+                      <div>
+                        <dt>TOKOIN movido</dt>
+                        <dd>{researchTest01.tokoin_moved ? "sí" : "no"}</dd>
+                      </div>
+                    </dl>
+                    <p className="subtle-note">
+                      Voluntario: el foro avisa a todos los agentes registrados, no los
+                      teletransporta. La recompensa sólo se reserva con consenso formal y
+                      sólo se paga después de RESOLVED_VERIFIED.
+                    </p>
+                  </>
+                )}
               </div>
             )}
             {knowledgeLedger && (
