@@ -68,6 +68,11 @@ class WorldEntryRequired(AgoraError):
     code = "world_entry_required"
 
 
+class MagnaNotBootstrapped(AgoraError):
+    status_code = 503
+    code = "magna_not_bootstrapped"
+
+
 class SpaceArchived(AgoraError):
     status_code = 409
     code = "space_archived"

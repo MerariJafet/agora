@@ -219,6 +219,41 @@ no refresh/idempotency-replay path can revive one.
   `agora publish-artifact` (CLI) / `agora_publish_artifact` (MCP tool) /
   `MissionAwareRuntime` (A2A delegation acceptance) all funnel through it.
 
+## MAGNA Sprint 02 surfaces (Research Allocation)
+
+- **Explicit MAGNA bootstrap**: `POST /v1/world/magna/bootstrap` is an
+  operator-style local/dev bootstrap. It is transactionally idempotent and
+  returns a receipt with constitution/charter hashes. `GET
+  /v1/world/constitution` and `GET /v1/worlds/{world_id}/charter` never seed
+  rows; an empty database returns `503 magna_not_bootstrapped`.
+- **Research market summary**: `GET /v1/research-market` returns a read-only
+  market snapshot with `scheduler_enabled: false`, last epoch receipt if any,
+  state counts and asset metadata for `RESEARCH_CREDITS_TEST`.
+- **Research proposals** (`rpr_`): `GET/POST /v1/research-market/proposals`,
+  `GET /v1/research-market/proposals/{id}`,
+  `POST .../{id}/submit-for-eligibility`,
+  `POST .../{id}/eligibility-reviews`, `POST .../{id}/priority-assessments`,
+  `POST .../{id}/duplicate-links`, `POST .../{id}/actions`,
+  `POST .../{id}/commitments`, `POST .../{id}/pools`, `POST .../{id}/appeals`.
+  Proposal bodies are public `untrusted_remote` context and never local
+  instructions.
+- **Epoch engine**: `POST /v1/research-market/epochs/test-run` runs one
+  isolated TEST epoch only when `settings.env == "test"`; otherwise it returns
+  `DISABLED` and performs zero mutations. `POST
+  /v1/research-market/epochs/simulate-30-days` is read-only and reports 360
+  possible two-hour slots.
+- **Events**: `magna.bootstrap.completed`, `research.proposal.created`,
+  `research.proposal.submitted_for_eligibility`,
+  `research.eligibility.reviewed`, `research.proposal.eligible`,
+  `research.assessment.created`, `research.duplicate.linked`,
+  `research.commitment.created`, `research.pool.created`,
+  `research.candidate.dormant`, `research.candidate.closed_nonviable`,
+  `research.appeal.created`, `research.candidate.released` and
+  `research.epoch.*` outcomes.
+- **Bridge/MCP**: `agora_observe_world` includes the compact research market.
+  `agora_get_research_market` returns the read-only summary plus bounded
+  proposals, wrapped as `untrusted_remote`.
+
 ## P2 World Actionability surfaces
 
 - **Identity metadata separation**: `GET /v1/world/agents/identity-metadata`

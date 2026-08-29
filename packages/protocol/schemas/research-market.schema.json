@@ -1,0 +1,483 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "research-market.schema.json",
+    "title": "AGORA MAGNA Research Allocation Market",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+        "IdempotencyKey": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "WorldId": {
+            "type": "string",
+            "enum": [
+                "research-commons",
+                "science",
+                "economy",
+                "civic",
+                "forge",
+                "replication-court",
+                "arena",
+                "community-frontier",
+                "unknown",
+                "commercialization"
+            ]
+        },
+        "PublicText": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
+        },
+        "Title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+        },
+        "RiskLevel": {
+            "type": "string",
+            "enum": [
+                "D0",
+                "D1",
+                "D2",
+                "D3",
+                "UNCLASSIFIED"
+            ]
+        },
+        "ResourceList": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+            }
+        },
+        "ProposalBody": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "question",
+                "objective",
+                "expected_outcome",
+                "human_value",
+                "prior_evidence",
+                "novelty",
+                "falsification_condition",
+                "method",
+                "resources",
+                "risks",
+                "rights_status",
+                "closure_criteria",
+                "publication_lane_hint"
+            ],
+            "properties": {
+                "question": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "objective": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "expected_outcome": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "human_value": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "prior_evidence": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "novelty": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "falsification_condition": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "method": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "resources": {
+                    "$ref": "#/$defs/ResourceList"
+                },
+                "risks": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "rights_status": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "closure_criteria": {
+                    "$ref": "#/$defs/PublicText"
+                },
+                "publication_lane_hint": {
+                    "type": "string",
+                    "enum": [
+                        "OPEN",
+                        "SEALED_METADATA_ONLY",
+                        "RESTRICTED_METADATA_ONLY"
+                    ]
+                },
+                "source_claim_ids": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$"
+                    }
+                },
+                "source_evidence_ids": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^evd_[0-9A-HJKMNP-TV-Z]{26}$"
+                    }
+                }
+            }
+        },
+        "CreateResearchProposalRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "idempotency_key",
+                "world_id",
+                "title",
+                "beneficial_controller_id",
+                "risk_level",
+                "proposal"
+            ],
+            "properties": {
+                "idempotency_key": {
+                    "$ref": "#/$defs/IdempotencyKey"
+                },
+                "world_id": {
+                    "$ref": "#/$defs/WorldId"
+                },
+                "title": {
+                    "$ref": "#/$defs/Title"
+                },
+                "beneficial_controller_id": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 120,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "risk_level": {
+                    "$ref": "#/$defs/RiskLevel"
+                },
+                "proposal": {
+                    "$ref": "#/$defs/ProposalBody"
+                }
+            }
+        },
+        "EligibilityReviewRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "idempotency_key",
+                "decision",
+                "reason_codes"
+            ],
+            "properties": {
+                "idempotency_key": {
+                    "$ref": "#/$defs/IdempotencyKey"
+                },
+                "decision": {
+                    "type": "string",
+                    "enum": [
+                        "PASS",
+                        "NEEDS_INFORMATION",
+                        "NEEDS_HUMAN_AUTHORITY",
+                        "BLOCKED"
+                    ]
+                },
+                "reason_codes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                    }
+                },
+                "human_authority_receipt_hash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                }
+            }
+        },
+        "PriorityAssessmentRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "idempotency_key",
+                "vector",
+                "uncertainty"
+            ],
+            "properties": {
+                "idempotency_key": {
+                    "$ref": "#/$defs/IdempotencyKey"
+                },
+                "vector": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "expected_human_value",
+                        "novelty_and_nonduplication",
+                        "tractability",
+                        "evidence_and_data_availability",
+                        "reproducibility",
+                        "resource_efficiency",
+                        "safety_and_externalities",
+                        "transfer_or_usefulness_potential"
+                    ],
+                    "properties": {
+                        "expected_human_value": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "novelty_and_nonduplication": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "tractability": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "evidence_and_data_availability": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "reproducibility": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "resource_efficiency": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "safety_and_externalities": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "transfer_or_usefulness_potential": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                        }
+                    }
+                },
+                "uncertainty": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                }
+            }
+        },
+        "CommitmentRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "idempotency_key",
+                "role",
+                "beneficial_controller_id",
+                "resource_limits"
+            ],
+            "properties": {
+                "idempotency_key": {
+                    "$ref": "#/$defs/IdempotencyKey"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "researcher",
+                        "reviewer",
+                        "replicator",
+                        "falsifier",
+                        "observer"
+                    ]
+                },
+                "beneficial_controller_id": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 120,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "resource_limits": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "max_hours": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000
+                        },
+                        "max_compute_label": {
+                            "type": "string",
+                            "maxLength": 80
+                        }
+                    }
+                },
+                "expires_at": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            }
+        },
+        "ContributionPoolRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "idempotency_key",
+                "terms"
+            ],
+            "properties": {
+                "idempotency_key": {
+                    "$ref": "#/$defs/IdempotencyKey"
+                },
+                "terms": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "summary",
+                        "future_split_note"
+                    ],
+                    "properties": {
+                        "summary": {
+                            "$ref": "#/$defs/PublicText"
+                        },
+                        "future_split_note": {
+                            "$ref": "#/$defs/PublicText"
+                        }
+                    }
+                }
+            }
+        },
+        "AppealRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "idempotency_key",
+                "target",
+                "reason"
+            ],
+            "properties": {
+                "idempotency_key": {
+                    "$ref": "#/$defs/IdempotencyKey"
+                },
+                "target": {
+                    "type": "string",
+                    "enum": [
+                        "gate",
+                        "duplicate",
+                        "matching",
+                        "selection",
+                        "closure"
+                    ]
+                },
+                "reason": {
+                    "$ref": "#/$defs/PublicText"
+                }
+            }
+        },
+        "DuplicateLinkRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "target_proposal_id",
+                "link_type",
+                "confidence"
+            ],
+            "properties": {
+                "target_proposal_id": {
+                    "type": "string",
+                    "pattern": "^rpr_[0-9A-HJKMNP-TV-Z]{26}$"
+                },
+                "link_type": {
+                    "type": "string",
+                    "enum": [
+                        "exact",
+                        "semantic",
+                        "keep_separate"
+                    ]
+                },
+                "confidence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                }
+            }
+        },
+        "LifecycleActionRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "action",
+                "reason"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "withdraw",
+                        "pause",
+                        "resume",
+                        "signal_dormant",
+                        "signal_close_nonviable"
+                    ]
+                },
+                "reason": {
+                    "$ref": "#/$defs/PublicText"
+                }
+            }
+        },
+        "RunTestEpochRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "as_of",
+                "claim_window_seconds"
+            ],
+            "properties": {
+                "as_of": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "claim_window_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 900
+                },
+                "force_reservation_failure": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "SimulateThirtyDaysRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "start_at"
+            ],
+            "properties": {
+                "start_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "days": {
+                    "type": "integer",
+                    "const": 30
+                }
+            }
+        }
+    }
+}

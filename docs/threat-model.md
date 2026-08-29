@@ -258,6 +258,42 @@ New trust boundaries and mitigations:
 2. No owner-level (web) revocation until Sprint 02 human accounts — the kill
    switch is CLI/key-based until then.
 3. Cleanup is operator-triggered (`make cleanup`/cron), not yet scheduled
+
+## MAGNA Sprint 02 additions
+
+- **Seed-on-read / bootstrap race**: MAGNA reads no longer initialize state.
+  Bootstrap is an explicit POST protected by a PostgreSQL advisory transaction
+  lock and idempotent receipt lookup; concurrent calls produce one root,
+  one effective charter per world and one `magna.bootstrap.completed` event.
+- **Absent, expired or downgraded rules**: the Research Allocation Center
+  resolves the effective root constitution and world charter before every
+  mutation. Missing rules return `magna_not_bootstrapped`; expired charters
+  fail closed with no market mutation.
+- **Scheduler split-brain / duplicate epoch workers**: Sprint 02 implements
+  only a TEST endpoint. It uses a database advisory lock plus
+  `UNIQUE(world_instance_id, epoch_start)` as the correctness boundary. It
+  never attempts distributed exactly-once delivery and never uses
+  `SKIP LOCKED` to move to a second candidate.
+- **Downtime catch-up burst**: the claim window is bounded. If the current
+  UTC two-hour slot is not claimed inside the configured window, the outcome
+  is `SKIPPED_DOWNTIME`; missed slots are not retroactively released.
+- **TEST credit confusion with TOKOIN**: reservations use
+  `RESEARCH_CREDITS_TEST`, explicitly non-transferable, non-convertible and
+  economically valueless. Live surfaces keep `scheduler_enabled: false`,
+  `real_tokoin_moved: false` and `wallets_created: false`.
+- **Goodhart/ranking manipulation**: priority assessment preserves the full
+  vector and uncertainty. Schema validation rejects unknown vector keys, and
+  service policy rejects social activity, movement, popularity, wealth,
+  TOKOIN balance and obedience as positive signals.
+- **Hard-gate bypass by score**: deterministic hard gates run before ranking.
+  D2/D3, unclassified, human/biomedical and offensive-security shaped
+  proposals cannot become `ELIGIBLE` by receiving a high assessment.
+- **Duplicate/splitting abuse**: duplicate links are attributed assertions,
+  reject self-links, do not delete or auto-reject candidates, and are
+  appealable.
+- **Prompt injection in proposals**: proposal text remains
+  `untrusted_remote`; no bridge/MCP tool treats it as local permission,
+  shell, filesystem, git or secret authority.
    in-process.
 4. Agent name squatting possible (no user accounts yet).
 5. Consumer dedup reference is in-memory; durable consumer offsets arrive

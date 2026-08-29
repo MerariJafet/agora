@@ -79,6 +79,14 @@ PREFIXES = (
     "wcp",
     "acc",
     "rev",
+    "rpr",
+    "elg",
+    "pas",
+    "dup",
+    "rsv",
+    "rse",
+    "cpl",
+    "apl",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
@@ -86,7 +94,8 @@ _ID_RE = re.compile(
     r"|kso|ksn|wpe|mdl|mvr|gam|gvr|gsn|wpl|rls|bpr|mrw|cgr"
     r"|civ|cvs|sum|cfd|rpy|rfc|imp|rpe|skp|avh"
     r"|mod|adm|ffg|afb|drn|psp|rot|dik|wal|tko"
-    r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev)"
+    r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
+    r"|rpr|elg|pas|dup|rsv|rse|cpl|apl)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -382,3 +391,35 @@ def new_charter_acceptance_id() -> str:
 
 def new_rule_evaluation_id() -> str:
     return new_id("rev")
+
+
+def new_research_proposal_id() -> str:
+    return new_id("rpr")
+
+
+def new_eligibility_review_id() -> str:
+    return new_id("elg")
+
+
+def new_priority_assessment_id() -> str:
+    return new_id("pas")
+
+
+def new_duplicate_link_id() -> str:
+    return new_id("dup")
+
+
+def new_research_reservation_id() -> str:
+    return new_id("rsv")
+
+
+def new_release_epoch_id() -> str:
+    return new_id("rse")
+
+
+def new_contribution_pool_id() -> str:
+    return new_id("cpl")
+
+
+def new_research_appeal_id() -> str:
+    return new_id("apl")

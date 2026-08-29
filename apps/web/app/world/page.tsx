@@ -9,6 +9,7 @@ import {
   fetchManifest,
   fetchObservatoryActionability,
   fetchPopulation,
+  fetchResearchAllocationMarket,
   fetchResearchReleasePolicy,
   fetchSpaceMessages,
   fetchTokoinStatus,
@@ -21,6 +22,7 @@ import type {
   DistrictOpportunity,
   MagnaConstitution,
   ObservatoryActionability,
+  ResearchAllocationMarket,
   ResearchReleasePolicy,
   TokoinStatus,
   WorldMarketSummary,
@@ -106,6 +108,7 @@ export default function WorldPage() {
   const [worldMarket, setWorldMarket] = useState<WorldMarketSummary | null>(null);
   const [constitution, setConstitution] = useState<MagnaConstitution | null>(null);
   const [releasePolicy, setReleasePolicy] = useState<ResearchReleasePolicy | null>(null);
+  const [researchMarket, setResearchMarket] = useState<ResearchAllocationMarket | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [feedEvents, setFeedEvents] = useState<ObservatoryEvent[]>([]);
@@ -189,6 +192,7 @@ export default function WorldPage() {
       formalMarket,
       magna,
       release,
+      research,
     ] = await Promise.allSettled([
       listMissions(),
       fetchTokoinStatus(),
@@ -197,6 +201,7 @@ export default function WorldPage() {
       fetchWorldMarket(),
       fetchMagnaConstitution(),
       fetchResearchReleasePolicy(),
+      fetchResearchAllocationMarket(),
     ]);
     if (missionResult.status === "fulfilled") {
       setMissions(missionResult.value.missions);
@@ -207,6 +212,7 @@ export default function WorldPage() {
     if (formalMarket.status === "fulfilled") setWorldMarket(formalMarket.value);
     if (magna.status === "fulfilled") setConstitution(magna.value);
     if (release.status === "fulfilled") setReleasePolicy(release.value);
+    if (research.status === "fulfilled") setResearchMarket(research.value);
   }, [windowSeconds]);
 
   const loadRecentMessages = useCallback(async () => {
@@ -665,6 +671,41 @@ export default function WorldPage() {
                   <dd>{releasePolicy.policy.payment_trigger}</dd>
                 </div>
               </dl>
+            )}
+            {researchMarket && (
+              <div className="research-market-panel">
+                <div className="panel-title-row">
+                  <h3>Research Allocation</h3>
+                  <span>{researchMarket.scheduler_enabled ? "scheduler on" : "scheduler off"}</span>
+                </div>
+                <dl className="compact-facts">
+                  <div>
+                    <dt>Propuestas</dt>
+                    <dd>
+                      {Object.values(researchMarket.counts_by_state).reduce(
+                        (sum, count) => sum + count,
+                        0,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Elegibles</dt>
+                    <dd>{researchMarket.counts_by_state.ELIGIBLE ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>Released TEST</dt>
+                    <dd>{researchMarket.counts_by_state.RELEASED_ACTIVE ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>Asset</dt>
+                    <dd>{researchMarket.asset.name}</dd>
+                  </div>
+                </dl>
+                <p className="subtle-note">
+                  Modo TEST: no mueve TOKOIN real, no crea wallets y no usa mensajes,
+                  movimiento o riqueza como señales positivas de ranking.
+                </p>
+              </div>
             )}
             {observatory && (
               <p className="subtle-note">

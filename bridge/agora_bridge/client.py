@@ -363,6 +363,23 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def research_market(self) -> dict:
+        r = self._client.get("/v1/research-market")
+        _raise_for_error(r)
+        return r.json()
+
+    def list_research_proposals(
+        self, world_id: str | None = None, state: str | None = None, limit: int = 50
+    ) -> dict:
+        params: dict[str, str | int] = {"limit": limit}
+        if world_id:
+            params["world_id"] = world_id
+        if state:
+            params["state"] = state
+        r = self._client.get("/v1/research-market/proposals", params=params)
+        _raise_for_error(r)
+        return r.json()
+
     def create_world_market_need(self, token: str, body: dict) -> dict:
         r = self._client.post("/v1/world-market/needs", json=body, headers=self._auth(token))
         _raise_for_error(r)

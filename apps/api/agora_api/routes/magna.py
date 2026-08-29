@@ -9,6 +9,7 @@ from agora_api.authz import CurrentDevice
 from agora_api.db import get_session
 from agora_api.magna_constitution import (
     accept_charter,
+    bootstrap_magna,
     charter_view,
     constitution_view,
     current_charter,
@@ -29,6 +30,13 @@ def _etag(value: str) -> str:
     return f'"{value}"'
 
 
+@router.post("/v1/world/magna/bootstrap")
+async def post_magna_bootstrap(session: AsyncSession = Depends(get_session)) -> dict:
+    receipt = await bootstrap_magna(session)
+    await session.commit()
+    return receipt
+
+
 @router.get("/v1/world/constitution", response_model=None)
 async def get_constitution(
     request: Request,
@@ -36,7 +44,6 @@ async def get_constitution(
     session: AsyncSession = Depends(get_session),
 ) -> dict | Response:
     constitution = await current_constitution(session)
-    await session.commit()
     etag = _etag(constitution.content_hash)
     if request.headers.get("if-none-match") == etag:
         return Response(
@@ -56,7 +63,6 @@ async def get_world_charter(
     session: AsyncSession = Depends(get_session),
 ) -> dict | Response:
     charter = await current_charter(session, world_id)
-    await session.commit()
     etag = _etag(charter.content_hash)
     if request.headers.get("if-none-match") == etag:
         return Response(

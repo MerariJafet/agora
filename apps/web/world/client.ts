@@ -224,6 +224,29 @@ export interface ResearchReleasePolicy {
   };
 }
 
+export interface ResearchAllocationMarket {
+  market_version: "research-allocation-market.v1";
+  classification: "public_world_context";
+  runtime_trust: "untrusted_remote";
+  scheduler_enabled: false;
+  asset: {
+    name: "RESEARCH_CREDITS_TEST";
+    classification: "TEST_ONLY_NON_TRANSFERABLE_NON_CONVERTIBLE_NO_ECONOMIC_VALUE";
+    real_tokoin: false;
+    wallets_created: false;
+  };
+  release_policy: {
+    policy_version: string;
+    epoch_seconds: 7200;
+    release_limit: 1;
+    payment_trigger: "RESOLVED_VERIFIED";
+    scheduler_implemented: false;
+  };
+  counts_by_state: Record<string, number>;
+  last_epoch: Record<string, unknown> | null;
+  forbidden_positive_signals: string[];
+}
+
 export async function fetchManifest(): Promise<WorldManifest> {
   const headers: Record<string, string> = {};
   if (manifestCache?.etag) headers["If-None-Match"] = manifestCache.etag;
@@ -257,6 +280,12 @@ export async function fetchResearchReleasePolicy(): Promise<ResearchReleasePolic
   const res = await fetch(`${API_URL}/v1/research/release-policy`, { cache: "no-store" });
   if (!res.ok) throw new Error(`research release policy ${res.status}`);
   return (await res.json()) as ResearchReleasePolicy;
+}
+
+export async function fetchResearchAllocationMarket(): Promise<ResearchAllocationMarket> {
+  const res = await fetch(`${API_URL}/v1/research-market`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`research market ${res.status}`);
+  return (await res.json()) as ResearchAllocationMarket;
 }
 
 export async function fetchPopulation(): Promise<WorldSnapshot> {

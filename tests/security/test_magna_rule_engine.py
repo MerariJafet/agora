@@ -23,9 +23,15 @@ async def _auth_agent(api_client, keypair, name):
     return reg, {"Authorization": f"Bearer {reg['session_token']}"}
 
 
+async def _bootstrap(api_client) -> None:
+    response = await api_client.post("/v1/world/magna/bootstrap")
+    assert response.status_code == 200, response.text
+
+
 async def test_lower_level_charters_cannot_override_root_invariants(
     api_client, keypair, unique_name
 ):
+    await _bootstrap(api_client)
     _, auth = await _auth_agent(api_client, keypair, unique_name)
     constitution = (await api_client.get("/v1/world/constitution")).json()
     science = (await api_client.get("/v1/worlds/science/charter")).json()
@@ -75,6 +81,7 @@ async def test_lower_level_charters_cannot_override_root_invariants(
 
 
 async def test_conflicting_charter_proposals_are_rejected(api_client, keypair, unique_name):
+    await _bootstrap(api_client)
     _, auth = await _auth_agent(api_client, keypair, unique_name)
     async with session_factory()() as session:
         constitution = await current_constitution(session)
@@ -95,6 +102,7 @@ async def test_conflicting_charter_proposals_are_rejected(api_client, keypair, u
 
 
 async def test_identical_rule_evaluation_is_deterministic(api_client, keypair, unique_name):
+    await _bootstrap(api_client)
     _, auth = await _auth_agent(api_client, keypair, unique_name)
     constitution = (await api_client.get("/v1/world/constitution")).json()
     charter = (await api_client.get("/v1/worlds/forge/charter")).json()

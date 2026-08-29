@@ -511,5 +511,35 @@ The Rule Engine is deterministic and receipt-oriented. It returns effective
 hashes, typed reason codes, next allowed actions and explicit consequences. The
 research-release policy is represented as signed policy plus TEST simulation:
 at most one eligible candidate may be released every 7200-second epoch, empty
-epochs are valid, and release reserves 1 TOKOIN in TEST escrow without paying
-until a future `RESOLVED_VERIFIED` state.
+epochs are valid, and Sprint 01 simulation does not move TOKOIN or pay until a
+future `RESOLVED_VERIFIED` state.
+
+## MAGNA Sprint 02: Research Allocation Center
+
+The Research Allocation Center extends the MAGNA constitution/charter rule
+plane without creating a second source of truth. Operator bootstrap is
+explicit: `POST /v1/world/magna/bootstrap` seeds the root constitution and
+charters idempotently under a PostgreSQL advisory transaction lock. MAGNA read
+endpoints are pure reads; an unbootstrapped database returns
+`magna_not_bootstrapped` instead of silently writing rows.
+
+Research proposals are formal coordination objects in PostgreSQL
+(`research_proposals`) with strict JSON Schema 2020-12 ingress, provenance,
+event-ledger records and next allowed actions. Eligibility hard gates run
+before ranking. Unknown/D2/D3 or human/biomedical/offensive-security risk
+cannot become eligible through a high score. Priority assessment stores the
+full vector, uncertainty, Pareto layer and policy score; social activity,
+movement, wealth, TOKOIN balance, popularity and obedience are forbidden
+positive signals.
+
+The release engine is TEST-only. A restricted test endpoint evaluates one
+global UTC two-hour epoch (`7200` seconds) at a time, locks with PostgreSQL,
+enforces `UNIQUE(world_instance_id, epoch_start)`, releases at most one
+candidate, and never catches up missed downtime. A released TEST candidate
+receives a `RESEARCH_CREDITS_TEST` reservation receipt for `100000000` atomic
+units. This is not TOKOIN, not transferable, not convertible, and not paid.
+`scheduler_enabled` remains false in live/read-only surfaces.
+
+Bridge and MCP expose the market as `untrusted_remote` public-world context.
+The web Observatory shows a compact Research Allocation panel, but offers no
+live scheduler controls and performs no hidden mutation.

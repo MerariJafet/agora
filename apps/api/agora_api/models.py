@@ -777,6 +777,243 @@ class ResearchReleaseSimulation(Base):
     )
 
 
+# ---------------------------------------------------------------------------
+# MAGNA Sprint 02: Research Allocation Center and Dynamic Opportunity Market.
+#
+# These rows are formal TEST-market coordination objects. They do not create
+# wallets, move TOKOIN, run a production scheduler or grant local permissions.
+# ---------------------------------------------------------------------------
+
+
+class ResearchProposal(Base):
+    __tablename__ = "research_proposals"
+
+    proposal_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    world_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    objective: Mapped[str] = mapped_column(Text, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="PROPOSED")
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    proposal_body: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    beneficial_controller_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(16), nullable=False)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    charter_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    rule_evaluation_receipt_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_by_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    eligible_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "created_by_agent_id", "idempotency_key", name="uq_research_proposal_idem"
+        ),
+        Index("ix_research_proposals_world_state", "world_id", "state"),
+        Index("ix_research_proposals_controller", "beneficial_controller_id"),
+        Index("ix_research_proposals_hash", "content_hash"),
+    )
+
+
+class EligibilityReview(Base):
+    __tablename__ = "research_eligibility_reviews"
+
+    review_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_proposals.proposal_id"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    reviewer_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason_codes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    gate_results: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("reviewer_agent_id", "idempotency_key", name="uq_eligibility_review_idem"),
+        Index("ix_eligibility_reviews_proposal", "proposal_id"),
+    )
+
+
+class PriorityAssessment(Base):
+    __tablename__ = "research_priority_assessments"
+
+    assessment_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_proposals.proposal_id"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    assessor_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    vector: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    uncertainty: Mapped[int] = mapped_column(Integer, nullable=False)
+    pareto_layer: Mapped[int] = mapped_column(Integer, nullable=False)
+    portfolio_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason_codes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "assessor_agent_id", "idempotency_key", name="uq_priority_assessment_idem"
+        ),
+        Index("ix_priority_assessments_proposal", "proposal_id"),
+        Index("ix_priority_assessments_score", "portfolio_score"),
+    )
+
+
+class ResearchDuplicateLink(Base):
+    __tablename__ = "research_duplicate_links"
+
+    duplicate_link_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    source_proposal_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_proposals.proposal_id"), nullable=False
+    )
+    target_proposal_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_proposals.proposal_id"), nullable=False
+    )
+    link_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    confidence: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "source_proposal_id",
+            "target_proposal_id",
+            "created_by_agent_id",
+            name="uq_duplicate_link_assertion",
+        ),
+        Index("ix_duplicate_links_source", "source_proposal_id"),
+        Index("ix_duplicate_links_target", "target_proposal_id"),
+    )
+
+
+class ResearchCommitment(Base):
+    __tablename__ = "research_commitments"
+
+    commitment_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_proposals.proposal_id"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    beneficial_controller_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    resource_limits: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="active")
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "idempotency_key", name="uq_research_commitment_idem"),
+        UniqueConstraint("proposal_id", "agent_id", "role", name="uq_research_commitment_role"),
+        Index("ix_research_commitments_proposal", "proposal_id"),
+    )
+
+
+class ContributionPool(Base):
+    __tablename__ = "research_contribution_pools"
+
+    pool_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_proposals.proposal_id"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    terms: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("created_by_agent_id", "idempotency_key", name="uq_research_pool_idem"),
+        Index("ix_research_pools_proposal", "proposal_id"),
+    )
+
+
+class ResearchCreditReservation(Base):
+    __tablename__ = "research_credit_reservations"
+
+    reservation_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    asset: Mapped[str] = mapped_column(String(32), nullable=False)
+    amount_atomic: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    proposal_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_proposals.proposal_id"), nullable=False
+    )
+    epoch_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="reserved")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "epoch_id", name="uq_research_reservation_proposal_epoch"),
+        UniqueConstraint("idempotency_key", name="uq_research_reservation_idem"),
+    )
+
+
+class ResearchReleaseEpoch(Base):
+    __tablename__ = "research_release_epochs"
+
+    epoch_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    epoch_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    epoch_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    charter_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    candidate_snapshot_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    selected_proposal_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    reservation_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    selection_receipt: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("world_instance_id", "epoch_start", name="uq_research_epoch_slot"),
+        Index("ix_research_epochs_outcome", "outcome"),
+    )
+
+
+class ResearchAppeal(Base):
+    __tablename__ = "research_appeals"
+
+    appeal_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_proposals.proposal_id"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    target: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("created_by_agent_id", "idempotency_key", name="uq_research_appeal_idem"),
+        Index("ix_research_appeals_proposal", "proposal_id"),
+    )
+
+
 class IdempotencyRecord(Base):
     """Registration idempotency: same key returns the original result instead
     of creating a duplicate agent/device."""

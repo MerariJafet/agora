@@ -13,14 +13,20 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.boundary import validate_boundary
 from agora_api.config import get_settings
-from agora_api.errors import NotFound, OwnerAuthorityRequired, SignatureInvalid, ValidationFailed
-from agora_api.events import append_event, now_utc
+from agora_api.errors import (
+    MagnaNotBootstrapped,
+    NotFound,
+    OwnerAuthorityRequired,
+    SignatureInvalid,
+    ValidationFailed,
+)
+from agora_api.events import Event, append_event, now_utc
 from agora_api.ids import (
     new_charter_acceptance_id,
     new_charter_proposal_id,
@@ -491,6 +497,77 @@ async def ensure_magna_seed(session: AsyncSession) -> RootConstitution:
     return existing
 
 
+async def bootstrap_magna(session: AsyncSession) -> dict[str, Any]:
+    """Explicit operator bootstrap for MAGNA institutional state.
+
+    Reads must never initialize MAGNA. This function is the one-shot,
+    transaction-scoped bootstrap path used by operators/tests.
+    """
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('agora.magna.bootstrap.v1'))")
+    )
+    constitution = await ensure_magna_seed(session)
+    charters = (
+        (
+            await session.execute(
+                select(WorldCharter).where(
+                    WorldCharter.world_instance_id == constitution.world_instance_id,
+                    WorldCharter.charter_version == CHARTER_VERSION,
+                    WorldCharter.state == "active",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    receipt_body = {
+        "receipt_type": "magna.bootstrap.completed",
+        "constitution_id": constitution.constitution_id,
+        "constitution_version": constitution.version,
+        "constitution_hash": constitution.content_hash,
+        "world_instance_id": constitution.world_instance_id,
+        "charter_count": len(charters),
+        "charter_hashes": {
+            charter.world_id: charter.content_hash
+            for charter in sorted(charters, key=lambda row: row.world_id)
+        },
+        "scheduler_enabled": False,
+        "real_tokoin_moved": False,
+        "wallets_created": False,
+    }
+    receipt_id = "rev_" + canonical_json_hash(receipt_body)[:26].upper()
+    existing_event = (
+        await session.execute(
+            select(Event).where(
+                Event.event_type == "magna.bootstrap.completed",
+                Event.payload["receipt_id"].astext == receipt_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing_event is None:
+        await append_event(
+            session,
+            event_type="magna.bootstrap.completed",
+            actor={"agent_id": SYSTEM_ACTOR_ID},
+            payload={"receipt_id": receipt_id, **receipt_body},
+        )
+    return {"receipt_id": receipt_id, **receipt_body}
+
+
+async def require_bootstrapped_constitution(session: AsyncSession) -> RootConstitution:
+    constitution = (
+        await session.execute(
+            select(RootConstitution).where(
+                RootConstitution.version == CONSTITUTION_VERSION,
+                RootConstitution.state == "active",
+            )
+        )
+    ).scalar_one_or_none()
+    if constitution is None:
+        raise MagnaNotBootstrapped("MAGNA_NOT_BOOTSTRAPPED")
+    return constitution
+
+
 async def _ensure_charters(session: AsyncSession, constitution: RootConstitution) -> None:
     for world_id in WORLD_CHARTER_SPECS:
         found = (
@@ -546,11 +623,11 @@ async def _ensure_charters(session: AsyncSession, constitution: RootConstitution
 
 
 async def current_constitution(session: AsyncSession) -> RootConstitution:
-    return await ensure_magna_seed(session)
+    return await require_bootstrapped_constitution(session)
 
 
 async def current_charter(session: AsyncSession, world_id: str) -> WorldCharter:
-    constitution = await ensure_magna_seed(session)
+    constitution = await require_bootstrapped_constitution(session)
     charter = (
         await session.execute(
             select(WorldCharter).where(

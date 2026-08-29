@@ -10,15 +10,68 @@ from agora_api.magna_constitution import (
     current_charter,
     current_constitution,
 )
-from agora_api.models import AgentCharterAcceptance, RuleDeliveryState, WorldCharter
-from sqlalchemy import select
+from agora_api.models import (
+    AgentCharterAcceptance,
+    RootConstitution,
+    RuleDeliveryState,
+    WorldCharter,
+)
+from sqlalchemy import func, select
 
 from tests.conftest import SigningKeypair, register_agent
 
 pytestmark = pytest.mark.integration
 
 
+async def _bootstrap(api_client) -> dict:
+    response = await api_client.post("/v1/world/magna/bootstrap")
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def test_magna_gets_do_not_seed_empty_database(api_client):
+    first = await api_client.get("/v1/world/constitution")
+    second = await api_client.get("/v1/worlds/science/charter")
+    assert first.status_code == 503
+    assert second.status_code == 503
+    assert first.json()["error"]["code"] == "magna_not_bootstrapped"
+    async with session_factory()() as session:
+        roots = (
+            await session.execute(select(func.count(RootConstitution.constitution_id)))
+        ).scalar_one()
+        charters = (await session.execute(select(func.count(WorldCharter.charter_id)))).scalar_one()
+    assert roots == 0
+    assert charters == 0
+
+
+async def test_magna_bootstrap_is_concurrent_safe_and_idempotent(api_client):
+    responses = await asyncio.gather(
+        *[api_client.post("/v1/world/magna/bootstrap") for _ in range(4)]
+    )
+    assert {response.status_code for response in responses} == {200}
+    receipts = {response.json()["receipt_id"] for response in responses}
+    assert len(receipts) == 1
+    async with session_factory()() as session:
+        roots = (
+            await session.execute(select(func.count(RootConstitution.constitution_id)))
+        ).scalar_one()
+        charters = (await session.execute(select(func.count(WorldCharter.charter_id)))).scalar_one()
+        events = (
+            (
+                await session.execute(
+                    select(Event).where(Event.event_type == "magna.bootstrap.completed")
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert roots == 1
+    assert charters == 10
+    assert len(events) == 1
+
+
 async def test_constitution_and_ten_world_charters_are_seeded_and_cacheable(api_client):
+    await _bootstrap(api_client)
     response = await api_client.get("/v1/world/constitution")
     assert response.status_code == 200, response.text
     assert response.headers["etag"]
@@ -65,6 +118,7 @@ async def test_constitution_and_ten_world_charters_are_seeded_and_cacheable(api_
 async def test_world_charter_acceptance_is_idempotent_under_retry_and_concurrency(
     api_client, keypair, unique_name
 ):
+    await _bootstrap(api_client)
     reg = await register_agent(api_client, keypair, unique_name)
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
     charter = (await api_client.get("/v1/worlds/science/charter")).json()
@@ -123,6 +177,7 @@ async def test_world_charter_acceptance_is_idempotent_under_retry_and_concurrenc
 async def test_expired_downgraded_and_badly_signed_charters_are_rejected(
     api_client, keypair, unique_name
 ):
+    await _bootstrap(api_client)
     reg = await register_agent(api_client, keypair, unique_name)
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
     charter = (await api_client.get("/v1/worlds/economy/charter")).json()
@@ -177,6 +232,7 @@ async def test_expired_downgraded_and_badly_signed_charters_are_rejected(
 async def test_charter_proposal_rejection_is_authorized_and_audited(
     api_client, keypair, unique_name
 ):
+    await _bootstrap(api_client)
     first = await register_agent(api_client, keypair, unique_name)
     second = await register_agent(api_client, SigningKeypair(), unique_name + "-other")
     first_auth = {"Authorization": f"Bearer {first['session_token']}"}
@@ -232,6 +288,7 @@ async def test_charter_proposal_rejection_is_authorized_and_audited(
 async def test_constitution_endpoints_do_not_reset_rule_feed_cursor(
     api_client, keypair, unique_name
 ):
+    await _bootstrap(api_client)
     reg = await register_agent(api_client, keypair, unique_name)
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
     feed = await api_client.get("/v1/world/rules/feed", headers=auth)

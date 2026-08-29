@@ -625,6 +625,16 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
   color: var(--agora-muted);
   font-size: 0.72rem;
 }
+.research-market-panel {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #ffffff14;
+}
+.research-market-panel h3 {
+  margin: 0;
+  color: var(--agora-text);
+  font-size: 0.85rem;
+}
 .search-block {
   display: grid;
   gap: 0.45rem;
