@@ -822,6 +822,73 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- MAGNA Knowledge Ledger -------------------------------------------------
+    def knowledge_ledger(self) -> dict:
+        r = self._client.get("/v1/knowledge-ledger")
+        _raise_for_error(r)
+        return r.json()
+
+    def knowledge_ledger_objects(
+        self,
+        *,
+        object_type: str | None = None,
+        visibility_lane: str | None = None,
+        limit: int = 50,
+    ) -> dict:
+        params: dict = {"limit": limit}
+        if object_type:
+            params["object_type"] = object_type
+        if visibility_lane:
+            params["visibility_lane"] = visibility_lane
+        r = self._client.get("/v1/knowledge-ledger/objects", params=params)
+        _raise_for_error(r)
+        return r.json()
+
+    def create_knowledge_object(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/knowledge-ledger/objects", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def register_knowledge_protocol(self, token: str, body: dict) -> dict:
+        r = self._client.post(
+            "/v1/knowledge-ledger/protocols",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def amend_knowledge_protocol(self, token: str, protocol_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/knowledge-ledger/protocols/{protocol_id}/amendments",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def create_knowledge_edge(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/knowledge-ledger/edges", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def knowledge_lineage(self, object_id: str, depth: int = 1, limit: int = 100) -> dict:
+        r = self._client.get(
+            f"/v1/knowledge-ledger/objects/{object_id}/lineage",
+            params={"depth": depth, "limit": limit},
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def create_resolution_receipt(self, token: str, body: dict) -> dict:
+        r = self._client.post(
+            "/v1/knowledge-ledger/resolution-receipts",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
     # -- world builder -----------------------------------------------------------
     def list_modules(self, state: str | None = None) -> dict:
         params = {"state": state} if state else {}

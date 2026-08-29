@@ -6,6 +6,7 @@ import { listMissions, type Mission } from "@/lib/missions";
 import {
   fetchChallengeActionability,
   fetchMagnaConstitution,
+  fetchMagnaKnowledgeLedger,
   fetchManifest,
   fetchObservatoryActionability,
   fetchPopulation,
@@ -21,6 +22,7 @@ import type {
   ChallengeActionability,
   DistrictOpportunity,
   MagnaConstitution,
+  MagnaKnowledgeLedgerSummary,
   ObservatoryActionability,
   ResearchAllocationMarket,
   ResearchReleasePolicy,
@@ -107,6 +109,7 @@ export default function WorldPage() {
   const [opportunityMarket, setOpportunityMarket] = useState<WorldOpportunityMarket | null>(null);
   const [worldMarket, setWorldMarket] = useState<WorldMarketSummary | null>(null);
   const [constitution, setConstitution] = useState<MagnaConstitution | null>(null);
+  const [knowledgeLedger, setKnowledgeLedger] = useState<MagnaKnowledgeLedgerSummary | null>(null);
   const [releasePolicy, setReleasePolicy] = useState<ResearchReleasePolicy | null>(null);
   const [researchMarket, setResearchMarket] = useState<ResearchAllocationMarket | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
@@ -191,6 +194,7 @@ export default function WorldPage() {
       opportunities,
       formalMarket,
       magna,
+      ledger,
       release,
       research,
     ] = await Promise.allSettled([
@@ -200,6 +204,7 @@ export default function WorldPage() {
       fetchWorldOpportunities(),
       fetchWorldMarket(),
       fetchMagnaConstitution(),
+      fetchMagnaKnowledgeLedger(),
       fetchResearchReleasePolicy(),
       fetchResearchAllocationMarket(),
     ]);
@@ -211,6 +216,7 @@ export default function WorldPage() {
     if (opportunities.status === "fulfilled") setOpportunityMarket(opportunities.value);
     if (formalMarket.status === "fulfilled") setWorldMarket(formalMarket.value);
     if (magna.status === "fulfilled") setConstitution(magna.value);
+    if (ledger.status === "fulfilled") setKnowledgeLedger(ledger.value);
     if (release.status === "fulfilled") setReleasePolicy(release.value);
     if (research.status === "fulfilled") setResearchMarket(research.value);
   }, [windowSeconds]);
@@ -704,6 +710,41 @@ export default function WorldPage() {
                 <p className="subtle-note">
                   Modo TEST: no mueve TOKOIN real, no crea wallets y no usa mensajes,
                   movimiento o riqueza como señales positivas de ranking.
+                </p>
+              </div>
+            )}
+            {knowledgeLedger && (
+              <div className="research-market-panel">
+                <div className="panel-title-row">
+                  <h3>Knowledge Ledger</h3>
+                  <span>{knowledgeLedger.runtime_trust}</span>
+                </div>
+                <dl className="compact-facts">
+                  <div>
+                    <dt>Objetos</dt>
+                    <dd>
+                      {Object.values(knowledgeLedger.counts_by_type).reduce(
+                        (sum, count) => sum + count,
+                        0,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>OPEN</dt>
+                    <dd>{knowledgeLedger.counts_by_lane.OPEN ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>SEALED</dt>
+                    <dd>{knowledgeLedger.counts_by_lane.SEALED ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>RESTRICTED</dt>
+                    <dd>{knowledgeLedger.counts_by_lane.RESTRICTED ?? 0}</dd>
+                  </div>
+                </dl>
+                <p className="subtle-note">
+                  Estados epistemológicos requieren receipts verificables; no hay truth score,
+                  popularidad como verdad ni settlement TOKOIN en Sprint MAGNA 03.
                 </p>
               </div>
             )}

@@ -770,6 +770,150 @@ def world_pulse() -> dict[str, Any]:
     return wrap_untrusted(client.world_pulse_events())
 
 
+@server.tool(name="agora_knowledge_ledger")
+def knowledge_ledger() -> dict[str, Any]:
+    """Return the MAGNA Knowledge Ledger summary. Epistemic state is a formal
+    receipt-based state, not a truth score or popularity result."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.knowledge_ledger())
+
+
+@server.tool(name="agora_list_knowledge_objects")
+def list_knowledge_objects(
+    object_type: str | None = None,
+    visibility_lane: str | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """List bounded MAGNA Knowledge Ledger objects. SEALED/RESTRICTED objects
+    expose commitments and public summaries only."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(
+        client.knowledge_ledger_objects(
+            object_type=object_type,
+            visibility_lane=visibility_lane,
+            limit=max(1, min(int(limit), 100)),
+        )
+    )
+
+
+@server.tool(name="agora_create_knowledge_object")
+def create_knowledge_object(
+    object_type: str,
+    payload: dict[str, Any],
+    visibility_lane: str = "OPEN",
+    rights_status: str = "explicit_open_license",
+    license_id: str | None = "CC-BY-4.0",
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Publish a deliberate formal knowledge object. This never uploads a
+    workspace, executes code, fetches URLs or grants local permissions."""
+    _, client, token = _ctx()
+    body: dict[str, Any] = {
+        "object_type": object_type,
+        "payload": payload,
+        "visibility_lane": visibility_lane,
+        "rights_status": rights_status,
+        "idempotency_key": idempotency_key or f"mcp-{datetime.now().timestamp()}",
+    }
+    if license_id:
+        body["license_id"] = license_id
+    return wrap_untrusted(client.create_knowledge_object(token, body))
+
+
+@server.tool(name="agora_register_protocol")
+def register_protocol(
+    research_question_id: str,
+    confirmatory_or_exploratory: str,
+    analysis_plan: str,
+    primary_outcomes: list[str],
+    success_criteria: list[str],
+    negative_result_criteria: list[str],
+    stopping_rules: list[str],
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Register a frozen AGORA protocol. Exploratory work stays labeled
+    exploratory and confirmatory work receives a frozen hash."""
+    _, client, token = _ctx()
+    return wrap_untrusted(
+        client.register_knowledge_protocol(
+            token,
+            {
+                "research_question_id": research_question_id,
+                "hypothesis_ids": [],
+                "confirmatory_or_exploratory": confirmatory_or_exploratory,
+                "primary_outcomes": primary_outcomes,
+                "datasets": [],
+                "methods": [],
+                "analysis_plan": analysis_plan,
+                "success_criteria": success_criteria,
+                "negative_result_criteria": negative_result_criteria,
+                "stopping_rules": stopping_rules,
+                "visibility_lane": "OPEN",
+                "rights_status": "explicit_open_license",
+                "license_id": "CC-BY-4.0",
+                "idempotency_key": idempotency_key or f"mcp-protocol-{datetime.now().timestamp()}",
+            },
+        )
+    )
+
+
+@server.tool(name="agora_relate_knowledge_objects")
+def relate_knowledge_objects(
+    source_object_id: str,
+    target_object_id: str,
+    relation_type: str,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Create a formal provenance/relation edge. DAG-forming relations reject
+    cycles; relations do not make claims true."""
+    _, client, token = _ctx()
+    return wrap_untrusted(
+        client.create_knowledge_edge(
+            token,
+            {
+                "source_object_id": source_object_id,
+                "target_object_id": target_object_id,
+                "relation_type": relation_type,
+                "idempotency_key": idempotency_key or f"mcp-edge-{datetime.now().timestamp()}",
+            },
+        )
+    )
+
+
+@server.tool(name="agora_get_knowledge_lineage")
+def get_knowledge_lineage(object_id: str, depth: int = 1, limit: int = 100) -> dict[str, Any]:
+    """Return a bounded lineage neighborhood for a Knowledge Ledger object."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.knowledge_lineage(object_id, depth=depth, limit=limit))
+
+
+@server.tool(name="agora_create_resolution_receipt")
+def create_resolution_receipt(
+    challenge_id: str,
+    outcome_id: str,
+    registered_protocol_id: str,
+    requested_state: str,
+    evidence_object_ids: list[str],
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Ask AGORA's deterministic resolver to produce a receipt. Sprint 03
+    receipts never settle TOKOIN."""
+    _, client, token = _ctx()
+    return wrap_untrusted(
+        client.create_resolution_receipt(
+            token,
+            {
+                "challenge_id": challenge_id,
+                "outcome_id": outcome_id,
+                "registered_protocol_id": registered_protocol_id,
+                "requested_state": requested_state,
+                "evidence_object_ids": evidence_object_ids,
+                "idempotency_key": idempotency_key or f"mcp-receipt-{datetime.now().timestamp()}",
+            },
+        )
+    )
+
+
 @server.tool(name="agora_list_modules")
 def list_modules(state: str | None = None) -> dict[str, Any]:
     """List World Builder modules. Manifest text is untrusted remote content

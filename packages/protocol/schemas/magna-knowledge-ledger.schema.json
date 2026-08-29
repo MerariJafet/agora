@@ -1,0 +1,232 @@
+{
+  "$id": "magna-knowledge-ledger.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AGORA MAGNA Knowledge Ledger wire contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "KnowledgeObjectType": {
+      "type": "string",
+      "enum": [
+        "research_question",
+        "hypothesis",
+        "claim",
+        "method",
+        "registered_protocol",
+        "protocol_amendment",
+        "dataset",
+        "artifact_version",
+        "experiment_run",
+        "evidence",
+        "contribution",
+        "replication_plan",
+        "replication",
+        "review",
+        "dissent",
+        "outcome",
+        "reproducibility_capsule",
+        "validation_package"
+      ]
+    },
+    "RelationType": {
+      "type": "string",
+      "enum": [
+        "was_derived_from",
+        "used",
+        "was_generated_by",
+        "was_attributed_to",
+        "supports",
+        "refutes",
+        "does_not_resolve",
+        "replicates",
+        "reviews",
+        "dissents_from",
+        "supersedes",
+        "depends_on"
+      ]
+    },
+    "EpistemicState": {
+      "type": "string",
+      "enum": [
+        "PROPOSED",
+        "UNDER_TEST",
+        "SUPPORTED_ONCE",
+        "REPLICATED",
+        "CONTESTED",
+        "REFUTED",
+        "INCONCLUSIVE",
+        "SUPERSEDED"
+      ]
+    },
+    "VisibilityLane": {
+      "type": "string",
+      "enum": ["OPEN", "SEALED", "RESTRICTED"]
+    },
+    "RightsStatus": {
+      "type": "string",
+      "enum": ["explicit_open_license", "pending_human_review", "restricted", "unknown"]
+    },
+    "ReplicationType": {
+      "type": "string",
+      "enum": ["exact", "computational", "robustness", "conceptual"]
+    },
+    "CapsuleQuality": {
+      "type": "string",
+      "enum": ["incomplete", "runnable", "reproduced_same_environment", "independently_reproduced"]
+    },
+    "CreateKnowledgeObjectRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["object_type", "payload", "visibility_lane", "rights_status", "idempotency_key"],
+      "properties": {
+        "object_type": { "$ref": "#/$defs/KnowledgeObjectType" },
+        "world_id": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "challenge_id": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "proposal_id": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "beneficial_controller_id": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "visibility_lane": { "$ref": "#/$defs/VisibilityLane" },
+        "rights_status": { "$ref": "#/$defs/RightsStatus" },
+        "license_id": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "safety_classification": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "state": { "$ref": "#/$defs/EpistemicState" },
+        "maturity": {
+          "type": "string",
+          "enum": ["exploratory", "internally_validated", "externally_reproduced"]
+        },
+        "payload": { "type": "object", "additionalProperties": true },
+        "parent_object_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 30 },
+          "maxItems": 32
+        },
+        "supersedes_object_id": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 }
+      }
+    },
+    "RegisterProtocolRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "research_question_id",
+        "hypothesis_ids",
+        "confirmatory_or_exploratory",
+        "primary_outcomes",
+        "datasets",
+        "methods",
+        "analysis_plan",
+        "success_criteria",
+        "negative_result_criteria",
+        "stopping_rules",
+        "visibility_lane",
+        "rights_status",
+        "idempotency_key"
+      ],
+      "properties": {
+        "research_question_id": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "hypothesis_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 30 },
+          "maxItems": 20
+        },
+        "confirmatory_or_exploratory": { "type": "string", "enum": ["confirmatory", "exploratory"] },
+        "primary_outcomes": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 20 },
+        "secondary_outcomes": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+        "variables": { "type": "object", "additionalProperties": true },
+        "datasets": { "type": "array", "items": { "type": "object", "additionalProperties": true }, "maxItems": 50 },
+        "methods": { "type": "array", "items": { "type": "object", "additionalProperties": true }, "maxItems": 50 },
+        "random_seeds": { "type": "array", "items": { "type": "string" }, "maxItems": 100 },
+        "software_lock": { "type": "object", "additionalProperties": true },
+        "analysis_plan": { "type": "string", "minLength": 1, "maxLength": 20000 },
+        "success_criteria": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 50 },
+        "falsification_criteria": { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+        "inconclusive_criteria": { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+        "negative_result_criteria": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 50 },
+        "stopping_rules": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 50 },
+        "resource_budget": { "type": "object", "additionalProperties": true },
+        "known_risks": { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+        "visibility_lane": { "$ref": "#/$defs/VisibilityLane" },
+        "rights_status": { "$ref": "#/$defs/RightsStatus" },
+        "license_id": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "beneficial_controller_id": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 }
+      }
+    },
+    "ProtocolAmendmentRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["justification", "changes", "idempotency_key"],
+      "properties": {
+        "justification": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "changes": { "type": "object", "additionalProperties": true },
+        "affected_result_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 30 },
+          "maxItems": 100
+        },
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 }
+      }
+    },
+    "CreateEdgeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_object_id", "target_object_id", "relation_type", "idempotency_key"],
+      "properties": {
+        "source_object_id": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "target_object_id": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "relation_type": { "$ref": "#/$defs/RelationType" },
+        "payload": { "type": "object", "additionalProperties": true },
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 }
+      }
+    },
+    "ExperimentRunRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registered_protocol_id", "run_status", "inputs", "environment", "output_hashes", "idempotency_key"],
+      "properties": {
+        "registered_protocol_id": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "run_status": { "type": "string", "enum": ["completed", "failed"] },
+        "inputs": { "type": "object", "additionalProperties": true },
+        "environment": { "type": "object", "additionalProperties": true },
+        "seed": { "type": "string", "maxLength": 200 },
+        "sanitized_workflow": { "type": "string", "maxLength": 10000 },
+        "output_hashes": { "type": "array", "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "maxItems": 50 },
+        "warnings": { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+        "deviations": { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 }
+      }
+    },
+    "ResolutionReceiptRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["challenge_id", "outcome_id", "registered_protocol_id", "requested_state", "evidence_object_ids", "idempotency_key"],
+      "properties": {
+        "challenge_id": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "outcome_id": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "registered_protocol_id": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "requested_state": { "$ref": "#/$defs/EpistemicState" },
+        "evidence_object_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 30 },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "replication_object_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 30 },
+          "maxItems": 100
+        },
+        "review_object_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 30 },
+          "maxItems": 100
+        },
+        "unresolved_dissent_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 30 },
+          "maxItems": 100
+        },
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 }
+      }
+    }
+  }
+}

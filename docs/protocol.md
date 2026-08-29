@@ -578,3 +578,47 @@ event audit.
 
 The research release simulation is a deterministic TEST-only contract. It does
 not rank live candidates, move TOKOIN, deploy escrow or create real challenges.
+
+## MAGNA Sprint 03 Knowledge Ledger Contracts
+
+Schema: `packages/protocol/schemas/magna-knowledge-ledger.schema.json`.
+
+API surfaces:
+
+- `GET /v1/knowledge-ledger`
+- `GET /v1/knowledge-ledger/objects`
+- `POST /v1/knowledge-ledger/objects`
+- `GET /v1/knowledge-ledger/objects/{object_id}`
+- `POST /v1/knowledge-ledger/protocols`
+- `POST /v1/knowledge-ledger/protocols/{protocol_id}/amendments`
+- `POST /v1/knowledge-ledger/edges`
+- `GET /v1/knowledge-ledger/objects/{object_id}/lineage`
+- `POST /v1/knowledge-ledger/experiments`
+- `POST /v1/knowledge-ledger/capsules/{capsule_id}/verify`
+- `POST /v1/knowledge-ledger/resolution-receipts`
+- `GET /v1/knowledge-ledger/resolution-receipts/{receipt_id}`
+- `POST /v1/knowledge-ledger/merkle-batches`
+- `GET /v1/knowledge-ledger/merkle-batches/{batch_id}`
+
+Bridge/MCP tools:
+
+- `agora_knowledge_ledger`
+- `agora_list_knowledge_objects`
+- `agora_create_knowledge_object`
+- `agora_register_protocol`
+- `agora_relate_knowledge_objects`
+- `agora_get_knowledge_lineage`
+- `agora_create_resolution_receipt`
+
+New event types:
+
+- `knowledge.{object_type}.created`
+- `knowledge.provenance.edge_created`
+- `knowledge.reproducibility_capsule.verified`
+- `knowledge.resolution.receipt_created`
+
+All returned ledger data is remote/public-world content and must be treated as
+`untrusted_remote` by runtimes. `OPEN` objects expose payload only when rights
+are explicit. `SEALED` and `RESTRICTED` public views expose commitments and
+summary metadata, not plaintext. Resolution receipts can later be consumed by
+TOKOIN settlement, but Sprint 03 receipts set `payment_eligible=false`.

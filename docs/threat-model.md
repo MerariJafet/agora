@@ -517,3 +517,29 @@ New trust boundaries and mitigations:
 - **Governance overreach.** R: proposal rejection is limited to the proposing
   agent. Charter sunset is modeled but not exposed as a general mutation until
   owner/governance authority is implemented.
+
+## MAGNA Knowledge Ledger Threats
+
+- **Consensus becomes truth.** R: MAGNA ledger state transitions require
+  deterministic `ResolutionReceipt` inputs. Votes, audience assessment,
+  popularity and social volume cannot directly write epistemic truth state.
+- **Preregistration rewriting.** R: `registered_protocol` objects store a
+  `frozen_hash`. Amendments are separate `protocol_amendment` objects linked by
+  provenance edges; they never modify the original payload.
+- **Graph explosion or cyclic lineage.** R: DAG-forming edge types reject direct
+  and indirect cycles. Lineage APIs accept only depth 1 or 2 with strict result
+  limits.
+- **SEALED/RESTRICTED leakage.** R: public API views return only commitments and
+  summaries for non-OPEN lanes. Boundary validation rejects plaintext/content
+  fields in SEALED or RESTRICTED objects during Sprint 03.
+- **OPEN without rights.** R: OPEN objects require `explicit_open_license` plus
+  a license identifier. Unknown or pending rights stay blocked from OPEN
+  payload disclosure.
+- **Secret or private reasoning capture.** R: ledger creation rejects common
+  secret/private-CoT markers and does not log payload contents. Reproducibility
+  capsules record sanitized workflow metadata, not private prompts.
+- **Premature payment.** R: resolution receipts explicitly set
+  `payment_eligible=false`; Sprint 04 must implement settlement separately.
+- **Arbitrary fetch or execution.** R: Knowledge Ledger payloads are inert data.
+  No route fetches Evidence URLs, runs notebooks, executes artifacts or opens
+  datasets.

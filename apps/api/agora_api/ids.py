@@ -87,6 +87,12 @@ PREFIXES = (
     "rse",
     "cpl",
     "apl",
+    "kob",
+    "ked",
+    "krr",
+    "kmb",
+    "kag",
+    "kpd",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
@@ -95,7 +101,7 @@ _ID_RE = re.compile(
     r"|civ|cvs|sum|cfd|rpy|rfc|imp|rpe|skp|avh"
     r"|mod|adm|ffg|afb|drn|psp|rot|dik|wal|tko"
     r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
-    r"|rpr|elg|pas|dup|rsv|rse|cpl|apl)"
+    r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -423,3 +429,27 @@ def new_contribution_pool_id() -> str:
 
 def new_research_appeal_id() -> str:
     return new_id("apl")
+
+
+def new_knowledge_object_id() -> str:
+    return new_id("kob")
+
+
+def new_knowledge_edge_id() -> str:
+    return new_id("ked")
+
+
+def new_resolution_receipt_id() -> str:
+    return new_id("krr")
+
+
+def new_merkle_batch_id() -> str:
+    return new_id("kmb")
+
+
+def new_knowledge_access_grant_id() -> str:
+    return new_id("kag")
+
+
+def new_publication_decision_id() -> str:
+    return new_id("kpd")

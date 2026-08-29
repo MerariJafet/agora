@@ -247,6 +247,16 @@ export interface ResearchAllocationMarket {
   forbidden_positive_signals: string[];
 }
 
+export interface MagnaKnowledgeLedgerSummary {
+  ledger_version: "magna-knowledge-ledger.v1";
+  classification: "public_world_context";
+  runtime_trust: "untrusted_remote";
+  truth_boundary: string;
+  payment_boundary: string;
+  counts_by_type: Record<string, number>;
+  counts_by_lane: Record<string, number>;
+}
+
 export async function fetchManifest(): Promise<WorldManifest> {
   const headers: Record<string, string> = {};
   if (manifestCache?.etag) headers["If-None-Match"] = manifestCache.etag;
@@ -286,6 +296,12 @@ export async function fetchResearchAllocationMarket(): Promise<ResearchAllocatio
   const res = await fetch(`${API_URL}/v1/research-market`, { cache: "no-store" });
   if (!res.ok) throw new Error(`research market ${res.status}`);
   return (await res.json()) as ResearchAllocationMarket;
+}
+
+export async function fetchMagnaKnowledgeLedger(): Promise<MagnaKnowledgeLedgerSummary> {
+  const res = await fetch(`${API_URL}/v1/knowledge-ledger`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`knowledge ledger ${res.status}`);
+  return (await res.json()) as MagnaKnowledgeLedgerSummary;
 }
 
 export async function fetchPopulation(): Promise<WorldSnapshot> {

@@ -2436,3 +2436,189 @@ class DrillRun(Base):
     safe_simulation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_by_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# AGORA MAGNA Sprint 03: Knowledge Ledger, reproducibility and IP lanes.
+#
+# This is an additive formal ledger projection beside the immutable Event
+# Ledger. It stores canonical, content-addressed intellectual objects and DAG
+# edges; it does not fetch URLs, execute code, settle TOKOIN or infer truth from
+# votes/popularity.
+# ---------------------------------------------------------------------------
+
+
+class MagnaKnowledgeObject(Base):
+    __tablename__ = "magna_knowledge_objects"
+
+    object_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    object_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    object_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    world_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    challenge_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    proposal_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    author_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    author_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    beneficial_controller_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    visibility_lane: Mapped[str] = mapped_column(String(16), nullable=False)
+    safety_classification: Mapped[str] = mapped_column(String(64), nullable=False)
+    rights_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    license_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    public_summary: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    canonical_content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    parent_hashes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    charter_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    rule_evaluation_receipt_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="PROPOSED")
+    maturity: Mapped[str] = mapped_column(String(32), nullable=False, default="exploratory")
+    frozen_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    supersedes_object_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("author_agent_id", "idempotency_key", name="uq_magna_object_idem"),
+        UniqueConstraint("canonical_content_hash", name="uq_magna_object_hash"),
+        Index("ix_magna_objects_type_state", "object_type", "state"),
+        Index("ix_magna_objects_world_lane", "world_id", "visibility_lane"),
+        Index("ix_magna_objects_proposal", "proposal_id"),
+        Index("ix_magna_objects_challenge", "challenge_id"),
+    )
+
+
+class MagnaKnowledgeEdge(Base):
+    __tablename__ = "magna_knowledge_edges"
+
+    edge_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    source_object_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("magna_knowledge_objects.object_id"), nullable=False
+    )
+    target_object_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("magna_knowledge_objects.object_id"), nullable=False
+    )
+    relation_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    actor_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    canonical_content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    retracted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("actor_agent_id", "idempotency_key", name="uq_magna_edge_idem"),
+        UniqueConstraint(
+            "source_object_id",
+            "target_object_id",
+            "relation_type",
+            "actor_agent_id",
+            name="uq_magna_edge_assertion",
+        ),
+        Index("ix_magna_edges_source", "source_object_id", "relation_type"),
+        Index("ix_magna_edges_target", "target_object_id", "relation_type"),
+    )
+
+
+class MagnaResolutionReceipt(Base):
+    __tablename__ = "magna_resolution_receipts"
+
+    receipt_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    challenge_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    outcome_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("magna_knowledge_objects.object_id"), nullable=False
+    )
+    registered_protocol_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("magna_knowledge_objects.object_id"), nullable=False
+    )
+    requested_state: Mapped[str] = mapped_column(String(24), nullable=False)
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    reason_codes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    evidence_object_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    replication_object_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    review_object_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    unresolved_dissent_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    independence_receipt: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    charter_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    payment_eligible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_by_agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("created_by_agent_id", "idempotency_key", name="uq_magna_receipt_idem"),
+        Index("ix_magna_receipts_challenge", "challenge_id", "decision"),
+    )
+
+
+class MagnaMerkleBatch(Base):
+    __tablename__ = "magna_merkle_batches"
+
+    batch_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    first_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    last_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    leaf_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    merkle_root: Mapped[str] = mapped_column(String(64), nullable=False)
+    algorithm: Mapped[str] = mapped_column(String(32), nullable=False, default="sha256-binary-tree")
+    previous_batch_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    leaves: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    created_by_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "world_instance_id",
+            "first_sequence",
+            "last_sequence",
+            name="uq_magna_merkle_window",
+        ),
+        Index("ix_magna_merkle_world", "world_instance_id", "last_sequence"),
+    )
+
+
+class MagnaPublicationDecision(Base):
+    __tablename__ = "magna_publication_decisions"
+
+    decision_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    object_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("magna_knowledge_objects.object_id"), nullable=False
+    )
+    requested_lane: Mapped[str] = mapped_column(String(16), nullable=False)
+    decided_lane: Mapped[str] = mapped_column(String(16), nullable=False)
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    rights_receipt: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    safety_receipt: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    human_authority_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_magna_publication_object", "object_id"),)
+
+
+class MagnaAccessGrant(Base):
+    __tablename__ = "magna_access_grants"
+
+    grant_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    object_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("magna_knowledge_objects.object_id"), nullable=False
+    )
+    grantee_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    grantee_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(80), nullable=False)
+    scope: Mapped[str] = mapped_column(String(80), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="active")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_by_agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_magna_access_object_grantee", "object_id", "grantee_id", "state"),)

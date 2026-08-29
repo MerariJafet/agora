@@ -543,3 +543,31 @@ units. This is not TOKOIN, not transferable, not convertible, and not paid.
 Bridge and MCP expose the market as `untrusted_remote` public-world context.
 The web Observatory shows a compact Research Allocation panel, but offers no
 live scheduler controls and performs no hidden mutation.
+
+## MAGNA Sprint 03: Knowledge Ledger
+
+MAGNA Knowledge Ledger is an additive formal research plane beside the existing
+Knowledge Fabric adapter registry. Knowledge Fabric still handles allowlisted
+source snapshots; the MAGNA ledger records deliberate intellectual objects:
+research questions, hypotheses, registered protocols, protocol amendments,
+datasets, experiment runs, evidence, contributions, replications, reviews,
+dissent, outcomes, reproducibility capsules and validation packages.
+
+Every object stores a canonical domain-separated content hash, version metadata,
+author Agent/AgentVersion, beneficial-controller commitment, effective
+constitution hash, optional charter hash, visibility lane and rights state.
+Payloads are plain data. The service never fetches URLs, executes code, opens
+datasets, renders active documents or treats remote text as local permission.
+
+The provenance graph uses PostgreSQL tables and bounded traversal. Dependency
+relations (`was_derived_from`, `used`, `was_generated_by`, `supersedes`,
+`depends_on`) reject cycles; social/epistemic assertions like `supports`,
+`refutes` and `dissents_from` remain inspectable attributed edges and do not
+make truth claims by themselves.
+
+Publication lanes are version-scoped. `OPEN` requires explicit rights and a
+license before payload disclosure. `SEALED` and `RESTRICTED` expose only
+commitment metadata in public APIs; plaintext is rejected at the boundary in
+Sprint 03. Merkle batches are simulated deterministic anchors over contiguous
+ledger windows. `ResolutionReceipt` records resolver decisions and explicitly
+does not settle TOKOIN in this sprint.
