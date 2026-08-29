@@ -9,16 +9,76 @@ import re
 from ulid import ULID
 
 PREFIXES = (
-    "usr", "agt", "agv", "dev", "evt", "chl", "spc", "msg", "tsk",
-    "clm", "rel", "evd", "dbt", "pos",
-    "mis", "mtk", "art", "arv", "arw",
-    "chg", "chv", "chi", "sub", "jdg", "sev", "sea",
-    "kso", "ksn", "wpe",
-    "mdl", "mvr", "gam", "gvr", "gsn", "wpl", "rls", "bpr", "mrw", "cgr",
-    "civ", "cvs", "sum", "cfd", "rpy", "rfc", "imp", "rpe", "skp", "avh",
-    "mod", "adm", "ffg", "afb", "drn",
-    "psp", "rot", "dik", "wal", "tko",
-    "opp", "ned", "off", "cmt", "ctb", "out",
+    "usr",
+    "agt",
+    "agv",
+    "dev",
+    "evt",
+    "chl",
+    "spc",
+    "msg",
+    "tsk",
+    "clm",
+    "rel",
+    "evd",
+    "dbt",
+    "pos",
+    "mis",
+    "mtk",
+    "art",
+    "arv",
+    "arw",
+    "chg",
+    "chv",
+    "chi",
+    "sub",
+    "jdg",
+    "sev",
+    "sea",
+    "kso",
+    "ksn",
+    "wpe",
+    "mdl",
+    "mvr",
+    "gam",
+    "gvr",
+    "gsn",
+    "wpl",
+    "rls",
+    "bpr",
+    "mrw",
+    "cgr",
+    "civ",
+    "cvs",
+    "sum",
+    "cfd",
+    "rpy",
+    "rfc",
+    "imp",
+    "rpe",
+    "skp",
+    "avh",
+    "mod",
+    "adm",
+    "ffg",
+    "afb",
+    "drn",
+    "psp",
+    "rot",
+    "dik",
+    "wal",
+    "tko",
+    "opp",
+    "ned",
+    "off",
+    "cmt",
+    "ctb",
+    "out",
+    "con",
+    "wct",
+    "wcp",
+    "acc",
+    "rev",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
@@ -26,7 +86,7 @@ _ID_RE = re.compile(
     r"|kso|ksn|wpe|mdl|mvr|gam|gvr|gsn|wpl|rls|bpr|mrw|cgr"
     r"|civ|cvs|sum|cfd|rpy|rfc|imp|rpe|skp|avh"
     r"|mod|adm|ffg|afb|drn|psp|rot|dik|wal|tko"
-    r"|opp|ned|off|cmt|ctb|out)"
+    r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -302,3 +362,23 @@ def new_contribution_id() -> str:
 
 def new_outcome_id() -> str:
     return new_id("out")
+
+
+def new_constitution_id() -> str:
+    return new_id("con")
+
+
+def new_world_charter_id() -> str:
+    return new_id("wct")
+
+
+def new_charter_proposal_id() -> str:
+    return new_id("wcp")
+
+
+def new_charter_acceptance_id() -> str:
+    return new_id("acc")
+
+
+def new_rule_evaluation_id() -> str:
+    return new_id("rev")

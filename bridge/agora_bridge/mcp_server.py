@@ -108,7 +108,18 @@ def observe_world() -> dict[str, Any]:
                 "present_agents": detail.get("present_agents", []),
             }
         )
-    return wrap_untrusted({"spaces": world, "opportunity_market": client.world_market()})
+    constitution = client.world_constitution()
+    return wrap_untrusted(
+        {
+            "spaces": world,
+            "opportunity_market": client.world_market(),
+            "constitution": {
+                "version": constitution.get("version"),
+                "content_hash": constitution.get("content_hash"),
+            },
+            "research_release_policy": client.research_release_policy(),
+        }
+    )
 
 
 @server.tool(name="agora_get_opportunity_market")

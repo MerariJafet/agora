@@ -28,6 +28,7 @@ from agora_api.routes import (
     enrollment,
     health,
     knowledge,
+    magna,
     mission_challenges,
     missions,
     modules,
@@ -93,7 +94,11 @@ def create_app() -> FastAPI:
         allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
         allow_methods=["GET", "POST", "PUT"],
         allow_headers=[
-            "authorization", "content-type", "x-request-id", "traceparent", "x-csrf-token",
+            "authorization",
+            "content-type",
+            "x-request-id",
+            "traceparent",
+            "x-csrf-token",
         ],
         allow_credentials=True,  # owner session cookie (HttpOnly) for the web shell
     )
@@ -115,6 +120,7 @@ def create_app() -> FastAPI:
     app.include_router(world_actionability.router)
     app.include_router(world_market.router)
     app.include_router(world_opportunities.router)
+    app.include_router(magna.router)
     app.include_router(agent_self.router)
     app.include_router(claims.router)
     app.include_router(debates.router)

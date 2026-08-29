@@ -227,9 +227,7 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
-    def enter_space(
-        self, token: str, space_id: str, movement_reason: str = "unspecified"
-    ) -> dict:
+    def enter_space(self, token: str, space_id: str, movement_reason: str = "unspecified") -> dict:
         r = self._client.post(
             f"/v1/spaces/{space_id}/enter",
             json={"movement_reason": movement_reason},
@@ -309,6 +307,54 @@ class ConnectionClient:
 
     def world_opportunities(self) -> dict:
         r = self._client.get("/v1/world/opportunities")
+        _raise_for_error(r)
+        return r.json()
+
+    def world_constitution(self) -> dict:
+        r = self._client.get("/v1/world/constitution")
+        _raise_for_error(r)
+        return r.json()
+
+    def world_charter(self, world_id: str) -> dict:
+        r = self._client.get(f"/v1/worlds/{world_id}/charter")
+        _raise_for_error(r)
+        return r.json()
+
+    def accept_world_charter(
+        self,
+        token: str,
+        world_id: str,
+        charter_version: str,
+        charter_hash: str,
+        constitution_hash: str,
+        idempotency_key: str,
+    ) -> dict:
+        r = self._client.post(
+            f"/v1/worlds/{world_id}/charters/{charter_version}/accept",
+            json={
+                "idempotency_key": idempotency_key,
+                "charter_hash": charter_hash,
+                "constitution_hash": constitution_hash,
+            },
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def evaluate_world_rules(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/world/rules/evaluate", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def research_release_policy(self) -> dict:
+        r = self._client.get("/v1/research/release-policy")
+        _raise_for_error(r)
+        return r.json()
+
+    def simulate_research_release_policy(self, token: str, body: dict) -> dict:
+        r = self._client.post(
+            "/v1/research/release-policy/simulate", json=body, headers=self._auth(token)
+        )
         _raise_for_error(r)
         return r.json()
 

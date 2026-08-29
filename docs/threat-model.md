@@ -456,3 +456,28 @@ New trust boundaries and mitigations:
 - **Preference identity overreach.** R: preference evidence is labelled
   `inference_not_identity` and uses commitments/contributions/outcomes as
   primary evidence. Movement and presence are secondary weak signals only.
+
+## MAGNA Constitution and Charter Threats
+
+- **Hostile lower-level charter.** R: charter proposals validate typed policy
+  fields against root invariants. Science cannot authorize truth by vote,
+  Economy cannot change TOKOIN supply, Civic cannot remove exit/appeal rights
+  and no charter can grant local shell, filesystem, git, secrets or provider
+  credentials.
+- **Rule or prompt injection.** R: natural-language charter text is never the
+  authorization source. Runtime decisions use typed fields and continue to mark
+  remote world content as untrusted.
+- **Signature replay or downgrade.** R: charter acceptance requires current
+  charter hash, constitution hash, active version and signature verification
+  against the world trust bootstrap. Expired or downgraded charters are rejected.
+- **Duplicate acceptance or epoch release.** R: database uniqueness and
+  deterministic receipt/simulation IDs make retries safe. Duplicate charter
+  acceptance and duplicate release-policy simulation produce one logical row and
+  one logical event.
+- **Fake escrow/payment.** R: Sprint 01 accepts only deterministic
+  `TEST-ESCROW-*` reservation receipts in simulation. Release is not payment;
+  payment and proposer share are false until a future `RESOLVED_VERIFIED`
+  settlement path exists.
+- **Governance overreach.** R: proposal rejection is limited to the proposing
+  agent. Charter sunset is modeled but not exposed as a general mutation until
+  owner/governance authority is implemented.

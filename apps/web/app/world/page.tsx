@@ -5,9 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listMissions, type Mission } from "@/lib/missions";
 import {
   fetchChallengeActionability,
+  fetchMagnaConstitution,
   fetchManifest,
   fetchObservatoryActionability,
   fetchPopulation,
+  fetchResearchReleasePolicy,
   fetchSpaceMessages,
   fetchTokoinStatus,
   fetchWorldMarket,
@@ -17,7 +19,9 @@ import {
 import type {
   ChallengeActionability,
   DistrictOpportunity,
+  MagnaConstitution,
   ObservatoryActionability,
+  ResearchReleasePolicy,
   TokoinStatus,
   WorldMarketSummary,
   WorldOpportunityMarket,
@@ -100,6 +104,8 @@ export default function WorldPage() {
   const [observatory, setObservatory] = useState<ObservatoryActionability | null>(null);
   const [opportunityMarket, setOpportunityMarket] = useState<WorldOpportunityMarket | null>(null);
   const [worldMarket, setWorldMarket] = useState<WorldMarketSummary | null>(null);
+  const [constitution, setConstitution] = useState<MagnaConstitution | null>(null);
+  const [releasePolicy, setReleasePolicy] = useState<ResearchReleasePolicy | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [feedEvents, setFeedEvents] = useState<ObservatoryEvent[]>([]);
@@ -175,12 +181,22 @@ export default function WorldPage() {
   }, [store]);
 
   const loadReadOnlySurfaces = useCallback(async () => {
-    const [missionResult, tokoin, obs, opportunities, formalMarket] = await Promise.allSettled([
+    const [
+      missionResult,
+      tokoin,
+      obs,
+      opportunities,
+      formalMarket,
+      magna,
+      release,
+    ] = await Promise.allSettled([
       listMissions(),
       fetchTokoinStatus(),
       fetchObservatoryActionability(windowSeconds),
       fetchWorldOpportunities(),
       fetchWorldMarket(),
+      fetchMagnaConstitution(),
+      fetchResearchReleasePolicy(),
     ]);
     if (missionResult.status === "fulfilled") {
       setMissions(missionResult.value.missions);
@@ -189,6 +205,8 @@ export default function WorldPage() {
     if (obs.status === "fulfilled") setObservatory(obs.value);
     if (opportunities.status === "fulfilled") setOpportunityMarket(opportunities.value);
     if (formalMarket.status === "fulfilled") setWorldMarket(formalMarket.value);
+    if (magna.status === "fulfilled") setConstitution(magna.value);
+    if (release.status === "fulfilled") setReleasePolicy(release.value);
   }, [windowSeconds]);
 
   const loadRecentMessages = useCallback(async () => {
@@ -626,6 +644,26 @@ export default function WorldPage() {
               <dl className="compact-facts">
                 <div><dt>TOKOIN treasury</dt><dd>{tokoinStatus.treasury_balance.toLocaleString()}</dd></div>
                 <div><dt>Wallets</dt><dd>{tokoinStatus.wallet_count}</dd></div>
+              </dl>
+            )}
+            {constitution && releasePolicy && (
+              <dl className="compact-facts magna-facts" aria-label="MAGNA constitution">
+                <div>
+                  <dt>Constitución</dt>
+                  <dd>{constitution.version}</dd>
+                </div>
+                <div>
+                  <dt>Release</dt>
+                  <dd>{releasePolicy.policy.epoch_seconds / 3600}h · máximo {releasePolicy.policy.release_limit}</dd>
+                </div>
+                <div>
+                  <dt>Reserva</dt>
+                  <dd>{formatAceros(releasePolicy.policy.reward_atomic_units_aceros)}</dd>
+                </div>
+                <div>
+                  <dt>Pago</dt>
+                  <dd>{releasePolicy.policy.payment_trigger}</dd>
+                </div>
               </dl>
             )}
             {observatory && (

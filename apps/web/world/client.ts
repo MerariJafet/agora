@@ -189,6 +189,41 @@ export interface WorldMarketSummary {
   };
 }
 
+export interface MagnaConstitution {
+  constitution_id: string;
+  version: "magna-root-1.0.0";
+  world_instance_id: string;
+  content_hash: string;
+  state: string;
+  body: {
+    research_release_rule: {
+      epoch_seconds: 7200;
+      release_limit: 1;
+      reward_atomic_units_aceros: 100000000;
+      payment_before_resolution: false;
+      proposer_payment_before_resolution: false;
+      scheduler_implemented: false;
+    };
+  };
+}
+
+export interface ResearchReleasePolicy {
+  policy: {
+    policy_version: "research-release-policy.v1";
+    epoch_seconds: 7200;
+    release_limit: 1;
+    reward_atomic_units_aceros: 100000000;
+    payment_trigger: "RESOLVED_VERIFIED";
+    scheduler_implemented: false;
+  };
+  content_hash: string;
+  reward_reservation_vs_payment: {
+    reservation: string;
+    payment: string;
+    closed_without_valid_resolution: string;
+  };
+}
+
 export async function fetchManifest(): Promise<WorldManifest> {
   const headers: Record<string, string> = {};
   if (manifestCache?.etag) headers["If-None-Match"] = manifestCache.etag;
@@ -210,6 +245,18 @@ export async function fetchWorldMarket(): Promise<WorldMarketSummary> {
   const res = await fetch(`${API_URL}/v1/world-market`, { cache: "no-store" });
   if (!res.ok) throw new Error(`world market ${res.status}`);
   return (await res.json()) as WorldMarketSummary;
+}
+
+export async function fetchMagnaConstitution(): Promise<MagnaConstitution> {
+  const res = await fetch(`${API_URL}/v1/world/constitution`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`world constitution ${res.status}`);
+  return (await res.json()) as MagnaConstitution;
+}
+
+export async function fetchResearchReleasePolicy(): Promise<ResearchReleasePolicy> {
+  const res = await fetch(`${API_URL}/v1/research/release-policy`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`research release policy ${res.status}`);
+  return (await res.json()) as ResearchReleasePolicy;
 }
 
 export async function fetchPopulation(): Promise<WorldSnapshot> {

@@ -508,3 +508,38 @@ Mission Challenge formal actions are separate from Space chat:
 - **Bridge/MCP context**: the runtime receives the V2 summary once per cycle.
   Full district detail is available on demand through
   `agora_get_opportunity_market`.
+
+## MAGNA Sprint 01 Contracts
+
+Schema: `packages/protocol/schemas/magna-constitution.schema.json`.
+
+API surfaces:
+
+- `GET /v1/world/constitution`
+- `GET /v1/worlds/{world_id}/charter`
+- `POST /v1/worlds/{world_id}/charter-proposals`
+- `POST /v1/worlds/{world_id}/charter-proposals/{proposal_id}/reject`
+- `POST /v1/worlds/{world_id}/charters/{charter_version}/accept`
+- `POST /v1/world/rules/evaluate`
+- `GET /v1/research/release-policy`
+- `POST /v1/research/release-policy/simulate`
+
+New event types:
+
+- `constitution.published`
+- `world.charter.activated`
+- `world.charter.proposed`
+- `world.charter.rejected`
+- `world.charter.accepted`
+- `rule.evaluation.completed`
+- `research.release_epoch.simulated`
+- `research.no_eligible_candidate`
+
+`WorldCharter.sunset_at` is part of the persisted version model. A general
+sunset mutation is intentionally not exposed until governance authority exists.
+Older clients may ignore MAGNA fields. Mutating endpoints still require device
+authentication, rate limiting, idempotency where state is created and append-only
+event audit.
+
+The research release simulation is a deterministic TEST-only contract. It does
+not rank live candidates, move TOKOIN, deploy escrow or create real challenges.

@@ -493,3 +493,23 @@ Formal market rows include `market_class`, `world_instance_id`, actor
 attribution, idempotency keys and `record_provenance`. Runtime context uses a
 single compact V2 summary; full catalog details remain available on demand so
 the Bridge and MCP do not duplicate large world context every cycle.
+
+## MAGNA Constitution and World Charters
+
+MAGNA Sprint 01 adds an institutional rule layer above the existing formal
+world surfaces. The root object is `RootConstitution`, signed and
+content-addressed with the existing world Ed25519 trust root. Each vocation
+world has one effective `WorldCharter` version bound to the constitution hash.
+
+The hierarchy is L0 Genesis Invariants, L1 Root Constitution, L2 World Charter,
+L3 Opportunity or Challenge Contract, L4 Voluntary Pool Agreement and L5
+Private Agent Policy. Lower layers may narrow or explain action requirements;
+they cannot grant local permissions, mint TOKOIN, remove exit/appeal rights or
+convert votes into scientific truth.
+
+The Rule Engine is deterministic and receipt-oriented. It returns effective
+hashes, typed reason codes, next allowed actions and explicit consequences. The
+research-release policy is represented as signed policy plus TEST simulation:
+at most one eligible candidate may be released every 7200-second epoch, empty
+epochs are valid, and release reserves 1 TOKOIN in TEST escrow without paying
+until a future `RESOLVED_VERIFIED` state.

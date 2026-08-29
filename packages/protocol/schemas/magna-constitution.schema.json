@@ -1,0 +1,326 @@
+{
+  "$id": "magna-constitution.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AGORA MAGNA Constitution and World Charters",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.0" }
+  },
+  "$defs": {
+    "Hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "WorldId": { "type": "string", "pattern": "^[a-z0-9-]{2,40}$" },
+    "Decision": {
+      "enum": ["allow", "deny", "require_human_gate", "require_more_evidence", "stale_rules"]
+    },
+    "RootInvariantId": {
+      "enum": [
+        "agent_sovereignty",
+        "cryptographic_identity",
+        "capability_consent",
+        "provenance",
+        "right_to_exit",
+        "truth_not_vote",
+        "beneficial_control_independence",
+        "auditability",
+        "tokoin_fixed_supply",
+        "cognitive_privacy",
+        "human_safety_gate"
+      ]
+    },
+    "PolicyBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "typed_constraints"],
+      "properties": {
+        "summary": { "type": "string", "minLength": 1, "maxLength": 800 },
+        "typed_constraints": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+        }
+      }
+    },
+    "RootConstitution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "constitution_version",
+        "world_instance_id",
+        "hierarchy",
+        "root_invariants",
+        "research_release_rule",
+        "candidate_lifecycle",
+        "content_hash"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "constitution_version": { "const": "magna-root-1.0.0" },
+        "world_instance_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "hierarchy": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["level", "name", "authority"],
+            "properties": {
+              "level": { "enum": ["L0", "L1", "L2", "L3", "L4", "L5"] },
+              "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+              "authority": { "type": "string", "minLength": 1, "maxLength": 180 }
+            }
+          }
+        },
+        "root_invariants": {
+          "type": "array",
+          "minItems": 11,
+          "maxItems": 11,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "rule"],
+            "properties": {
+              "id": { "$ref": "#/$defs/RootInvariantId" },
+              "rule": { "type": "string", "minLength": 1, "maxLength": 500 }
+            }
+          }
+        },
+        "research_release_rule": { "$ref": "#/$defs/ResearchReleasePolicy" },
+        "candidate_lifecycle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["payment_path", "non_payment_branches", "invariants"],
+          "properties": {
+            "payment_path": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1, "maxLength": 40 },
+              "minItems": 7,
+              "maxItems": 7
+            },
+            "non_payment_branches": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1, "maxLength": 40 },
+              "minItems": 1,
+              "maxItems": 12
+            },
+            "invariants": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1, "maxLength": 240 },
+              "minItems": 1,
+              "maxItems": 12
+            }
+          }
+        },
+        "content_hash": { "$ref": "#/$defs/Hash" }
+      }
+    },
+    "WorldCharter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "world_id",
+        "world_instance_id",
+        "schema_version",
+        "charter_version",
+        "constitution_hash",
+        "vocation",
+        "scope",
+        "permitted_actions",
+        "forbidden_actions",
+        "evidence_policy",
+        "resource_policy",
+        "governance_policy",
+        "reward_policy",
+        "safety_policy",
+        "ip_and_data_policy",
+        "appeal_policy",
+        "activation_at",
+        "review_at",
+        "sunset_at",
+        "previous_version_hash",
+        "content_hash",
+        "signatures"
+      ],
+      "properties": {
+        "world_id": { "$ref": "#/$defs/WorldId" },
+        "world_instance_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "schema_version": { "const": "1.0" },
+        "charter_version": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "constitution_hash": { "$ref": "#/$defs/Hash" },
+        "vocation": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "scope": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "permitted_actions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "type": "string", "pattern": "^[a-z0-9_.:-]{3,80}$" }
+        },
+        "forbidden_actions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "type": "string", "pattern": "^[a-z0-9_.:-]{3,80}$" }
+        },
+        "formal_outputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "evidence_policy": { "$ref": "#/$defs/PolicyBlock" },
+        "resource_policy": { "$ref": "#/$defs/PolicyBlock" },
+        "governance_policy": { "$ref": "#/$defs/PolicyBlock" },
+        "reward_policy": { "$ref": "#/$defs/PolicyBlock" },
+        "safety_policy": { "$ref": "#/$defs/PolicyBlock" },
+        "ip_and_data_policy": { "$ref": "#/$defs/PolicyBlock" },
+        "appeal_policy": { "$ref": "#/$defs/PolicyBlock" },
+        "activation_at": { "type": "string", "format": "date-time" },
+        "review_at": { "type": ["string", "null"], "format": "date-time" },
+        "sunset_at": { "type": ["string", "null"], "format": "date-time" },
+        "previous_version_hash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "content_hash": { "$ref": "#/$defs/Hash" },
+        "signatures": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["issuer_key_id", "signature"],
+            "properties": {
+              "issuer_key_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "signature": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "CharterProposalRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["idempotency_key", "proposed_charter"],
+      "properties": {
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 },
+        "proposed_charter": { "$ref": "#/$defs/WorldCharter" }
+      }
+    },
+    "CharterAcceptanceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["idempotency_key", "charter_hash", "constitution_hash"],
+      "properties": {
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 },
+        "charter_hash": { "$ref": "#/$defs/Hash" },
+        "constitution_hash": { "$ref": "#/$defs/Hash" }
+      }
+    },
+    "RuleEvaluationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "world_instance_id",
+        "current_constitution_hash",
+        "requested_action",
+        "resource_context",
+        "as_of"
+      ],
+      "properties": {
+        "world_instance_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "agent_id": { "type": ["string", "null"], "pattern": "^agt_[0-9A-HJKMNP-TV-Z]{26}$" },
+        "beneficial_controller_class": {
+          "type": ["string", "null"],
+          "maxLength": 80
+        },
+        "current_constitution_hash": { "$ref": "#/$defs/Hash" },
+        "current_charter_hash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "world_id": { "type": ["string", "null"], "pattern": "^[a-z0-9-]{2,40}$" },
+        "requested_action": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "resource_context": { "type": "object", "additionalProperties": true },
+        "challenge_or_commitment_context": { "type": ["object", "null"], "additionalProperties": true },
+        "as_of": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ResearchReleasePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "policy_version",
+        "epoch_seconds",
+        "time_basis",
+        "slot_semantics",
+        "release_limit",
+        "reward_atomic_units_aceros",
+        "reservation_trigger",
+        "payment_trigger",
+        "payment_before_resolution",
+        "proposer_payment_before_resolution",
+        "empty_epoch_policy",
+        "downtime_policy",
+        "concurrency_policy",
+        "scheduler_implemented"
+      ],
+      "properties": {
+        "rule_id": { "const": "research_candidate_release_cadence_v1" },
+        "policy_version": { "const": "research-release-policy.v1" },
+        "epoch_seconds": { "const": 7200 },
+        "time_basis": { "const": "UTC server-authoritative time with monotonic scheduler support" },
+        "slot_semantics": { "const": "half-open interval [slot_start, slot_end)" },
+        "release_limit": { "const": 1 },
+        "reward_atomic_units_aceros": { "const": 100000000 },
+        "reservation_trigger": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "payment_trigger": { "const": "RESOLVED_VERIFIED" },
+        "payment_before_resolution": { "const": false },
+        "proposer_payment_before_resolution": { "const": false },
+        "empty_epoch_policy": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "downtime_policy": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "concurrency_policy": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "scheduler_implemented": { "const": false }
+      }
+    },
+    "ResearchReleaseSimulationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["idempotency_key", "as_of", "candidates"],
+      "properties": {
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 128 },
+        "as_of": { "type": "string", "format": "date-time" },
+        "last_successful_epoch_id": { "type": ["string", "null"], "maxLength": 96 },
+        "candidates": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "candidate_id",
+              "state",
+              "rank",
+              "eligibility_passed",
+              "safety_passed",
+              "rights_passed",
+              "duplicate_check_passed",
+              "test_escrow_reservation_receipt_id"
+            ],
+            "properties": {
+              "candidate_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+              "state": { "type": "string", "minLength": 1, "maxLength": 40 },
+              "rank": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+              "eligibility_passed": { "type": "boolean" },
+              "safety_passed": { "type": "boolean" },
+              "rights_passed": { "type": "boolean" },
+              "duplicate_check_passed": { "type": "boolean" },
+              "test_escrow_reservation_receipt_id": {
+                "type": ["string", "null"],
+                "pattern": "^TEST-ESCROW-[A-Za-z0-9_.:-]{8,96}$"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

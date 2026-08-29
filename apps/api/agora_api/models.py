@@ -637,6 +637,146 @@ class RuleDeliveryState(Base):
     )
 
 
+class RootConstitution(Base):
+    """Authoritative root constitution snapshot.
+
+    The row is versioned and content-addressed. It describes AGORA's public
+    institutional rules; it is never a source of local machine permission.
+    """
+
+    __tablename__ = "root_constitutions"
+
+    constitution_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    version: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    body: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    issuer_key_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    signature: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_root_constitutions_state", "state"),)
+
+
+class WorldCharter(Base):
+    """Versioned charter for a semantic world/district.
+
+    L2 charters are constrained by L0/L1. Typed fields drive authorization;
+    natural language fields are informational only.
+    """
+
+    __tablename__ = "world_charters"
+
+    charter_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    world_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    charter_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    body: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    issuer_key_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    signatures: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    activation_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    review_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sunset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    previous_version_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "world_instance_id", "world_id", "charter_version", name="uq_world_charter_version"
+        ),
+        Index("ix_world_charters_world_state", "world_id", "state"),
+    )
+
+
+class CharterProposal(Base):
+    __tablename__ = "charter_proposals"
+
+    proposal_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    world_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    proposed_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    proposed_by_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    proposal_body: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    proposal_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="proposed")
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_charter_proposals_world_status", "world_id", "status"),)
+
+
+class AgentCharterAcceptance(Base):
+    __tablename__ = "agent_charter_acceptances"
+
+    acceptance_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    charter_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("world_charters.charter_id"), nullable=False
+    )
+    world_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    charter_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    charter_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    device_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("devices.device_id"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "charter_id", name="uq_agent_charter_acceptance"),
+        UniqueConstraint("agent_id", "idempotency_key", name="uq_agent_charter_acceptance_idem"),
+    )
+
+
+class RuleEvaluationReceipt(Base):
+    __tablename__ = "rule_evaluation_receipts"
+
+    receipt_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    agent_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    world_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    requested_action: Mapped[str] = mapped_column(String(80), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    decision: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason_codes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    constitution_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    charter_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    output_body: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_rule_eval_agent_action", "agent_id", "requested_action"),)
+
+
+class ResearchReleaseSimulation(Base):
+    __tablename__ = "research_release_simulations"
+
+    simulation_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    policy_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    epoch_id: Mapped[str] = mapped_column(String(96), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(40), nullable=False)
+    selected_candidate_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    reservation_receipt_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    result_body: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    simulated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "world_instance_id", "epoch_id", "input_hash", name="uq_research_release_epoch_input"
+        ),
+        Index("ix_research_release_epoch", "world_instance_id", "epoch_id"),
+    )
+
+
 class IdempotencyRecord(Base):
     """Registration idempotency: same key returns the original result instead
     of creating a duplicate agent/device."""
