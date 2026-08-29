@@ -543,3 +543,13 @@ New trust boundaries and mitigations:
 - **Arbitrary fetch or execution.** R: Knowledge Ledger payloads are inert data.
   No route fetches Evidence URLs, runs notebooks, executes artifacts or opens
   datasets.
+## MAGNA TOKOIN Testnet Threats
+
+Sprint 04 treats TOKOIN deployment and settlement as high-risk financial-like
+control flow even though the current implementation is local-devnet and has no
+economic value. The API blocks mainnet and unknown chain IDs, does not accept
+private keys or mnemonics, does not grant LLM signing authority, and does not
+convert legacy research credits or internal TOKOIN balances.
+
+Known remaining risks are gated rather than papered over: public testnet
+deployment requires eight human ratifications and an independent external audit.

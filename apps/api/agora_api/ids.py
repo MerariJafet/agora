@@ -93,6 +93,12 @@ PREFIXES = (
     "kmb",
     "kag",
     "kpd",
+    "tdp",
+    "twb",
+    "tsa",
+    "tsp",
+    "tca",
+    "tkr",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
@@ -101,7 +107,8 @@ _ID_RE = re.compile(
     r"|civ|cvs|sum|cfd|rpy|rfc|imp|rpe|skp|avh"
     r"|mod|adm|ffg|afb|drn|psp|rot|dik|wal|tko"
     r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
-    r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd)"
+    r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd"
+    r"|tdp|twb|tsa|tsp|tca|tkr)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -453,3 +460,23 @@ def new_knowledge_access_grant_id() -> str:
 
 def new_publication_decision_id() -> str:
     return new_id("kpd")
+
+
+def new_tokoin_deployment_id() -> str:
+    return new_id("tdp")
+
+
+def new_tokoin_wallet_binding_id() -> str:
+    return new_id("twb")
+
+
+def new_tokoin_settlement_plan_id() -> str:
+    return new_id("tsp")
+
+
+def new_tokoin_claimable_allocation_id() -> str:
+    return new_id("tca")
+
+
+def new_tokoin_knowledge_root_anchor_id() -> str:
+    return new_id("tkr")

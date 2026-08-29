@@ -622,3 +622,13 @@ All returned ledger data is remote/public-world content and must be treated as
 are explicit. `SEALED` and `RESTRICTED` public views expose commitments and
 summary metadata, not plaintext. Resolution receipts can later be consumed by
 TOKOIN settlement, but Sprint 03 receipts set `payment_eligible=false`.
+## MAGNA TOKOIN Testnet API
+
+Sprint 04 exposes `/v1/tokoin-testnet/*` for local-devnet TOKOIN status,
+deployment manifest rehearsal, wallet binding, challenge reservation,
+settlement-plan allocation and knowledge-root anchoring. Amounts are decimal
+strings in ACEROS, never floats.
+
+The public status is intentionally `PARTIAL_AWAITING_RATIFICATION` until human
+ratification and independent external audit exist. `ResolutionReceipt` remains
+an epistemic gate only; it does not itself move value.

@@ -7,6 +7,7 @@ import {
   fetchChallengeActionability,
   fetchMagnaConstitution,
   fetchMagnaKnowledgeLedger,
+  fetchMagnaTokoinTestnet,
   fetchManifest,
   fetchObservatoryActionability,
   fetchPopulation,
@@ -23,6 +24,7 @@ import type {
   DistrictOpportunity,
   MagnaConstitution,
   MagnaKnowledgeLedgerSummary,
+  MagnaTokoinTestnetStatus,
   ObservatoryActionability,
   ResearchAllocationMarket,
   ResearchReleasePolicy,
@@ -110,6 +112,7 @@ export default function WorldPage() {
   const [worldMarket, setWorldMarket] = useState<WorldMarketSummary | null>(null);
   const [constitution, setConstitution] = useState<MagnaConstitution | null>(null);
   const [knowledgeLedger, setKnowledgeLedger] = useState<MagnaKnowledgeLedgerSummary | null>(null);
+  const [tokoinTestnet, setTokoinTestnet] = useState<MagnaTokoinTestnetStatus | null>(null);
   const [releasePolicy, setReleasePolicy] = useState<ResearchReleasePolicy | null>(null);
   const [researchMarket, setResearchMarket] = useState<ResearchAllocationMarket | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
@@ -195,6 +198,7 @@ export default function WorldPage() {
       formalMarket,
       magna,
       ledger,
+      tokoinTestnetSurface,
       release,
       research,
     ] = await Promise.allSettled([
@@ -205,6 +209,7 @@ export default function WorldPage() {
       fetchWorldMarket(),
       fetchMagnaConstitution(),
       fetchMagnaKnowledgeLedger(),
+      fetchMagnaTokoinTestnet(),
       fetchResearchReleasePolicy(),
       fetchResearchAllocationMarket(),
     ]);
@@ -217,6 +222,9 @@ export default function WorldPage() {
     if (formalMarket.status === "fulfilled") setWorldMarket(formalMarket.value);
     if (magna.status === "fulfilled") setConstitution(magna.value);
     if (ledger.status === "fulfilled") setKnowledgeLedger(ledger.value);
+    if (tokoinTestnetSurface.status === "fulfilled") {
+      setTokoinTestnet(tokoinTestnetSurface.value);
+    }
     if (release.status === "fulfilled") setReleasePolicy(release.value);
     if (research.status === "fulfilled") setResearchMarket(research.value);
   }, [windowSeconds]);
@@ -745,6 +753,36 @@ export default function WorldPage() {
                 <p className="subtle-note">
                   Estados epistemológicos requieren receipts verificables; no hay truth score,
                   popularidad como verdad ni settlement TOKOIN en Sprint MAGNA 03.
+                </p>
+              </div>
+            )}
+            {tokoinTestnet && (
+              <div className="research-market-panel">
+                <div className="panel-title-row">
+                  <h3>TOKOIN Testnet</h3>
+                  <span>{tokoinTestnet.maximum_authorized_network}</span>
+                </div>
+                <dl className="compact-facts">
+                  <div>
+                    <dt>Estado</dt>
+                    <dd>{tokoinTestnet.status}</dd>
+                  </div>
+                  <div>
+                    <dt>Chain</dt>
+                    <dd>{tokoinTestnet.deployment.chain_id}</dd>
+                  </div>
+                  <div>
+                    <dt>Supply</dt>
+                    <dd>{tokoinTestnet.deployment.total_supply_atomic} ACEROS</dd>
+                  </div>
+                  <div>
+                    <dt>Reservado</dt>
+                    <dd>{tokoinTestnet.accounting.reserved_atomic} ACEROS</dd>
+                  </div>
+                </dl>
+                <p className="subtle-note">
+                  Local-devnet sin valor económico: Base Sepolia, auditoría externa y
+                  ratificación humana siguen bloqueando el siguiente sprint.
                 </p>
               </div>
             )}

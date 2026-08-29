@@ -2622,3 +2622,172 @@ class MagnaAccessGrant(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (Index("ix_magna_access_object_grantee", "object_id", "grantee_id", "state"),)
+
+
+# ---------------------------------------------------------------------------
+# AGORA MAGNA Sprint 04: TOKOIN testnet, wallet binding and settlement plane.
+#
+# These records are an audit-ready local-devnet projection for the future EVM
+# TOKOIN system. They do not mutate the legacy PostgreSQL TOKOIN ledger, do not
+# create private keys, do not deploy public testnet contracts, and do not move
+# value. Chain-facing state is explicit and gated by human ratification.
+# ---------------------------------------------------------------------------
+
+
+class TokoinDeploymentManifest(Base):
+    __tablename__ = "tokoin_deployment_manifests"
+
+    deployment_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    environment: Mapped[str] = mapped_column(String(32), nullable=False)
+    network_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    chain_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    token_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    genesis_treasury_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    reward_budget_vault_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    challenge_escrow_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    reward_splitter_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    pool_escrow_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    agent_passport_anchor_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    knowledge_root_registry_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    total_supply_atomic: Mapped[str] = mapped_column(String(32), nullable=False)
+    decimals: Mapped[int] = mapped_column(Integer, nullable=False)
+    solidity_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    openzeppelin_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    manifest_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    bytecode_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    human_ratifications: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("network_key", "chain_id", name="uq_tokoin_deployment_network"),
+        Index("ix_tokoin_deployments_status", "status"),
+    )
+
+
+class TokoinWalletBinding(Base):
+    __tablename__ = "tokoin_wallet_bindings"
+
+    binding_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    agent_id: Mapped[str | None] = mapped_column(String(30), ForeignKey("agents.agent_id"))
+    controller_commitment_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    wallet_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    chain_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    balance_cache_atomic: Mapped[str] = mapped_column(String(32), nullable=False, default="0")
+    session_policy: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    rotation_receipt: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "chain_id", name="uq_tokoin_wallet_binding_agent_chain"),
+        UniqueConstraint("wallet_address", "chain_id", name="uq_tokoin_wallet_binding_address"),
+        Index("ix_tokoin_wallet_bindings_state", "state"),
+    )
+
+
+class TokoinReservation(Base):
+    __tablename__ = "tokoin_reservations"
+
+    reservation_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    challenge_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    candidate_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    settlement_backend: Mapped[str] = mapped_column(String(40), nullable=False)
+    chain_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    escrow_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    state: Mapped[str] = mapped_column(String(40), nullable=False)
+    amount_atomic: Mapped[str] = mapped_column(String(32), nullable=False)
+    tx_hash: Mapped[str | None] = mapped_column(String(66), nullable=True)
+    finality_evidence: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    resolution_receipt_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("magna_resolution_receipts.receipt_id"), nullable=True
+    )
+    settlement_plan_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_tokoin_reservation_idempotency"),
+        UniqueConstraint(
+            "world_instance_id", "challenge_id", name="uq_tokoin_reservation_challenge"
+        ),
+        Index("ix_tokoin_reservations_state", "state"),
+    )
+
+
+class TokoinSettlementPlan(Base):
+    __tablename__ = "tokoin_settlement_plans"
+
+    settlement_plan_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    challenge_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    reservation_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("tokoin_reservations.reservation_id"), nullable=False
+    )
+    resolution_receipt_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("magna_resolution_receipts.receipt_id"), nullable=False
+    )
+    plan_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    total_atomic: Mapped[str] = mapped_column(String(32), nullable=False)
+    role_allocations: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    unused_return_atomic: Mapped[str] = mapped_column(String(32), nullable=False, default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("challenge_id", name="uq_tokoin_settlement_plan_challenge"),
+        Index("ix_tokoin_settlement_plans_state", "state"),
+    )
+
+
+class TokoinClaimableAllocation(Base):
+    __tablename__ = "tokoin_claimable_allocations"
+
+    allocation_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    settlement_plan_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("tokoin_settlement_plans.settlement_plan_id"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    wallet_binding_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("tokoin_wallet_bindings.binding_id"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(40), nullable=False)
+    amount_atomic: Mapped[str] = mapped_column(String(32), nullable=False)
+    controller_commitment_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    withdrawal_receipt: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "settlement_plan_id", "agent_id", "role", name="uq_tokoin_claimable_agent_role"
+        ),
+        Index("ix_tokoin_claimable_agent_state", "agent_id", "state"),
+    )
+
+
+class TokoinKnowledgeRootAnchor(Base):
+    __tablename__ = "tokoin_knowledge_root_anchors"
+
+    anchor_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    merkle_batch_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("magna_merkle_batches.batch_id"), nullable=False, unique=True
+    )
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    merkle_root: Mapped[str] = mapped_column(String(64), nullable=False)
+    previous_root_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    chain_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    tx_hash: Mapped[str | None] = mapped_column(String(66), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("world_instance_id", "merkle_root", name="uq_tokoin_knowledge_root"),
+        Index("ix_tokoin_knowledge_roots_world", "world_instance_id"),
+    )

@@ -571,3 +571,14 @@ commitment metadata in public APIs; plaintext is rejected at the boundary in
 Sprint 03. Merkle batches are simulated deterministic anchors over contiguous
 ledger windows. `ResolutionReceipt` records resolver decisions and explicitly
 does not settle TOKOIN in this sprint.
+## MAGNA TOKOIN Testnet Plane
+
+MAGNA Sprint 04 adds a local-devnet TOKOIN control plane beside the existing
+internal TOKOIN ledger. It stores deployment manifests, public wallet bindings,
+challenge reservations, settlement plans, claimable allocations and knowledge
+root anchors in PostgreSQL. This plane is additive and does not convert legacy
+balances or treat PostgreSQL as the authoritative EVM balance.
+
+The maximum authorized network is currently `LOCAL_DEVNET` (`chain_id=31337`).
+Base Sepolia remains gated by human ratification and independent audit; mainnet
+and unknown chain IDs are hard-blocked.

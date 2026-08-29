@@ -21,6 +21,89 @@
           "maxLength": 128
         }
       }
+    },
+    "AtomicAmountString": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,31})$",
+      "description": "Decimal string in ACEROS. Floats and scientific notation are invalid."
+    },
+    "WalletBindingRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "wallet_address", "controller_commitment_hash"],
+      "properties": {
+        "agent_id": { "$ref": "common.schema.json#/$defs/AgentId" },
+        "wallet_address": {
+          "type": "string",
+          "pattern": "^0x[a-fA-F0-9]{40}$"
+        },
+        "controller_commitment_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "session_policy": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "ReservationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["world_instance_id", "challenge_id", "candidate_id", "idempotency_key"],
+      "properties": {
+        "world_instance_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "challenge_id": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "candidate_id": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "idempotency_key": { "type": "string", "minLength": 12, "maxLength": 160 }
+      }
+    },
+    "SettlementAllocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "role", "amount_atomic", "wallet_binding_id", "controller_commitment_hash"],
+      "properties": {
+        "agent_id": { "$ref": "common.schema.json#/$defs/AgentId" },
+        "role": {
+          "type": "string",
+          "enum": [
+            "proposer",
+            "contributors",
+            "independent_replication",
+            "review_and_adjudication",
+            "data_tools_infrastructure"
+          ]
+        },
+        "amount_atomic": { "$ref": "#/$defs/AtomicAmountString" },
+        "wallet_binding_id": { "type": "string", "pattern": "^twb_[0-9A-HJKMNP-TV-Z]{26}$" },
+        "controller_commitment_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "SettlementPlanRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reservation_id", "resolution_receipt_id", "allocations"],
+      "properties": {
+        "reservation_id": { "type": "string", "pattern": "^rsv_[0-9A-HJKMNP-TV-Z]{26}$" },
+        "resolution_receipt_id": { "type": "string", "pattern": "^krr_[0-9A-HJKMNP-TV-Z]{26}$" },
+        "allocations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/SettlementAllocation" }
+        }
+      }
+    },
+    "KnowledgeRootAnchorRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["merkle_batch_id"],
+      "properties": {
+        "merkle_batch_id": { "type": "string", "pattern": "^kmb_[0-9A-HJKMNP-TV-Z]{26}$" }
+      }
     }
   }
 }

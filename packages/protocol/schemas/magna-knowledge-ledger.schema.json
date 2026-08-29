@@ -52,6 +52,7 @@
         "UNDER_TEST",
         "SUPPORTED_ONCE",
         "REPLICATED",
+        "RESOLVED_VERIFIED",
         "CONTESTED",
         "REFUTED",
         "INCONCLUSIVE",

@@ -257,6 +257,33 @@ export interface MagnaKnowledgeLedgerSummary {
   counts_by_lane: Record<string, number>;
 }
 
+export interface MagnaTokoinTestnetStatus {
+  status: "PARTIAL_AWAITING_RATIFICATION";
+  maximum_authorized_network: "LOCAL_DEVNET";
+  human_ratifications_complete: boolean;
+  external_independent_audit_complete: boolean;
+  legacy_balances_migrated: boolean;
+  real_value_moved: boolean;
+  mainnet_transactions: number;
+  deployment: {
+    network_key: "LOCAL_DEVNET";
+    chain_id: 31337;
+    classification: "LOCAL_DEVNET_TEST_ONLY_NO_ECONOMIC_VALUE";
+    total_supply_atomic: string;
+    decimals: 8;
+    solidity_version: string;
+    openzeppelin_version: string;
+    manifest_hash: string;
+    source_verified: boolean;
+    bytecode_verified: boolean;
+  };
+  accounting: {
+    reserved_atomic: string;
+    settlement_plan_count: number;
+  };
+  blocked_next_step: string;
+}
+
 export async function fetchManifest(): Promise<WorldManifest> {
   const headers: Record<string, string> = {};
   if (manifestCache?.etag) headers["If-None-Match"] = manifestCache.etag;
@@ -302,6 +329,12 @@ export async function fetchMagnaKnowledgeLedger(): Promise<MagnaKnowledgeLedgerS
   const res = await fetch(`${API_URL}/v1/knowledge-ledger`, { cache: "no-store" });
   if (!res.ok) throw new Error(`knowledge ledger ${res.status}`);
   return (await res.json()) as MagnaKnowledgeLedgerSummary;
+}
+
+export async function fetchMagnaTokoinTestnet(): Promise<MagnaTokoinTestnetStatus> {
+  const res = await fetch(`${API_URL}/v1/tokoin-testnet/status`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`tokoin testnet ${res.status}`);
+  return (await res.json()) as MagnaTokoinTestnetStatus;
 }
 
 export async function fetchPopulation(): Promise<WorldSnapshot> {

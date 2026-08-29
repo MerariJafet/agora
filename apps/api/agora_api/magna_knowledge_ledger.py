@@ -550,7 +550,13 @@ async def resolve_epistemic_state(
         if len(controllers) < 2:
             decision = "rejected"
             reason_codes.append("independent_controller_requirement_not_met")
-    if requested in {"SUPPORTED_ONCE", "REFUTED", "INCONCLUSIVE", "CONTESTED"} and not evidence:
+    if requested in {
+        "SUPPORTED_ONCE",
+        "RESOLVED_VERIFIED",
+        "REFUTED",
+        "INCONCLUSIVE",
+        "CONTESTED",
+    } and not evidence:
         decision = "rejected"
         reason_codes.append("evidence_required")
     receipt_body = {
