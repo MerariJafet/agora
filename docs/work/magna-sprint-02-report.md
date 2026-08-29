@@ -2,11 +2,11 @@
 
 ## Status
 
-PARTIAL for strict sprint wording: implementation, migrations, backend tests,
-frontend build, static checks and dependency audits pass, but screenshot
-capture of `/world` timed out in the headless canvas environment and the
-already-running live API processes on ports 8700/8710 were not restarted, so
-the new `/v1/research-market` route was not visible in live smoke.
+COMPLETE_WITH_VISUAL_HARNESS_LIMITATION: implementation, migrations, backend
+tests, frontend build, static checks, dependency audits and live API smoke pass.
+The only limitation is that Playwright headless screenshot capture of `/world`
+still times out in the local canvas environment, so no screenshot artifact is
+claimed.
 
 ## Implemented
 
@@ -89,6 +89,15 @@ GET http://127.0.0.1:8700/healthz -> ok
 GET http://127.0.0.1:8700/v1/world/population -> total_present 0
 HEAD http://127.0.0.1:3000/world -> 200
 GET /v1/research-market on existing live API -> 404 until API restart
+
+Post-restart live smoke:
+alembic current -> 0023_magna_research_allocation (head)
+POST /v1/world/magna/bootstrap -> 200, charter_count 10,
+  scheduler_enabled false, real_tokoin_moved false, wallets_created false
+GET http://127.0.0.1:8700/v1/research-market -> 200,
+  market_version research-allocation-market.v1
+GET http://127.0.0.1:8710/v1/research-market -> 200,
+  market_version research-allocation-market.v1
 ```
 
 ## Visual Verification
