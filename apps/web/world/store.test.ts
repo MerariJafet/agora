@@ -63,6 +63,19 @@ test("transition animates over the nav graph", () => {
   assert.ok(s.visuals.get(agentId)!.path.length > 0, "a local path is computed");
 });
 
+test("degraded polling snapshot can animate semantic space changes", () => {
+  const s = store();
+  s.applySnapshot(syntheticSnapshot(1, TEST_PLAZA));
+  const agentId = [...s.agents.keys()][0]!;
+  const before = s.visuals.get(agentId)!;
+  s.applySnapshot(syntheticSnapshot(1, TEST_GARDEN), { animateTransitions: true });
+  const after = s.visuals.get(agentId)!;
+  assert.equal(s.agents.get(agentId)!.space_id, TEST_GARDEN);
+  assert.equal(s.agents.get(agentId)!.from_space_id, TEST_PLAZA);
+  assert.ok(after.path.length > 0, "poll repair computes the same local movement path");
+  assert.equal(after.x, before.x, "animation starts from the previous visible location");
+});
+
 test("duplicate transition is idempotent", () => {
   const s = store();
   s.applySnapshot(syntheticSnapshot(1, TEST_PLAZA));

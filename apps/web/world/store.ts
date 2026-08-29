@@ -83,18 +83,30 @@ export class WorldStore {
   }
 
   /** Full semantic snapshot: authoritative, prunes agents that left. */
-  applySnapshot(snapshot: WorldSnapshot) {
+  applySnapshot(snapshot: WorldSnapshot, options?: { animateTransitions?: boolean }) {
     const seen = new Set<string>();
     Object.entries(snapshot.spaces).forEach(([spaceId, space]) => {
       space.agents.forEach((agent, index) => {
         seen.add(agent.agent_id);
+        const existing = this.agents.get(agent.agent_id);
+        const shouldAnimate = Boolean(
+          options?.animateTransitions
+          && existing
+          && existing.space_id !== spaceId,
+        );
         this.upsertAgent({
           agent_id: agent.agent_id,
           name: agent.name,
           activity: agent.activity,
           avatar: agent.avatar,
           space_id: spaceId,
-        }, index, true);
+          from_space_id: shouldAnimate ? existing?.space_id ?? null : undefined,
+          transition_at: shouldAnimate ? Date.now() : undefined,
+        }, index, !shouldAnimate);
+        if (shouldAnimate) {
+          const visual = this.visuals.get(agent.agent_id);
+          if (visual) visual.path = this.pathBetween(existing!.space_id, spaceId);
+        }
       });
     });
     [...this.agents.keys()].forEach((id) => {

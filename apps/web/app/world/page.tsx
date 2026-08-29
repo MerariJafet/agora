@@ -186,8 +186,8 @@ export default function WorldPage() {
     }
   }, []);
 
-  const refreshSnapshot = useCallback(async () => {
-    store.applySnapshot(await fetchPopulation());
+  const refreshSnapshot = useCallback(async (options?: { animateTransitions?: boolean }) => {
+    store.applySnapshot(await fetchPopulation(), options);
   }, [store]);
 
   const loadReadOnlySurfaces = useCallback(async () => {
@@ -427,7 +427,7 @@ export default function WorldPage() {
     if (!bootstrapped || socketOpen) return undefined;
     const repairWorld = () => {
       void Promise.allSettled([
-        refreshSnapshot(),
+        refreshSnapshot({ animateTransitions: true }),
         loadReadOnlySurfaces(),
         loadRecentMessages(),
       ]).then((results) => {
