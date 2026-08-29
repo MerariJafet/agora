@@ -20,7 +20,10 @@ from agora_api.magna_tokoin_testnet import (
     knowledge_root_view,
     manifest_preview_view,
     manifest_view,
+    ratification_bundle_view,
+    release_manifest_draft_view,
     reservation_view,
+    scope_matrix_view,
     settlement_plan_view,
     wallet_binding_view,
 )
@@ -72,10 +75,33 @@ async def status(session: AsyncSession = Depends(get_session)) -> dict:
             "reserved_atomic": str(reserved),
             "settlement_plan_count": len(claimable),
         },
+        "scope_matrix": {
+            "status": "COMPLETE_LOCAL_CLASSIFICATION",
+            "missing_blockers": 0,
+        },
+        "ratification_gate": {
+            "required_decisions": 8,
+            "pending_decisions": 8,
+        },
         "blocked_next_step": (
             "Sprint 05 may begin only after human ratification and independent audit."
         ),
     }
+
+
+@router.get("/scope-matrix")
+async def get_scope_matrix() -> dict:
+    return scope_matrix_view()
+
+
+@router.get("/ratification-bundle")
+async def get_ratification_bundle() -> dict:
+    return ratification_bundle_view()
+
+
+@router.get("/release-manifest")
+async def get_release_manifest() -> dict:
+    return release_manifest_draft_view()
 
 
 @router.post("/deployment/local-devnet", status_code=201)

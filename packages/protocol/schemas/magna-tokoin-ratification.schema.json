@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/magna-tokoin-ratification.schema.json",
+  "title": "AGORA MAGNA TOKOIN ratification receipt",
+  "$defs": {
+    "RatificationStatus": {
+      "type": "string",
+      "enum": ["PENDING", "RATIFIED", "REJECTED", "SUPERSEDED", "REVOKED"]
+    },
+    "RatificationReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_id",
+        "title",
+        "prompt",
+        "status",
+        "decision_value",
+        "signed_by",
+        "signed_at",
+        "evidence_hash"
+      ],
+      "properties": {
+        "decision_id": {
+          "type": "string",
+          "enum": ["RAT-01", "RAT-02", "RAT-03", "RAT-04", "RAT-05", "RAT-06", "RAT-07", "RAT-08"]
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "prompt": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "status": { "$ref": "#/$defs/RatificationStatus" },
+        "decision_value": {
+          "type": ["object", "string", "boolean", "null"],
+          "description": "Must be null while status is PENDING."
+        },
+        "signed_by": { "type": ["string", "null"], "maxLength": 120 },
+        "signed_at": { "type": ["string", "null"], "format": "date-time" },
+        "evidence_hash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "PENDING" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "decision_value": { "type": "null" },
+              "signed_by": { "type": "null" },
+              "signed_at": { "type": "null" },
+              "evidence_hash": { "type": "null" }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$ref": "#/$defs/RatificationReceipt"
+}

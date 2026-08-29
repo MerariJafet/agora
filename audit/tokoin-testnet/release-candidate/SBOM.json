@@ -1,0 +1,25 @@
+{
+  "schema": "agora.magna.tokoin.sbom.v1",
+  "status": "LOCAL_RELEASE_GATE_DRAFT",
+  "components": [
+    {
+      "name": "TokoinFixedSupply",
+      "type": "solidity_contract_source",
+      "path": "contracts/tokoin/contracts/TokoinFixedSupply.sol",
+      "solidity": "0.8.30",
+      "openzeppelin": "5.6.1"
+    },
+    {
+      "name": "TOKOIN local-devnet control plane",
+      "type": "fastapi_module",
+      "path": "apps/api/agora_api/magna_tokoin_testnet.py"
+    },
+    {
+      "name": "TOKOIN release gate schemas",
+      "type": "json_schema_2020_12",
+      "path": "packages/protocol/schemas/magna-tokoin-*.schema.json"
+    }
+  ],
+  "external_services": [],
+  "paid_services": []
+}

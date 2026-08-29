@@ -55,6 +55,86 @@ ROLE_CAPS = {
     "data_tools_infrastructure": 5_000_000,
 }
 
+OFFCHAIN_COMPONENTS = {
+    "GenesisTreasury": (
+        "Local/off-chain treasury policy placeholder; no deployed contract in Sprint 04."
+    ),
+    "RewardBudgetVault": "Local DB reservation/budget accounting; not trustless on-chain vault.",
+    "ChallengeEscrow": (
+        "Local reservation saga with deterministic placeholder address; "
+        "no deployed escrow contract."
+    ),
+    "RewardSplitter": "Validated off-chain role-cap splitter; no deployed splitter contract.",
+    "PoolEscrow": (
+        "Intentionally deferred from public release claims until contract/protocol exists."
+    ),
+    "AgentPassportAnchor": (
+        "Agent identity remains Ed25519/off-chain; no deployed EVM passport anchor."
+    ),
+    "KnowledgeRootRegistry": (
+        "Local Merkle root anchor projection; not an on-chain registry in Sprint 04."
+    ),
+    "SettlementSaga": "Off-chain DB/outbox state machine; exactly-once claim is local-devnet only.",
+    "WalletBinding": "Off-chain agent/controller/wallet binding; no custody, no private keys.",
+}
+
+SCOPE_MATRIX_COMPONENTS = (
+    "TokoinFixedSupply",
+    "GenesisTreasury",
+    "RewardBudgetVault",
+    "ChallengeEscrow",
+    "RewardSplitter",
+    "PoolEscrow",
+    "AgentPassportAnchor",
+    "KnowledgeRootRegistry",
+    "SettlementSaga",
+    "WalletBinding",
+    "DeploymentScriptsAndChainGuard",
+)
+
+RATIFICATION_DECISIONS = (
+    (
+        "RAT-01",
+        "Operator and jurisdiction",
+        "Founder/operator confirms responsible operator identity and jurisdiction.",
+    ),
+    (
+        "RAT-02",
+        "Token utility rights",
+        "Founder/operator confirms TOKOIN is not represented as equity, debt or guaranteed value.",
+    ),
+    (
+        "RAT-03",
+        "Genesis allocation",
+        "Founder/operator ratifies genesis allocation policy before public testnet.",
+    ),
+    (
+        "RAT-04",
+        "Network",
+        "Founder/operator selects the public testnet network.",
+    ),
+    (
+        "RAT-05",
+        "OPEN license",
+        "Founder/operator ratifies OPEN knowledge contribution license terms.",
+    ),
+    (
+        "RAT-06",
+        "SEALED/RESTRICTED governance",
+        "Founder/operator ratifies how non-OPEN knowledge lanes are excluded from public rewards.",
+    ),
+    (
+        "RAT-07",
+        "Wallet custody and recovery",
+        "Founder/operator ratifies non-custodial wallet and recovery warnings.",
+    ),
+    (
+        "RAT-08",
+        "Scientific scope safety",
+        "Founder/operator ratifies that rewards do not certify factual truth.",
+    ),
+)
+
 
 def canonical_hash(payload: dict[str, Any], *, domain: str) -> str:
     raw = json.dumps(
@@ -81,7 +161,7 @@ def _decimal_string(value: int) -> str:
 
 
 def local_manifest_payload() -> dict[str, Any]:
-    contracts = {
+    local_placeholders = {
         "token_address": deterministic_address("TokoinFixedSupply"),
         "genesis_treasury_address": deterministic_address("GenesisTreasury"),
         "reward_budget_vault_address": deterministic_address("RewardBudgetVault"),
@@ -94,7 +174,9 @@ def local_manifest_payload() -> dict[str, Any]:
     manifest_payload = {
         "network_key": "LOCAL_DEVNET",
         "chain_id": LOCAL_CHAIN_ID,
-        "contracts": contracts,
+        "contract_suite": {"TokoinFixedSupply": local_placeholders["token_address"]},
+        "local_placeholders": local_placeholders,
+        "offchain_trust_boundaries": OFFCHAIN_COMPONENTS,
         "total_supply_atomic": _decimal_string(TOTAL_SUPPLY_ATOMIC),
         "decimals": TOKOIN_DECIMALS,
         "solidity_version": SOLIDITY_VERSION,
@@ -103,6 +185,145 @@ def local_manifest_payload() -> dict[str, Any]:
         "status": "LOCAL_SIMULATED_AUDIT_READY",
     }
     return manifest_payload
+
+
+def scope_matrix_view() -> dict[str, Any]:
+    """Return Sprint 04.1 scope classification without mutating live state."""
+    components = [
+        {
+            "component": "TokoinFixedSupply",
+            "classification": "IMPLEMENTED_ONCHAIN",
+            "evidence": [
+                "contracts/tokoin/contracts/TokoinFixedSupply.sol",
+                "contracts/tokoin/scripts/static-audit.mjs",
+            ],
+            "release_claim": "Fixed-supply ERC-20 source, static-audited locally.",
+            "blocker": None,
+        },
+        {
+            "component": "GenesisTreasury",
+            "classification": "IMPLEMENTED_OFFCHAIN_WITH_EXPLICIT_TRUST_BOUNDARY",
+            "evidence": ["TokoinDeploymentManifest.genesis_treasury_address"],
+            "release_claim": OFFCHAIN_COMPONENTS["GenesisTreasury"],
+            "blocker": None,
+        },
+        {
+            "component": "RewardBudgetVault",
+            "classification": "IMPLEMENTED_OFFCHAIN_WITH_EXPLICIT_TRUST_BOUNDARY",
+            "evidence": ["TokoinReservation", "TokoinSettlementPlan"],
+            "release_claim": OFFCHAIN_COMPONENTS["RewardBudgetVault"],
+            "blocker": None,
+        },
+        {
+            "component": "ChallengeEscrow",
+            "classification": "IMPLEMENTED_OFFCHAIN_WITH_EXPLICIT_TRUST_BOUNDARY",
+            "evidence": ["TokoinReservation"],
+            "release_claim": OFFCHAIN_COMPONENTS["ChallengeEscrow"],
+            "blocker": None,
+        },
+        {
+            "component": "RewardSplitter",
+            "classification": "IMPLEMENTED_OFFCHAIN_WITH_EXPLICIT_TRUST_BOUNDARY",
+            "evidence": ["ROLE_CAPS", "TokoinClaimableAllocation"],
+            "release_claim": OFFCHAIN_COMPONENTS["RewardSplitter"],
+            "blocker": None,
+        },
+        {
+            "component": "PoolEscrow",
+            "classification": "INTENTIONALLY_DEFERRED_AND_NOT_IN_RELEASE",
+            "evidence": ["docs/work/magna-sprint-04-report.md"],
+            "release_claim": OFFCHAIN_COMPONENTS["PoolEscrow"],
+            "blocker": None,
+        },
+        {
+            "component": "AgentPassportAnchor",
+            "classification": "IMPLEMENTED_OFFCHAIN_WITH_EXPLICIT_TRUST_BOUNDARY",
+            "evidence": ["Ed25519 Agent/Device identity", "JWS Agent Cards"],
+            "release_claim": OFFCHAIN_COMPONENTS["AgentPassportAnchor"],
+            "blocker": None,
+        },
+        {
+            "component": "KnowledgeRootRegistry",
+            "classification": "IMPLEMENTED_OFFCHAIN_WITH_EXPLICIT_TRUST_BOUNDARY",
+            "evidence": ["TokoinKnowledgeRootAnchor", "MagnaMerkleBatch"],
+            "release_claim": OFFCHAIN_COMPONENTS["KnowledgeRootRegistry"],
+            "blocker": None,
+        },
+        {
+            "component": "SettlementSaga",
+            "classification": "IMPLEMENTED_OFFCHAIN_WITH_EXPLICIT_TRUST_BOUNDARY",
+            "evidence": ["TokoinSettlementPlan", "processed_events"],
+            "release_claim": OFFCHAIN_COMPONENTS["SettlementSaga"],
+            "blocker": None,
+        },
+        {
+            "component": "WalletBinding",
+            "classification": "IMPLEMENTED_OFFCHAIN_WITH_EXPLICIT_TRUST_BOUNDARY",
+            "evidence": ["TokoinWalletBinding"],
+            "release_claim": OFFCHAIN_COMPONENTS["WalletBinding"],
+            "blocker": None,
+        },
+        {
+            "component": "DeploymentScriptsAndChainGuard",
+            "classification": "IMPLEMENTED_OFFCHAIN_WITH_EXPLICIT_TRUST_BOUNDARY",
+            "evidence": [
+                "POST /v1/tokoin-testnet/deployment/guard",
+                "contracts/tokoin/package.json",
+            ],
+            "release_claim": "Mainnet and unratified Base Sepolia deployment blocked.",
+            "blocker": None,
+        },
+    ]
+    return {
+        "schema": "agora.magna.tokoin.scope_matrix.v1",
+        "status": "COMPLETE_LOCAL_CLASSIFICATION",
+        "components": components,
+        "component_count": len(components),
+        "missing_blockers": [
+            item for item in components if item["classification"] == "MISSING_BLOCKER"
+        ],
+    }
+
+
+def ratification_bundle_view() -> dict[str, Any]:
+    return {
+        "schema": "agora.magna.tokoin.ratification_bundle.v1",
+        "status": "PENDING_HUMAN_RATIFICATION",
+        "ratifications": [
+            {
+                "decision_id": decision_id,
+                "title": title,
+                "prompt": prompt,
+                "status": "PENDING",
+                "decision_value": None,
+                "signed_by": None,
+                "signed_at": None,
+                "evidence_hash": None,
+            }
+            for decision_id, title, prompt in RATIFICATION_DECISIONS
+        ],
+    }
+
+
+def release_manifest_draft_view() -> dict[str, Any]:
+    payload = local_manifest_payload()
+    return {
+        "schema": "agora.magna.tokoin.release_manifest.v1",
+        "status": "DRAFT_NOT_FROZEN",
+        "network_key": "LOCAL_DEVNET",
+        "chain_id": LOCAL_CHAIN_ID,
+        "maximum_authorized_network": "LOCAL_DEVNET",
+        "deployment": manifest_preview_view(),
+        "scope_matrix_hash": canonical_hash(scope_matrix_view(), domain="tokoin.scope_matrix.v1"),
+        "ratification_bundle_hash": canonical_hash(
+            ratification_bundle_view(), domain="tokoin.ratification_bundle.v1"
+        ),
+        "source_manifest_hash": canonical_hash(payload, domain="tokoin.deployment_manifest.v1"),
+        "external_independent_audit_complete": False,
+        "public_testnet_deployed": False,
+        "mainnet_transactions": 0,
+        "real_value_moved": False,
+    }
 
 
 async def get_local_manifest(session: AsyncSession) -> TokoinDeploymentManifest | None:
@@ -122,7 +343,7 @@ async def create_or_get_local_manifest(session: AsyncSession) -> TokoinDeploymen
         return existing
 
     manifest_payload = local_manifest_payload()
-    contracts = manifest_payload["contracts"]
+    local_placeholders = manifest_payload["local_placeholders"]
     row = TokoinDeploymentManifest(
         deployment_id=new_tokoin_deployment_id(),
         environment="LOCAL_DEVNET",
@@ -138,7 +359,7 @@ async def create_or_get_local_manifest(session: AsyncSession) -> TokoinDeploymen
         bytecode_verified=False,
         human_ratifications={},
         created_at=now_utc(),
-        **contracts,
+        **local_placeholders,
     )
     session.add(row)
     await append_event(
@@ -166,6 +387,18 @@ def manifest_view(row: TokoinDeploymentManifest) -> dict[str, Any]:
         "classification": "LOCAL_DEVNET_TEST_ONLY_NO_ECONOMIC_VALUE",
         "contracts": {
             "TokoinFixedSupply": row.token_address,
+        },
+        "contract_suite": {
+            "TokoinFixedSupply": {
+                "source": "contracts/tokoin/contracts/TokoinFixedSupply.sol",
+                "address": row.token_address,
+                "deployment_state": "LOCAL_DEVNET_PLACEHOLDER_NOT_PUBLIC_TESTNET",
+                "upgradeability": False,
+                "mintability_after_genesis": False,
+            }
+        },
+        "offchain_trust_boundaries": OFFCHAIN_COMPONENTS,
+        "local_placeholder_addresses": {
             "GenesisTreasury": row.genesis_treasury_address,
             "RewardBudgetVault": row.reward_budget_vault_address,
             "ChallengeEscrow": row.challenge_escrow_address,
@@ -189,7 +422,7 @@ def manifest_view(row: TokoinDeploymentManifest) -> dict[str, Any]:
 
 def manifest_preview_view() -> dict[str, Any]:
     payload = local_manifest_payload()
-    contracts = payload["contracts"]
+    local_placeholders = payload["local_placeholders"]
     return {
         "deployment_id": None,
         "network_key": payload["network_key"],
@@ -197,14 +430,26 @@ def manifest_preview_view() -> dict[str, Any]:
         "status": "LOCAL_SIMULATED_NOT_PERSISTED",
         "classification": "LOCAL_DEVNET_TEST_ONLY_NO_ECONOMIC_VALUE",
         "contracts": {
-            "TokoinFixedSupply": contracts["token_address"],
-            "GenesisTreasury": contracts["genesis_treasury_address"],
-            "RewardBudgetVault": contracts["reward_budget_vault_address"],
-            "ChallengeEscrow": contracts["challenge_escrow_address"],
-            "RewardSplitter": contracts["reward_splitter_address"],
-            "PoolEscrow": contracts["pool_escrow_address"],
-            "AgentPassportAnchor": contracts["agent_passport_anchor_address"],
-            "KnowledgeRootRegistry": contracts["knowledge_root_registry_address"],
+            "TokoinFixedSupply": local_placeholders["token_address"],
+        },
+        "contract_suite": {
+            "TokoinFixedSupply": {
+                "source": "contracts/tokoin/contracts/TokoinFixedSupply.sol",
+                "address": local_placeholders["token_address"],
+                "deployment_state": "LOCAL_DEVNET_PLACEHOLDER_NOT_PUBLIC_TESTNET",
+                "upgradeability": False,
+                "mintability_after_genesis": False,
+            }
+        },
+        "offchain_trust_boundaries": OFFCHAIN_COMPONENTS,
+        "local_placeholder_addresses": {
+            "GenesisTreasury": local_placeholders["genesis_treasury_address"],
+            "RewardBudgetVault": local_placeholders["reward_budget_vault_address"],
+            "ChallengeEscrow": local_placeholders["challenge_escrow_address"],
+            "RewardSplitter": local_placeholders["reward_splitter_address"],
+            "PoolEscrow": local_placeholders["pool_escrow_address"],
+            "AgentPassportAnchor": local_placeholders["agent_passport_anchor_address"],
+            "KnowledgeRootRegistry": local_placeholders["knowledge_root_registry_address"],
         },
         "total_supply_atomic": payload["total_supply_atomic"],
         "decimals": payload["decimals"],

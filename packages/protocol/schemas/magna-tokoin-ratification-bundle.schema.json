@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/magna-tokoin-ratification-bundle.schema.json",
+  "title": "AGORA MAGNA TOKOIN ratification bundle",
+  "$defs": {
+    "RatificationBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "status", "ratifications"],
+      "properties": {
+        "schema": { "const": "agora.magna.tokoin.ratification_bundle.v1" },
+        "status": { "type": "string", "enum": ["PENDING_HUMAN_RATIFICATION", "COMPLETE"] },
+        "ratifications": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": { "$ref": "magna-tokoin-ratification.schema.json#/$defs/RatificationReceipt" }
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/RatificationBundle"
+}

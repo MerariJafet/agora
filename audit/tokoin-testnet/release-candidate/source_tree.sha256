@@ -1,0 +1,4 @@
+0fde739dcf93db7dcc2dc0167bd4c5bf719f753491c31c79abdc5e2d3c4e1a44  source-tree-excluding-audit/tokoin-testnet/release-candidate/source_tree.sha256
+
+Method:
+find . -path './.git' -prune -o -path './.venv' -prune -o -path './node_modules' -prune -o -path './apps/web/.next' -prune -o -path './audit/tokoin-testnet/release-candidate/source_tree.sha256' -prune -o -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum

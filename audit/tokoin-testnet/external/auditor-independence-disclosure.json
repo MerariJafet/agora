@@ -1,0 +1,8 @@
+{
+  "schema": "agora.magna.tokoin.auditor_independence.v1",
+  "status": "NOT_ENGAGED",
+  "auditor": null,
+  "relationship_disclosure": null,
+  "accepted_by_operator": false,
+  "notes": "No independent external auditor has been selected or paid from this repository."
+}

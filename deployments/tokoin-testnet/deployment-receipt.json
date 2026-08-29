@@ -1,0 +1,12 @@
+{
+  "schema": "agora.magna.tokoin.deployment_receipt.v1",
+  "status": "NOT_DEPLOYED",
+  "network": null,
+  "chain_id": null,
+  "transaction_hash": null,
+  "contract_address": null,
+  "block_number": null,
+  "real_value_moved": false,
+  "mainnet_transactions": 0,
+  "notes": "No public testnet or mainnet deployment was performed by Sprint 04.1."
+}

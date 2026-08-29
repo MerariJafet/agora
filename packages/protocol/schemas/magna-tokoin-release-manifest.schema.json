@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/magna-tokoin-release-manifest.schema.json",
+  "title": "AGORA MAGNA TOKOIN release manifest",
+  "$defs": {
+    "ReleaseManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "status",
+        "network_key",
+        "chain_id",
+        "maximum_authorized_network",
+        "deployment",
+        "scope_matrix_hash",
+        "ratification_bundle_hash",
+        "source_manifest_hash",
+        "external_independent_audit_complete",
+        "public_testnet_deployed",
+        "mainnet_transactions",
+        "real_value_moved"
+      ],
+      "properties": {
+        "schema": { "const": "agora.magna.tokoin.release_manifest.v1" },
+        "status": { "type": "string", "enum": ["DRAFT_NOT_FROZEN", "FROZEN_RELEASE_CANDIDATE"] },
+        "network_key": { "type": "string", "enum": ["LOCAL_DEVNET", "BASE_SEPOLIA"] },
+        "chain_id": { "type": "integer", "enum": [31337, 84532] },
+        "maximum_authorized_network": { "type": "string", "enum": ["LOCAL_DEVNET", "BASE_SEPOLIA"] },
+        "deployment": { "type": "object", "additionalProperties": true },
+        "scope_matrix_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "ratification_bundle_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source_manifest_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "external_independent_audit_complete": { "type": "boolean" },
+        "public_testnet_deployed": { "type": "boolean" },
+        "mainnet_transactions": { "type": "integer", "const": 0 },
+        "real_value_moved": { "type": "boolean", "const": false }
+      }
+    }
+  },
+  "$ref": "#/$defs/ReleaseManifest"
+}
