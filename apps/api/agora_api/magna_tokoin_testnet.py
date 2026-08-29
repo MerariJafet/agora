@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
@@ -47,6 +48,14 @@ BASE_SEPOLIA_CHAIN_ID = 84532
 SOLIDITY_VERSION = "0.8.30"
 OPENZEPPELIN_VERSION = "5.6.1"
 SETTLEMENT_BACKEND = "TOKOIN_LOCAL_DEVNET_V1"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+RATIFIED_FOUNDER_BUNDLE_PATH = (
+    REPO_ROOT
+    / "audit"
+    / "tokoin-testnet"
+    / "ratifications"
+    / "founder-ratification-bundle-ratified-2026-08-29.json"
+)
 ROLE_CAPS = {
     "proposer": 1_000_000,
     "contributors": 59_000_000,
@@ -141,6 +150,35 @@ def canonical_hash(payload: dict[str, Any], *, domain: str) -> str:
         {"domain": domain, "payload": payload}, sort_keys=True, separators=(",", ":")
     ).encode()
     return hashlib.sha256(raw).hexdigest()
+
+
+def _ratification_short_id(ratification_id: str) -> str:
+    parts = ratification_id.split("-", maxsplit=2)
+    if len(parts) < 2 or parts[0] != "RAT":
+        return ""
+    return f"{parts[0]}-{parts[1]}"
+
+
+def _load_ratified_founder_bundle() -> tuple[dict[str, Any], str] | None:
+    if not RATIFIED_FOUNDER_BUNDLE_PATH.exists():
+        return None
+    raw = RATIFIED_FOUNDER_BUNDLE_PATH.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    bundle = json.loads(raw)
+    ratifications = bundle.get("ratifications", [])
+    expected = {f"RAT-{index:02d}" for index in range(1, 9)}
+    observed = {_ratification_short_id(item.get("ratification_id", "")) for item in ratifications}
+    if (
+        bundle.get("document_type") != "FOUNDER_RATIFICATION_BUNDLE"
+        or bundle.get("status")
+        != "RATIFIED_PENDING_CANONICAL_INGESTION_AND_EXTERNAL_AUDIT"
+        or bundle.get("effect", {}).get("human_ratification_gate") != "SATISFIED_8_OF_8"
+        or len(ratifications) != 8
+        or observed != expected
+        or any(item.get("status") != "RATIFIED" for item in ratifications)
+    ):
+        raise ValueError("invalid TOKOIN founder ratification bundle")
+    return bundle, digest
 
 
 def deterministic_address(label: str) -> str:
@@ -286,6 +324,31 @@ def scope_matrix_view() -> dict[str, Any]:
 
 
 def ratification_bundle_view() -> dict[str, Any]:
+    ratified = _load_ratified_founder_bundle()
+    if ratified is not None:
+        source_bundle, source_hash = ratified
+        attestation = source_bundle["human_attestation"]
+        return {
+            "schema": "agora.magna.tokoin.ratification_bundle.v1",
+            "status": "COMPLETE",
+            "ratifications": [
+                {
+                    "decision_id": _ratification_short_id(item["ratification_id"]),
+                    "title": item["title"],
+                    "prompt": item["ratification_id"],
+                    "status": "RATIFIED",
+                    "decision_value": {
+                        "ratified_scope": item["ratified_scope"],
+                        "founder_conditions": item["founder_conditions"],
+                        "source_hash": source_hash,
+                    },
+                    "signed_by": source_bundle["founder"]["display_name"],
+                    "signed_at": attestation["attested_at_utc"],
+                    "evidence_hash": source_hash,
+                }
+                for item in source_bundle["ratifications"]
+            ],
+        }
     return {
         "schema": "agora.magna.tokoin.ratification_bundle.v1",
         "status": "PENDING_HUMAN_RATIFICATION",

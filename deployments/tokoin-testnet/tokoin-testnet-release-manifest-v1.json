@@ -22,7 +22,7 @@
     "deferred_not_in_release": ["PoolEscrow"]
   },
   "scope_matrix_hash": "3d39e01460d91363de487a1f0cb969398361d7338265d8996a97d0eb07924840",
-  "ratification_bundle_hash": "99e98502c4d928ee74ed23f38d4450168c9b87176379be7ad391059a891379ef",
+  "ratification_bundle_hash": "d0eb54e06db6c1d402069b2760b511abd21d477cc909bd9359c8c0548845f15d",
   "source_manifest_hash": "fa213254937fc78d41c9dcb48062dc7764c70e808a752c1340ff0fad697af849",
   "external_independent_audit_complete": false,
   "public_testnet_deployed": false,

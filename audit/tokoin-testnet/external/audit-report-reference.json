@@ -4,5 +4,5 @@
   "report_uri": null,
   "report_hash": null,
   "accepted_by_operator": false,
-  "notes": "Sprint 04.1 cannot mark TOKOIN COMPLETE or proceed to public testnet without this gate."
+  "notes": "Founder ratification is present, but Sprint 04.1 cannot mark TOKOIN COMPLETE or proceed to Sprint 05/public testnet without this gate."
 }

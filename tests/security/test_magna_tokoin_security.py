@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import agora_api.magna_tokoin_testnet as tokoin
 import pytest
 from agora_api.boundary import validate_boundary
 from agora_api.db import session_factory
@@ -55,7 +56,7 @@ async def test_tokoin_settlement_rejects_float_and_scientific_amounts(api_client
     assert response.status_code == 422
 
 
-async def test_tokoin_status_never_reports_complete_without_ratification(api_client):
+async def test_tokoin_status_never_reports_complete_without_external_audit(api_client):
     async with session_factory()() as session:
         before = (
             await session.execute(
@@ -65,10 +66,11 @@ async def test_tokoin_status_never_reports_complete_without_ratification(api_cli
     status = (await api_client.get("/v1/tokoin-testnet/status")).json()
     assert status["status"] == "PARTIAL_AWAITING_RATIFICATION"
     assert status["maximum_authorized_network"] == "LOCAL_DEVNET"
-    assert status["human_ratifications_complete"] is False
+    assert status["human_ratifications_complete"] is True
     assert status["external_independent_audit_complete"] is False
     assert status["real_value_moved"] is False
     assert status["mainnet_transactions"] == 0
+    assert status["ratification_gate"]["pending_decisions"] == 0
     async with session_factory()() as session:
         after = (
             await session.execute(
@@ -114,10 +116,10 @@ def test_tokoin_scope_matrix_is_complete_and_honest():
     assert classifications["PoolEscrow"] == "INTENTIONALLY_DEFERRED_AND_NOT_IN_RELEASE"
 
 
-def test_tokoin_pending_ratifications_cannot_smuggle_decisions():
+def test_tokoin_ratified_bundle_is_canonical_and_hash_bound():
     bundle = ratification_bundle_view()
     validate_boundary("magna-tokoin-ratification-bundle.schema.json", None, bundle)
-    assert bundle["status"] == "PENDING_HUMAN_RATIFICATION"
+    assert bundle["status"] == "COMPLETE"
     assert {item["decision_id"] for item in bundle["ratifications"]} == {
         "RAT-01",
         "RAT-02",
@@ -129,11 +131,25 @@ def test_tokoin_pending_ratifications_cannot_smuggle_decisions():
         "RAT-08",
     }
     for item in bundle["ratifications"]:
+        assert item["status"] == "RATIFIED"
+        assert item["decision_value"]["source_hash"] == (
+            "2bee72496f3c9ddb94a2e3a7cd041df04b205b784acc2110304ab2347dd20088"
+        )
+        assert item["signed_by"] == "Merari Acero"
+        assert item["signed_at"] == "2026-08-29T15:22:32Z"
+        assert item["evidence_hash"] == (
+            "2bee72496f3c9ddb94a2e3a7cd041df04b205b784acc2110304ab2347dd20088"
+        )
+
+
+def test_tokoin_missing_ratification_bundle_falls_back_to_pending(monkeypatch, tmp_path):
+    monkeypatch.setattr(tokoin, "RATIFIED_FOUNDER_BUNDLE_PATH", tmp_path / "missing.json")
+    bundle = tokoin.ratification_bundle_view()
+    validate_boundary("magna-tokoin-ratification-bundle.schema.json", None, bundle)
+    assert bundle["status"] == "PENDING_HUMAN_RATIFICATION"
+    for item in bundle["ratifications"]:
         assert item["status"] == "PENDING"
         assert item["decision_value"] is None
-        assert item["signed_by"] is None
-        assert item["signed_at"] is None
-        assert item["evidence_hash"] is None
 
 
 def test_tokoin_release_manifest_remains_draft_until_audit_and_ratification():

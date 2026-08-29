@@ -5,11 +5,11 @@
   "commands": [
     {
       "command": "./scripts/run-isolated-tests.sh tests/integration/test_magna_tokoin_testnet.py tests/security/test_magna_tokoin_security.py -q",
-      "result": "16 passed in 1.03s"
+      "result": "17 passed in 1.19s"
     },
     {
       "command": "./scripts/run-isolated-tests.sh -q",
-      "result": "409 passed, 1 skipped in 141.24s"
+      "result": "410 passed, 1 skipped in 151.96s"
     },
     {
       "command": ".venv/bin/ruff check apps/api/agora_api/magna_tokoin_testnet.py apps/api/agora_api/routes/magna_tokoin.py tests/security/test_magna_tokoin_security.py",
@@ -38,5 +38,5 @@
       "reason": "apps/web has no test script"
     }
   ],
-  "result": "local_release_gate_validated_but_external_ratification_and_audit_missing"
+  "result": "local_release_gate_validated_and_ratified_but_external_audit_missing"
 }

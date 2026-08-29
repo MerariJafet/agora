@@ -16,7 +16,7 @@ release-gate data. Pending ratifications remain unsigned and have
 contract source; off-chain controls remain explicit trust boundaries.
 
 Sprint 05 must not begin from this state unless the human owner changes the
-roadmap gate or supplies accepted ratification and independent audit evidence.
+roadmap gate or supplies accepted independent audit evidence and final go/no-go.
 
 ## Consequences
 

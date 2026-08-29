@@ -49,6 +49,8 @@ async def _agent(session: AsyncSession, device: CurrentDevice) -> Agent:
 @router.get("/status")
 async def status(session: AsyncSession = Depends(get_session)) -> dict:
     manifest = await get_local_manifest(session)
+    ratifications = ratification_bundle_view()
+    ratifications_complete = ratifications["status"] == "COMPLETE"
     reservations = (
         await session.execute(select(TokoinReservation.state, TokoinReservation.amount_atomic))
     ).all()
@@ -65,7 +67,7 @@ async def status(session: AsyncSession = Depends(get_session)) -> dict:
     return {
         "status": "PARTIAL_AWAITING_RATIFICATION",
         "maximum_authorized_network": "LOCAL_DEVNET",
-        "human_ratifications_complete": False,
+        "human_ratifications_complete": ratifications_complete,
         "external_independent_audit_complete": False,
         "legacy_balances_migrated": False,
         "real_value_moved": False,
@@ -81,10 +83,10 @@ async def status(session: AsyncSession = Depends(get_session)) -> dict:
         },
         "ratification_gate": {
             "required_decisions": 8,
-            "pending_decisions": 8,
+            "pending_decisions": 0 if ratifications_complete else 8,
         },
         "blocked_next_step": (
-            "Sprint 05 may begin only after human ratification and independent audit."
+            "Sprint 05 may begin only after independent audit and final release gate closure."
         ),
     }
 

@@ -6,10 +6,11 @@ Control: status and release-manifest views expose only `TokoinFixedSupply` in
 `contracts`; all other components are marked as off-chain trust boundaries or
 deferred.
 
-Threat: pending human decision is inferred from recommendation text.
+Threat: human decision is inferred from recommendation text.
 
-Control: ratification schema requires pending decisions to keep
-`decision_value=null`, no signer, no timestamp and no evidence hash.
+Control: pending ratifications require `decision_value=null`; ratified state is
+accepted only from the founder ratification bundle hash
+`2bee72496f3c9ddb94a2e3a7cd041df04b205b784acc2110304ab2347dd20088`.
 
 Threat: GET request creates live deployment state.
 
@@ -19,6 +20,7 @@ are read-only endpoints. Explicit deployment manifest creation remains under
 
 Threat: premature Sprint 05 continuation.
 
-Control: release report states Sprint 04 remains
-`PARTIAL_AWAITING_RATIFICATION`; Sprint 05 must not start without external
-audit and ratification or a deliberate roadmap change by the human owner.
+Control: release report states Sprint 04.1 remains
+`PARTIAL_AWAITING_EXTERNAL_AUDIT`; Sprint 05 must not start without accepted
+external audit and final go/no-go or a deliberate roadmap change by the human
+owner.

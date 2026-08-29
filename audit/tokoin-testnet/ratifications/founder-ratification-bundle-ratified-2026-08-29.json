@@ -1,0 +1,421 @@
+{
+  "schema_version": "1.0.0",
+  "project": "AGORA MAGNA",
+  "document_type": "FOUNDER_RATIFICATION_BUNDLE",
+  "status": "RATIFIED_PENDING_CANONICAL_INGESTION_AND_EXTERNAL_AUDIT",
+  "ratification_scope": "TOKOIN_TESTNET_ONLY",
+  "founder": {
+    "display_name": "Merari Acero",
+    "role": "FOUNDER_AND_CURRENT_EXPERIMENT_OPERATOR",
+    "country": "México"
+  },
+  "source_gate": {
+    "sprint": "04.1",
+    "branch": "feat/agora-magna-sprint-04-1-ratification-audit-gate",
+    "commit": "8a01edc",
+    "reported_status": "PARTIAL_AWAITING_RATIFICATION"
+  },
+  "source_proposal": {
+    "file_name": "AGORA_MAGNA_FOUNDER_RATIFICATION_PROPOSAL_RAT_01_TO_RAT_08.json",
+    "sha256": "846908ad8de6add7b42d34a22dc3c1df875c899566bab2fe69ad606d37d2f528",
+    "proposal_status": "PROPOSED_FOR_FOUNDER_APPROVAL"
+  },
+  "human_attestation": {
+    "exact_statement": "Yo, Merari Acero, ratifico para AGORA MAGNA testnet las decisiones RAT-01 a RAT-08 contenidas en el documento, sujetas a que no autorizan mainnet, venta pública, custodia de fondos de terceros, promesa de rendimiento ni lanzamiento de Genesis-100.",
+    "attested_at_utc": "2026-08-29T15:22:32Z",
+    "channel": "CHAT_EXPLICIT_HUMAN_ATTESTATION",
+    "asserted_identity": "Merari Acero",
+    "asserted_role": "FOUNDER_AND_CURRENT_EXPERIMENT_OPERATOR",
+    "authentication_assurance": "CONVERSATION_LEVEL_ONLY",
+    "cryptographic_signature": null,
+    "qualified_electronic_signature": false,
+    "legal_opinion": false,
+    "limits": [
+      "NO_MAINNET_AUTHORIZATION",
+      "NO_PUBLIC_SALE_OR_PRESALE",
+      "NO_THIRD_PARTY_FUNDS_CUSTODY",
+      "NO_PROFIT_OR_RETURN_PROMISE",
+      "NO_GENESIS_100_LAUNCH_AUTHORIZATION"
+    ]
+  },
+  "ratifications": [
+    {
+      "ratification_id": "RAT-01-OPERATOR-JURISDICTION",
+      "title": "Operador y jurisdicción",
+      "status": "RATIFIED",
+      "ratified_scope": "TOKOIN_TESTNET_ONLY",
+      "source_proposed_status": "RATIFY_FOR_TESTNET_ONLY",
+      "decision": {
+        "operator_public_name": "Merari Acero / proyecto AGORA MAGNA",
+        "operator_type": "FOUNDER_OPERATED_EXPERIMENTAL_PROJECT",
+        "country_code": "MX",
+        "jurisdiction_subdivision": "Ciudad de México",
+        "legal_entity_status": "NOT_YET_INCORPORATED_FOR_PUBLIC_TOKEN_OPERATIONS",
+        "allowed_scope": [
+          "local devnet",
+          "testnet pública sin valor después de auditoría y go/no-go"
+        ],
+        "prohibited_scope": [
+          "venta o preventa",
+          "custodia de terceros",
+          "exchange o broker",
+          "fiat on/off-ramp",
+          "mainnet"
+        ],
+        "may_operate_public_testnet": "CONDITIONAL_AFTER_AUDIT_AND_GO_NO_GO",
+        "counsel_required_before": [
+          "entidad pública",
+          "venta",
+          "listing",
+          "liquidez",
+          "custodia",
+          "mainnet"
+        ]
+      },
+      "founder_conditions": [
+        "NO_MAINNET_AUTHORIZATION",
+        "NO_PUBLIC_SALE_OR_PRESALE",
+        "NO_THIRD_PARTY_FUNDS_CUSTODY",
+        "NO_PROFIT_OR_RETURN_PROMISE",
+        "NO_GENESIS_100_LAUNCH_AUTHORIZATION"
+      ]
+    },
+    {
+      "ratification_id": "RAT-02-TOKEN-UTILITY-RIGHTS",
+      "title": "Naturaleza de TOKOIN",
+      "status": "RATIFIED",
+      "ratified_scope": "TOKOIN_TESTNET_ONLY",
+      "source_proposed_status": "RATIFY_FOR_TESTNET_ONLY",
+      "decision": {
+        "declared_utility": "Recompensa experimental por contribuciones formales verificadas.",
+        "testnet_only": true,
+        "guaranteed_value": false,
+        "equity": false,
+        "debt": false,
+        "dividends": false,
+        "royalties": false,
+        "revenue_share": false,
+        "fiat_redemption": false,
+        "ownership_of_knowledge": false,
+        "tokoin_weighted_scientific_truth_or_quorum": false,
+        "listing": "PROHIBITED_UNTIL_SEPARATE_MAINNET_RELEASE",
+        "profit_promises": "PROHIBITED",
+        "future_mainnet": "GOAL_PRESERVED_BUT_NOT_AUTHORIZED"
+      },
+      "founder_conditions": [
+        "NO_MAINNET_AUTHORIZATION",
+        "NO_PUBLIC_SALE_OR_PRESALE",
+        "NO_THIRD_PARTY_FUNDS_CUSTODY",
+        "NO_PROFIT_OR_RETURN_PROMISE",
+        "NO_GENESIS_100_LAUNCH_AUTHORIZATION"
+      ]
+    },
+    {
+      "ratification_id": "RAT-03-GENESIS-ALLOCATION-REWARD-POLICY",
+      "title": "Suministro, Treasury y premios",
+      "status": "RATIFIED",
+      "ratified_scope": "TOKOIN_TESTNET_ONLY",
+      "source_proposed_status": "RATIFY",
+      "decision": {
+        "decimals": 8,
+        "atomic_unit": "ACERO",
+        "one_tokoin_atomic": "100000000",
+        "fixed_supply_tokoin": "1000000.00000000",
+        "fixed_supply_atomic": "100000000000000",
+        "genesis": "100% al GenesisTreasury mediante un único mint de constructor",
+        "mint_after_genesis": false,
+        "proxy_upgrade_burn_rebase_canonical_wrap": false,
+        "founder_personal_allocation_testnet": "0",
+        "airdrop_or_presale_testnet": "0",
+        "standard_reward_atomic": "100000000",
+        "standard_reward_tokoin": "1.00000000",
+        "reward_split": {
+          "proposer": {
+            "bps": 100,
+            "atomic": "1000000",
+            "tokoin": "0.01000000"
+          },
+          "contributors": {
+            "bps": 5900,
+            "atomic": "59000000",
+            "tokoin": "0.59000000"
+          },
+          "independent_replication": {
+            "bps": 2500,
+            "atomic": "25000000",
+            "tokoin": "0.25000000"
+          },
+          "review_adjudication": {
+            "bps": 1000,
+            "atomic": "10000000",
+            "tokoin": "0.10000000"
+          },
+          "data_tools": {
+            "bps": 500,
+            "atomic": "5000000",
+            "tokoin": "0.05000000"
+          }
+        },
+        "unearned_share": "RETURN_TO_VAULT_OR_TREASURY",
+        "cadence": {
+          "max_candidates_per_epoch": 1,
+          "epoch_seconds": 7200,
+          "empty_epoch_allowed": true,
+          "catch_up_burst": false
+        },
+        "escrow": "Reservar 1 TOKOIN al liberar.",
+        "settlement": "Pagar únicamente tras RESOLVED_VERIFIED.",
+        "retroactive_rewards": false,
+        "research_credits_conversion": false
+      },
+      "founder_conditions": [
+        "NO_MAINNET_AUTHORIZATION",
+        "NO_PUBLIC_SALE_OR_PRESALE",
+        "NO_THIRD_PARTY_FUNDS_CUSTODY",
+        "NO_PROFIT_OR_RETURN_PROMISE",
+        "NO_GENESIS_100_LAUNCH_AUTHORIZATION"
+      ]
+    },
+    {
+      "ratification_id": "RAT-04-PUBLIC-TESTNET-NETWORK",
+      "title": "Red y deployment",
+      "status": "RATIFIED",
+      "ratified_scope": "TOKOIN_TESTNET_ONLY",
+      "source_proposed_status": "RATIFY_CONDITIONAL_DEPLOYMENT",
+      "decision": {
+        "current_network": {
+          "name": "LOCAL_DEVNET",
+          "chain_id": 31337
+        },
+        "public_testnet_target": {
+          "name": "BASE_SEPOLIA",
+          "chain_id": 84532
+        },
+        "permanently_blocked": [
+          {
+            "name": "ETHEREUM_MAINNET",
+            "chain_id": 1
+          },
+          {
+            "name": "BASE_MAINNET",
+            "chain_id": 8453
+          },
+          {
+            "name": "UNKNOWN_CHAIN"
+          }
+        ],
+        "requested_release_state": "BASE_SEPOLIA_RELEASE_READY",
+        "deployment_authorized_now": false,
+        "deployment_condition": "8/8 ratificaciones, auditoría externa, cero Critical/High, manifest firmado y go/no-go separado.",
+        "bridge_dex_liquidity": false,
+        "real_value": false
+      },
+      "founder_conditions": [
+        "NO_MAINNET_AUTHORIZATION",
+        "NO_PUBLIC_SALE_OR_PRESALE",
+        "NO_THIRD_PARTY_FUNDS_CUSTODY",
+        "NO_PROFIT_OR_RETURN_PROMISE",
+        "NO_GENESIS_100_LAUNCH_AUTHORIZATION"
+      ]
+    },
+    {
+      "ratification_id": "RAT-05-OPEN-KNOWLEDGE-LICENSE",
+      "title": "Licencia y propiedad intelectual",
+      "status": "RATIFIED",
+      "ratified_scope": "TOKOIN_TESTNET_ONLY",
+      "source_proposed_status": "RATIFY_NO_GLOBAL_DEFAULT",
+      "decision": {
+        "global_default_license": null,
+        "policy": "NO_AUTOMATIC_LICENSE",
+        "open_requires": [
+          "titular",
+          "provenance",
+          "license_id",
+          "compatibilidad",
+          "autoridad para licenciar"
+        ],
+        "rights_unknown": "BLOCK_PUBLICATION_AND_SETTLEMENT",
+        "third_party_material": "Conservar licencia original; no relicenciar sin autoridad.",
+        "software": "Conservar licencia existente; cualquier cambio exige ratificación.",
+        "datasets": "Respetar licencia de origen.",
+        "patentable": "SEALED_PENDING_IP_REVIEW",
+        "submission_ownership": "AGORA no adquiere propiedad automáticamente.",
+        "commercialization": "Requiere Contributor Terms humanos y revisión IP."
+      },
+      "founder_conditions": [
+        "NO_MAINNET_AUTHORIZATION",
+        "NO_PUBLIC_SALE_OR_PRESALE",
+        "NO_THIRD_PARTY_FUNDS_CUSTODY",
+        "NO_PROFIT_OR_RETURN_PROMISE",
+        "NO_GENESIS_100_LAUNCH_AUTHORIZATION"
+      ]
+    },
+    {
+      "ratification_id": "RAT-06-SEALED-RESTRICTED-GOVERNANCE",
+      "title": "Conocimiento protegido",
+      "status": "RATIFIED",
+      "ratified_scope": "TOKOIN_TESTNET_ONLY",
+      "source_proposed_status": "RATIFY_FOR_PILOT",
+      "decision": {
+        "interim_release_authority": "Merari Acero con receipt firmado y conflicto declarado.",
+        "specialist_review_required": [
+          "patentes",
+          "datos personales o clínicos",
+          "bioseguridad",
+          "dual-use",
+          "secretos de terceros",
+          "export controls"
+        ],
+        "review_sla_days": 30,
+        "sla_means_review_not_release": true,
+        "sealed_expiry": "FAIL_CLOSED_REVIEW_REQUIRED",
+        "restricted_auto_release": false,
+        "agent_vote_or_scheduler_release": false,
+        "audited_access": true,
+        "encryption_at_rest": true,
+        "appeal": true
+      },
+      "founder_conditions": [
+        "NO_MAINNET_AUTHORIZATION",
+        "NO_PUBLIC_SALE_OR_PRESALE",
+        "NO_THIRD_PARTY_FUNDS_CUSTODY",
+        "NO_PROFIT_OR_RETURN_PROMISE",
+        "NO_GENESIS_100_LAUNCH_AUTHORIZATION"
+      ]
+    },
+    {
+      "ratification_id": "RAT-07-WALLET-CUSTODY-RECOVERY",
+      "title": "Wallets, custodia y recuperación",
+      "status": "RATIFIED",
+      "ratified_scope": "TOKOIN_TESTNET_ONLY",
+      "source_proposed_status": "RATIFY_ARCHITECTURE_DEPLOYMENT_BLOCKED_UNTIL_SIGNERS",
+      "decision": {
+        "model": "NON_CUSTODIAL_BY_HUMAN_CONTROLLER",
+        "agora_stores_agent_private_keys": false,
+        "separate": [
+          "agent_id",
+          "beneficial_controller",
+          "wallet_address",
+          "device_key",
+          "session_key"
+        ],
+        "env_allowed": [
+          "WALLET_ADDRESS",
+          "WALLET_KEY_REF",
+          "KEYSTORE_PATH",
+          "public config"
+        ],
+        "env_forbidden": [
+          "raw private key",
+          "seed phrase",
+          "unencrypted recovery secret",
+          "versioned secret"
+        ],
+        "secret_storage": "Hardware wallet, OS keyring, HSM o encrypted keystore fuera de Git.",
+        "session_keys": "Scoped, amount/destination limited, expiring and revocable.",
+        "treasury": "2-of-3 human multisig with hardware-backed signers before public testnet.",
+        "treasury_signers_named": false,
+        "deploy_blocked_until_signers_verified": true,
+        "rotation": "Signed binding transition with timelock and public receipt.",
+        "lost_key": "No mint, no identity replacement and no automatic recovery of inaccessible balance.",
+        "migration": "Preserve agent_id/lineage, revoke old device/session keys and prevent simultaneous economic authority."
+      },
+      "founder_conditions": [
+        "NO_MAINNET_AUTHORIZATION",
+        "NO_PUBLIC_SALE_OR_PRESALE",
+        "NO_THIRD_PARTY_FUNDS_CUSTODY",
+        "NO_PROFIT_OR_RETURN_PROMISE",
+        "NO_GENESIS_100_LAUNCH_AUTHORIZATION"
+      ]
+    },
+    {
+      "ratification_id": "RAT-08-SCIENTIFIC-SCOPE-SAFETY",
+      "title": "Alcance científico",
+      "status": "RATIFIED",
+      "ratified_scope": "TOKOIN_TESTNET_ONLY",
+      "source_proposed_status": "RATIFY_FOR_INITIAL_PILOT",
+      "decision": {
+        "allowed": [
+          "matemáticas",
+          "astronomía/exoplanetas con datos públicos",
+          "simulación física no peligrosa",
+          "ciencia computacional",
+          "software/verificación formal",
+          "clima con datos públicos",
+          "economía/gobernanza simulada",
+          "reproducibilidad"
+        ],
+        "allowed_data": [
+          "públicos con licencia compatible",
+          "sintéticos",
+          "fixtures aislados"
+        ],
+        "restricted_pending_specialist": [
+          "biomedicina desidentificada",
+          "genómica no identificable",
+          "claims de salud",
+          "química dual-use",
+          "infraestructura crítica",
+          "export controls"
+        ],
+        "prohibited_initially": [
+          "humanos o animales",
+          "diagnóstico/tratamiento",
+          "wet-lab",
+          "patógenos",
+          "armas",
+          "diseño biológico peligroso",
+          "datos identificables",
+          "ejecución física remota",
+          "secretos"
+        ],
+        "truth_rule": "TOKOIN, consenso, votos y reputación no determinan validez.",
+        "separation": "Validez, publicación y elegibilidad económica son decisiones separadas.",
+        "minimum_resolution": "RegisteredProtocol + Evidence + independencia + Review + RESOLVED_VERIFIED"
+      },
+      "founder_conditions": [
+        "NO_MAINNET_AUTHORIZATION",
+        "NO_PUBLIC_SALE_OR_PRESALE",
+        "NO_THIRD_PARTY_FUNDS_CUSTODY",
+        "NO_PROFIT_OR_RETURN_PROMISE",
+        "NO_GENESIS_100_LAUNCH_AUTHORIZATION"
+      ]
+    }
+  ],
+  "effect": {
+    "human_ratification_gate": "SATISFIED_8_OF_8",
+    "ratification_count": 8,
+    "authorizes": [
+      "Ingestar estas ocho decisiones en el registro canónico de ratificaciones de AGORA.",
+      "Emitir un receipt canónico verificable y vinculado al hash de este bundle.",
+      "Preparar y congelar un candidato de auditoría para TOKOIN testnet.",
+      "Solicitar auditoría externa independiente."
+    ],
+    "does_not_authorize": [
+      "Desplegar en mainnet.",
+      "Vender o preventender TOKOIN.",
+      "Custodiar fondos de terceros.",
+      "Prometer rendimiento, apreciación o retorno.",
+      "Lanzar Genesis-100.",
+      "Desplegar Base Sepolia sin auditoría aceptada y decisión go/no-go separada.",
+      "Iniciar Sprint 5 antes de satisfacer todos los gates técnicos, de auditoría y release."
+    ]
+  },
+  "required_next_gates": [
+    "Importación canónica y receipt firmado/auditable de las 8 ratificaciones.",
+    "Matriz de alcance completa sin MISSING_BLOCKER.",
+    "Candidato de auditoría congelado y reproducible en commit exacto.",
+    "Auditoría externa independiente aceptada.",
+    "Cero hallazgos Critical o High abiertos.",
+    "Manifiesto público congelado y firmado.",
+    "Go/no-go humano separado para cualquier despliegue en Base Sepolia."
+  ],
+  "integrity": {
+    "immutable_decision_payloads_copied_from_source_proposal": true,
+    "source_proposal_sha256_verified_before_creation": true,
+    "canonical_receipt_required": true,
+    "canonical_receipt_id": null,
+    "canonical_receipt_hash": null,
+    "note": "El SHA-256 del archivo final se calcula fuera del propio JSON para evitar autorreferencia."
+  }
+}
