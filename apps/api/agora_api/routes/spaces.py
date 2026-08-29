@@ -10,11 +10,11 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.db import get_session
-from agora_api.errors import NotFound, ValidationFailed
+from agora_api.errors import NotFound, SpaceArchived, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import is_valid, new_message_id
 from agora_api.mission_challenges_service import challenge_view, list_active_challenges
-from agora_api.models import Agent, RecordProvenance, Space, SpaceMessage
+from agora_api.models import Agent, Mission, RecordProvenance, Space, SpaceMessage
 from agora_api.presence import list_present, mark_absent, mark_present
 from agora_api.provenance import (
     add_provenance,
@@ -28,6 +28,15 @@ from agora_api.world_rules import WorldEntryDevice
 router = APIRouter(prefix="/v1/spaces", tags=["spaces"])
 
 MAX_MESSAGE_CHARS = 4000
+CHALLENGE_ACTIVE_STATES = {"forming", "active", "review"}
+MOVEMENT_REASONS = {
+    "explicit_agent_decision",
+    "automatic_exploration",
+    "challenge_join",
+    "recovery",
+    "runtime_start",
+    "unspecified",
+}
 
 
 async def _get_space(session: AsyncSession, space_id: str) -> Space:
@@ -35,6 +44,31 @@ async def _get_space(session: AsyncSession, space_id: str) -> Space:
     if space is None:
         raise NotFound("Space not found.")
     return space
+
+
+async def _assert_space_writeable(session: AsyncSession, space: Space) -> None:
+    """Expired challenge spaces stay inspectable but cannot trap agents.
+
+    The Space row is preserved for history. New presence and social writes are
+    rejected unless an active challenge still points at the space.
+    """
+    if space.kind != "mission_challenge":
+        return
+    active = (
+        await session.execute(
+            select(Mission.mission_id)
+            .where(
+                Mission.hosting_space_id == space.space_id,
+                Mission.challenge_kind.is_not(None),
+                Mission.state.in_(CHALLENGE_ACTIVE_STATES),
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if active is None:
+        raise SpaceArchived(
+            "Challenge space is archived/read-only; use persistent districts instead."
+        )
 
 
 async def _visible_present_agents(session: AsyncSession, space_id: str) -> list[dict]:
@@ -135,6 +169,21 @@ async def enter_space(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     space = await _get_space(session, space_id)
+    await _assert_space_writeable(session, space)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if body is None:
+        body = {}
+    if not isinstance(body, dict):
+        raise ValidationFailed("Expected JSON object.")
+    unknown = set(body) - {"movement_reason"}
+    if unknown:
+        raise ValidationFailed("Unknown fields rejected.")
+    movement_reason = body.get("movement_reason") or "unspecified"
+    if movement_reason not in MOVEMENT_REASONS:
+        raise ValidationFailed("invalid movement_reason.")
     agent = await session.get(Agent, device.agent_id)
     assert agent is not None
     # Semantic transition (S3-T07): origin + destination + timestamp. No
@@ -158,7 +207,7 @@ async def enter_space(
         event_type="space.entered",
         actor={"agent_id": agent.agent_id, "device_id": device.device_id},
         payload={"space_id": space_id, "agent_id": agent.agent_id,
-                 "from_space_id": from_space_id},
+                 "from_space_id": from_space_id, "movement_reason": movement_reason},
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
@@ -170,6 +219,7 @@ async def enter_space(
         "to_space_id": space_id,
         "activity": agent.activity,
         "avatar": avatar_for(agent.agent_id, agent.avatar),
+        "movement_reason": movement_reason,
         "at": now_utc().isoformat(),
     }
     await gateway.publish(space_id, "presence", transition)
@@ -211,24 +261,32 @@ async def leave_space(
 
 @router.get("/{space_id}/messages")
 async def list_messages(
-    space_id: str, session: AsyncSession = Depends(get_session), limit: int = 50
+    space_id: str,
+    session: AsyncSession = Depends(get_session),
+    limit: int = 50,
+    after_message_id: str | None = None,
 ) -> dict:
     await _get_space(session, space_id)
     limit = max(1, min(limit, 100))
+    if after_message_id is not None and not is_valid(after_message_id, "msg"):
+        raise ValidationFailed("invalid after_message_id.")
+    query = (
+        select(SpaceMessage, Agent.name)
+        .join(Agent, Agent.agent_id == SpaceMessage.agent_id)
+        .join(
+            RecordProvenance,
+            (RecordProvenance.record_table == "space_messages")
+            & (RecordProvenance.record_id == SpaceMessage.message_id),
+        )
+        .where(SpaceMessage.space_id == space_id)
+        .where(visible_record_condition("space_messages", SpaceMessage.message_id))
+    )
+    if after_message_id:
+        query = query.where(SpaceMessage.message_id > after_message_id)
     rows = (
         (
             await session.execute(
-                select(SpaceMessage, Agent.name)
-                .join(Agent, Agent.agent_id == SpaceMessage.agent_id)
-                .join(
-                    RecordProvenance,
-                    (RecordProvenance.record_table == "space_messages")
-                    & (RecordProvenance.record_id == SpaceMessage.message_id),
-                )
-                .where(SpaceMessage.space_id == space_id)
-                .where(visible_record_condition("space_messages", SpaceMessage.message_id))
-                .order_by(desc(SpaceMessage.message_id))
-                .limit(limit)
+                query.order_by(desc(SpaceMessage.message_id)).limit(limit)
             )
         )
         .all()
@@ -259,7 +317,8 @@ async def post_message(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     await enforce_rate_limit("space_message", device.device_id)
-    await _get_space(session, space_id)
+    space = await _get_space(session, space_id)
+    await _assert_space_writeable(session, space)
     body = await request.json()
     if not isinstance(body, dict):
         raise ValidationFailed("Expected JSON object.")

@@ -16,6 +16,7 @@ from agora_api.tokoins_service import (
     transfer_from_treasury,
     verify_ledger_chain,
     wallet_for_agent,
+    wallet_population_audit,
     wallet_view,
 )
 
@@ -73,6 +74,37 @@ async def get_my_wallet(
 @router.get("/v1/agents/{agent_id}/wallet")
 async def get_agent_wallet(agent_id: str, session: AsyncSession = Depends(get_session)) -> dict:
     return wallet_view(await wallet_for_agent(session, agent_id))
+
+
+@router.post("/v1/agents/me/wallet/provision", status_code=201)
+async def provision_my_wallet(
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    await enforce_rate_limit("tokoin_wallet_provision", device.agent_id)
+    existing = True
+    try:
+        wallet = await wallet_for_agent(session, device.agent_id)
+    except NotFound:
+        existing = False
+        wallet = await wallet_for_agent(
+            session,
+            device.agent_id,
+            create=True,
+            trace_id=getattr(request.state, "trace_id", None),
+        )
+        await session.commit()
+    return wallet_view(wallet) | {
+        "created": not existing,
+        "real_balance_changed": False,
+        "provisioning_policy": "idempotent_zero_balance_wallet_only",
+    }
+
+
+@router.get("/v1/tokoins/wallet-audit")
+async def get_wallet_audit(session: AsyncSession = Depends(get_session)) -> dict:
+    return await wallet_population_audit(session)
 
 
 @router.post("/v1/missions/{mission_id}/tokoin-rewards", status_code=201)

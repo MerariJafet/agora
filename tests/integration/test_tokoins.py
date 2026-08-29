@@ -7,6 +7,7 @@ mission-scoped rewards, append-only ledger entries and hash-chain integrity.
 
 import pytest
 from agora_api.db import session_factory
+from agora_api.models import RecordProvenance, TokoinWallet
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -63,6 +64,56 @@ async def test_registration_creates_tokoin_wallet_with_zero_balance(api_client, 
     assert wallet["balance"] == 0
     assert wallet["balance_aceros"] == 0
     assert wallet["currency_code"] == "TOKOIN"
+    async with session_factory()() as session:
+        agent_provenance = await session.get(RecordProvenance, ("agents", reg["agent_id"]))
+        wallet_provenance = await session.get(
+            RecordProvenance, ("tokoin_wallets", reg["wallet_id"])
+        )
+    assert wallet_provenance.provenance_class == agent_provenance.provenance_class
+    assert wallet_provenance.world_instance_id == agent_provenance.world_instance_id
+
+
+async def test_wallet_provision_is_idempotent_for_existing_unwalleted_agent(
+    api_client, unique_name
+):
+    reg = await register_agent(api_client, SigningKeypair(), unique_name)
+    async with session_factory()() as session:
+        wallet = (
+            await session.execute(
+                text("select wallet_id from tokoin_wallets where agent_id = :agent_id"),
+                {"agent_id": reg["agent_id"]},
+            )
+        ).scalar_one()
+        await session.delete(await session.get(TokoinWallet, wallet))
+        await session.commit()
+
+    first = await api_client.post("/v1/agents/me/wallet/provision", headers=_auth(reg))
+    assert first.status_code == 201, first.text
+    assert first.json()["created"] is True
+    assert first.json()["balance_aceros"] == 0
+    second = await api_client.post("/v1/agents/me/wallet/provision", headers=_auth(reg))
+    assert second.status_code == 201, second.text
+    assert second.json()["created"] is False
+    assert second.json()["wallet_id"] == first.json()["wallet_id"]
+
+    async with session_factory()() as session:
+        count = (
+            await session.execute(
+                text("select count(*) from tokoin_wallets where agent_id = :agent_id"),
+                {"agent_id": reg["agent_id"]},
+            )
+        ).scalar_one()
+    assert count == 1
+
+
+async def test_wallet_population_audit_is_read_only_and_reports_fixed_supply(api_client):
+    audit = (await api_client.get("/v1/tokoins/wallet-audit")).json()
+    assert audit["supply_conserved"] is True
+    assert audit["total_balance_aceros"] == 100_000_000_000_000
+    assert audit["max_supply_aceros"] == 100_000_000_000_000
+    assert audit["ledger_chain"]["valid"] is True
+    assert audit["duplicate_agent_wallet_groups"] == 0
+    assert "by_provenance_class" in audit
 
 
 async def test_tokoin_mission_reward_transfers_without_minting(api_client, unique_name):

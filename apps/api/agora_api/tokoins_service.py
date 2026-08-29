@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from agora_api.errors import AgoraError, NotFound, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import new_tokoin_entry_id, new_wallet_id
-from agora_api.models import Agent, TokoinLedgerEntry, TokoinSupply, TokoinWallet
+from agora_api.models import Agent, RecordProvenance, TokoinLedgerEntry, TokoinSupply, TokoinWallet
 from agora_api.provenance import add_provenance
 
 CURRENCY_CODE = "TOKOIN"
@@ -108,6 +108,20 @@ async def wallet_for_agent(
     agent = await session.get(Agent, agent_id)
     if agent is None:
         raise NotFound("Agent not found.")
+    agent_provenance = await session.get(RecordProvenance, ("agents", agent_id))
+    provenance_kwargs = {}
+    if (
+        agent_provenance is not None
+        and agent_provenance.provenance_class in {"real", "demo", "test"}
+    ):
+        provenance_kwargs = {
+            "provenance_class": agent_provenance.provenance_class,
+            "environment_id": agent_provenance.environment_id,
+            "run_id": agent_provenance.run_id,
+            "world_instance_id": agent_provenance.world_instance_id,
+            "created_by_actor_id": agent_id,
+            "created_by_actor_provenance": agent_provenance.provenance_class,
+        }
     ts = now_utc()
     wallet = TokoinWallet(
         wallet_id=new_wallet_id(),
@@ -124,6 +138,7 @@ async def wallet_for_agent(
         record_id=wallet.wallet_id,
         created_by="tokoin.wallet_for_agent",
         source_reference=agent_id,
+        **provenance_kwargs,
     )
     await append_event(
         session,
@@ -170,6 +185,103 @@ async def tokoin_status(session: AsyncSession) -> dict[str, Any]:
         "genesis_hash": supply.genesis_hash,
         "treasury_wallet_id": supply.treasury_wallet_id,
         "monetary_policy": "fixed_supply_100000000_aceros_per_tokoin_no_minting_api",
+    }
+
+
+async def wallet_population_audit(session: AsyncSession) -> dict[str, Any]:
+    """Read-only wallet population and fixed-supply audit.
+
+    This endpoint is intentionally operational metadata only: it reports counts,
+    provenance classes and chain validity without returning wallet balances per
+    Agent or any private runtime data.
+    """
+    total_wallets = int(
+        (await session.execute(select(func.count(TokoinWallet.wallet_id)))).scalar_one()
+    )
+    agent_wallets = int(
+        (
+            await session.execute(
+                select(func.count(TokoinWallet.wallet_id)).where(TokoinWallet.agent_id.is_not(None))
+            )
+        ).scalar_one()
+    )
+    treasury_wallets = int(
+        (
+            await session.execute(
+                select(func.count(TokoinWallet.wallet_id)).where(TokoinWallet.agent_id.is_(None))
+            )
+        ).scalar_one()
+    )
+    total_balance = int(
+        (
+            await session.execute(select(func.coalesce(func.sum(TokoinWallet.balance), 0)))
+        ).scalar_one()
+    )
+    duplicate_subquery = (
+        select(TokoinWallet.agent_id)
+        .where(TokoinWallet.agent_id.is_not(None))
+        .group_by(TokoinWallet.agent_id)
+        .having(func.count(TokoinWallet.wallet_id) > 1)
+        .subquery()
+    )
+    duplicate_groups = int(
+        (await session.execute(select(func.count()).select_from(duplicate_subquery))).scalar_one()
+    )
+    provenance_subquery = (
+        select(
+            func.coalesce(RecordProvenance.provenance_class, "missing").label("bucket"),
+        )
+        .select_from(TokoinWallet)
+        .join(
+            RecordProvenance,
+            (RecordProvenance.record_table == "tokoin_wallets")
+            & (RecordProvenance.record_id == TokoinWallet.wallet_id),
+            isouter=True,
+        )
+        .subquery()
+    )
+    provenance_rows = (
+        await session.execute(
+            select(provenance_subquery.c.bucket, func.count())
+            .group_by(provenance_subquery.c.bucket)
+            .order_by(provenance_subquery.c.bucket)
+        )
+    ).all()
+    world_subquery = (
+        select(
+            func.coalesce(RecordProvenance.world_instance_id, "missing").label("bucket"),
+        )
+        .select_from(TokoinWallet)
+        .join(
+            RecordProvenance,
+            (RecordProvenance.record_table == "tokoin_wallets")
+            & (RecordProvenance.record_id == TokoinWallet.wallet_id),
+            isouter=True,
+        )
+        .subquery()
+    )
+    world_rows = (
+        await session.execute(
+            select(world_subquery.c.bucket, func.count())
+            .group_by(world_subquery.c.bucket)
+            .order_by(world_subquery.c.bucket)
+        )
+    ).all()
+    chain = await verify_ledger_chain(session)
+    return {
+        "wallets_total": total_wallets,
+        "agent_wallets": agent_wallets,
+        "treasury_wallets": treasury_wallets,
+        "duplicate_agent_wallet_groups": duplicate_groups,
+        "total_balance_aceros": total_balance,
+        "max_supply_aceros": MAX_SUPPLY_ACEROS,
+        "supply_conserved": total_balance == MAX_SUPPLY_ACEROS,
+        "ledger_chain": chain,
+        "by_provenance_class": {str(key): int(value) for key, value in provenance_rows},
+        "by_world_instance_id": {str(key): int(value) for key, value in world_rows},
+        "classification": (
+            "read_only_population_audit_unknown_rows_are_legacy_debt_not_reclassified"
+        ),
     }
 
 

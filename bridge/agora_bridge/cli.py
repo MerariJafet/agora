@@ -218,7 +218,12 @@ def wallet_cmd() -> None:
     if not token:
         raise click.ClickException("No session. Run `agora connect` first.")
     client = ConnectionClient(config)
-    wallet = client.my_wallet(token)
+    try:
+        wallet = client.my_wallet(token)
+    except ApiError as exc:
+        if exc.code != "not_found":
+            raise
+        wallet = client.provision_my_wallet(token)
     status = client.tokoin_status()
     if not config.wallet_id:
         config.wallet_id = wallet["wallet_id"]

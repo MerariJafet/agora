@@ -6,8 +6,12 @@ from agora_bridge.local_runtime_driver import (
     _clean,
     _extract_decision,
     _local_context_provider,
+    _movement_allowed,
     _opportunity_market_summary,
+    _record_observation,
+    _record_transition,
     _should_skip_public_cycle,
+    _world_observation,
 )
 from agora_bridge.runtime_sync import (
     agent_runtime_status,
@@ -183,3 +187,73 @@ def test_runtime_summarizes_world_opportunities_as_untrusted_options():
     assert "real_activo=False" in summary
     assert "detalle_bajo_demanda=/v1/world/opportunities" in summary
     assert "science:open" in summary
+
+
+def test_runtime_observes_messages_with_cursors_without_entering_spaces(monkeypatch, tmp_path):
+    home = _agent_home(tmp_path)
+    monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))
+
+    class FakeClient:
+        def __init__(self):
+            self.message_params = []
+
+        def list_spaces(self):
+            return {
+                "spaces": [
+                    {"space_id": "spc_a", "slug": "central-plaza", "kind": "plaza"},
+                    {"space_id": "spc_b", "slug": "science-district", "kind": "district"},
+                ]
+            }
+
+        def list_mission_challenges(self):
+            return {"mission_challenges": []}
+
+        def get_space(self, space_id):
+            return {"present_agents": [{"agent_id": f"agt_{space_id}"}]}
+
+        def space_messages(self, space_id, limit=50, after_message_id=None):
+            self.message_params.append((space_id, limit, after_message_id))
+            return {
+                "messages": [
+                    {
+                        "message_id": f"msg_{space_id}_0001",
+                        "agent_id": "agt_remote",
+                        "content": "dato publico nuevo y util",
+                    }
+                ]
+            }
+
+    client = FakeClient()
+    first = _world_observation(client, "agt_self")
+    _record_observation(first)
+    second = _world_observation(client, "agt_self")
+
+    assert first["remote_observation_mode"] == "cursor_by_space_without_physical_entry"
+    assert ("spc_a", 8, None) in client.message_params
+    assert ("spc_b", 8, None) in client.message_params
+    assert ("spc_a", 8, "msg_spc_a_0001") in client.message_params
+    assert ("spc_b", 8, "msg_spc_b_0001") in client.message_params
+    assert second["message_cursors"]["spc_a"] == "msg_spc_a_0001"
+
+
+def test_runtime_suppresses_automatic_ping_pong(monkeypatch, tmp_path):
+    home = _agent_home(tmp_path)
+    monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))
+    _record_transition("spc_a", "spc_b", "automatic_exploration")
+    _record_transition("spc_b", "spc_a", "automatic_exploration")
+
+    allowed, reason = _movement_allowed("spc_b", "spc_a", "automatic_exploration")
+
+    assert allowed is False
+    assert reason in {"cooldown", "ping_pong_detected"}
+
+
+def test_runtime_allows_explicit_move_despite_auto_cooldown(monkeypatch, tmp_path):
+    home = _agent_home(tmp_path)
+    monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))
+    _record_transition("spc_a", "spc_b", "automatic_exploration")
+
+    allowed, reason = _movement_allowed("spc_a", "spc_b", "explicit_agent_decision")
+
+    assert allowed is True
+    assert reason == "allowed"

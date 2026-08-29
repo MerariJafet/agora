@@ -4,7 +4,9 @@ import secrets
 
 import pytest
 from agora_api.db import session_factory
-from agora_api.models import Event
+from agora_api.events import now_utc
+from agora_api.ids import new_mission_id
+from agora_api.models import Event, Mission, Space
 from agora_api.presence import list_present, mark_present, refresh_presence
 from agora_api.ratelimit import get_redis
 from sqlalchemy import func, select
@@ -28,6 +30,7 @@ async def test_enter_creates_presence_and_ledger_event(api_client, keypair, uniq
     reg = await register_agent(api_client, keypair, unique_name)
     r = await api_client.post(
         f"/v1/spaces/{PLAZA}/enter",
+        json={"movement_reason": "explicit_agent_decision"},
         headers={"Authorization": f"Bearer {reg['session_token']}"},
     )
     assert r.status_code == 200
@@ -35,6 +38,16 @@ async def test_enter_creates_presence_and_ledger_event(api_client, keypair, uniq
     assert reg["agent_id"] in [a["agent_id"] for a in present]
     ttl = await get_redis().ttl(f"presence:{PLAZA}:{reg['agent_id']}")
     assert 0 < ttl <= 30  # TTL-based offline resolution
+    async with session_factory()() as session:
+        event = (
+            await session.execute(
+                select(Event)
+                .where(Event.event_type == "space.entered")
+                .order_by(Event.occurred_at.desc())
+                .limit(1)
+            )
+        ).scalar_one()
+    assert event.payload["movement_reason"] == "explicit_agent_decision"
 
 
 async def test_heartbeats_never_touch_the_ledger(api_client, keypair, unique_name):
@@ -65,6 +78,20 @@ async def test_message_post_validate_and_list(api_client, keypair, unique_name):
     found = [m for m in listing.json()["messages"] if m["message_id"] == message_id]
     assert found and found[0]["content"] == content and found[0]["agent_id"] == reg["agent_id"]
 
+    second = await api_client.post(
+        f"/v1/spaces/{PLAZA}/messages",
+        json={"content": f"Second plaza {secrets.token_hex(4)}"},
+        headers=auth,
+    )
+    assert second.status_code == 201
+    cursor_listing = await api_client.get(
+        f"/v1/spaces/{PLAZA}/messages",
+        params={"after_message_id": message_id},
+    )
+    cursor_ids = [m["message_id"] for m in cursor_listing.json()["messages"]]
+    assert second.json()["message_id"] in cursor_ids
+    assert message_id not in cursor_ids
+
     # size + structure validation
     too_big = await api_client.post(
         f"/v1/spaces/{PLAZA}/messages", json={"content": "x" * 4001}, headers=auth
@@ -93,3 +120,55 @@ async def test_revoked_device_cannot_enter_or_post(api_client, keypair, unique_n
             f"/v1/spaces/{PLAZA}/messages", json={"content": "x"}, headers=auth
         )
     ).status_code == 403
+
+
+async def test_archived_challenge_space_is_read_only_for_enter_and_messages(
+    api_client, keypair, unique_name
+):
+    reg = await register_agent(api_client, keypair, unique_name)
+    archived_space_id = "spc_000000000000000000ARCHIV01"
+    async with session_factory()() as session:
+        ts = now_utc()
+        session.add(
+            Space(
+                space_id=archived_space_id,
+                slug=f"archived-challenge-{secrets.token_hex(3)}",
+                name="Archived Challenge",
+                kind="mission_challenge",
+                description="Historical challenge space.",
+                evidence_policy="optional",
+                created_at=ts,
+            )
+        )
+        session.add(
+            Mission(
+                mission_id=new_mission_id(),
+                title="Archived challenge mission",
+                objective="Remain historical and read-only.",
+                description=None,
+                state="archived",
+                visibility="public",
+                hosting_space_id=archived_space_id,
+                challenge_kind="math_unsolved",
+                max_participants=8,
+                completion_policy={},
+                created_by_agent_id=reg["agent_id"],
+                created_by_agent_version_id=reg["agent_version_id"],
+                created_at=ts,
+            )
+        )
+        await session.commit()
+
+    auth = {"Authorization": f"Bearer {reg['session_token']}"}
+    enter = await api_client.post(f"/v1/spaces/{archived_space_id}/enter", headers=auth)
+    assert enter.status_code == 409
+    assert enter.json()["error"]["code"] == "space_archived"
+
+    post = await api_client.post(
+        f"/v1/spaces/{archived_space_id}/messages",
+        json={"content": "should not write to archived challenge"},
+        headers=auth,
+    )
+    assert post.status_code == 409
+    listing = await api_client.get(f"/v1/spaces/{archived_space_id}/messages")
+    assert listing.status_code == 200

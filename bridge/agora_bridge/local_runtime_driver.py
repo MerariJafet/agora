@@ -20,7 +20,7 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from agora_bridge.client import ApiError, ConnectionClient
@@ -41,6 +41,8 @@ RUNTIME_PROTOCOL_VERSION = "mission-challenge-actions.v1"
 RUNTIME_MANAGED_MARKER = "AGORA_RUNTIME_MANAGED_V1"
 DEFAULT_SPACE = "spc_00000000000000000000P1AZA0"
 MAX_MESSAGE = 600
+AUTO_MOVE_COOLDOWN_SECONDS = 180
+PING_PONG_HISTORY = 8
 BASE = Path("/home/merari-acero/.agora-agents")
 ACTIVITIES = {
     "idle",
@@ -63,6 +65,8 @@ PUBLIC_ACTIONS = {
     "submit_challenge_solution",
     "vote_challenge_solution",
     "abstain_challenge_vote",
+    "create_market_need",
+    "create_market_offer",
     "no_public_action",
 }
 EXPLORATION_PRIORITY = [
@@ -224,6 +228,19 @@ def _save_state(current_space_id: str, visited_space_ids: list[str]) -> None:
     _state_path().write_text(json.dumps(state, indent=2) + "\n")
 
 
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _parse_iso(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 def _runtime_metrics() -> dict:
     state = _load_state()
     metrics = state.setdefault("runtime_metrics", {})
@@ -247,6 +264,12 @@ def _record_observation(observation: dict) -> None:
     runtime["last_signature"] = observation.get("signature")
     runtime["last_seen_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     runtime["last_duplicate_count"] = observation.get("duplicate_count", 0)
+    cursors = dict(runtime.get("message_cursors") or {})
+    cursors.update(observation.get("message_cursors") or {})
+    runtime["message_cursors"] = cursors
+    runtime["remote_observation_mode"] = observation.get(
+        "remote_observation_mode", "cursor_by_space_without_physical_entry"
+    )
     _state_path().write_text(json.dumps(state, indent=2) + "\n")
 
 
@@ -259,6 +282,8 @@ def _world_observation(client: ConnectionClient, agent_id: str | None) -> dict:
     state = _load_state()
     runtime = state.get("runtime_context") or {}
     seen = set(runtime.get("seen_keys") or [])
+    cursors = dict(runtime.get("message_cursors") or {})
+    next_cursors: dict[str, str] = {}
     keys: list[str] = []
     duplicate_count = 0
     for space in spaces:
@@ -274,17 +299,21 @@ def _world_observation(client: ConnectionClient, agent_id: str | None) -> dict:
         except Exception:  # noqa: BLE001 - skip transient public-read failures
             keys.append(f"space_observation_degraded:{space_id}")
         try:
-            messages = client.space_messages(space_id, limit=8).get("messages", [])
+            messages = client.space_messages(
+                space_id, limit=8, after_message_id=cursors.get(space_id)
+            ).get("messages", [])
         except Exception:  # noqa: BLE001 - skip transient public-read failures
             messages = []
         local_hashes: set[str] = set()
         for message in messages:
+            message_key = str(message.get("message_id") or "")
+            if message_key:
+                next_cursors[space_id] = max(next_cursors.get(space_id, ""), message_key)
             if message.get("agent_id") == agent_id:
                 continue
             content = _public_body(str(message.get("content") or ""))
             if _is_low_value_public_body(content):
                 continue
-            message_key = str(message.get("message_id") or "")
             if message_key:
                 keys.append(f"msg:{message_key}")
             content_hash = _canonical_hash({"space_id": space_id, "content": content})
@@ -311,6 +340,8 @@ def _world_observation(client: ConnectionClient, agent_id: str | None) -> dict:
         "active_challenge_count": len(challenges),
         "duplicate_count": duplicate_count,
         "key_count": len(unique_keys),
+        "message_cursors": next_cursors,
+        "remote_observation_mode": "cursor_by_space_without_physical_entry",
     }
 
 
@@ -595,6 +626,7 @@ def _safe_fallback_decision(raw: str, manifest: dict, spaces: list[dict]) -> dic
             "action": "move",
             "space_slug": target["slug"],
             "activity": "exploring",
+            "_movement_reason": "automatic_exploration",
             "message": (
                 _bounded_message(raw)
                 + f" Como explorador, tomo una accion concreta y voy a observar {target['name']}."
@@ -646,6 +678,7 @@ def _apply_exploration_bias(
             "action": "move",
             "space_slug": target["slug"],
             "activity": "exploring",
+            "_movement_reason": "automatic_exploration",
             "message": (
                 f"{original} Para evitar quedarme repitiendo una zona ya visitada, "
                 f"avanzo hacia {target['name']}."
@@ -660,6 +693,7 @@ def _apply_exploration_bias(
         "action": "move",
         "space_slug": target["slug"],
         "activity": "exploring",
+        "_movement_reason": "automatic_exploration",
         "message": (
             f"{original} Como explorador, convierto esta observacion en accion "
             f"y voy a inspeccionar {target['name']}."
@@ -679,6 +713,70 @@ def _bounded_message(message: str, limit: int = 300) -> str:
         clipped = cleaned[: max(40, limit - 1)].rsplit(" ", 1)[0].strip()
         cleaned = f"{clipped}."
     return cleaned or "Observo el mundo, mantengo seguridad local y continuo explorando."
+
+
+def _movement_allowed(target_space_id: str, current_space_id: str, reason: str) -> tuple[bool, str]:
+    if target_space_id == current_space_id or reason != "automatic_exploration":
+        return True, "allowed"
+    state = _load_state()
+    control = state.setdefault("movement_control", {})
+    last_auto = _parse_iso(control.get("last_auto_move_at"))
+    now = datetime.now(UTC)
+    if last_auto and now - last_auto < timedelta(seconds=AUTO_MOVE_COOLDOWN_SECONDS):
+        _increment_runtime_metrics(auto_move_suppressed_cooldown=1)
+        return False, "cooldown"
+    history = list(control.get("transition_history") or [])[-PING_PONG_HISTORY:]
+    if len(history) >= 2:
+        previous = history[-1]
+        before_previous = history[-2]
+        if (
+            previous.get("to_space_id") == current_space_id
+            and previous.get("from_space_id") == target_space_id
+            and before_previous.get("to_space_id") == target_space_id
+        ):
+            _increment_runtime_metrics(ping_pong_cycle_detected=1)
+            return False, "ping_pong_detected"
+    return True, "allowed"
+
+
+def _record_transition(from_space_id: str, to_space_id: str, reason: str) -> None:
+    state = _load_state()
+    control = state.setdefault("movement_control", {})
+    entry = {
+        "from_space_id": from_space_id,
+        "to_space_id": to_space_id,
+        "reason": reason,
+        "at": _now_iso(),
+    }
+    history = list(control.get("transition_history") or [])
+    history.append(entry)
+    control["transition_history"] = history[-PING_PONG_HISTORY:]
+    if reason == "automatic_exploration":
+        control["last_auto_move_at"] = entry["at"]
+        control["last_auto_move_to"] = to_space_id
+    _state_path().write_text(json.dumps(state, indent=2) + "\n")
+
+
+def _test_market_body(decision: dict, *, offer: bool) -> dict:
+    resources_key = "offered_resources" if offer else "requested_resources"
+    resources = decision.get(resources_key)
+    if not isinstance(resources, list):
+        resources = ["public_reasoning", "artifact_review" if offer else "agent_attention"]
+    district = str(decision.get("district_id") or "central").strip()
+    title = _bounded_message(str(decision.get("title") or decision.get("message") or ""), 120)
+    description = _bounded_message(
+        str(decision.get("description") or decision.get("message") or ""), 500
+    )
+    return {
+        "idempotency_key": str(
+            decision.get("idempotency_key") or f"agent:{offer}:{_canonical_hash(decision)[:16]}"
+        )[:128],
+        "market_class": "test",
+        "district_id": district,
+        "title": title or ("Oferta de agente" if offer else "Necesidad de agente"),
+        "description": description,
+        resources_key: [str(item)[:80] for item in resources[:12]],
+    }
 
 
 def _apply_decision(
@@ -723,9 +821,10 @@ def _apply_decision(
             client.join_mission_challenge(token, mission_id)
             challenge_space_id = challenge.get("hosting_space_id")
             if challenge_space_id:
-                client.enter_space(token, str(challenge_space_id))
+                client.enter_space(token, str(challenge_space_id), "challenge_join")
                 state = _load_state()
                 _save_state(str(challenge_space_id), state.get("visited_space_ids", []))
+                _record_transition(current_space_id, str(challenge_space_id), "challenge_join")
                 publish_space = str(challenge_space_id)
             result_action = f"join_challenge:{mission_id}"
             message = (
@@ -816,10 +915,37 @@ def _apply_decision(
             )
             result_action = f"abstain_challenge_vote:{submission_id}"
             message = f"{message} Me abstuve formalmente de votar submission {submission_id}."
+    elif action == "create_market_need":
+        body = _test_market_body(decision, offer=False)
+        need = client.create_world_market_need(token, body)
+        result_action = f"create_market_need:{need.get('need_id')}"
+        message = (
+            f"{message} Publique necesidad formal TEST {need.get('need_id')} "
+            "sin liquidacion real de TOKOIN ni permisos locales."
+        )
+    elif action == "create_market_offer":
+        body = _test_market_body(decision, offer=True)
+        offer = client.create_world_market_offer(token, body)
+        result_action = f"create_market_offer:{offer.get('offer_id')}"
+        message = (
+            f"{message} Publique oferta formal TEST {offer.get('offer_id')} "
+            "sin liquidacion real de TOKOIN ni permisos locales."
+        )
     elif action == "move":
-        client.enter_space(token, target["space_id"])
+        movement_reason = str(decision.get("_movement_reason") or "explicit_agent_decision")
+        allowed, blocked_reason = _movement_allowed(
+            target["space_id"], current_space_id, movement_reason
+        )
+        if not allowed:
+            return (
+                "no_public_action",
+                {"message_id": None, "space_id": publish_space},
+                f"Movimiento automatico suprimido por {blocked_reason}; observo remotamente.",
+            )
+        client.enter_space(token, target["space_id"], movement_reason)
         state = _load_state()
         _save_state(target["space_id"], state.get("visited_space_ids", []))
+        _record_transition(current_space_id, target["space_id"], movement_reason)
         publish_space = target["space_id"]
         result_action = f"move:{target['slug']}"
         message = f"{message} Me movi a {target['name']}."
@@ -968,7 +1094,8 @@ def openrouter_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str,
                     "action, space_slug, activity y message. El message debe ser una "
                     "frase breve de menos de 220 caracteres. action debe ser speak, "
                     "move, inspect, join_challenge, submit_challenge_solution, "
-                    "vote_challenge_solution, abstain_challenge_vote o no_public_action. "
+                    "vote_challenge_solution, abstain_challenge_vote, create_market_need, "
+                    "create_market_offer o no_public_action. "
                     "Usa no_public_action si no hay novedad publica que amerite hablar. "
                     "activity debe ser idle, exploring, reading, discussing, debating, "
                     "researching, computing, writing, reviewing o building. No reveles secretos."
@@ -1098,7 +1225,25 @@ def main() -> int:
         return 0
     _attest_world_rules(client, token)
     current_space_id = _load_current_space()
-    client.enter_space(token, current_space_id)
+    try:
+        wallet = client.provision_my_wallet(token)
+        if not config.wallet_id:
+            config.wallet_id = wallet.get("wallet_id")
+            from agora_bridge.config import save_config
+
+            save_config(config)
+    except ApiError as exc:
+        _remember(config.agent_name, "tokoin-wallet", f"wallet_provision_failed:{exc.code}")
+    try:
+        client.enter_space(token, current_space_id, "runtime_start")
+    except ApiError as exc:
+        if exc.code not in {"not_found", "space_archived"}:
+            raise
+        _increment_runtime_metrics(ghost_space_recovered=1)
+        current_space_id = DEFAULT_SPACE
+        state = _load_state()
+        _save_state(DEFAULT_SPACE, state.get("visited_space_ids", []))
+        client.enter_space(token, DEFAULT_SPACE, "recovery")
     _announce_birth_if_needed(client, token, config, current_space_id)
     client.set_activity(token, args.activity)
     observation = _world_observation(client, config.agent_id)
@@ -1141,7 +1286,8 @@ def main() -> int:
         f"Capacidades formales AGORA: {formal_action_summary(formal_capabilities)}\n"
         f"Memoria local reciente: {_local_memory()}\n"
         "Acciones JSON disponibles: speak, move, inspect, no_public_action, join_challenge, "
-        "submit_challenge_solution, vote_challenge_solution, abstain_challenge_vote. "
+        "submit_challenge_solution, vote_challenge_solution, abstain_challenge_vote, "
+        "create_market_need, create_market_offer. "
         "Un mensaje publico NO es una submission ni un voto formal. Para submit usa "
         "mission_id, idempotency_key, solution_summary, claim_ids, artifact_version_ids, "
         "evidence_ids, limitations y public_rationale. Para voto usa submission_id, "

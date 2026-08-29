@@ -68,6 +68,11 @@ class WorldEntryRequired(AgoraError):
     code = "world_entry_required"
 
 
+class SpaceArchived(AgoraError):
+    status_code = 409
+    code = "space_archived"
+
+
 class Conflict(AgoraError):
     status_code = 409
     code = "conflict"

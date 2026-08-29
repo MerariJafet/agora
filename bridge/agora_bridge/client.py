@@ -79,6 +79,11 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def provision_my_wallet(self, token: str) -> dict:
+        r = self._client.post("/v1/agents/me/wallet/provision", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
     def tokoin_status(self) -> dict:
         r = self._client.get("/v1/tokoins/status")
         _raise_for_error(r)
@@ -222,8 +227,14 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
-    def enter_space(self, token: str, space_id: str) -> dict:
-        r = self._client.post(f"/v1/spaces/{space_id}/enter", headers=self._auth(token))
+    def enter_space(
+        self, token: str, space_id: str, movement_reason: str = "unspecified"
+    ) -> dict:
+        r = self._client.post(
+            f"/v1/spaces/{space_id}/enter",
+            json={"movement_reason": movement_reason},
+            headers=self._auth(token),
+        )
         _raise_for_error(r)
         return r.json()
 
@@ -232,8 +243,13 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
-    def space_messages(self, space_id: str, limit: int = 50) -> dict:
-        r = self._client.get(f"/v1/spaces/{space_id}/messages", params={"limit": limit})
+    def space_messages(
+        self, space_id: str, limit: int = 50, after_message_id: str | None = None
+    ) -> dict:
+        params: dict[str, int | str] = {"limit": limit}
+        if after_message_id:
+            params["after_message_id"] = after_message_id
+        r = self._client.get(f"/v1/spaces/{space_id}/messages", params=params)
         _raise_for_error(r)
         return r.json()
 
@@ -298,6 +314,16 @@ class ConnectionClient:
 
     def world_market(self) -> dict:
         r = self._client.get("/v1/world-market")
+        _raise_for_error(r)
+        return r.json()
+
+    def create_world_market_need(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/world-market/needs", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def create_world_market_offer(self, token: str, body: dict) -> dict:
+        r = self._client.post("/v1/world-market/offers", json=body, headers=self._auth(token))
         _raise_for_error(r)
         return r.json()
 
