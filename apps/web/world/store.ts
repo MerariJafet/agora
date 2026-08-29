@@ -38,9 +38,10 @@ export function slotFor(agentId: string, landmark: Landmark, index: number): {
     hash ^= agentId.charCodeAt(i);
     hash = Math.imul(hash, 16777619) >>> 0;
   }
-  const ring = 1 + ((hash >>> 3) % 3);
-  const angle = ((hash % 360) + index * 37) * (Math.PI / 180);
-  const distance = (landmark.radius * 0.35) + ring * (landmark.radius * 0.16);
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const angle = (hash % 360) * (Math.PI / 180) + index * goldenAngle;
+  const normalized = Math.sqrt((index + 0.5) / Math.max(18, index + 1));
+  const distance = landmark.radius * (0.16 + normalized * 0.72);
   return {
     x: landmark.x + Math.cos(angle) * distance,
     y: landmark.y + Math.sin(angle) * distance,

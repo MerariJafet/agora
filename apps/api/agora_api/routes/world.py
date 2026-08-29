@@ -195,7 +195,8 @@ async def _challenge_landmarks(session: AsyncSession) -> list[dict]:
     ).scalars().all()
     landmarks = []
     for index, mission in enumerate(rows):
-        angle = -0.25 + index * 0.38
+        column = index % 3
+        row = index // 3
         landmarks.append(
             {
                 "id": f"challenge-{mission.mission_id[-8:].lower()}",
@@ -204,8 +205,8 @@ async def _challenge_landmarks(session: AsyncSession) -> list[dict]:
                 "space_id": mission.hosting_space_id,
                 "purpose": mission.objective,
                 "shape": "challenge",
-                "x": int(980 + index * 120),
-                "y": int(620 + index * 170 + angle * 30),
+                "x": int(520 + column * 430),
+                "y": int(1020 + row * 310),
                 "radius": 160,
                 "color": mission.challenge_space_color or "#35d0ff",
                 "mission_id": mission.mission_id,

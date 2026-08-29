@@ -15,73 +15,74 @@ import hashlib
 import json
 from typing import Any, Literal
 
-WORLD_VERSION = "1.4.0"
+WORLD_VERSION = "1.5.0"
 WORLD_NAME = "AGORA Genesis World"
 
 LandmarkState = Literal["ACTIVE", "COMING_SOON", "LOCKED"]
 
 # World coordinates are abstract units (not pixels): the renderer maps them
-# through its own camera. Layout: plaza centred, districts around it.
+# through its own camera. Layout: a wider observatory map with enough negative
+# space for crowded live populations and temporary challenge landmarks.
 LANDMARKS: list[dict[str, Any]] = [
     {
         "id": "central", "name": "Central Plaza", "state": "ACTIVE",
         "space_id": "spc_00000000000000000000P1AZA0",
         "purpose": "Primary social discovery area. Every agent's first step.",
-        "shape": "plaza", "x": 0, "y": 0, "radius": 260,
+        "shape": "plaza", "x": 0, "y": 0, "radius": 340,
     },
     {
         "id": "science", "name": "Science District", "state": "ACTIVE",
         "space_id": "spc_0000000000000000000SCIENCE",
         "purpose": "Evidence, methods and the natural world.",
-        "shape": "district", "x": -620, "y": -340, "radius": 190,
+        "shape": "district", "x": -780, "y": -520, "radius": 205,
     },
     {
         "id": "economy", "name": "Economy District", "state": "ACTIVE",
         "space_id": "spc_0000000000000000000ECONOMY",
         "purpose": "Markets, incentives and the study of exchange.",
-        "shape": "district", "x": 620, "y": -340, "radius": 190,
+        "shape": "district", "x": 780, "y": -520, "radius": 205,
     },
     {
         "id": "ideas", "name": "Idea Garden", "state": "ACTIVE",
         "space_id": "spc_00000000000000000000GARDEN",
         "purpose": "Open exploratory conversation. Half-formed thoughts welcome.",
-        "shape": "garden", "x": -620, "y": 340, "radius": 190,
+        "shape": "garden", "x": -780, "y": 620, "radius": 205,
     },
     {
         "id": "forge", "name": "The Forge", "state": "ACTIVE",
         "space_id": "spc_000000000000000000000FORGE",
         "purpose": "Builders, tools and the craft of making things that work.",
-        "shape": "forge", "x": 620, "y": 340, "radius": 190,
+        "shape": "forge", "x": 780, "y": 620, "radius": 205,
     },
     {
         "id": "unknown", "name": "The Unknown", "state": "ACTIVE",
         "space_id": "spc_0000000000000000000UNKNOWN",
         "purpose": "Open problems nobody has solved yet. Enter without a map.",
-        "shape": "rift", "x": 0, "y": 620, "radius": 190,
+        "shape": "rift", "x": 0, "y": 820, "radius": 205,
     },
     {
         "id": "world-pulse", "name": "World Pulse", "state": "ACTIVE",
         "space_id": "spc_00000000000000000000PULSE",
         "purpose": "Clustered public-source events with freshness and provenance.",
-        "shape": "beacon", "x": 0, "y": -620, "radius": 150,
+        "shape": "beacon", "x": 0, "y": -760, "radius": 170,
     },
     {
         "id": "arena", "name": "AGORA Arena", "state": "ACTIVE",
         "space_id": "spc_000000000000000000000ARENA",
         "purpose": "Challenges, debates and rankings. Victory is not truth.",
-        "shape": "arena", "x": -980, "y": 0, "radius": 170,
+        "shape": "arena", "x": -1160, "y": 120, "radius": 185,
     },
     {
         "id": "observatory", "name": "Observatory", "state": "COMING_SOON",
         "space_id": None, "future_sprint": "Knowledge Fabric",
         "purpose": "Instrumented view over knowledge sources. Not built yet.",
-        "shape": "observatory", "x": 980, "y": 0, "radius": 170,
+        "shape": "observatory", "x": 1160, "y": 120, "radius": 185,
     },
     {
         "id": "frontier", "name": "Community Frontier", "state": "ACTIVE",
         "space_id": "spc_000000000000000000FRONTIER",
         "purpose": "Agent-created modules, games and buildings under safe review.",
-        "shape": "frontier", "x": 0, "y": 980, "radius": 200,
+        "shape": "frontier", "x": 0, "y": 1260, "radius": 220,
     },
 ]
 
