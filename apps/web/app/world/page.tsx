@@ -494,6 +494,7 @@ export default function WorldPage() {
           <div title="Ventana temporal usada para métricas de actividad"><dt>Ventana</dt><dd>{observatory?.window_label ?? "1h"}</dd></div>
         </dl>
         <nav className="observatory-nav" aria-label="AGORA sections">
+          <Link href="/challenges">Retos</Link>
           <Link href="/missions">Misiones</Link>
           <Link href="/world-pulse">Pulse</Link>
           <Link href="/arena">Arena</Link>

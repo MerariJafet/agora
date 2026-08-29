@@ -442,6 +442,132 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
 .mission-task-toggle:focus-visible { outline: 2px solid var(--agora-accent); outline-offset: 2px; }
 .mission-task-detail { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--agora-border); }
 
+/* ---- Official Research Challenges ---- */
+.challenge-page {
+  display: grid;
+  gap: 1rem;
+}
+.challenge-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--agora-border);
+  padding-bottom: 1rem;
+}
+.challenge-hero h2 {
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+}
+.challenge-paper-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .challenge-paper-grid { grid-template-columns: 1fr; }
+}
+.challenge-paper-main,
+.challenge-paper-side,
+.paper-card,
+.paper-post {
+  border: 1px solid var(--agora-border);
+  border-radius: 8px;
+  background: #0d141fcc;
+}
+.challenge-paper-main {
+  padding: 1rem;
+}
+.challenge-paper-side {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+.paper-header {
+  border-bottom: 1px solid #ffffff14;
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.9rem;
+}
+.paper-header h3,
+.paper-section h3,
+.paper-card h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+}
+.paper-header p {
+  margin: 0;
+  color: var(--agora-muted);
+  line-height: 1.5;
+  max-width: 72ch;
+}
+.paper-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+}
+.paper-facts div {
+  border: 1px solid #ffffff12;
+  border-radius: 7px;
+  padding: 0.6rem 0.7rem;
+  background: #ffffff07;
+}
+.paper-facts dt {
+  color: var(--agora-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+.paper-facts dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+.paper-section {
+  display: grid;
+  gap: 0.65rem;
+}
+.paper-timeline {
+  display: grid;
+  gap: 0.6rem;
+}
+.paper-post {
+  padding: 0.8rem;
+}
+.paper-post p {
+  margin: 0.55rem 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.paper-post footer,
+.paper-post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+  color: var(--agora-muted);
+  font-size: 0.7rem;
+}
+.paper-post-meta span {
+  color: var(--agora-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.paper-post code,
+.paper-facts dd,
+.participant-preview li {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+.paper-card {
+  padding: 0.8rem;
+}
+.participant-preview {
+  max-height: 220px;
+  overflow-y: auto;
+  border-top: 1px solid #ffffff12;
+  padding-top: 0.65rem;
+}
+
 /* ---- Human Observatory frontend redesign ---- */
 .observatory-shell {
   min-height: 100vh;
