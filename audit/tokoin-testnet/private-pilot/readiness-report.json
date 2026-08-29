@@ -1,0 +1,42 @@
+{
+  "status": "READY_FOR_7_AGENT_PRIVATE_PILOT",
+  "generated_at": "2026-08-29T10:10:00-06:00",
+  "genesis_100": {
+    "agent_folder_count": 100,
+    "wallet_address_count": 100,
+    "unique_wallet_address_count": 100,
+    "unique_signer_ref_count": 100,
+    "missing_wallet_binding_files": 0,
+    "forbidden_env_fields_nonempty_count": 0,
+    "provider_counts": {
+      "agy_cli": 10,
+      "codex_cli": 10,
+      "openrouter_api": 80
+    },
+    "live_activation": false
+  },
+  "economic_boundaries": {
+    "base_sepolia_deployed": false,
+    "mainnet_deployed": false,
+    "public_market_or_liquidity": false,
+    "custody_of_third_party_funds": false,
+    "profit_promise": false,
+    "pre_public_tokoin_moved_on_live_chain": false
+  },
+  "ratification": {
+    "bundle_status": "COMPLETE",
+    "release_manifest_status": "DRAFT_NOT_FROZEN"
+  },
+  "simulation": {
+    "mode": "TEST_ONLY_NO_LLM_NO_GENESIS_100_ACTIVATION",
+    "simulated_agents": 100,
+    "cycles": 500,
+    "successful_settlements": 100,
+    "expired_or_non_success": 400,
+    "reward_per_settlement_atomic": "100000000",
+    "distributed_atomic": "10000000000",
+    "treasury_atomic": "99990000000000",
+    "reserved_atomic": "0",
+    "supply_conserved": true
+  }
+}

@@ -99,6 +99,10 @@ PREFIXES = (
     "tsp",
     "tca",
     "tkr",
+    "tpr",
+    "tdt",
+    "ppe",
+    "tms",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
@@ -108,7 +112,7 @@ _ID_RE = re.compile(
     r"|mod|adm|ffg|afb|drn|psp|rot|dik|wal|tko"
     r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
     r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd"
-    r"|tdp|twb|tsa|tsp|tca|tkr)"
+    r"|tdp|twb|tsa|tsp|tca|tkr|tpr|tdt|ppe|tms)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -480,3 +484,19 @@ def new_tokoin_claimable_allocation_id() -> str:
 
 def new_tokoin_knowledge_root_anchor_id() -> str:
     return new_id("tkr")
+
+
+def new_tokoin_private_pilot_receipt_id() -> str:
+    return new_id("tpr")
+
+
+def new_tokoin_devnet_transfer_id() -> str:
+    return new_id("tdt")
+
+
+def new_pre_public_reward_entitlement_id() -> str:
+    return new_id("ppe")
+
+
+def new_tokoin_migration_snapshot_id() -> str:
+    return new_id("tms")

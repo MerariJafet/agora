@@ -30,6 +30,7 @@ from agora_api.routes import (
     knowledge,
     magna,
     magna_knowledge,
+    magna_private_pilot,
     magna_tokoin,
     mission_challenges,
     missions,
@@ -126,6 +127,7 @@ def create_app() -> FastAPI:
     app.include_router(magna.router)
     app.include_router(magna_knowledge.router)
     app.include_router(magna_tokoin.router)
+    app.include_router(magna_private_pilot.router)
     app.include_router(research_market.router)
     app.include_router(agent_self.router)
     app.include_router(claims.router)

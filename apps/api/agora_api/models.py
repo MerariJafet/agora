@@ -2791,3 +2791,88 @@ class TokoinKnowledgeRootAnchor(Base):
         UniqueConstraint("world_instance_id", "merkle_root", name="uq_tokoin_knowledge_root"),
         Index("ix_tokoin_knowledge_roots_world", "world_instance_id"),
     )
+
+
+class TokoinPrivatePilotReceipt(Base):
+    __tablename__ = "tokoin_private_pilot_receipts"
+
+    receipt_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    receipt_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    canonical_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    source_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "receipt_type", "subject_id", name="uq_tokoin_private_receipt_subject"
+        ),
+        Index("ix_tokoin_private_receipts_type", "receipt_type"),
+    )
+
+
+class TokoinDevnetTransfer(Base):
+    __tablename__ = "tokoin_devnet_transfers"
+
+    transfer_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    settlement_plan_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("tokoin_settlement_plans.settlement_plan_id"), nullable=False
+    )
+    chain_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    contract_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    tx_hash: Mapped[str] = mapped_column(String(66), nullable=False, unique=True)
+    block_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    transfer_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("settlement_plan_id", name="uq_tokoin_devnet_transfer_plan"),
+        Index("ix_tokoin_devnet_transfers_state", "state"),
+    )
+
+
+class PrePublicRewardEntitlement(Base):
+    __tablename__ = "tokoin_pre_public_reward_entitlements"
+
+    entitlement_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    settlement_plan_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("tokoin_settlement_plans.settlement_plan_id"), nullable=False
+    )
+    allocation_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("tokoin_claimable_allocations.allocation_id"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    wallet_binding_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("tokoin_wallet_bindings.binding_id"), nullable=False
+    )
+    amount_atomic: Mapped[str] = mapped_column(String(32), nullable=False)
+    classification: Mapped[str] = mapped_column(String(32), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    source_transfer_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("tokoin_devnet_transfers.transfer_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("allocation_id", name="uq_tokoin_pre_public_allocation"),
+        Index("ix_tokoin_pre_public_agent_state", "agent_id", "state"),
+    )
+
+
+class TokoinMigrationSnapshot(Base):
+    __tablename__ = "tokoin_migration_snapshots"
+
+    snapshot_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    snapshot_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    merkle_root: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    total_supply_atomic: Mapped[str] = mapped_column(String(32), nullable=False)
+    treasury_remainder_atomic: Mapped[str] = mapped_column(String(32), nullable=False)
+    claimable_atomic: Mapped[str] = mapped_column(String(32), nullable=False)
+    public_claim_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_tokoin_migration_snapshots_type", "snapshot_type"),)

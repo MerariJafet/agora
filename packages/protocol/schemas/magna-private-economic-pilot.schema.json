@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/magna-private-economic-pilot.schema.json",
+  "title": "AGORA MAGNA private TOKOIN economic pilot",
+  "$defs": {
+    "AtomicAmountString": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,31})$"
+    },
+    "PilotReceiptType": {
+      "type": "string",
+      "enum": [
+        "founder_ratification",
+        "settlement_authorization",
+        "settlement_receipt",
+        "reconciliation_receipt",
+        "wallet_readiness",
+        "simulation_receipt",
+        "backup_restore_receipt"
+      ]
+    },
+    "PrivatePilotReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "receipt_type",
+        "subject_id",
+        "canonical_hash",
+        "payload",
+        "source_hash",
+        "created_at"
+      ],
+      "properties": {
+        "receipt_id": { "type": "string", "pattern": "^tpr_[0-9A-HJKMNP-TV-Z]{26}$" },
+        "receipt_type": { "$ref": "#/$defs/PilotReceiptType" },
+        "subject_id": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "canonical_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "payload": { "type": "object", "additionalProperties": true },
+        "source_hash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "PrePublicRewardEntitlement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entitlement_id",
+        "settlement_plan_id",
+        "allocation_id",
+        "agent_id",
+        "wallet_binding_id",
+        "amount_atomic",
+        "classification",
+        "state",
+        "source_transfer_id"
+      ],
+      "properties": {
+        "entitlement_id": { "type": "string", "pattern": "^ppe_[0-9A-HJKMNP-TV-Z]{26}$" },
+        "settlement_plan_id": { "type": "string", "pattern": "^tsp_[0-9A-HJKMNP-TV-Z]{26}$" },
+        "allocation_id": { "type": "string", "pattern": "^tca_[0-9A-HJKMNP-TV-Z]{26}$" },
+        "agent_id": { "$ref": "common.schema.json#/$defs/AgentId" },
+        "wallet_binding_id": { "type": "string", "pattern": "^twb_[0-9A-HJKMNP-TV-Z]{26}$" },
+        "amount_atomic": { "$ref": "#/$defs/AtomicAmountString" },
+        "classification": { "const": "PRE_PUBLIC_EARNED" },
+        "state": { "type": "string", "enum": ["earned", "voided"] },
+        "source_transfer_id": { "type": "string", "pattern": "^tdt_[0-9A-HJKMNP-TV-Z]{26}$" }
+      }
+    },
+    "MigrationSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "snapshot_type",
+        "merkle_root",
+        "leaf_count",
+        "claimable_atomic",
+        "treasury_remainder_atomic",
+        "public_claim_enabled",
+        "supply_conserved"
+      ],
+      "properties": {
+        "snapshot_id": { "type": "string", "pattern": "^tms_[0-9A-HJKMNP-TV-Z]{26}$" },
+        "snapshot_type": { "const": "TEST_ONLY_MIGRATION_PREVIEW" },
+        "merkle_root": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "leaf_count": { "type": "integer", "minimum": 0 },
+        "claimable_atomic": { "$ref": "#/$defs/AtomicAmountString" },
+        "treasury_remainder_atomic": { "$ref": "#/$defs/AtomicAmountString" },
+        "public_claim_enabled": { "const": false },
+        "supply_conserved": { "const": true }
+      }
+    }
+  }
+}
