@@ -47,8 +47,9 @@ import {
 import { WorldStore } from "@/world/store";
 import type { AgentSemanticState, Landmark, WorldMessageEvent } from "@/world/types";
 
-const AGENT_LIST_LIMIT = 80;
+const AGENT_LIST_LIMIT = 120;
 const MESSAGE_SPACES_LIMIT = 16;
+const DEGRADED_HTTP_POLL_MS = 10_000;
 
 const FILTERS: { key: "all" | FeedKind; label: string }[] = [
   { key: "all", label: "Todo" },
@@ -423,14 +424,20 @@ export default function WorldPage() {
   }, [bootstrapped, feedPaused, loadRecentMessages]);
 
   useEffect(() => {
-    if (socketOpen) return undefined;
-    const repair = setInterval(() => {
-      void refreshSnapshot()
-        .then(() => setHealthOk(true))
-        .catch(() => setHealthOk(false));
-    }, 20_000);
+    if (!bootstrapped || socketOpen) return undefined;
+    const repairWorld = () => {
+      void Promise.allSettled([
+        refreshSnapshot(),
+        loadReadOnlySurfaces(),
+        loadRecentMessages(),
+      ]).then((results) => {
+        setHealthOk(results.some((result) => result.status === "fulfilled"));
+      });
+    };
+    repairWorld();
+    const repair = setInterval(repairWorld, DEGRADED_HTTP_POLL_MS);
     return () => clearInterval(repair);
-  }, [refreshSnapshot, socketOpen]);
+  }, [bootstrapped, loadReadOnlySurfaces, loadRecentMessages, refreshSnapshot, socketOpen]);
 
   useEffect(() => {
     if (!selectedLandmark?.mission_id) return;
