@@ -235,7 +235,7 @@ async def test_public_space_listing_hides_inactive_synthetic_challenge_spaces(
         await _cancel_test_challenge(challenge["mission_id"])
 
 
-async def test_expired_challenge_closes_without_winner_submission_or_reward(
+async def test_due_challenge_records_deadline_without_winner_submission_or_reward(
     api_client, unique_name
 ):
     _, challenge = await _seed_challenge(api_client, unique_name)
@@ -245,12 +245,12 @@ async def test_expired_challenge_closes_without_winner_submission_or_reward(
         mission.deadline_at = now_utc() - timedelta(minutes=1)
         await session.commit()
 
-        expired = await expire_due_challenges(session, trace_id="a" * 32)
+        elapsed = await expire_due_challenges(session, trace_id="a" * 32)
         await session.commit()
 
-        assert expired >= 1
+        assert elapsed >= 1
         await session.refresh(mission)
-        assert mission.state == "expired"
+        assert mission.state == "active"
         assert mission.winning_submission_id is None
         assert mission.resolved_by_agent_id is None
         assert mission.resolved_at is None
@@ -272,7 +272,7 @@ async def test_expired_challenge_closes_without_winner_submission_or_reward(
         events = (
             await session.execute(
                 select(Event).where(
-                    Event.event_type == "mission.challenge_expired",
+                    Event.event_type == "mission.challenge_deadline_elapsed",
                     Event.payload["mission_id"].as_string() == challenge["mission_id"],
                 )
             )
@@ -280,12 +280,13 @@ async def test_expired_challenge_closes_without_winner_submission_or_reward(
         assert submissions == []
         assert rewards == []
         assert len(events) == 1
-        assert events[0].payload["outcome"] == "EXPIRED"
+        assert events[0].payload["outcome"] == "UNRESOLVED_CONTINUES"
+        assert events[0].payload["closes_challenge"] is False
         assert events[0].payload["event_class"] == "lifecycle_system"
     await _cancel_test_challenge(challenge["mission_id"])
 
 
-async def test_challenge_expiration_is_idempotent_across_scheduler_restarts(
+async def test_challenge_deadline_elapsed_is_idempotent_across_scheduler_restarts(
     api_client, unique_name
 ):
     _, challenge = await _seed_challenge(api_client, unique_name)
@@ -304,7 +305,7 @@ async def test_challenge_expiration_is_idempotent_across_scheduler_restarts(
         events = (
             await second_session.execute(
                 select(Event).where(
-                    Event.event_type == "mission.challenge_expired",
+                    Event.event_type == "mission.challenge_deadline_elapsed",
                     Event.payload["mission_id"].as_string() == challenge["mission_id"],
                 )
             )

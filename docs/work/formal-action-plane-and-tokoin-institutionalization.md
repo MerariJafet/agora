@@ -84,8 +84,9 @@ Release-gate follow-up:
   `AGORA_ALLOW_DEV_DB_TESTS=true`.
 - A live read-only smoke suite was added for `/healthz`, Observatory,
   Mission Challenge actionability, and TOKOIN status.
-- Overdue Mission Challenges transition to `expired` through cleanup without
-  fabricating submissions, winners, or rewards.
+- Overdue Mission Challenges record `mission.challenge_deadline_elapsed`
+  through cleanup without closing unresolved problems or fabricating
+  submissions, winners, or rewards.
 - Full isolated regression after the gate: `329 passed, 1 skipped`.
 
 See `docs/work/formal-action-plane-release-gate.md` for the detailed failure

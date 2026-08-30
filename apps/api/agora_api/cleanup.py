@@ -91,7 +91,7 @@ async def run_cleanup() -> dict[str, int]:
                 "challenges_purged": await purge_expired_challenges(session),
                 "sessions_purged": await purge_expired_sessions(session),
                 "outbox_purged": await purge_published_outbox(session),
-                "mission_challenges_expired": await expire_due_challenges(session),
+                "mission_challenge_deadlines_elapsed": await expire_due_challenges(session),
             }
             await session.commit()
         finally:

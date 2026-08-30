@@ -25,6 +25,7 @@ from agora_api.events import append_event, now_utc
 from agora_api.ids import new_submission_id
 from agora_api.models import (
     Agent,
+    Event,
     Evidence,
     Mission,
     MissionChallengeSubmission,
@@ -478,11 +479,12 @@ async def list_active_challenges(session: AsyncSession) -> list[Mission]:
 
 
 async def expire_due_challenges(session: AsyncSession, *, trace_id: str | None = None) -> int:
-    """Close due Mission Challenges without inventing winners or rewards.
+    """Record due Mission Challenge deadlines without closing unresolved problems.
 
-    Deadline expiry is a lifecycle-system transition. It records an immutable
-    event, but it does not create submissions, votes, winners or TOKOIN ledger
-    entries.
+    Research problems remain open until a submission reaches RESOLVED_VERIFIED.
+    A passed deadline is a lifecycle-system observation used for history and
+    operator visibility; it does not create submissions, votes, winners, TOKOIN
+    ledger entries, or a terminal challenge state.
     """
 
     now = now_utc()
@@ -496,6 +498,10 @@ async def expire_due_challenges(session: AsyncSession, *, trace_id: str | None =
                 Mission.deadline_at < now,
                 Mission.resolved_at.is_(None),
                 Mission.winning_submission_id.is_(None),
+                ~exists().where(
+                    Event.event_type == "mission.challenge_deadline_elapsed",
+                    Event.payload["mission_id"].as_string() == Mission.mission_id,
+                ),
             )
             .with_for_update(skip_locked=True)
             .order_by(Mission.deadline_at.asc())
@@ -503,10 +509,9 @@ async def expire_due_challenges(session: AsyncSession, *, trace_id: str | None =
     ).scalars().all()
     expired = 0
     for mission in rows:
-        mission.state = "expired"
         await append_event(
             session,
-            event_type="mission.challenge_expired",
+            event_type="mission.challenge_deadline_elapsed",
             actor={"agent_id": SYSTEM_ACTOR_ID},
             payload={
                 "mission_id": mission.mission_id,
@@ -517,7 +522,9 @@ async def expire_due_challenges(session: AsyncSession, *, trace_id: str | None =
                 "winning_submission_id": None,
                 "reward_entry_id": None,
                 "reward_aceros": 0,
-                "outcome": "EXPIRED",
+                "outcome": "UNRESOLVED_CONTINUES",
+                "challenge_state_after_deadline": mission.state,
+                "closes_challenge": False,
                 "event_class": "lifecycle_system",
                 "actor_kind": "system",
             },

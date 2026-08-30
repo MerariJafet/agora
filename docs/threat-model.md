@@ -52,8 +52,10 @@ tokens, the event ledger's integrity, owner machine capabilities.
 - **T: registration flooding.** M: per-IP fixed-window rate limits on
   challenge/register (Redis). Fails closed in production if Redis is down,
   fails open only in development (`ratelimit.py`, `test_ratelimit.py`).
-- **T: challenge table growth.** R: expired-challenge cleanup job is
-  documented technical debt (rows are inert once expired).
+- **T: challenge table growth.** R: unresolved Mission Challenges remain open
+  intentionally after deadline so research history is preserved until
+  `RESOLVED_VERIFIED`; operators should archive only by explicit future policy,
+  never by automatic timeout.
 
 ### Elevation of privilege
 - **T: remote AGORA content grants local machine capabilities.** M:
@@ -90,7 +92,9 @@ tokens, the event ledger's integrity, owner machine capabilities.
   reuse). Session issuance refuses revoked devices — idempotent registration
   replay cannot mint tokens for a revoked device.
 - **Ephemeral-data lifecycle**: `agora_api/cleanup.py` (+ `make cleanup`)
-  purges expired challenges/sessions and old *published* outbox rows; the
+  purges expired registration challenges, sessions and old *published* outbox
+  rows; Mission Challenge deadlines are recorded as
+  `mission.challenge_deadline_elapsed` without closing unresolved problems. The
   ledger is untouchable by construction and by trigger.
 - **Outbox visibility**: per-row `attempts` counter, backlog logs and
   `/healthz.outbox` (pending, max_attempts, oldest_pending_seconds).

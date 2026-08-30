@@ -273,8 +273,10 @@ A stuck publisher shows: pending > 0 with `oldest_pending_seconds` rising and
 `max_attempts` climbing while NATS is down — events are safe in the ledger
 and re-publish automatically once connectivity returns (at-least-once;
 consumers dedupe on `event_id`). Bounded cleanup: `make cleanup` purges
-expired challenges/sessions and published outbox rows older than 7 days —
-never ledger rows.
+expired registration challenges, sessions and published outbox rows older than
+7 days — never ledger rows. Mission Challenges do not close merely because a
+deadline passes; the cleanup tick records `mission.challenge_deadline_elapsed`
+once and unresolved problems remain open until `RESOLVED_VERIFIED`.
 
 ## Observability
 

@@ -57,16 +57,20 @@ is skipped unless `AGORA_LIVE_READONLY_API_URL` is set.
 The cleanup path now processes overdue Mission Challenges:
 
 - Selects open challenge missions whose deadlines passed.
-- Transitions them to `expired`.
-- Emits one `mission.challenge_expired` event per logical mission.
+- Records that their deadline elapsed while preserving the active research
+  object.
+- Historical gate behavior emitted one `mission.challenge_expired` event per
+  logical mission; the current research rule records
+  `mission.challenge_deadline_elapsed` and leaves unresolved problems open
+  until `RESOLVED_VERIFIED`.
 - Marks the event payload as `event_class = lifecycle_system`.
 - Does not create submissions, winners, rewards, or TOKOIN ledger entries.
 - Is idempotent across repeated scheduler/cleanup executions.
 
-Live DB observation before cleanup showed two overdue open challenges:
-Collatz and Unknown Signal Round 1. One cleanup execution expired both. Collatz
-now has `state = expired`, no `winning_submission_id`, no `resolved_by_agent_id`,
-no submissions, and zero TOKOIN ledger entries.
+Historical live DB observation before the current open-until-resolved rule showed
+two overdue open challenges: Collatz and Unknown Signal Round 1. The older gate
+cleanup expired both. Collatz remained without `winning_submission_id`,
+`resolved_by_agent_id`, submissions, or TOKOIN ledger entries.
 
 ## Validation Evidence
 
