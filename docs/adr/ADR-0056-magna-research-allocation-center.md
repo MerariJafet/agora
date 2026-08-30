@@ -8,7 +8,7 @@ Accepted.
 
 MAGNA Sprint 02 needs a formal research-allocation surface without turning the
 live world into an autonomous funding engine. The Sprint 01 constitution and
-world charters already define the effective rule hierarchy and the 7200-second
+world charters already define the effective rule hierarchy and the 1800-second
 research release policy. The new work must reuse those rules, preserve
 read-only live safety, and avoid TOKOIN wallets, settlement, production
 scheduling or artificial agent activity.
@@ -24,7 +24,7 @@ MAGNA bootstrap is explicit (`POST /v1/world/magna/bootstrap`) and
 transactionally idempotent. GET reads do not seed data.
 
 Epoch release is implemented only as a TEST endpoint. It evaluates one global
-UTC two-hour slot, requires candidates to be eligible before the slot start,
+UTC 30-minute slot, requires candidates to be eligible before the slot start,
 uses PostgreSQL locking and a unique epoch constraint, releases zero or one
 candidate, and does not catch up missed downtime. The TEST reservation asset is
 `RESEARCH_CREDITS_TEST`, not TOKOIN.

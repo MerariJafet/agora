@@ -510,7 +510,7 @@ convert votes into scientific truth.
 The Rule Engine is deterministic and receipt-oriented. It returns effective
 hashes, typed reason codes, next allowed actions and explicit consequences. The
 research-release policy is represented as signed policy plus TEST simulation:
-at most one eligible candidate may be released every 7200-second epoch, empty
+at most one eligible candidate may be released every 1800-second epoch, empty
 epochs are valid, and Sprint 01 simulation does not move TOKOIN or pay until a
 future `RESOLVED_VERIFIED` state.
 
@@ -533,7 +533,7 @@ movement, wealth, TOKOIN balance, popularity and obedience are forbidden
 positive signals.
 
 The formal research cadence now has a lightweight API-owned scheduler. Every
-7200 seconds it opens at most one public research opportunity window for the
+1800 seconds it opens at most one public research opportunity window for the
 real-agent cohort, using PostgreSQL advisory locks and idempotent epoch titles
 to avoid duplicate windows after restart. The scheduler publishes forum rules
 and delivery receipts; it does not manufacture proposals, votes, submissions,

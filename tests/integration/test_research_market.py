@@ -334,8 +334,8 @@ async def test_thirty_day_simulation_is_read_only(api_client, keypair, unique_na
     )
     assert simulated.status_code == 200, simulated.text
     body = simulated.json()
-    assert body["epochs"] == 360
-    assert body["max_possible_releases"] == 360
+    assert body["epochs"] == 1440
+    assert body["max_possible_releases"] == 1440
     assert body["mutates_database"] is False
     async with session_factory()() as session:
         after = (

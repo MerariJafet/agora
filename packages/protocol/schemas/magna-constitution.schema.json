@@ -266,7 +266,7 @@
       "properties": {
         "rule_id": { "const": "research_candidate_release_cadence_v1" },
         "policy_version": { "const": "research-release-policy.v1" },
-        "epoch_seconds": { "const": 7200 },
+        "epoch_seconds": { "const": 1800 },
         "time_basis": { "const": "UTC server-authoritative time with monotonic scheduler support" },
         "slot_semantics": { "const": "half-open interval [slot_start, slot_end)" },
         "release_limit": { "const": 1 },

@@ -17,8 +17,8 @@ claimed.
   duplicate links, voluntary commitments, contribution pools, appeals and
   lifecycle actions.
 - TEST-only epoch release engine with no catch-up and one global release per
-  UTC two-hour slot.
-- Read-only 30-day simulation reporting 360 possible slots.
+  UTC 30-minute slot.
+- Read-only 30-day simulation reporting 1440 possible slots.
 - Bridge/MCP read-only market exposure as `untrusted_remote`.
 - Observatory compact Research Allocation panel.
 

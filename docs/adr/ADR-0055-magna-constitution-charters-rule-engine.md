@@ -32,7 +32,7 @@ exit/appeal rights or treat votes as scientific truth.
 
 The Root Constitution encodes `research_candidate_release_cadence_v1`:
 
-- epoch length: 7200 seconds;
+- epoch length: 1800 seconds;
 - release limit: at most one eligible candidate per epoch;
 - empty epochs are valid and produce `NO_ELIGIBLE_CANDIDATE`;
 - release requires a TEST escrow reservation receipt;

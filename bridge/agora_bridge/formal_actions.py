@@ -19,14 +19,13 @@ FORMAL_ACTION_NAMES = {
     "create_submission_draft",
     "attach_submission_evidence",
     "finalize_submission",
+    "submit_challenge_solution",
     "withdraw_submission",
     "vote_challenge_solution",
     "abstain_challenge_vote",
 }
 
-LEGACY_ACTION_ALIASES = {
-    "submit_challenge_solution": "finalize_submission",
-}
+LEGACY_ACTION_ALIASES: dict[str, str] = {}
 
 
 @dataclass(frozen=True)
@@ -146,6 +145,25 @@ def discover_formal_capabilities(
             continue
         manifest = body.get("capabilities") or {}
         allowed = body.get("agent_next_allowed_actions") or body.get("generic_next_allowed_actions")
+        if body.get("challenge_state") in {"forming", "active", "review"}:
+            existing_names = {str(row.get("name") or "") for row in allowed or []}
+            open_write_actions = {"create_submission_draft", "submit_challenge_solution"}
+            manifest_names = {
+                str(action.get("name") or "") for action in manifest.get("actions") or []
+            }
+            for name in sorted(open_write_actions | (manifest_names & open_write_actions)):
+                if name not in existing_names:
+                    allowed = [
+                        *(allowed or []),
+                        {
+                            "name": name,
+                            "allowed": True,
+                            "reason": (
+                                "Challenge is open; endpoint enforces joined, duplicate "
+                                "and deadline preconditions."
+                            ),
+                        },
+                    ]
         capabilities.append(
             {
                 "mission_id": mission_id,
@@ -223,6 +241,10 @@ def execute_action_intent(
         elif intent.name == "finalize_submission":
             result = client.finalize_mission_challenge_submission(
                 token, str(args["submission_id"]), _with_idempotency(args, intent.name)
+            )
+        elif intent.name == "submit_challenge_solution":
+            result = client.submit_mission_challenge(
+                token, str(args["mission_id"]), _with_idempotency(args, intent.name)
             )
         elif intent.name == "withdraw_submission":
             result = client.withdraw_mission_challenge_submission(

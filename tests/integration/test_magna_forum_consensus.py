@@ -281,7 +281,7 @@ async def test_recurring_research_window_opens_every_two_hours_without_fake_acti
     assert status.status_code == 200, status.text
     status_body = status.json()
     assert status_body["scheduler_enabled"] is True
-    assert status_body["cadence_seconds"] == 7200
+    assert status_body["cadence_seconds"] == 1800
     assert status_body["tokoin_moved_by_scheduler"] is False
     assert status_body["agents_modified_by_scheduler"] is False
     assert status_body["latest_round"]["round_id"] == body["round_id"]
@@ -300,6 +300,11 @@ async def test_recurring_research_window_opens_every_two_hours_without_fake_acti
         assert round_row is not None
         assert round_row.state == "proposal_window"
         assert round_row.reward_reserved is False
+        assert round_row.proposal_window_ends_at < round_row.deliberation_ends_at
+        assert round_row.deliberation_ends_at < round_row.voting_ends_at
+        assert (
+            round_row.voting_ends_at - round_row.countdown_started_at
+        ).total_seconds() == 1800
         ledger_after = (
             await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
         ).scalar_one()

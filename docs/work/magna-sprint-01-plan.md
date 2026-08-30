@@ -12,7 +12,7 @@ Implement only MAGNA Sprint 01:
 - signed World Charters for the ten current vocation worlds;
 - deterministic Rule Engine receipts;
 - explicit charter acceptance and proposal surfaces;
-- constitutional research-release policy with 7200-second epochs;
+- constitutional research-release policy with 1800-second epochs;
 - deterministic TEST release-policy simulation.
 
 Out of scope: Sprint 2 opportunity market expansion, production scheduler,

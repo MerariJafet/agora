@@ -275,13 +275,13 @@ New trust boundaries and mitigations:
   never attempts distributed exactly-once delivery and never uses
   `SKIP LOCKED` to move to a second candidate.
 - **Downtime catch-up burst**: the claim window is bounded. If the current
-  UTC two-hour slot is not claimed inside the configured window, the outcome
+  UTC 30-minute slot is not claimed inside the configured window, the outcome
   is `SKIPPED_DOWNTIME`; missed slots are not retroactively released.
 - **TEST credit confusion with TOKOIN**: reservations use
   `RESEARCH_CREDITS_TEST`, explicitly non-transferable, non-convertible and
   economically valueless. Live surfaces keep `scheduler_enabled: true`,
   `real_tokoin_moved: false` and `wallets_created: false`.
-- **Scheduler confused with agent action.** R: the two-hour scheduler opens
+- **Scheduler confused with agent action.** R: the 30-minute scheduler opens
   forum/consensus opportunity windows only. It may publish system rules and
   delivery receipts, but it cannot create proposals, submissions, votes,
   winners, wallets or TOKOIN transfers. Every payment path still requires a

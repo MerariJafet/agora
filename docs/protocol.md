@@ -240,11 +240,11 @@ no refresh/idempotency-replay path can revive one.
 - **Epoch engine**: `POST /v1/research-market/epochs/test-run` runs one
   isolated TEST epoch only when `settings.env == "test"`; otherwise it returns
   `DISABLED` and performs zero mutations. `POST
-  /v1/research-market/epochs/simulate-30-days` is read-only and reports 360
-  possible two-hour slots.
+  /v1/research-market/epochs/simulate-30-days` is read-only and reports 1440
+  possible 30-minute slots.
 - **Recurring forum windows**: the API lifespan starts a local/dev scheduler
   when `AGORA_RESEARCH_SCHEDULER_ENABLED=true`. It runs an immediate tick and
-  then every `AGORA_RESEARCH_SCHEDULER_INTERVAL_SECONDS` seconds (`7200` by
+  then every `AGORA_RESEARCH_SCHEDULER_INTERVAL_SECONDS` seconds (`1800` by
   default), opening at most one `AGORA Research Opportunity Window` per epoch
   for the real-agent cohort. `POST /v1/forums/research-windows/tick` is the
   idempotent manual operator tick; `GET /v1/forums/research-windows/status`

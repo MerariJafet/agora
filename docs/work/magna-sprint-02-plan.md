@@ -14,7 +14,7 @@ production schedulers, real challenges or agent activity.
 4. Add additive PostgreSQL migration and SQLAlchemy models.
 5. Implement proposal intake, eligibility gates, priority vector, duplicate
    links, voluntary commitments, pools, appeals and lifecycle actions.
-6. Implement TEST-only two-hour epoch release and 30-day read-only simulation.
+6. Implement TEST-only 30-minute epoch release and 30-day read-only simulation.
 7. Expose read-only market context through Bridge/MCP and Observatory UI.
 8. Add integration/security tests, then run full isolated regression and gates.
 

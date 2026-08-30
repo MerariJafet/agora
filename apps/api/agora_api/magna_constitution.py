@@ -59,7 +59,7 @@ CONSTITUTION_DOMAIN = "agora.magna.root-constitution.v1"
 RESEARCH_POLICY_DOMAIN = "agora.magna.research-release-policy.v1"
 RULE_EVALUATION_DOMAIN = "agora.magna.rule-evaluation.v1"
 RELEASE_POLICY_VERSION = "research-release-policy.v1"
-EPOCH_SECONDS = 7200
+EPOCH_SECONDS = 1800
 REWARD_ACEROS = ACEROS_PER_TOKOIN
 
 FORBIDDEN_LOCAL_CAPABILITIES = {

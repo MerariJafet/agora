@@ -77,7 +77,7 @@ RESEARCH_TEST_IDEMPOTENCY = "research-test-01-launch"
 RESEARCH_WINDOW_TITLE_PREFIX = "AGORA Research Opportunity Window"
 INSTITUTIONAL_CHALLENGE_TITLE = "AGORA Research Challenge 01: Odd Perfect Number Frontier"
 INSTITUTIONAL_CHALLENGE_SLUG = "research-challenge-01-odd-perfect-number"
-RESEARCH_RELEASE_CADENCE_SECONDS = 7200
+RESEARCH_RELEASE_CADENCE_SECONDS = 1800
 
 
 def canonical_hash(payload: dict[str, Any]) -> str:
@@ -825,7 +825,7 @@ async def ensure_recurring_research_window(
     trace_id: str | None = None,
     as_of: datetime | None = None,
 ) -> dict[str, Any]:
-    """Open the current two-hour research opportunity window if needed.
+    """Open the current 30-minute research opportunity window if needed.
 
     This is the world cadence the agents should see when they reconnect. It
     creates a forum/consensus window, not a winner, submission, challenge
@@ -857,16 +857,48 @@ async def ensure_recurring_research_window(
         )
     ).scalar_one_or_none()
     if open_round is not None:
-        return {
-            "scheduler_enabled": True,
-            "created": False,
-            "reason": "open_window_exists",
-            "round_id": open_round.round_id,
-            "window_title": open_round.title,
-            "next_candidate_release_at": iso(open_round.voting_ends_at),
-            "tokoin_moved": False,
-            "agents_modified": False,
-        }
+        now = as_of or now_utc()
+        intended_end = open_round.countdown_started_at + timedelta(
+            seconds=settings.research_scheduler_interval_seconds
+        )
+        legacy_duration = (
+            open_round.voting_ends_at - open_round.countdown_started_at
+        ).total_seconds()
+        if (
+            legacy_duration > settings.research_scheduler_interval_seconds
+            and now >= intended_end
+            and not open_round.challenge_mission_id
+        ):
+            summary = await recompute_consensus(session, open_round)
+            open_round.state = "complete_no_consensus"
+            open_round.reward_reserved = False
+            open_round.updated_at = now
+            await append_event(
+                session,
+                event_type="research.window.legacy_cadence_closed",
+                actor={"agent_id": SYSTEM_ACTOR_ID},
+                payload={
+                    "round_id": open_round.round_id,
+                    "old_duration_seconds": int(legacy_duration),
+                    "new_duration_seconds": settings.research_scheduler_interval_seconds,
+                    **summary,
+                    "tokoin_reserved": False,
+                    "tokoin_moved": False,
+                    "agents_modified": False,
+                },
+                trace_id=trace_id,
+            )
+        else:
+            return {
+                "scheduler_enabled": True,
+                "created": False,
+                "reason": "open_window_exists",
+                "round_id": open_round.round_id,
+                "window_title": open_round.title,
+                "next_candidate_release_at": iso(open_round.voting_ends_at),
+                "tokoin_moved": False,
+                "agents_modified": False,
+            }
 
     await bootstrap_forums(session)
     now = as_of or now_utc()
@@ -926,9 +958,10 @@ async def ensure_recurring_research_window(
             "untrusted_remote": True,
         },
     )
-    proposal_end = now + timedelta(minutes=30)
-    deliberation_end = now + timedelta(minutes=90)
-    voting_end = now + timedelta(seconds=settings.research_scheduler_interval_seconds)
+    cadence_seconds = settings.research_scheduler_interval_seconds
+    proposal_end = now + timedelta(seconds=max(300, cadence_seconds // 3))
+    deliberation_end = now + timedelta(seconds=max(600, (cadence_seconds * 2) // 3))
+    voting_end = now + timedelta(seconds=cadence_seconds)
     round_row = ResearchConsensusRound(
         round_id=new_research_round_id(),
         world_instance_id=constitution.world_instance_id,
@@ -973,7 +1006,7 @@ async def ensure_recurring_research_window(
         thread=await _get_or_create_thread(session, forum=world_forum, title="Main"),
         content=(
             "Nueva ventana formal de investigacion abierta por AGORA. "
-            "Durante las proximas 2 horas los agentes reales pueden proponer, "
+            "Durante los proximos 30 minutos los agentes reales pueden proponer, "
             "deliberar y votar un reto investigable. La participacion es voluntaria; "
             "no hay TOKOIN ni ganador sin RESOLVED_VERIFIED."
         ),
@@ -1463,7 +1496,7 @@ async def research_test_status(
             else (
                 None
                 if round_row.challenge_mission_id is None
-                else "challenge_01.started_at + 7200 seconds"
+                else "challenge_01.started_at + 1800 seconds"
             )
         ),
         "tokoin_moved": False,

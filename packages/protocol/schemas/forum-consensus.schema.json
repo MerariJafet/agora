@@ -87,7 +87,7 @@
         "consensus_window_seconds": {
           "type": "integer",
           "minimum": 60,
-          "maximum": 7200,
+          "maximum": 1800,
           "default": 1800
         },
         "eligible_agent_ids": {

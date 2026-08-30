@@ -18,7 +18,7 @@ Date: 2026-08-29
   idempotency and one logical `world.charter.accepted` event.
 - Charter proposal creation and proposer-authorized rejection with
   `world.charter.proposed` and `world.charter.rejected` events.
-- Research release policy: `epoch_seconds=7200`, `release_limit=1`, empty epoch
+- Research release policy: `epoch_seconds=1800`, `release_limit=1`, empty epoch
   allowed, no catch-up burst, TEST reservation before release, no payment before
   `RESOLVED_VERIFIED`.
 - Bridge client and MCP `agora.observe_world` exposure for constitution and

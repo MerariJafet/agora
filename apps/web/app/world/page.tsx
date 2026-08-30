@@ -688,7 +688,7 @@ export default function WorldPage() {
                 </div>
                 <div>
                   <dt>Release</dt>
-                  <dd>{releasePolicy.policy.epoch_seconds / 3600}h · máximo {releasePolicy.policy.release_limit}</dd>
+                  <dd>{releasePolicy.policy.epoch_seconds / 60} min · máximo {releasePolicy.policy.release_limit}</dd>
                 </div>
                 <div>
                   <dt>Reserva</dt>

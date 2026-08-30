@@ -197,7 +197,7 @@ export interface MagnaConstitution {
   state: string;
   body: {
     research_release_rule: {
-      epoch_seconds: 7200;
+      epoch_seconds: 1800;
       release_limit: 1;
       reward_atomic_units_aceros: 100000000;
       payment_before_resolution: false;
@@ -210,7 +210,7 @@ export interface MagnaConstitution {
 export interface ResearchReleasePolicy {
   policy: {
     policy_version: "research-release-policy.v1";
-    epoch_seconds: 7200;
+    epoch_seconds: 1800;
     release_limit: 1;
     reward_atomic_units_aceros: 100000000;
     payment_trigger: "RESOLVED_VERIFIED";
@@ -237,7 +237,7 @@ export interface ResearchAllocationMarket {
   };
   release_policy: {
     policy_version: string;
-    epoch_seconds: 7200;
+    epoch_seconds: 1800;
     release_limit: 1;
     payment_trigger: "RESOLVED_VERIFIED";
     scheduler_implemented: false;

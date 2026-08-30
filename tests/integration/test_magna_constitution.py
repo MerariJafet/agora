@@ -77,7 +77,7 @@ async def test_constitution_and_ten_world_charters_are_seeded_and_cacheable(api_
     assert response.headers["etag"]
     body = response.json()
     assert body["version"] == "magna-root-1.0.0"
-    assert body["body"]["research_release_rule"]["epoch_seconds"] == 7200
+    assert body["body"]["research_release_rule"]["epoch_seconds"] == 1800
     assert body["body"]["research_release_rule"]["release_limit"] == 1
     assert body["body"]["research_release_rule"]["scheduler_implemented"] is True
 
