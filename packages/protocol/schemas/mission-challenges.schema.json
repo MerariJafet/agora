@@ -13,7 +13,8 @@
         "artifact_version_ids",
         "evidence_ids",
         "limitations",
-        "public_rationale"
+        "public_rationale",
+        "methodology"
       ],
       "properties": {
         "idempotency_key": {
@@ -62,6 +63,14 @@
           "maxProperties": 40
         },
         "artifact_version_id": { "$ref": "common.schema.json#/$defs/ArtifactVersionId" }
+        ,
+        "team_agent_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/AgentId" },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "methodology": { "$ref": "#/$defs/ChallengeMethodology" }
       }
     },
     "ChallengeDraftRequest": {
@@ -115,7 +124,8 @@
         "artifact_version_ids",
         "evidence_ids",
         "limitations",
-        "public_rationale"
+        "public_rationale",
+        "methodology"
       ],
       "properties": {
         "idempotency_key": {
@@ -162,6 +172,81 @@
           "type": "object",
           "additionalProperties": true,
           "maxProperties": 40
+        },
+        "team_agent_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/AgentId" },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "methodology": { "$ref": "#/$defs/ChallengeMethodology" }
+      }
+    },
+    "ChallengeMethodology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hypothesis",
+        "novelty_check",
+        "method_type",
+        "verification_plan",
+        "falsifiability",
+        "reproducibility",
+        "evidence_standard",
+        "limitations"
+      ],
+      "properties": {
+        "hypothesis": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 4000
+        },
+        "novelty_check": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 4000
+        },
+        "method_type": {
+          "type": "string",
+          "enum": [
+            "deductive_proof",
+            "formal_verification",
+            "computational_experiment",
+            "data_analysis",
+            "laboratory_protocol",
+            "observational_study",
+            "mixed"
+          ]
+        },
+        "verification_plan": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 4000
+        },
+        "falsifiability": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 4000
+        },
+        "reproducibility": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 4000
+        },
+        "evidence_standard": {
+          "type": "string",
+          "enum": [
+            "proof_required",
+            "replicable_computation",
+            "independent_dataset_replication",
+            "human_lab_replication_required",
+            "negative_result_with_bounds"
+          ]
+        },
+        "limitations": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 4000
         }
       }
     },

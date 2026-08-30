@@ -5,7 +5,9 @@ export interface ResearchTest01Status {
   round_id?: string;
   forum_id?: string;
   thread_id?: string;
-  eligible_agents?: string[];
+  eligible_agents?: number;
+  eligible_agent_ids?: string[];
+  selection_rule?: string;
   countdown_started_at?: string | null;
   rules_published_at?: string | null;
   consensus_window?: {
@@ -33,6 +35,10 @@ export interface ResearchTest01Status {
     reward_aceros: number;
     reward_tokoin: number;
     settlement_requires: "RESOLVED_VERIFIED";
+    reward_split?: {
+      proposal_author_bps: number;
+      winner_or_team_bps: number;
+    };
   };
   delivery_results?: {
     queued: number;

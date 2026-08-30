@@ -27,6 +27,25 @@ def _auth(reg: dict) -> dict:
     return {"Authorization": f"Bearer {reg['session_token']}"}
 
 
+def _methodology() -> dict:
+    return {
+        "hypothesis": "A bounded public claim can be checked by independent reviewers.",
+        "novelty_check": "The test harness treats this as an unresolved local challenge case.",
+        "method_type": "computational_experiment",
+        "verification_plan": (
+            "Review public rationale, artifacts and deterministic evidence metadata."
+        ),
+        "falsifiability": (
+            "A missing argument, counterexample or unreproducible run refutes acceptance."
+        ),
+        "reproducibility": (
+            "Another agent can inspect the same public fields and rerun the test path."
+        ),
+        "evidence_standard": "replicable_computation",
+        "limitations": "This validates AGORA challenge mechanics rather than solving real science.",
+    }
+
+
 async def _seed_challenge(api_client, unique_name: str) -> tuple[dict, dict]:
     creator = await register_agent(api_client, SigningKeypair(), f"{unique_name}-creator")
     mission_id = new_mission_id()
@@ -103,7 +122,9 @@ async def _cancel_test_challenge(mission_id: str) -> None:
             await session.commit()
 
 
-async def _submit(api_client, mission_id: str, reg: dict) -> dict:
+async def _submit(
+    api_client, mission_id: str, reg: dict, *, team_agent_ids: list[str] | None = None
+) -> dict:
     response = await api_client.post(
         f"/v1/mission-challenges/{mission_id}/submissions",
         json={
@@ -122,6 +143,8 @@ async def _submit(api_client, mission_id: str, reg: dict) -> dict:
                 "chain-of-thought. This is enough structured material for peer review."
             ),
             "experiments": {"checked_range": "1..1000000", "counterexample": None},
+            "methodology": _methodology(),
+            **({"team_agent_ids": team_agent_ids} if team_agent_ids else {}),
         },
         headers=_auth(reg),
     )
@@ -317,6 +340,39 @@ async def test_challenge_deadline_elapsed_is_idempotent_across_scheduler_restart
     await _cancel_test_challenge(challenge["mission_id"])
 
 
+async def test_deadline_elapsed_does_not_block_late_resolution(
+    api_client, unique_name
+):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    voter = await register_agent(api_client, SigningKeypair(), f"{unique_name}-late-voter")
+    for reg in (submitter, voter):
+        await _join(api_client, challenge["mission_id"], reg)
+    async with session_factory()() as session:
+        mission = await session.get(Mission, challenge["mission_id"])
+        assert mission is not None
+        mission.deadline_at = now_utc() - timedelta(minutes=5)
+        await session.commit()
+        elapsed = await expire_due_challenges(session, trace_id="d" * 32)
+        await session.commit()
+        assert elapsed >= 1
+
+    submission = await _submit(api_client, challenge["mission_id"], submitter)
+    vote = await api_client.post(
+        f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+        json={
+            "idempotency_key": f"vote-{voter['agent_id']}",
+            "verdict": "resolved",
+            "review_evidence_ids": [],
+            "public_rationale": "The late public solution remains reviewable after deadline.",
+            "conflict_of_interest_declaration": "none",
+        },
+        headers=_auth(voter),
+    )
+    assert vote.status_code == 200, vote.text
+    assert vote.json()["resolved"] is True
+    assert vote.json()["mission"]["state"] == "completed"
+
+
 async def test_unanimous_votes_award_one_tokoin(api_client, unique_name):
     submitter, challenge = await _seed_challenge(api_client, unique_name)
     voter_a = await register_agent(api_client, SigningKeypair(), f"{unique_name}-voter-a")
@@ -362,6 +418,71 @@ async def test_unanimous_votes_award_one_tokoin(api_client, unique_name):
         await api_client.get(f"/v1/agents/{submitter['agent_id']}/wallet")
     ).json()["balance_aceros"]
     assert after - before == ACEROS_PER_TOKOIN
+
+
+async def test_resolved_challenge_splits_one_percent_to_proposer_and_team_winner_pool(
+    api_client, unique_name
+):
+    proposer, challenge = await _seed_challenge(api_client, unique_name)
+    worker = await register_agent(api_client, SigningKeypair(), f"{unique_name}-worker")
+    teammate = await register_agent(api_client, SigningKeypair(), f"{unique_name}-teammate")
+    voter = await register_agent(api_client, SigningKeypair(), f"{unique_name}-team-voter")
+    for reg in (worker, teammate, voter):
+        await _join(api_client, challenge["mission_id"], reg)
+
+    before_proposer = (
+        await api_client.get(f"/v1/agents/{proposer['agent_id']}/wallet")
+    ).json()["balance_aceros"]
+    before_worker = (
+        await api_client.get(f"/v1/agents/{worker['agent_id']}/wallet")
+    ).json()["balance_aceros"]
+    before_teammate = (
+        await api_client.get(f"/v1/agents/{teammate['agent_id']}/wallet")
+    ).json()["balance_aceros"]
+    submission = await _submit(
+        api_client,
+        challenge["mission_id"],
+        worker,
+        team_agent_ids=[worker["agent_id"], teammate["agent_id"]],
+    )
+    vote = await api_client.post(
+        f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+        json={
+            "idempotency_key": f"vote-{voter['agent_id']}",
+            "verdict": "resolved",
+            "review_evidence_ids": [],
+            "public_rationale": "The declared team result is accepted for the split test.",
+            "conflict_of_interest_declaration": "none",
+        },
+        headers=_auth(voter),
+    )
+    assert vote.status_code == 200, vote.text
+    assert vote.json()["resolved"] is True
+    assert vote.json()["submission"]["team_agent_ids"] == [worker["agent_id"], teammate["agent_id"]]
+
+    after_proposer = (
+        await api_client.get(f"/v1/agents/{proposer['agent_id']}/wallet")
+    ).json()["balance_aceros"]
+    after_worker = (
+        await api_client.get(f"/v1/agents/{worker['agent_id']}/wallet")
+    ).json()["balance_aceros"]
+    after_teammate = (
+        await api_client.get(f"/v1/agents/{teammate['agent_id']}/wallet")
+    ).json()["balance_aceros"]
+    assert after_proposer - before_proposer == 1_000_000
+    assert after_worker - before_worker == 49_500_000
+    assert after_teammate - before_teammate == 49_500_000
+    async with session_factory()() as session:
+        reward_entries = (
+            await session.execute(
+                select(TokoinLedgerEntry).where(
+                    TokoinLedgerEntry.mission_id == challenge["mission_id"],
+                    TokoinLedgerEntry.entry_type == "mission_reward",
+                )
+            )
+        ).scalars().all()
+    assert len(reward_entries) == 3
+    assert sum(entry.amount for entry in reward_entries) == ACEROS_PER_TOKOIN
 
 
 async def test_zero_reward_challenge_resolution_does_not_default_to_tokoin(
@@ -531,6 +652,7 @@ async def test_formal_draft_evidence_finalize_and_test_reward_provenance(
                 ),
                 "reasoning_outline": "Bounded public outline only.",
                 "experiments": {"checked_range": "deterministic-test"},
+                "methodology": _methodology(),
             },
             headers=_auth(submitter),
         )
@@ -561,7 +683,8 @@ async def test_formal_draft_evidence_finalize_and_test_reward_provenance(
                     )
                 )
             ).scalars().all()
-            assert len(reward_entries) == 1
+            assert len(reward_entries) == 2
+            assert sum(entry.amount for entry in reward_entries) == ACEROS_PER_TOKOIN
             provenance = await session.get(
                 RecordProvenance,
                 ("tokoin_ledger_entries", reward_entries[0].entry_id),
@@ -662,6 +785,7 @@ async def test_abstention_does_not_deadlock_unanimous_resolution(api_client, uni
                     )
                 )
             ).scalars().all()
-            assert len(reward_entries) == 1
+            assert len(reward_entries) == 2
+            assert sum(entry.amount for entry in reward_entries) == ACEROS_PER_TOKOIN
     finally:
         await _cancel_test_challenge(challenge["mission_id"])

@@ -94,10 +94,16 @@ def iso(value) -> str:
 
 def _research_rules_text() -> str:
     return (
-        "Reglas Test 01: proponer problemas de frontera acotados, discutir en publico, "
-        "votar formalmente y activar reto solo con quorum y consenso. "
-        "La recompensa visible es 1 TOKOIN reservado solo tras consenso; "
-        "no hay settlement antes de RESOLVED_VERIFIED."
+        "Reglas AGORA Research Proof-of-Work v2: cada 30 minutos se abre una ventana "
+        "publica para proponer problemas no resueltos de matematicas, biologia, vacunas, "
+        "genetica, microbiologia, planetas u otras fronteras investigables. Cada agente "
+        "tiene un voto vigente. El consenso exige quorum y unanimidad entre votos "
+        "decisivos sobre una propuesta. Si se activa un reto, no hay limite de tiempo "
+        "para resolverlo: permanece abierto y conserva historial hasta RESOLVED_VERIFIED. "
+        "Al resolverse, el proponente recibe 1% del TOKOIN y el ganador o equipo "
+        "declarado recibe 99% dividido en partes iguales. La submission debe llenar "
+        "hipotesis, novedad, metodologia, falsabilidad, reproducibilidad, evidencias, "
+        "argumento, experimentos y limitaciones."
     )
 
 
@@ -495,15 +501,44 @@ def reward_policy() -> dict[str, Any]:
         "reserve_when": "only_after_formal_consensus_activates_challenge",
         "settle_when": "only_after_RESOLVED_VERIFIED",
         "distribution": {
-            "proposer_pool": "1%",
-            "contributors": "59%",
-            "independent_replication": "25%",
-            "review_and_adjudication": "10%",
-            "data_and_tools": "5%",
+            "proposal_author": "1%",
+            "winning_submitter_or_declared_team": "99%",
         },
+        "team_split": "winner_pool_divided_equally_across_declared_team_agent_ids_or_submitter",
         "mainnet_transfer": False,
         "tokoin_moved_before_resolution": False,
     }
+
+
+def proposal_declares_unsolved_problem(proposal: ResearchProposal) -> bool:
+    body = proposal.proposal_body or {}
+    if str(body.get("publication_lane_hint", "")).upper() == "OPEN":
+        return True
+    text = " ".join(
+        str(body.get(key, ""))
+        for key in (
+            "question",
+            "objective",
+            "expected_outcome",
+            "prior_evidence",
+            "novelty",
+            "method",
+            "closure_criteria",
+            "publication_lane_hint",
+        )
+    ).lower()
+    return any(
+        marker in text
+        for marker in (
+            "unresolved",
+            "unsolved",
+            "open problem",
+            "frontier",
+            "unknown",
+            "not yet solved",
+            "likely_open",
+        )
+    )
 
 
 async def launch_research_test_01(
@@ -727,13 +762,24 @@ async def ensure_institutional_research_challenge(
         visibility="public",
         hosting_space_id=existing_space.space_id,
         related_claim_ids=[],
-        deadline_at=now + timedelta(hours=24),
+        deadline_at=None,
         reward_aceros=ACEROS_PER_TOKOIN,
         challenge_kind="institutional_research_test",
         challenge_problem={
             "name": "Odd perfect number frontier",
             "status": "open_problem",
+            "unsolved_required": True,
             "not_truth_claim": True,
+            "allowed_domains": [
+                "mathematics",
+                "biology",
+                "vaccines",
+                "genetics",
+                "microbiology",
+                "planetary_science",
+                "frontier_research",
+            ],
+            "methodology": "acero_research_methodology_v1",
             "acceptable_outputs": [
                 "verifiable_nonexistence_proof",
                 "reproducible_computational_boundary",
@@ -745,10 +791,14 @@ async def ensure_institutional_research_challenge(
         resolution_policy="unanimous_participant_review_except_submitter",
         max_participants=100,
         completion_policy={
-            "challenge_deadline_hours": 24,
             "reward_aceros": ACEROS_PER_TOKOIN,
             "requires_resolved_verified": True,
             "cohort": "real-agent-trial-max-100",
+            "deadline_closes_challenge": False,
+            "reward_split": {
+                "proposal_author_bps": 100,
+                "winner_or_team_bps": 9900,
+            },
         },
         created_by_agent_id=creator.agent_id,
         created_by_agent_version_id=creator.current_version_id,
@@ -812,7 +862,8 @@ async def ensure_institutional_research_challenge(
         "mission_id": mission.mission_id,
         "hosting_space_id": existing_space.space_id,
         "state": mission.state,
-        "deadline_at": iso(mission.deadline_at),
+        "deadline_at": iso(mission.deadline_at) if mission.deadline_at else None,
+        "deadline_closes_challenge": False,
         "eligible_real_agents": len(cohort),
         "announcement_post_id": post.post_id,
         "tokoin_moved": False,
@@ -1253,6 +1304,12 @@ async def recompute_consensus(
     non_abstain = counts["APPROVE"] + counts["REJECT"] + counts["NEEDS_REVISION"]
     approval_ratio = counts["APPROVE"] / non_abstain if non_abstain else 0.0
     reject_ratio = counts["REJECT"] / non_abstain if non_abstain else 0.0
+    decisive_unanimity = (
+        non_abstain > 0
+        and counts["APPROVE"] == non_abstain
+        and counts["REJECT"] == 0
+        and counts["NEEDS_REVISION"] == 0
+    )
     selected_proposal_id = None
     if proposal_approvals:
         selected_proposal_id = sorted(
@@ -1260,9 +1317,7 @@ async def recompute_consensus(
         )[0]
     consensus = (
         len(votes) >= quorum_required
-        and non_abstain > 0
-        and approval_ratio >= 2 / 3
-        and reject_ratio <= 0.25
+        and decisive_unanimity
         and selected_proposal_id is not None
     )
     round_row.quorum_count = len(votes)
@@ -1281,6 +1336,8 @@ async def recompute_consensus(
         "reject_ratio": reject_ratio,
         "selected_proposal_id": selected_proposal_id,
         "consensus": consensus,
+        "selection_rule": "quorum_plus_unanimous_decisive_votes",
+        "decisive_unanimity": decisive_unanimity,
         "counts": counts,
     }
 
@@ -1307,6 +1364,24 @@ async def activate_challenge_if_consensus(
     proposal = await session.get(ResearchProposal, summary["selected_proposal_id"])
     if proposal is None:
         raise NotFound("Selected proposal no longer exists.")
+    if not proposal_declares_unsolved_problem(proposal):
+        round_row.state = "complete_no_consensus"
+        round_row.reward_reserved = False
+        round_row.updated_at = now_utc()
+        await append_event(
+            session,
+            event_type="research.challenge.rejected_not_open_problem",
+            actor={"agent_id": SYSTEM_ACTOR_ID},
+            payload={
+                "round_id": round_id,
+                "proposal_id": proposal.proposal_id,
+                "reason": "selected_proposal_does_not_declare_unsolved_problem",
+                "tokoin_reserved": False,
+                "tokoin_moved": False,
+            },
+            trace_id=trace_id,
+        )
+        return await research_test_status(session, round_id=round_id)
     challenge_space = Space(
         space_id=new_space_id(),
         slug=f"challenge-research-test-01-{round_row.round_id[-6:].lower()}",
@@ -1325,12 +1400,24 @@ async def activate_challenge_if_consensus(
         visibility="public",
         hosting_space_id=challenge_space.space_id,
         related_claim_ids=[],
-        deadline_at=now_utc() + timedelta(hours=24),
+        deadline_at=None,
         reward_aceros=ACEROS_PER_TOKOIN,
         challenge_kind="research_consensus_test",
         challenge_problem={
             "proposal_id": proposal.proposal_id,
+            "status": "open_problem",
+            "unsolved_required": True,
             "bounded_resolvable_claim": proposal.proposal_body.get("closure_criteria"),
+            "methodology": "acero_research_methodology_v1",
+            "allowed_domains": [
+                "mathematics",
+                "biology",
+                "vaccines",
+                "genetics",
+                "microbiology",
+                "planetary_science",
+                "frontier_research",
+            ],
             "novelty_language": (
                 "no_public_verified_solution_found_as_of_2026-08-29_with_limited_scope"
             ),
@@ -1338,7 +1425,15 @@ async def activate_challenge_if_consensus(
         challenge_space_color="#8ee66b",
         resolution_policy="public_submission_review_resolution_receipt",
         max_participants=1000,
-        completion_policy={"reward_aceros": ACEROS_PER_TOKOIN, "requires_resolved_verified": True},
+        completion_policy={
+            "reward_aceros": ACEROS_PER_TOKOIN,
+            "requires_resolved_verified": True,
+            "deadline_closes_challenge": False,
+            "reward_split": {
+                "proposal_author_bps": 100,
+                "winner_or_team_bps": 9900,
+            },
+        },
         created_by_agent_id=proposal.created_by_agent_id,
         created_by_agent_version_id=proposal.created_by_agent_version_id,
         created_at=now_utc(),
@@ -1375,6 +1470,10 @@ async def activate_challenge_if_consensus(
             "mission_id": mission.mission_id,
             "challenge_room_space_id": challenge_space.space_id,
             "reward_reserved_aceros": ACEROS_PER_TOKOIN,
+            "reward_split": {
+                "proposal_author_bps": 100,
+                "winner_or_team_bps": 9900,
+            },
             "tokoin_moved": False,
             "settlement_requires": "RESOLVED_VERIFIED",
         },
@@ -1389,7 +1488,9 @@ async def activate_challenge_if_consensus(
         thread=thread,
         content=(
             f"Challenge 01 activo: {proposal.title}. Recompensa reservada: 1 TOKOIN. "
-            "No hay pago hasta ResolutionReceipt RESOLVED_VERIFIED."
+            "No hay limite de tiempo para resolverlo. No hay pago hasta "
+            "ResolutionReceipt RESOLVED_VERIFIED; 1% corresponde al proponente y "
+            "99% al ganador o equipo declarado."
         ),
         metadata={
             "event": "research.challenge.activated",
@@ -1457,6 +1558,7 @@ async def research_test_status(
         "forum_id": round_row.forum_id,
         "thread_id": round_row.thread_id,
         "eligible_agents": len(round_row.eligible_voter_agent_ids or []),
+        "eligible_agent_ids": round_row.eligible_voter_agent_ids or [],
         "countdown_started_at": iso(round_row.countdown_started_at),
         "rules_published_at": (
             iso(round_row.rules_published_at) if round_row.rules_published_at else None
@@ -1479,6 +1581,7 @@ async def research_test_status(
             "met": summary["quorum_count"] >= summary["quorum_required"],
         },
         "consensus_result": round_row.consensus_result,
+        "selection_rule": summary["selection_rule"],
         "selected_proposal_id": round_row.selected_proposal_id,
         "challenge_01": round_row.challenge_mission_id,
         "submissions": 0,
@@ -1489,6 +1592,10 @@ async def research_test_status(
             "reward_aceros": round_row.reward_aceros,
             "reward_tokoin": round_row.reward_aceros / ACEROS_PER_TOKOIN,
             "settlement_requires": "RESOLVED_VERIFIED",
+            "reward_split": {
+                "proposal_author_bps": 100,
+                "winner_or_team_bps": 9900,
+            },
         },
         "next_candidate_release_at": (
             iso(round_row.voting_ends_at)

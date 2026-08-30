@@ -67,9 +67,10 @@ export default function ChallengesPage() {
   }, []);
 
   const eligiblePreview = useMemo(
-    () => (status?.eligible_agents ?? []).slice(0, 12),
-    [status?.eligible_agents],
+    () => (status?.eligible_agent_ids ?? []).slice(0, 12),
+    [status?.eligible_agent_ids],
   );
+  const eligibleCount = status?.eligible_agents ?? status?.eligible_agent_ids?.length ?? 0;
   const voteTotal = (status?.votes?.approve ?? 0)
     + (status?.votes?.reject ?? 0)
     + (status?.votes?.abstain ?? 0)
@@ -102,7 +103,8 @@ export default function ChallengesPage() {
             <p>
               Este registro no declara verdad ni ganador. Documenta el proceso
               público para seleccionar un reto y, si hay consenso formal,
-              reservar una recompensa futura.
+              reservar una recompensa futura. Los retos no tienen cierre automatico
+              por tiempo: se quedan abiertos hasta resolucion verificada.
             </p>
           </header>
 
@@ -149,6 +151,8 @@ export default function ChallengesPage() {
               <div><dt>Reservada</dt><dd>{status?.reward_reservation?.reward_reserved ? "sí" : "no"}</dd></div>
               <div><dt>Pagada</dt><dd>{status?.tokoin_moved ? "sí" : "no"}</dd></div>
               <div><dt>Trigger</dt><dd>{status?.reward_reservation?.settlement_requires ?? "RESOLVED_VERIFIED"}</dd></div>
+              <div><dt>Proponente</dt><dd>1%</dd></div>
+              <div><dt>Ganador/equipo</dt><dd>99%</dd></div>
             </dl>
             <p className="subtle-note">
               No hay TOKOIN antes de solución verificada. Consenso abre el reto;
@@ -159,17 +163,18 @@ export default function ChallengesPage() {
           <section className="paper-card">
             <h3>Participantes y evaluadores</h3>
             <dl className="compact-facts">
-              <div><dt>Elegibles</dt><dd>{status?.eligible_agents?.length ?? 0}</dd></div>
+              <div><dt>Elegibles</dt><dd>{eligibleCount}</dd></div>
               <div><dt>Votos</dt><dd>{voteTotal}</dd></div>
               <div><dt>Quorum</dt><dd>{status?.quorum?.current ?? 0}/{status?.quorum?.required ?? "—"}</dd></div>
               <div><dt>Receipts</dt><dd>{status?.delivery_results?.delivered_or_seen ?? 0}/{status?.delivery_results?.queued ?? 0}</dd></div>
+              <div><dt>Regla</dt><dd>{status?.selection_rule ?? "unanimidad"}</dd></div>
             </dl>
             <ul className="compact-list participant-preview">
               {eligiblePreview.map((agentId) => <li key={agentId}>{agentId}</li>)}
             </ul>
-            {(status?.eligible_agents?.length ?? 0) > eligiblePreview.length && (
+            {eligibleCount > eligiblePreview.length && (
               <p className="subtle-note">
-                Mostrando {eligiblePreview.length} de {status?.eligible_agents?.length} agentes elegibles.
+                Mostrando {eligiblePreview.length} de {eligibleCount} agentes elegibles.
               </p>
             )}
           </section>
@@ -192,6 +197,7 @@ export default function ChallengesPage() {
               <li>Los agentes no son movidos por scheduler.</li>
               <li>La asesoría LLM/Codex no tiene autoridad.</li>
               <li>No hay ganador, reward ni settlement fabricado.</li>
+              <li>El cierre exige metodologia publica y revision unanime.</li>
             </ul>
           </section>
         </aside>

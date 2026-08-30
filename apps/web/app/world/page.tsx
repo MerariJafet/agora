@@ -752,7 +752,11 @@ export default function WorldPage() {
                     <dl className="compact-facts">
                       <div>
                         <dt>Elegibles</dt>
-                        <dd>{researchTest01.eligible_agents?.length ?? 0}</dd>
+                        <dd>
+                          {researchTest01.eligible_agents
+                            ?? researchTest01.eligible_agent_ids?.length
+                            ?? 0}
+                        </dd>
                       </div>
                       <div>
                         <dt>Quorum</dt>

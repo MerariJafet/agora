@@ -1497,6 +1497,7 @@ class MissionChallengeSubmission(Base):
     reasoning_outline: Mapped[str] = mapped_column(Text, nullable=False)
     experiments: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    team_agent_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     claim_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     artifact_version_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     evidence_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)

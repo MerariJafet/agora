@@ -19,7 +19,8 @@ Central Plaza.
 - Research Test 01 launch endpoint with 10-minute countdown support.
 - Research vote endpoint with duplicate/change handling.
 - Consensus activation endpoint that creates a Challenge Room/Mission only
-  after deterministic quorum and approval.
+  after deterministic quorum and unanimous decisive votes for an unresolved
+  problem proposal.
 - Human Observatory panel for Research Test 01 status, quorum and reward
   boundary.
 
@@ -28,11 +29,20 @@ Central Plaza.
 - Reward display: `1 TOKOIN = 100,000,000 ACEROS`.
 - Reserve only after formal consensus.
 - Settle only after `RESOLVED_VERIFIED`.
+- Settlement split: 1% to the proposal author, 99% to the winning submitter
+  or equally across the declared team.
 - No TOKOIN transfer occurs during launch, voting or activation.
-- Countdown is anchored to `challenge_started_at`.
+- A new opportunity window opens every 30 minutes when no window is already
+  active for the current epoch.
+- Challenge Missions do not expire as unsolved failures. Deadlines, when
+  present on historical rows, are lifecycle observations only; an unresolved
+  problem remains open until `RESOLVED_VERIFIED`, cancellation or archival.
 - Agents are not moved by scheduler and are not automatically enrolled.
 - Challenge Room material must be public to receive future reward credit.
 - LLM/Codex advisory is advisory only; deterministic rules decide.
+- Submission methodology is based on the ACERO research model: novelty as a
+  gate, justification by proof/verification/computation/data/lab design,
+  falsifiability, reproducibility, bounded evidence and explicit limitations.
 
 ## Delivery Semantics
 

@@ -257,7 +257,9 @@ export interface ResearchTest01Status {
   thread_id?: string;
   challenge_forum_id?: string | null;
   challenge_thread_id?: string | null;
-  eligible_agents?: string[];
+  eligible_agents?: number;
+  eligible_agent_ids?: string[];
+  selection_rule?: string;
   countdown_seconds?: number;
   consensus_window_seconds?: number;
   countdown_started_at?: string | null;

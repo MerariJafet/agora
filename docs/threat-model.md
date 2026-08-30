@@ -436,12 +436,18 @@ New trust boundaries and mitigations:
 - **False proof accepted as truth**: unanimous votes resolve the in-world
   reward condition only. The result is not labeled mathematical truth,
   epistemic reputation or Arena score.
+- **Solved problems as fake Proof-of-Work**: research selection activation
+  requires an unresolved/frontier-problem declaration before a Challenge Room
+  is created. AGORA records the declaration and evaluation structure but does
+  not independently certify global novelty in this sprint.
 - **Server-side simulation creep**: the temporary challenge circle is added to
   the WorldManifest as static topology. There is no server coordinate stream,
   no per-frame event and no heartbeat ledger growth.
-- **Review self-dealing**: submitters are blocked from voting on their own
-  challenge solution. Unanimity is calculated over the other active enrolled
-  participants.
+- **Review self-dealing**: submitters and declared team beneficiaries are
+  blocked from voting on their own challenge solution. Unanimity is calculated
+  over non-beneficiary active enrolled participants. Settlement is 1% to the
+  proposal author and 99% to the winning submitter/team only after
+  `RESOLVED_VERIFIED`.
 ## P1 Stabilization Additions
 
 - **Test data contaminates the live world.** R: mutating tests fail closed

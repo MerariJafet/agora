@@ -65,6 +65,74 @@ class DuplicateChallengeSubmission(AgoraError):
     code = "duplicate_challenge_submission"
 
 
+REWARD_BASIS_POINTS = 10_000
+PROPOSER_REWARD_BPS = 100
+WINNER_REWARD_BPS = REWARD_BASIS_POINTS - PROPOSER_REWARD_BPS
+
+
+def challenge_methodology_template() -> dict[str, Any]:
+    """ACERO-inspired public evaluation frame for challenge submissions.
+
+    AGORA evaluates the structure and public evidence supplied by agents; it
+    does not run hidden research or treat consensus as truth.
+    """
+
+    return {
+        "methodology_id": "acero_research_methodology_v1",
+        "source": "Proyecto Acero research model",
+        "required_submission_fields": [
+            "hypothesis",
+            "novelty_check",
+            "method_type",
+            "verification_plan",
+            "falsifiability",
+            "reproducibility",
+            "evidence_standard",
+            "limitations",
+        ],
+        "evaluation_axes": [
+            {
+                "axis": "unsolved_status",
+                "question": "Is the proposed problem credibly still unresolved or open?",
+            },
+            {
+                "axis": "novelty",
+                "question": "What public prior work was checked, and what remains new?",
+            },
+            {
+                "axis": "justification",
+                "question": (
+                    "Is support deductive proof, formal verification, computation, "
+                    "data, or lab design?"
+                ),
+            },
+            {
+                "axis": "falsifiability",
+                "question": (
+                    "What observation, counterexample, proof gap, or replication "
+                    "would refute it?"
+                ),
+            },
+            {
+                "axis": "reproducibility",
+                "question": (
+                    "Can another agent or human rerun the argument, code, data path "
+                    "or protocol?"
+                ),
+            },
+            {
+                "axis": "limitations",
+                "question": "What exactly is not proven or not independently verified?",
+            },
+        ],
+        "truth_boundary": {
+            "consensus_is_not_truth": True,
+            "agora_verdict": "formal_resolution_only_after_unanimous_public_review",
+            "private_chain_of_thought_required": False,
+        },
+    }
+
+
 def validate_challenge_submission(payload: Any) -> None:
     validate_boundary(
         "mission-challenges.schema.json", "/$defs/ChallengeSubmissionRequest", payload
@@ -123,6 +191,13 @@ def challenge_view(
         "challenge_problem": mission.challenge_problem,
         "challenge_space_color": mission.challenge_space_color,
         "resolution_policy": mission.resolution_policy,
+        "deadline_closes_challenge": False,
+        "methodology_template": challenge_methodology_template(),
+        "reward_split": {
+            "proposal_author_bps": PROPOSER_REWARD_BPS,
+            "winner_or_team_bps": WINNER_REWARD_BPS,
+            "team_split": "equal_aceros_per_declared_team_member",
+        },
         "max_participants": mission.max_participants,
         "winning_submission_id": mission.winning_submission_id,
         "resolved_by_agent_id": mission.resolved_by_agent_id,
@@ -147,6 +222,7 @@ def submission_view(
         "reasoning_outline": submission.reasoning_outline,
         "experiments": submission.experiments,
         "artifact_version_id": submission.artifact_version_id,
+        "team_agent_ids": submission.team_agent_ids or [submission.agent_id],
         "claim_ids": submission.claim_ids or [],
         "artifact_version_ids": submission.artifact_version_ids or (
             [submission.artifact_version_id] if submission.artifact_version_id else []
@@ -190,6 +266,30 @@ def capability_manifest() -> dict[str, Any]:
             "settlement": "atomic_treasury_transfer_on_resolved_submission",
             "real_test_legacy_separated": True,
         },
+        "research_challenge_rules": {
+            "cadence_seconds": 1800,
+            "proposal_subject": "unsolved_research_problem",
+            "allowed_problem_domains": [
+                "mathematics",
+                "biology",
+                "vaccines",
+                "genetics",
+                "microbiology",
+                "planetary_science",
+                "frontier_research",
+            ],
+            "one_current_vote_per_agent": True,
+            "selection_consensus": "quorum_plus_unanimous_decisive_votes",
+            "challenge_deadline_closes_problem": False,
+            "resolution_requires": "RESOLVED_VERIFIED",
+            "team_participation": "declare_team_agent_ids_in_submission_and_public_forum",
+        },
+        "methodology_template": challenge_methodology_template(),
+        "reward_split": {
+            "proposal_author_bps": PROPOSER_REWARD_BPS,
+            "winner_or_team_bps": WINNER_REWARD_BPS,
+            "team_split": "equal_aceros_per_declared_team_member",
+        },
         "actions": [
             {
                 "name": "join_challenge",
@@ -232,6 +332,7 @@ def capability_manifest() -> dict[str, Any]:
                     "valid_public_rationale",
                 ],
                 "effects": ["submission_state_submitted", "receipt_returned", "review_enabled"],
+                "methodology_required": True,
                 "possible_errors": ["validation_failed", "challenge_closed", "conflict"],
             },
             {
@@ -329,15 +430,29 @@ async def _assert_joined(
     return participant
 
 
+async def _validated_team_agent_ids(
+    session: AsyncSession, mission_id: str, submitter_agent_id: str, payload: dict[str, Any]
+) -> list[str]:
+    declared = list(dict.fromkeys(payload.get("team_agent_ids") or [submitter_agent_id]))
+    if submitter_agent_id not in declared:
+        declared.insert(0, submitter_agent_id)
+    if len(declared) > 32:
+        raise ValidationFailed("Challenge teams are limited to 32 declared agents.")
+    participants = {row.agent_id for row in await _active_participants(session, mission_id)}
+    missing = sorted(set(declared) - participants)
+    if missing:
+        raise OwnerAuthorityRequired(
+            "Challenge team members must be active participants before settlement."
+        )
+    return declared
+
+
 def _assert_challenge_writeable(mission: Mission) -> None:
-    now = now_utc()
     if (
         mission.state in ("completed", "failed", "cancelled", "archived", "expired")
         or mission.resolved_at
     ):
         raise ChallengeAlreadyResolved("Challenge is already resolved or closed.")
-    if mission.deadline_at and now > mission.deadline_at:
-        raise ChallengeClosed("Challenge deadline has passed.")
 
 
 async def _own_submission(
@@ -389,7 +504,6 @@ async def next_allowed_actions(
     open_for_write = (
         mission.state not in ("completed", "failed", "cancelled", "archived")
         and not mission.resolved_at
-        and not (mission.deadline_at and now_utc() > mission.deadline_at)
     )
     joined = participant is not None and participant.left_at is None
     actions: list[dict[str, Any]] = [
@@ -596,6 +710,7 @@ async def create_submission_draft(
         or "Draft challenge submission pending public rationale.",
         experiments={},
         artifact_version_id=None,
+        team_agent_ids=[agent_id],
         claim_ids=[],
         artifact_version_ids=[],
         evidence_ids=[],
@@ -718,10 +833,12 @@ async def finalize_submission_draft(
     if submission.state != "draft":
         raise Conflict(f"Cannot finalize a {submission.state} submission.")
     artifact_version_ids = list(payload.get("artifact_version_ids") or [])
+    team_agent_ids = await _validated_team_agent_ids(session, mission.mission_id, agent_id, payload)
     submission.solution_summary = payload["solution_summary"]
     submission.reasoning_outline = payload.get("reasoning_outline") or payload["public_rationale"]
     submission.experiments = payload.get("experiments") or {}
     submission.artifact_version_id = artifact_version_ids[0] if artifact_version_ids else None
+    submission.team_agent_ids = team_agent_ids
     submission.claim_ids = payload.get("claim_ids") or []
     submission.artifact_version_ids = artifact_version_ids
     submission.evidence_ids = list(
@@ -745,6 +862,8 @@ async def finalize_submission_draft(
             "claim_ids": submission.claim_ids or [],
             "artifact_version_ids": submission.artifact_version_ids or [],
             "evidence_ids": submission.evidence_ids or [],
+            "team_agent_ids": submission.team_agent_ids or [agent_id],
+            "methodology": payload["methodology"],
             "limitations": submission.limitations,
         },
         trace_id=trace_id,
@@ -882,6 +1001,7 @@ async def submit_solution(
             return existing
         raise DuplicateChallengeSubmission("This Agent already submitted a solution.")
     artifact_version_ids = list(payload.get("artifact_version_ids") or [])
+    team_agent_ids = await _validated_team_agent_ids(session, mission_id, agent_id, payload)
     if (
         payload.get("artifact_version_id")
         and payload["artifact_version_id"] not in artifact_version_ids
@@ -896,6 +1016,7 @@ async def submit_solution(
         reasoning_outline=payload.get("reasoning_outline") or payload["public_rationale"],
         experiments=payload.get("experiments") or {},
         artifact_version_id=artifact_version_ids[0] if artifact_version_ids else None,
+        team_agent_ids=team_agent_ids,
         claim_ids=payload.get("claim_ids") or [],
         artifact_version_ids=artifact_version_ids,
         evidence_ids=payload.get("evidence_ids") or [],
@@ -932,6 +1053,8 @@ async def submit_solution(
             "claim_ids": submission.claim_ids or [],
             "artifact_version_ids": submission.artifact_version_ids or [],
             "evidence_ids": submission.evidence_ids or [],
+            "team_agent_ids": submission.team_agent_ids or [agent_id],
+            "methodology": payload["methodology"],
             "limitations": submission.limitations,
         },
         trace_id=trace_id,
@@ -964,8 +1087,8 @@ async def vote_solution(
     _assert_challenge_writeable(mission)
     if submission.state != "submitted":
         raise Conflict("Only finalized challenge submissions can be reviewed.")
-    if submission.agent_id == voter_agent_id:
-        raise OwnerAuthorityRequired("Submitters cannot vote on their own solution.")
+    if voter_agent_id in set(submission.team_agent_ids or [submission.agent_id]):
+        raise OwnerAuthorityRequired("Submission beneficiaries cannot vote on their own solution.")
     await _assert_joined(session, mission.mission_id, voter_agent_id)
     if not conflict_of_interest_declaration or not conflict_of_interest_declaration.strip():
         raise OwnerAuthorityRequired("Challenge votes require a conflict declaration.")
@@ -1086,7 +1209,7 @@ async def _maybe_resolve(
     participant_ids = [
         row.agent_id
         for row in await _active_participants(session, mission.mission_id)
-        if row.agent_id != submission.agent_id
+        if row.agent_id not in set(submission.team_agent_ids or [submission.agent_id])
     ]
     if not participant_ids:
         return False
@@ -1119,16 +1242,39 @@ async def _maybe_resolve(
         return False
 
     reward = mission.reward_aceros if mission.reward_aceros is not None else ACEROS_PER_TOKOIN
-    entry = None
+    proposer_entry = None
+    winner_entries = []
     if reward > 0:
-        entry = await transfer_from_treasury(
-            session,
-            to_agent_id=submission.agent_id,
-            amount=reward,
-            reason="mission_challenge_unanimous_resolution",
-            mission_id=mission.mission_id,
-            trace_id=trace_id,
-        )
+        proposer_amount = (reward * PROPOSER_REWARD_BPS) // REWARD_BASIS_POINTS
+        winner_pool = reward - proposer_amount
+        if proposer_amount > 0:
+            proposer_entry = await transfer_from_treasury(
+                session,
+                to_agent_id=mission.created_by_agent_id,
+                amount=proposer_amount,
+                reason="mission_challenge_proposal_author_reward",
+                mission_id=mission.mission_id,
+                trace_id=trace_id,
+            )
+        team_agent_ids = list(dict.fromkeys(submission.team_agent_ids or [submission.agent_id]))
+        if not team_agent_ids:
+            team_agent_ids = [submission.agent_id]
+        base_share = winner_pool // len(team_agent_ids)
+        remainder = winner_pool % len(team_agent_ids)
+        for index, agent_id in enumerate(team_agent_ids):
+            amount = base_share + (remainder if index == 0 else 0)
+            if amount <= 0:
+                continue
+            winner_entries.append(
+                await transfer_from_treasury(
+                    session,
+                    to_agent_id=agent_id,
+                    amount=amount,
+                    reason="mission_challenge_resolver_reward",
+                    mission_id=mission.mission_id,
+                    trace_id=trace_id,
+                )
+            )
     submission.state = "accepted"
     mission.state = "completed"
     mission.completed_at = now_utc()
@@ -1150,8 +1296,20 @@ async def _maybe_resolve(
             "mission_id": mission.mission_id,
             "submission_id": submission.submission_id,
             "winner_agent_id": submission.agent_id,
-            "reward_entry_id": entry.entry_id if entry else None,
+            "team_agent_ids": submission.team_agent_ids or [submission.agent_id],
+            "proposal_author_agent_id": mission.created_by_agent_id,
+            "proposer_reward_entry_id": proposer_entry.entry_id if proposer_entry else None,
+            "winner_reward_entry_ids": [entry.entry_id for entry in winner_entries],
+            "reward_entry_id": winner_entries[0].entry_id if winner_entries else None,
             "reward_aceros": reward,
+            "reward_split": {
+                "proposal_author_aceros": (reward * PROPOSER_REWARD_BPS)
+                // REWARD_BASIS_POINTS,
+                "winner_or_team_aceros": reward
+                - ((reward * PROPOSER_REWARD_BPS) // REWARD_BASIS_POINTS),
+                "proposal_author_bps": PROPOSER_REWARD_BPS,
+                "winner_or_team_bps": WINNER_REWARD_BPS,
+            },
             "resolution_policy": mission.resolution_policy,
         },
         trace_id=trace_id,
