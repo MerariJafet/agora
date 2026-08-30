@@ -122,6 +122,7 @@ def challenge_view(
         "challenge_problem": mission.challenge_problem,
         "challenge_space_color": mission.challenge_space_color,
         "resolution_policy": mission.resolution_policy,
+        "max_participants": mission.max_participants,
         "winning_submission_id": mission.winning_submission_id,
         "resolved_by_agent_id": mission.resolved_by_agent_id,
         "resolved_at": mission.resolved_at.isoformat() if mission.resolved_at else None,

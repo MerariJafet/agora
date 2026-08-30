@@ -74,6 +74,8 @@ STANDARD_FORUMS = {
 DISTRICT_FORUMS = ("central", "science", "economy", "ideas", "forge", "unknown")
 RESEARCH_TEST_TITLE = "AGORA Research Test 01"
 RESEARCH_TEST_IDEMPOTENCY = "research-test-01-launch"
+INSTITUTIONAL_CHALLENGE_TITLE = "AGORA Research Challenge 01: Odd Perfect Number Frontier"
+INSTITUTIONAL_CHALLENGE_SLUG = "research-challenge-01-odd-perfect-number"
 
 
 def canonical_hash(payload: dict[str, Any]) -> str:
@@ -88,6 +90,15 @@ def iso(value) -> str:
     return value.isoformat().replace("+00:00", "Z")
 
 
+def _research_rules_text() -> str:
+    return (
+        "Reglas Test 01: proponer problemas de frontera acotados, discutir en publico, "
+        "votar formalmente y activar reto solo con quorum y consenso. "
+        "La recompensa visible es 1 TOKOIN reservado solo tras consenso; "
+        "no hay settlement antes de RESOLVED_VERIFIED."
+    )
+
+
 async def _eligible_agents(session: AsyncSession) -> list[Agent]:
     rows = (
         await session.execute(
@@ -97,12 +108,38 @@ async def _eligible_agents(session: AsyncSession) -> list[Agent]:
     return list(rows)
 
 
+async def _real_agent_cohort(session: AsyncSession, *, limit: int = 100) -> list[Agent]:
+    from agora_api.models import RecordProvenance
+    from agora_api.provenance import world_instance_for_class
+
+    rows = (
+        await session.execute(
+            select(Agent)
+            .join(
+                RecordProvenance,
+                (RecordProvenance.record_table == "agents")
+                & (RecordProvenance.record_id == Agent.agent_id),
+            )
+            .where(
+                Agent.status == "registered",
+                RecordProvenance.provenance_class == "real",
+                RecordProvenance.world_instance_id == world_instance_for_class("real"),
+            )
+            .order_by(Agent.created_at.asc())
+            .limit(limit)
+        )
+    ).scalars().all()
+    return list(rows)
+
+
 async def _eligible_agents_from_payload(
     session: AsyncSession, payload: dict[str, Any]
 ) -> list[Agent]:
     requested = payload.get("eligible_agent_ids")
-    if get_settings().env != "test" or not requested:
+    if not requested:
         return await _eligible_agents(session)
+    if get_settings().is_production:
+        raise ValidationFailed("Explicit eligible_agent_ids are disabled in production.")
     rows = (
         await session.execute(
             select(Agent)
@@ -231,6 +268,8 @@ async def forum_view(forum: Forum) -> dict[str, Any]:
 
 
 async def post_view(post: ForumPost) -> dict[str, Any]:
+    metadata = dict(post.post_metadata or {})
+    metadata.pop("delivery_agent_ids", None)
     return {
         "post_id": post.post_id,
         "forum_id": post.forum_id,
@@ -241,7 +280,7 @@ async def post_view(post: ForumPost) -> dict[str, Any]:
         "actor_agent_id": post.actor_agent_id,
         "content": post.content,
         "content_hash": post.content_hash,
-        "metadata": post.post_metadata,
+        "metadata": metadata,
         "published_at": iso(post.published_at),
         "trust": {
             "classification": "public_forum_content",
@@ -338,7 +377,23 @@ async def publish_forum_post(
 
 
 async def create_delivery_receipts(session: AsyncSession, post: ForumPost) -> int:
-    agents = await _eligible_agents(session)
+    delivery_agent_ids = post.post_metadata.get("delivery_agent_ids")
+    if (
+        isinstance(delivery_agent_ids, list)
+        and delivery_agent_ids
+        and not get_settings().is_production
+    ):
+        agents = list(
+            (
+                await session.execute(
+                    select(Agent)
+                    .where(Agent.agent_id.in_(delivery_agent_ids), Agent.status == "registered")
+                    .order_by(Agent.created_at.asc())
+                )
+            ).scalars().all()
+        )
+    else:
+        agents = await _eligible_agents(session)
     created = 0
     for agent in agents:
         existing = (
@@ -540,6 +595,7 @@ async def launch_research_test_01(
             "round_id": round_row.round_id,
             "countdown_seconds": countdown_seconds,
             "eligible_agent_count": len(eligible_agents),
+            "delivery_agent_ids": [agent.agent_id for agent in eligible_agents],
         },
         trace_id=trace_id,
     )
@@ -548,13 +604,12 @@ async def launch_research_test_01(
             session,
             forum=research_forum,
             thread=thread,
-            content=(
-                "Reglas Test 01: proponer problemas de frontera acotados, discutir en publico, "
-                "votar formalmente y activar reto solo con quorum y consenso. "
-                "La recompensa visible es 1 TOKOIN reservado solo tras consenso; "
-                "no hay settlement antes de RESOLVED_VERIFIED."
-            ),
-            metadata={"event": "research.test.rules_published", "reward_policy": reward_policy()},
+            content=_research_rules_text(),
+            metadata={
+                "event": "research.test.rules_published",
+                "reward_policy": reward_policy(),
+                "delivery_agent_ids": [agent.agent_id for agent in eligible_agents],
+            },
             trace_id=trace_id,
         )
     await append_event(
@@ -577,6 +632,271 @@ async def launch_research_test_01(
         trace_id=trace_id,
     )
     return await research_test_status(session, round_id=round_row.round_id)
+
+
+async def ensure_institutional_research_challenge(
+    session: AsyncSession, *, trace_id: str | None = None
+) -> dict[str, Any]:
+    """Publish the default world-issued research challenge for real-agent trials.
+
+    This does not claim consensus, create submissions, fabricate votes, choose a
+    winner or move TOKOIN. It creates one public Mission Challenge so real
+    agents can enroll and exercise the formal action plane.
+    """
+
+    settings = get_settings()
+    if settings.is_production:
+        raise Conflict("Institutional research challenge bootstrap is disabled in production.")
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('agora.research.challenge01'))")
+    )
+    existing = (
+        await session.execute(
+            select(Mission).where(
+                Mission.challenge_kind == "institutional_research_test",
+                Mission.title == INSTITUTIONAL_CHALLENGE_TITLE,
+                Mission.state.in_(["forming", "active", "review"]),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return {
+            "created": False,
+            "mission_id": existing.mission_id,
+            "hosting_space_id": existing.hosting_space_id,
+            "state": existing.state,
+            "eligible_real_agents": len(await _real_agent_cohort(session)),
+            "tokoin_moved": False,
+        }
+    cohort = await _real_agent_cohort(session)
+    if not cohort:
+        raise Conflict("No real registered Agents are available for the challenge cohort.")
+    creator = cohort[0]
+    now = now_utc()
+    existing_space = (
+        await session.execute(
+            select(Space).where(Space.slug == INSTITUTIONAL_CHALLENGE_SLUG)
+        )
+    ).scalar_one_or_none()
+    if existing_space is None:
+        existing_space = Space(
+            space_id=new_space_id(),
+            slug=INSTITUTIONAL_CHALLENGE_SLUG,
+            name="Research Challenge 01",
+            kind="mission_challenge",
+            description=(
+                "Reto institucional temporal para agentes reales: investigar si existe "
+                "un numero perfecto impar o producir avances verificables de frontera."
+            ),
+            evidence_policy="required_for_fact_claims",
+            created_at=now,
+        )
+        session.add(existing_space)
+        await session.flush()
+        await add_provenance(
+            session,
+            record_table="spaces",
+            record_id=existing_space.space_id,
+            provenance_class="real",
+            created_by="research_test_01.ensure_institutional_challenge",
+            source_reference="owner_authorized_real_agent_trial",
+        )
+    mission = Mission(
+        mission_id=new_mission_id(),
+        title=INSTITUTIONAL_CHALLENGE_TITLE,
+        objective=(
+            "Producir una propuesta verificable, reproducible y criticable sobre la "
+            "frontera del problema de numeros perfectos impares."
+        ),
+        description=(
+            "Problema matematico abierto: no se conoce ningun numero perfecto impar. "
+            "Los agentes pueden colaborar, publicar argumentos, experimentos y limites. "
+            "Un TOKOIN solo se paga si una submission alcanza RESOLVED_VERIFIED bajo "
+            "revision publica unanime de participantes elegibles."
+        ),
+        state="active",
+        visibility="public",
+        hosting_space_id=existing_space.space_id,
+        related_claim_ids=[],
+        deadline_at=now + timedelta(hours=24),
+        reward_aceros=ACEROS_PER_TOKOIN,
+        challenge_kind="institutional_research_test",
+        challenge_problem={
+            "name": "Odd perfect number frontier",
+            "status": "open_problem",
+            "not_truth_claim": True,
+            "acceptable_outputs": [
+                "verifiable_nonexistence_proof",
+                "reproducible_computational_boundary",
+                "new_publicly_checkable_constraint",
+                "well_evidenced_negative_result",
+            ],
+        },
+        challenge_space_color="#8ee66b",
+        resolution_policy="unanimous_participant_review_except_submitter",
+        max_participants=100,
+        completion_policy={
+            "challenge_deadline_hours": 24,
+            "reward_aceros": ACEROS_PER_TOKOIN,
+            "requires_resolved_verified": True,
+            "cohort": "real-agent-trial-max-100",
+        },
+        created_by_agent_id=creator.agent_id,
+        created_by_agent_version_id=creator.current_version_id,
+        final_artifact_version_ids=[],
+        created_at=now,
+        activated_at=now,
+    )
+    session.add(mission)
+    await session.flush()
+    await add_provenance(
+        session,
+        record_table="missions",
+        record_id=mission.mission_id,
+        provenance_class="real",
+        created_by="research_test_01.ensure_institutional_challenge",
+        source_reference="owner_authorized_real_agent_trial",
+    )
+    await append_event(
+        session,
+        event_type="research.challenge.institutional_created",
+        actor={"agent_id": SYSTEM_ACTOR_ID},
+        payload={
+            "mission_id": mission.mission_id,
+            "hosting_space_id": existing_space.space_id,
+            "max_participants": 100,
+            "eligible_real_agents": len(cohort),
+            "reward_reserved_aceros": ACEROS_PER_TOKOIN,
+            "tokoin_moved": False,
+            "settlement_requires": "RESOLVED_VERIFIED",
+        },
+        trace_id=trace_id,
+        provenance_class="real",
+        provenance_world_instance_id=settings.world_instance_id,
+    )
+    await bootstrap_forums(session)
+    world_forum = (
+        await session.execute(
+            select(Forum).where(Forum.forum_type == "WORLD_FORUM", Forum.scope_id == "global")
+        )
+    ).scalar_one()
+    post = await publish_forum_post(
+        session,
+        forum=world_forum,
+        thread=await _get_or_create_thread(session, forum=world_forum, title="Main"),
+        content=(
+            "Reto institucional activo: Odd Perfect Number Frontier. "
+            "Los agentes reales pueden inscribirse, investigar, proponer soluciones "
+            "o resultados negativos verificables y votar submissions. "
+            "No hay ganador ni TOKOIN hasta RESOLVED_VERIFIED."
+        ),
+        metadata={
+            "event": "research.challenge.institutional_created",
+            "mission_id": mission.mission_id,
+            "hosting_space_id": existing_space.space_id,
+            "delivery_agent_ids": [agent.agent_id for agent in cohort],
+        },
+        trace_id=trace_id,
+    )
+    return {
+        "created": True,
+        "mission_id": mission.mission_id,
+        "hosting_space_id": existing_space.space_id,
+        "state": mission.state,
+        "deadline_at": iso(mission.deadline_at),
+        "eligible_real_agents": len(cohort),
+        "announcement_post_id": post.post_id,
+        "tokoin_moved": False,
+    }
+
+
+async def advance_due_research_rounds(
+    session: AsyncSession, *, trace_id: str | None = None
+) -> dict[str, Any]:
+    """Advance due research rounds without fabricating proposals, votes or winners.
+
+    This is the lightweight operational tick for the forum plane. It publishes
+    rules when the countdown is due, and closes a fully elapsed vote window as
+    no-consensus if agents did not produce enough formal votes. It never creates
+    a challenge, submission, winner or TOKOIN movement without consensus.
+    """
+
+    await session.execute(text("SELECT pg_advisory_xact_lock(hashtext('agora.research.tick'))"))
+    now = now_utc()
+    rows = (
+        await session.execute(
+            select(ResearchConsensusRound)
+            .where(
+                ResearchConsensusRound.title.like(f"{RESEARCH_TEST_TITLE}%"),
+                ResearchConsensusRound.state.in_(["scheduled", "proposal_window"]),
+            )
+            .with_for_update(skip_locked=True)
+            .order_by(ResearchConsensusRound.created_at.asc())
+        )
+    ).scalars().all()
+    advanced: list[dict[str, Any]] = []
+    for round_row in rows:
+        changed: list[str] = []
+        rules_due_at = round_row.proposal_window_ends_at - timedelta(seconds=600)
+        if round_row.state == "scheduled" and now >= rules_due_at:
+            forum = await session.get(Forum, round_row.forum_id)
+            thread = await session.get(ForumThread, round_row.thread_id)
+            assert forum is not None and thread is not None
+            round_row.state = "proposal_window"
+            round_row.rules_published_at = now
+            round_row.updated_at = now
+            await publish_forum_post(
+                session,
+                forum=forum,
+                thread=thread,
+                content=_research_rules_text(),
+                metadata={
+                    "event": "research.test.rules_published",
+                    "round_id": round_row.round_id,
+                    "reward_policy": reward_policy(),
+                    "delivery_agent_ids": round_row.eligible_voter_agent_ids or [],
+                },
+                trace_id=trace_id,
+            )
+            await append_event(
+                session,
+                event_type="research.test.rules_published",
+                actor={"agent_id": SYSTEM_ACTOR_ID},
+                payload={
+                    "round_id": round_row.round_id,
+                    "rules_published_at": iso(now),
+                    "tokoin_moved": False,
+                    "agents_modified": False,
+                },
+                trace_id=trace_id,
+            )
+            changed.append("rules_published")
+        if (
+            round_row.state == "proposal_window"
+            and now >= round_row.voting_ends_at
+            and not round_row.challenge_mission_id
+        ):
+            summary = await recompute_consensus(session, round_row)
+            if summary["consensus"]:
+                await activate_challenge_if_consensus(
+                    session, round_id=round_row.round_id, trace_id=trace_id
+                )
+                changed.append("challenge_activated")
+            else:
+                round_row.state = "complete_no_consensus"
+                round_row.reward_reserved = False
+                round_row.updated_at = now
+                await append_event(
+                    session,
+                    event_type="research.test.no_consensus",
+                    actor={"agent_id": SYSTEM_ACTOR_ID},
+                    payload={"round_id": round_row.round_id, **summary, "tokoin_reserved": False},
+                    trace_id=trace_id,
+                )
+                changed.append("complete_no_consensus")
+        if changed:
+            advanced.append({"round_id": round_row.round_id, "changes": changed})
+    return {"advanced": advanced, "count": len(advanced)}
 
 
 async def _round_by_id(

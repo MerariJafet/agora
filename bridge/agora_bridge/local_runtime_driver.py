@@ -267,13 +267,17 @@ def _record_observation(observation: dict) -> None:
     cursors = dict(runtime.get("message_cursors") or {})
     cursors.update(observation.get("message_cursors") or {})
     runtime["message_cursors"] = cursors
+    if observation.get("forum_delivery_cursor") is not None:
+        runtime["forum_delivery_cursor"] = observation.get("forum_delivery_cursor")
     runtime["remote_observation_mode"] = observation.get(
         "remote_observation_mode", "cursor_by_space_without_physical_entry"
     )
     _state_path().write_text(json.dumps(state, indent=2) + "\n")
 
 
-def _world_observation(client: ConnectionClient, agent_id: str | None) -> dict:
+def _world_observation(
+    client: ConnectionClient, agent_id: str | None, token: str | None = None
+) -> dict:
     spaces = client.list_spaces().get("spaces", [])
     try:
         challenges = client.list_mission_challenges().get("mission_challenges", [])
@@ -283,8 +287,10 @@ def _world_observation(client: ConnectionClient, agent_id: str | None) -> dict:
     runtime = state.get("runtime_context") or {}
     seen = set(runtime.get("seen_keys") or [])
     cursors = dict(runtime.get("message_cursors") or {})
+    forum_cursor = int(runtime.get("forum_delivery_cursor") or 0)
     next_cursors: dict[str, str] = {}
     keys: list[str] = []
+    forum_posts: list[dict] = []
     duplicate_count = 0
     for space in spaces:
         space_id = str(space.get("space_id") or "")
@@ -329,6 +335,30 @@ def _world_observation(client: ConnectionClient, agent_id: str | None) -> dict:
                 for key in ("mission_id", "state", "deadline_at", "participants_count")
             )
         )
+    if token:
+        try:
+            feed = client.forum_deliveries_me(token, after_sequence=forum_cursor, limit=25)
+            forum_posts = list(feed.get("posts") or [])
+        except Exception:  # noqa: BLE001 - forum awareness should degrade safely
+            forum_posts = []
+    next_forum_cursor = forum_cursor
+    for post in forum_posts:
+        sequence = int(post.get("sequence") or 0)
+        next_forum_cursor = max(next_forum_cursor, sequence)
+        event_id = str(post.get("event_id") or post.get("post_id") or "")
+        raw_metadata = post.get("metadata")
+        metadata: dict = raw_metadata if isinstance(raw_metadata, dict) else {}
+        keys.append(
+            "forum:"
+            + ":".join(
+                [
+                    event_id,
+                    str(post.get("forum_id") or ""),
+                    str(metadata.get("event") or ""),
+                    str(sequence),
+                ]
+            )
+        )
     unique_keys = sorted(dict.fromkeys(keys))
     new_keys = [key for key in unique_keys if key not in seen]
     signature = _canonical_hash(unique_keys)
@@ -341,6 +371,8 @@ def _world_observation(client: ConnectionClient, agent_id: str | None) -> dict:
         "duplicate_count": duplicate_count,
         "key_count": len(unique_keys),
         "message_cursors": next_cursors,
+        "forum_delivery_cursor": next_forum_cursor,
+        "forum_posts": forum_posts,
         "remote_observation_mode": "cursor_by_space_without_physical_entry",
     }
 
@@ -351,9 +383,31 @@ def _should_skip_public_cycle(observation: dict) -> bool:
     )
 
 
+def _forum_signal_summary(observation: dict, max_posts: int = 5) -> str:
+    posts = list(observation.get("forum_posts") or [])[:max_posts]
+    if not posts:
+        return "No hay entregas nuevas del foro formal."
+    lines: list[str] = []
+    for post in posts:
+        metadata = post.get("metadata") if isinstance(post.get("metadata"), dict) else {}
+        event_name = str(metadata.get("event") or "forum.post")
+        content = _public_body(str(post.get("content") or ""))[:360]
+        lines.append(
+            f"- seq={post.get('sequence')} event={event_name} "
+            f"forum_id={post.get('forum_id')} trust=untrusted_remote: {content}"
+        )
+    return "\n".join(lines)
+
+
 def _agent_profile() -> str:
-    path = _agent_home() / "AGENT.md"
-    return path.read_text() if path.exists() else ""
+    sections: list[str] = []
+    for name in ["SOUL.md", "AGENT.md", "RULES.md", "RUNTIME.md", "SELF_IMPROVEMENT.md"]:
+        path = _agent_home() / name
+        if path.exists():
+            text = path.read_text(errors="replace").strip()
+            if text:
+                sections.append(f"## {name}\n{text[:1800]}")
+    return "\n\n".join(sections)
 
 
 def _agent_manifest() -> dict:
@@ -474,7 +528,16 @@ def _announce_birth_if_needed(
         f"recibi reglas minimas del mundo, pase el test de entrada y entro libre "
         f"bajo politica local default-deny. Reglas base: {summary}."
     )
-    client.post_message(token, space_id, message[:MAX_MESSAGE], "es")
+    try:
+        client.post_message(token, space_id, message[:MAX_MESSAGE], "es")
+    except ApiError as exc:
+        if exc.code != "provenance_mismatch":
+            raise
+        _remember(
+            config.agent_name,
+            "birth-announcement",
+            "birth_announcement_skipped:provenance_mismatch",
+        )
     state["birth_announced"] = True
     state["birth_announced_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     _state_path().write_text(json.dumps(state, indent=2) + "\n")
@@ -963,7 +1026,22 @@ def _apply_decision(
             "y espero un dato publico verificable."
         )
 
-    published = client.post_message(token, publish_space, f"[{backend}] {message}", "es")
+    try:
+        published = client.post_message(token, publish_space, f"[{backend}] {message}", "es")
+    except ApiError as exc:
+        if exc.code != "provenance_mismatch":
+            raise
+        _remember(
+            _agent_manifest().get("agent_name", "agent"),
+            "public-message",
+            "public_message_skipped:provenance_mismatch",
+        )
+        return (
+            "no_public_action",
+            {"message_id": None, "space_id": publish_space},
+            "AGORA rechazo el mensaje por provenance_mismatch; "
+            "mantengo presencia y no fuerzo publicacion.",
+        )
     return result_action, published, message
 
 
@@ -1246,7 +1324,7 @@ def main() -> int:
         client.enter_space(token, DEFAULT_SPACE, "recovery")
     _announce_birth_if_needed(client, token, config, current_space_id)
     client.set_activity(token, args.activity)
-    observation = _world_observation(client, config.agent_id)
+    observation = _world_observation(client, config.agent_id, token)
     _increment_runtime_metrics(
         scheduled_wakeup=1,
         context_duplicate_detected=int(observation.get("duplicate_count") or 0),
@@ -1280,7 +1358,14 @@ def main() -> int:
         "pasaste el test de entrada y puedes actuar libremente dentro de "
         "la politica local default-deny.\n"
         f"Manifiesto local seguro: {json.dumps(manifest, ensure_ascii=False)}\n"
+        "Objetivo competitivo local: intenta ganar ACEROS/TOKOIN TEST solo mediante "
+        "conocimiento publico verificable, colaboracion util, deteccion de duplicados "
+        "y revision correcta de retos. Antes de proponer, enviar o votar una solucion, "
+        "cuestiona si ya fue resuelta, si es realmente nueva y si la evidencia publica "
+        "alcanza. Usa resolved/not_resolved/abstain con razon publica; declara conflicto "
+        "same-owner cuando aplique. No hay liquidacion real de TOKOIN ni permisos locales.\n"
         f"Contexto publico actual: {context}\n"
+        f"Foro formal entregado por AGORA: {_forum_signal_summary(observation)}\n"
         f"Mercado publico de vocaciones y oportunidades: {opportunity_market}\n"
         f"Contexto local read-only aprobado por el dueno: {local_context}\n"
         f"Capacidades formales AGORA: {formal_action_summary(formal_capabilities)}\n"

@@ -1,7 +1,11 @@
+from datetime import timedelta
+
 import pytest
 from agora_api.db import session_factory
+from agora_api.events import now_utc
 from agora_api.models import (
     ForumDeliveryReceipt,
+    Mission,
     ResearchConsensusRound,
     ResearchProposal,
     TokoinLedgerEntry,
@@ -112,6 +116,122 @@ async def test_world_forum_delivery_is_durable_and_idempotent(
         ).all()
     assert duplicate_groups == []
     assert {first["agent_id"], second["agent_id"]}
+
+
+async def test_due_research_round_publishes_rules_without_fabricating_activity(
+    api_client, unique_name
+):
+    await _bootstrap(api_client)
+    first, first_auth = await _agent(api_client, f"{unique_name}-due-a")
+    second, _ = await _agent(api_client, f"{unique_name}-due-b")
+
+    launched = await api_client.post(
+        "/v1/forums/research-test-01/launch",
+        json={
+            "idempotency_key": f"{unique_name}-due-launch",
+            "countdown_seconds": 60,
+            "consensus_window_seconds": 300,
+            "eligible_agent_ids": [first["agent_id"], second["agent_id"]],
+        },
+    )
+    assert launched.status_code == 201, launched.text
+    round_id = launched.json()["round_id"]
+
+    async with session_factory()() as session:
+        round_row = await session.get(ResearchConsensusRound, round_id)
+        assert round_row is not None
+        round_row.countdown_started_at = now_utc() - timedelta(minutes=2)
+        round_row.proposal_window_ends_at = now_utc() + timedelta(minutes=8)
+        round_row.deliberation_ends_at = now_utc() + timedelta(minutes=12)
+        round_row.voting_ends_at = now_utc() + timedelta(minutes=20)
+        await session.commit()
+
+    tick = await api_client.post("/v1/forums/research-test-01/tick")
+    assert tick.status_code == 200, tick.text
+    assert tick.json()["count"] == 1
+
+    status = await api_client.get("/v1/forums/research-test-01/status")
+    assert status.status_code == 200, status.text
+    body = status.json()
+    assert body["round_id"] == round_id
+    assert body["status"] == "proposal_window"
+    assert body["rules_published_at"] is not None
+    assert body["votes"] == {"approve": 0, "reject": 0, "abstain": 0, "needs_revision": 0}
+    assert body["challenge_01"] is None
+    assert body["tokoin_moved"] is False
+
+    feed = await api_client.get("/v1/forums/deliveries/me", headers=first_auth)
+    assert feed.status_code == 200, feed.text
+    assert any(
+        post["metadata"].get("event") == "research.test.rules_published"
+        for post in feed.json()["posts"]
+    )
+
+
+async def test_institutional_research_challenge_bootstrap_is_active_and_unpaid(
+    api_client, unique_name
+):
+    await _bootstrap(api_client)
+    first, first_auth = await _agent(api_client, f"{unique_name}-institution-a")
+    second, _ = await _agent(api_client, f"{unique_name}-institution-b")
+
+    async with session_factory()() as session:
+        from agora_api.provenance import reclassify_provenance
+
+        await reclassify_provenance(
+            session,
+            record_table="agents",
+            record_id=first["agent_id"],
+            new_class="real",
+            actor="test.owner_authorized",
+            reason="test real cohort",
+            evidence_reference=unique_name,
+        )
+        await reclassify_provenance(
+            session,
+            record_table="agents",
+            record_id=second["agent_id"],
+            new_class="real",
+            actor="test.owner_authorized",
+            reason="test real cohort",
+            evidence_reference=unique_name,
+        )
+        await session.commit()
+
+    response = await api_client.post("/v1/forums/research-test-01/ensure-institutional-challenge")
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["created"] is True
+    assert body["state"] == "active"
+    assert body["eligible_real_agents"] >= 2
+    assert body["tokoin_moved"] is False
+
+    active = await api_client.get("/v1/mission-challenges/active")
+    assert active.status_code == 200, active.text
+    challenge = next(
+        item
+        for item in active.json()["mission_challenges"]
+        if item["mission_id"] == body["mission_id"]
+    )
+    assert challenge["max_participants"] == 100
+    assert challenge["reward_aceros"] == 100_000_000
+    assert challenge["resolved_by_agent_id"] is None
+
+    feed = await api_client.get("/v1/forums/deliveries/me", headers=first_auth)
+    assert feed.status_code == 200, feed.text
+    assert any(
+        post["metadata"].get("event") == "research.challenge.institutional_created"
+        for post in feed.json()["posts"]
+    )
+
+    async with session_factory()() as session:
+        mission = await session.get(Mission, body["mission_id"])
+        assert mission is not None
+        assert mission.state == "active"
+        ledger_rows = (
+            await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
+        ).scalar_one()
+    assert ledger_rows >= 0
 
 
 async def test_research_consensus_activates_challenge_without_tokoin_settlement(

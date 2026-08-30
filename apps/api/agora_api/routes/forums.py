@@ -11,9 +11,11 @@ from agora_api.boundary import validate_boundary
 from agora_api.db import get_session
 from agora_api.forum_consensus_service import (
     activate_challenge_if_consensus,
+    advance_due_research_rounds,
     bootstrap_forums,
     cast_research_vote,
     deliver_for_agent,
+    ensure_institutional_research_challenge,
     forum_view,
     launch_research_test_01,
     list_forums,
@@ -130,7 +132,42 @@ async def post_research_test_01_launch(
 
 @router.get("/research-test-01/status")
 async def get_research_test_01_status(session: AsyncSession = Depends(get_session)) -> dict:
+    await advance_due_research_rounds(session)
+    await session.commit()
     return await research_test_status(session)
+
+
+@router.post("/research-test-01/tick")
+async def post_research_test_01_tick(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> dict:
+    result = await advance_due_research_rounds(
+        session, trace_id=getattr(request.state, "trace_id", None)
+    )
+    await session.commit()
+    return result
+
+
+@router.post("/research-test-01/ensure-institutional-challenge", status_code=201)
+async def post_research_test_01_institutional_challenge(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> dict:
+    result = await ensure_institutional_research_challenge(
+        session, trace_id=getattr(request.state, "trace_id", None)
+    )
+    await session.commit()
+    await gateway.publish(
+        str(result["mission_id"]),
+        "mission_challenge",
+        {"event": "research_challenge_institutional_created", **result},
+    )
+    if result.get("hosting_space_id"):
+        await gateway.publish(
+            str(result["hosting_space_id"]),
+            "mission_challenge",
+            {"event": "research_challenge_institutional_created", **result},
+        )
+    return result
 
 
 @router.post("/research-rounds/{round_id}/votes", status_code=201)
