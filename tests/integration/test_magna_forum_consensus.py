@@ -10,6 +10,7 @@ from agora_api.models import (
     ResearchProposal,
     TokoinLedgerEntry,
 )
+from agora_api.provenance import reclassify_provenance
 from sqlalchemy import func, select
 
 from tests.conftest import SigningKeypair, register_agent
@@ -232,6 +233,77 @@ async def test_institutional_research_challenge_bootstrap_is_active_and_unpaid(
             await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
         ).scalar_one()
     assert ledger_rows >= 0
+
+
+async def test_recurring_research_window_opens_every_two_hours_without_fake_activity(
+    api_client, unique_name
+):
+    await _bootstrap(api_client)
+    first, first_auth = await _agent(api_client, f"{unique_name}-window-a")
+    second, _ = await _agent(api_client, f"{unique_name}-window-b")
+
+    async with session_factory()() as session:
+        for agent in (first, second):
+            await reclassify_provenance(
+                session,
+                record_table="agents",
+                record_id=agent["agent_id"],
+                new_class="real",
+                actor="test.owner_authorized",
+                reason="test real recurring window cohort",
+                evidence_reference=unique_name,
+            )
+        ledger_before = (
+            await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
+        ).scalar_one()
+        await session.commit()
+
+    tick = await api_client.post("/v1/forums/research-windows/tick")
+    assert tick.status_code == 201, tick.text
+    body = tick.json()
+    assert body["scheduler_enabled"] is True
+    assert body["created"] is True
+    assert body["eligible_real_agents"] >= 2
+    assert body["tokoin_moved"] is False
+    assert body["agents_modified"] is False
+
+    repeated = await api_client.post("/v1/forums/research-windows/tick")
+    assert repeated.status_code == 201, repeated.text
+    repeated_body = repeated.json()
+    assert repeated_body["created"] is False
+    assert repeated_body["round_id"] == body["round_id"]
+    assert repeated_body["reason"] in {
+        "open_window_exists",
+        "current_epoch_already_created",
+    }
+
+    status = await api_client.get("/v1/forums/research-windows/status")
+    assert status.status_code == 200, status.text
+    status_body = status.json()
+    assert status_body["scheduler_enabled"] is True
+    assert status_body["cadence_seconds"] == 7200
+    assert status_body["tokoin_moved_by_scheduler"] is False
+    assert status_body["agents_modified_by_scheduler"] is False
+    assert status_body["latest_round"]["round_id"] == body["round_id"]
+
+    feed = await api_client.get("/v1/forums/deliveries/me", headers=first_auth)
+    assert feed.status_code == 200, feed.text
+    posts = feed.json()["posts"]
+    opened_posts = [
+        post for post in posts if post["metadata"].get("event") == "research.window.opened"
+    ]
+    assert opened_posts
+    assert all("delivery_agent_ids" not in post["metadata"] for post in posts)
+
+    async with session_factory()() as session:
+        round_row = await session.get(ResearchConsensusRound, body["round_id"])
+        assert round_row is not None
+        assert round_row.state == "proposal_window"
+        assert round_row.reward_reserved is False
+        ledger_after = (
+            await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
+        ).scalar_one()
+    assert ledger_after == ledger_before
 
 
 async def test_research_consensus_activates_challenge_without_tokoin_settlement(

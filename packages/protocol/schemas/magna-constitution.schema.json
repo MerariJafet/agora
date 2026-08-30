@@ -278,7 +278,7 @@
         "empty_epoch_policy": { "type": "string", "minLength": 1, "maxLength": 240 },
         "downtime_policy": { "type": "string", "minLength": 1, "maxLength": 240 },
         "concurrency_policy": { "type": "string", "minLength": 1, "maxLength": 240 },
-        "scheduler_implemented": { "const": false }
+        "scheduler_implemented": { "const": true }
       }
     },
     "ResearchReleaseSimulationRequest": {

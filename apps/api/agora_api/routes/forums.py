@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.authz import CurrentDevice
 from agora_api.boundary import validate_boundary
+from agora_api.config import get_settings
 from agora_api.db import get_session
 from agora_api.forum_consensus_service import (
     activate_challenge_if_consensus,
@@ -16,6 +17,7 @@ from agora_api.forum_consensus_service import (
     cast_research_vote,
     deliver_for_agent,
     ensure_institutional_research_challenge,
+    ensure_recurring_research_window,
     forum_view,
     launch_research_test_01,
     list_forums,
@@ -146,6 +148,36 @@ async def post_research_test_01_tick(
     )
     await session.commit()
     return result
+
+
+@router.post("/research-windows/tick", status_code=201)
+async def post_research_window_tick(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> dict:
+    result = await ensure_recurring_research_window(
+        session, trace_id=getattr(request.state, "trace_id", None)
+    )
+    await session.commit()
+    if result.get("round_id"):
+        await gateway.publish(
+            "global",
+            "forum",
+            {"event": "research_window_tick", **result},
+        )
+    return result
+
+
+@router.get("/research-windows/status")
+async def get_research_window_status(session: AsyncSession = Depends(get_session)) -> dict:
+    settings = get_settings()
+    status = await research_test_status(session)
+    return {
+        "scheduler_enabled": settings.research_scheduler_enabled and not settings.is_production,
+        "cadence_seconds": settings.research_scheduler_interval_seconds,
+        "latest_round": status,
+        "tokoin_moved_by_scheduler": False,
+        "agents_modified_by_scheduler": False,
+    }
 
 
 @router.post("/research-test-01/ensure-institutional-challenge", status_code=201)

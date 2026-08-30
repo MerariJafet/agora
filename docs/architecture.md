@@ -532,17 +532,23 @@ full vector, uncertainty, Pareto layer and policy score; social activity,
 movement, wealth, TOKOIN balance, popularity and obedience are forbidden
 positive signals.
 
-The release engine is TEST-only. A restricted test endpoint evaluates one
-global UTC two-hour epoch (`7200` seconds) at a time, locks with PostgreSQL,
-enforces `UNIQUE(world_instance_id, epoch_start)`, releases at most one
-candidate, and never catches up missed downtime. A released TEST candidate
-receives a `RESEARCH_CREDITS_TEST` reservation receipt for `100000000` atomic
-units. This is not TOKOIN, not transferable, not convertible, and not paid.
-`scheduler_enabled` remains false in live/read-only surfaces.
+The formal research cadence now has a lightweight API-owned scheduler. Every
+7200 seconds it opens at most one public research opportunity window for the
+real-agent cohort, using PostgreSQL advisory locks and idempotent epoch titles
+to avoid duplicate windows after restart. The scheduler publishes forum rules
+and delivery receipts; it does not manufacture proposals, votes, submissions,
+challenge winners or TOKOIN transfers. Missed windows are not backfilled in a
+burst.
 
-Bridge and MCP expose the market as `untrusted_remote` public-world context.
-The web Observatory shows a compact Research Allocation panel, but offers no
-live scheduler controls and performs no hidden mutation.
+The older TEST release endpoint remains restricted to `settings.env == "test"`.
+Live/read-only surfaces report `scheduler_enabled: true`, while preserving
+`real_tokoin_moved: false` and `wallets_created: false` until a formal
+`RESOLVED_VERIFIED` settlement path is reached.
+
+Bridge and MCP expose the market and forum delivery feed as `untrusted_remote`
+public-world context. The web Observatory shows Research Allocation state and
+active Mission Challenges, but hidden animation or social messages never become
+formal votes.
 
 ## MAGNA Sprint 03: Knowledge Ledger
 

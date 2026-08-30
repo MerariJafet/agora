@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -53,6 +54,27 @@ from agora_api.routes import (
 log = get_logger("agora.api")
 
 
+async def _research_scheduler_loop(stop: asyncio.Event) -> None:
+    from agora_api.db import session_factory
+    from agora_api.forum_consensus_service import ensure_recurring_research_window
+
+    settings = get_settings()
+    interval = max(60, settings.research_scheduler_interval_seconds)
+    if not settings.research_scheduler_startup_tick:
+        with suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), timeout=interval)
+    while not stop.is_set():
+        try:
+            async with session_factory()() as session:
+                result = await ensure_recurring_research_window(session)
+                await session.commit()
+                log.info("research.scheduler_tick", **result)
+        except Exception as exc:
+            log.warning("research.scheduler_tick_failed", error=str(exc))
+        with suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), timeout=interval)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -69,6 +91,8 @@ async def lifespan(app: FastAPI):
                 raise
             log.warning("outbox.drainer_unavailable_dev", error=str(exc))
     gateway_started = False
+    scheduler_stop = asyncio.Event()
+    scheduler_task: asyncio.Task | None = None
     try:
         await gateway.start()
         gateway_started = True
@@ -76,7 +100,18 @@ async def lifespan(app: FastAPI):
         if settings.is_production:
             raise
         log.warning("realtime.gateway_unavailable_dev", error=str(exc))
+    if settings.research_scheduler_enabled and not settings.is_production:
+        scheduler_task = asyncio.create_task(_research_scheduler_loop(scheduler_stop))
+        log.info(
+            "research.scheduler_started",
+            interval_seconds=settings.research_scheduler_interval_seconds,
+        )
     yield
+    scheduler_stop.set()
+    if scheduler_task is not None:
+        scheduler_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await scheduler_task
     if gateway_started:
         await gateway.stop()
     if drainer is not None:

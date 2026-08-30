@@ -310,7 +310,7 @@ async def test_research_market_summary_is_read_only_and_honest(api_client):
     summary = await api_client.get("/v1/research-market")
     assert summary.status_code == 200
     body = summary.json()
-    assert body["scheduler_enabled"] is False
+    assert body["scheduler_enabled"] is True
     assert body["asset"]["real_tokoin"] is False
     assert body["asset"]["wallets_created"] is False
     async with session_factory()() as session:

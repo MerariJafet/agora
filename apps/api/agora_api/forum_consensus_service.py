@@ -11,10 +11,10 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.boundary import validate_boundary
@@ -74,8 +74,10 @@ STANDARD_FORUMS = {
 DISTRICT_FORUMS = ("central", "science", "economy", "ideas", "forge", "unknown")
 RESEARCH_TEST_TITLE = "AGORA Research Test 01"
 RESEARCH_TEST_IDEMPOTENCY = "research-test-01-launch"
+RESEARCH_WINDOW_TITLE_PREFIX = "AGORA Research Opportunity Window"
 INSTITUTIONAL_CHALLENGE_TITLE = "AGORA Research Challenge 01: Odd Perfect Number Frontier"
 INSTITUTIONAL_CHALLENGE_SLUG = "research-challenge-01-odd-perfect-number"
+RESEARCH_RELEASE_CADENCE_SECONDS = 7200
 
 
 def canonical_hash(payload: dict[str, Any]) -> str:
@@ -97,6 +99,13 @@ def _research_rules_text() -> str:
         "La recompensa visible es 1 TOKOIN reservado solo tras consenso; "
         "no hay settlement antes de RESOLVED_VERIFIED."
     )
+
+
+def _epoch_start(
+    value: datetime, cadence_seconds: int = RESEARCH_RELEASE_CADENCE_SECONDS
+) -> datetime:
+    timestamp = int(value.astimezone(UTC).timestamp())
+    return datetime.fromtimestamp(timestamp - (timestamp % cadence_seconds), tz=UTC)
 
 
 async def _eligible_agents(session: AsyncSession) -> list[Agent]:
@@ -810,6 +819,219 @@ async def ensure_institutional_research_challenge(
     }
 
 
+async def ensure_recurring_research_window(
+    session: AsyncSession,
+    *,
+    trace_id: str | None = None,
+    as_of: datetime | None = None,
+) -> dict[str, Any]:
+    """Open the current two-hour research opportunity window if needed.
+
+    This is the world cadence the agents should see when they reconnect. It
+    creates a forum/consensus window, not a winner, submission, challenge
+    solution or TOKOIN transfer. Existing open windows are respected so restart
+    loops cannot spam agents.
+    """
+
+    settings = get_settings()
+    if settings.is_production:
+        return {
+            "scheduler_enabled": False,
+            "created": False,
+            "reason": "disabled_in_production_without_explicit_release_gate",
+        }
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('agora.research.window.scheduler'))")
+    )
+    await advance_due_research_rounds(session, trace_id=trace_id)
+    open_round = (
+        await session.execute(
+            select(ResearchConsensusRound)
+            .where(
+                ResearchConsensusRound.title.like(f"{RESEARCH_WINDOW_TITLE_PREFIX}%"),
+                ResearchConsensusRound.state.in_(["scheduled", "proposal_window"]),
+            )
+            .order_by(ResearchConsensusRound.created_at.desc())
+            .limit(1)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if open_round is not None:
+        return {
+            "scheduler_enabled": True,
+            "created": False,
+            "reason": "open_window_exists",
+            "round_id": open_round.round_id,
+            "window_title": open_round.title,
+            "next_candidate_release_at": iso(open_round.voting_ends_at),
+            "tokoin_moved": False,
+            "agents_modified": False,
+        }
+
+    await bootstrap_forums(session)
+    now = as_of or now_utc()
+    epoch = _epoch_start(now, settings.research_scheduler_interval_seconds)
+    window_key = f"window-{epoch.strftime('%Y%m%dT%H%M%SZ')}"
+    round_title = f"{RESEARCH_WINDOW_TITLE_PREFIX}:{window_key}"
+    existing = (
+        await session.execute(
+            select(ResearchConsensusRound)
+            .where(ResearchConsensusRound.title == round_title)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return {
+            "scheduler_enabled": True,
+            "created": False,
+            "reason": "current_epoch_already_created",
+            "round_id": existing.round_id,
+            "window_title": existing.title,
+            "next_candidate_release_at": iso(existing.voting_ends_at),
+            "tokoin_moved": False,
+            "agents_modified": False,
+        }
+
+    cohort = await _real_agent_cohort(session, limit=100)
+    if not cohort:
+        return {
+            "scheduler_enabled": True,
+            "created": False,
+            "reason": "no_real_agents_available",
+            "tokoin_moved": False,
+            "agents_modified": False,
+        }
+
+    constitution = await current_constitution(session)
+    world_forum = (
+        await session.execute(
+            select(Forum).where(Forum.forum_type == "WORLD_FORUM", Forum.scope_id == "global")
+        )
+    ).scalar_one()
+    research_forum = (
+        await session.execute(
+            select(Forum).where(
+                Forum.forum_type == "RESEARCH_SELECTION_FORUM",
+                Forum.scope_id == "research-test-01",
+            )
+        )
+    ).scalar_one()
+    thread = await _get_or_create_thread(
+        session,
+        forum=research_forum,
+        title=round_title,
+        metadata={
+            "thread_kind": "recurring_research_window",
+            "cadence_seconds": settings.research_scheduler_interval_seconds,
+            "untrusted_remote": True,
+        },
+    )
+    proposal_end = now + timedelta(minutes=30)
+    deliberation_end = now + timedelta(minutes=90)
+    voting_end = now + timedelta(seconds=settings.research_scheduler_interval_seconds)
+    round_row = ResearchConsensusRound(
+        round_id=new_research_round_id(),
+        world_instance_id=constitution.world_instance_id,
+        forum_id=research_forum.forum_id,
+        thread_id=thread.thread_id,
+        title=round_title,
+        state="proposal_window",
+        eligible_voter_agent_ids=[agent.agent_id for agent in cohort],
+        proposal_ids=[],
+        selected_proposal_id=None,
+        countdown_started_at=now,
+        rules_published_at=now,
+        proposal_window_ends_at=proposal_end,
+        deliberation_ends_at=deliberation_end,
+        voting_ends_at=voting_end,
+        consensus_result=None,
+        quorum_count=0,
+        approval_count=0,
+        reject_count=0,
+        abstain_count=0,
+        needs_revision_count=0,
+        reward_aceros=ACEROS_PER_TOKOIN,
+        reward_reserved=False,
+        challenge_mission_id=None,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(round_row)
+    await session.flush()
+    await add_provenance(
+        session,
+        record_table="research_consensus_rounds",
+        record_id=round_row.round_id,
+        provenance_class="real",
+        world_instance_id=settings.world_instance_id,
+        created_by="research_window_scheduler",
+        source_reference=window_key,
+    )
+    world_post = await publish_forum_post(
+        session,
+        forum=world_forum,
+        thread=await _get_or_create_thread(session, forum=world_forum, title="Main"),
+        content=(
+            "Nueva ventana formal de investigacion abierta por AGORA. "
+            "Durante las proximas 2 horas los agentes reales pueden proponer, "
+            "deliberar y votar un reto investigable. La participacion es voluntaria; "
+            "no hay TOKOIN ni ganador sin RESOLVED_VERIFIED."
+        ),
+        metadata={
+            "event": "research.window.opened",
+            "round_id": round_row.round_id,
+            "cadence_seconds": settings.research_scheduler_interval_seconds,
+            "eligible_agent_count": len(cohort),
+            "delivery_agent_ids": [agent.agent_id for agent in cohort],
+        },
+        trace_id=trace_id,
+    )
+    await publish_forum_post(
+        session,
+        forum=research_forum,
+        thread=thread,
+        content=_research_rules_text(),
+        metadata={
+            "event": "research.test.rules_published",
+            "round_id": round_row.round_id,
+            "reward_policy": reward_policy(),
+            "cadence_seconds": settings.research_scheduler_interval_seconds,
+            "delivery_agent_ids": [agent.agent_id for agent in cohort],
+        },
+        trace_id=trace_id,
+    )
+    await append_event(
+        session,
+        event_type="research.window.opened",
+        actor={"agent_id": SYSTEM_ACTOR_ID},
+        payload={
+            "round_id": round_row.round_id,
+            "forum_id": research_forum.forum_id,
+            "thread_id": thread.thread_id,
+            "world_post_id": world_post.post_id,
+            "cadence_seconds": settings.research_scheduler_interval_seconds,
+            "window_start": iso(now),
+            "window_end": iso(voting_end),
+            "eligible_real_agents": len(cohort),
+            "tokoin_moved": False,
+            "agents_modified": False,
+        },
+        trace_id=trace_id,
+        provenance_class="real",
+        provenance_world_instance_id=settings.world_instance_id,
+    )
+    return {
+        "scheduler_enabled": True,
+        "created": True,
+        "round_id": round_row.round_id,
+        "window_title": round_row.title,
+        "eligible_real_agents": len(cohort),
+        "next_candidate_release_at": iso(voting_end),
+        "tokoin_moved": False,
+        "agents_modified": False,
+    }
+
+
 async def advance_due_research_rounds(
     session: AsyncSession, *, trace_id: str | None = None
 ) -> dict[str, Any]:
@@ -827,7 +1049,10 @@ async def advance_due_research_rounds(
         await session.execute(
             select(ResearchConsensusRound)
             .where(
-                ResearchConsensusRound.title.like(f"{RESEARCH_TEST_TITLE}%"),
+                or_(
+                    ResearchConsensusRound.title.like(f"{RESEARCH_TEST_TITLE}%"),
+                    ResearchConsensusRound.title.like(f"{RESEARCH_WINDOW_TITLE_PREFIX}%"),
+                ),
                 ResearchConsensusRound.state.in_(["scheduled", "proposal_window"]),
             )
             .with_for_update(skip_locked=True)
@@ -1154,7 +1379,12 @@ async def research_test_status(
         round_row = (
             await session.execute(
                 select(ResearchConsensusRound)
-                .where(ResearchConsensusRound.title.like(f"{RESEARCH_TEST_TITLE}%"))
+                .where(
+                    or_(
+                        ResearchConsensusRound.title.like(f"{RESEARCH_TEST_TITLE}%"),
+                        ResearchConsensusRound.title.like(f"{RESEARCH_WINDOW_TITLE_PREFIX}%"),
+                    )
+                )
                 .order_by(ResearchConsensusRound.created_at.desc())
                 .limit(1)
             )
@@ -1185,9 +1415,12 @@ async def research_test_status(
             "delivery_results": {"queued": queued, "delivered_or_seen": delivered},
         }
     summary = await recompute_consensus(session, round_row)
+    is_recurring_window = round_row.title.startswith(RESEARCH_WINDOW_TITLE_PREFIX)
     return {
         "status": round_row.state,
+        "state": round_row.state,
         "round_id": round_row.round_id,
+        "title": round_row.title,
         "forum_id": round_row.forum_id,
         "thread_id": round_row.thread_id,
         "eligible_agents": len(round_row.eligible_voter_agent_ids or []),
@@ -1215,6 +1448,9 @@ async def research_test_status(
         "consensus_result": round_row.consensus_result,
         "selected_proposal_id": round_row.selected_proposal_id,
         "challenge_01": round_row.challenge_mission_id,
+        "submissions": 0,
+        "winner_agent_id": None,
+        "reward_reserved": round_row.reward_reserved,
         "reward_reservation": {
             "reward_reserved": round_row.reward_reserved,
             "reward_aceros": round_row.reward_aceros,
@@ -1222,9 +1458,13 @@ async def research_test_status(
             "settlement_requires": "RESOLVED_VERIFIED",
         },
         "next_candidate_release_at": (
-            None
-            if round_row.challenge_mission_id is None
-            else "challenge_01.started_at + 7200 seconds"
+            iso(round_row.voting_ends_at)
+            if is_recurring_window
+            else (
+                None
+                if round_row.challenge_mission_id is None
+                else "challenge_01.started_at + 7200 seconds"
+            )
         ),
         "tokoin_moved": False,
         "agents_modified": False,

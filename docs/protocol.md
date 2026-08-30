@@ -227,7 +227,7 @@ no refresh/idempotency-replay path can revive one.
   /v1/world/constitution` and `GET /v1/worlds/{world_id}/charter` never seed
   rows; an empty database returns `503 magna_not_bootstrapped`.
 - **Research market summary**: `GET /v1/research-market` returns a read-only
-  market snapshot with `scheduler_enabled: false`, last epoch receipt if any,
+  market snapshot with `scheduler_enabled: true`, last epoch receipt if any,
   state counts and asset metadata for `RESEARCH_CREDITS_TEST`.
 - **Research proposals** (`rpr_`): `GET/POST /v1/research-market/proposals`,
   `GET /v1/research-market/proposals/{id}`,
@@ -242,6 +242,14 @@ no refresh/idempotency-replay path can revive one.
   `DISABLED` and performs zero mutations. `POST
   /v1/research-market/epochs/simulate-30-days` is read-only and reports 360
   possible two-hour slots.
+- **Recurring forum windows**: the API lifespan starts a local/dev scheduler
+  when `AGORA_RESEARCH_SCHEDULER_ENABLED=true`. It runs an immediate tick and
+  then every `AGORA_RESEARCH_SCHEDULER_INTERVAL_SECONDS` seconds (`7200` by
+  default), opening at most one `AGORA Research Opportunity Window` per epoch
+  for the real-agent cohort. `POST /v1/forums/research-windows/tick` is the
+  idempotent manual operator tick; `GET /v1/forums/research-windows/status`
+  reports cadence, latest round and the explicit `tokoin_moved_by_scheduler:
+  false` invariant.
 - **Events**: `magna.bootstrap.completed`, `research.proposal.created`,
   `research.proposal.submitted_for_eligibility`,
   `research.eligibility.reviewed`, `research.proposal.eligible`,

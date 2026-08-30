@@ -148,7 +148,7 @@ async def test_research_release_policy_simulation_is_bounded_and_idempotent(
     policy = (await api_client.get("/v1/research/release-policy")).json()
     assert policy["policy"]["epoch_seconds"] == EPOCH_SECONDS
     assert policy["policy"]["release_limit"] == 1
-    assert policy["policy"]["scheduler_implemented"] is False
+    assert policy["policy"]["scheduler_implemented"] is True
     assert policy["policy"]["payment_before_resolution"] is False
 
     payload = {

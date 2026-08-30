@@ -53,7 +53,7 @@ from agora_api.provenance import SYSTEM_ACTOR_ID, add_provenance, world_instance
 RESEARCH_MARKET_VERSION = "research-allocation-market.v1"
 RESEARCH_CREDIT_ASSET = "RESEARCH_CREDITS_TEST"
 RESEARCH_CREDIT_AMOUNT = 100_000_000
-SCHEDULER_ENABLED = False
+SCHEDULER_ENABLED = True
 CLAIM_WINDOW_SECONDS = 300
 POLICY_VERSION = "research-priority-policy.v1"
 

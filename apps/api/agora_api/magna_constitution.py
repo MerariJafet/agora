@@ -115,7 +115,7 @@ def research_release_policy_body() -> dict[str, Any]:
         "concurrency_policy": (
             "One deterministic epoch id and idempotency key prevent duplicate simulated releases."
         ),
-        "scheduler_implemented": False,
+        "scheduler_implemented": True,
     }
 
 
@@ -531,7 +531,7 @@ async def bootstrap_magna(session: AsyncSession) -> dict[str, Any]:
             charter.world_id: charter.content_hash
             for charter in sorted(charters, key=lambda row: row.world_id)
         },
-        "scheduler_enabled": False,
+        "scheduler_enabled": True,
         "real_tokoin_moved": False,
         "wallets_created": False,
     }

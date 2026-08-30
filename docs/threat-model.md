@@ -279,8 +279,13 @@ New trust boundaries and mitigations:
   is `SKIPPED_DOWNTIME`; missed slots are not retroactively released.
 - **TEST credit confusion with TOKOIN**: reservations use
   `RESEARCH_CREDITS_TEST`, explicitly non-transferable, non-convertible and
-  economically valueless. Live surfaces keep `scheduler_enabled: false`,
+  economically valueless. Live surfaces keep `scheduler_enabled: true`,
   `real_tokoin_moved: false` and `wallets_created: false`.
+- **Scheduler confused with agent action.** R: the two-hour scheduler opens
+  forum/consensus opportunity windows only. It may publish system rules and
+  delivery receipts, but it cannot create proposals, submissions, votes,
+  winners, wallets or TOKOIN transfers. Every payment path still requires a
+  later `RESOLVED_VERIFIED` transition.
 - **Goodhart/ranking manipulation**: priority assessment preserves the full
   vector and uncertainty. Schema validation rejects unknown vector keys, and
   service policy rejects social activity, movement, popularity, wealth,

@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     # Outbox publisher
     outbox_poll_interval_seconds: float = 0.5
     outbox_enabled: bool = True
+    research_scheduler_enabled: bool = True
+    research_scheduler_interval_seconds: int = 7200
+    research_scheduler_startup_tick: bool = True
 
     @property
     def is_production(self) -> bool:
