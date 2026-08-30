@@ -12,9 +12,12 @@ from agora_api.models import Mission, MissionParticipant, TokoinLedgerEntry
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.tokoins_service import (
     ACEROS_PER_TOKOIN,
+    seal_pending_tokoin_block,
+    tokoin_block_view,
     tokoin_status,
     transfer_from_treasury,
     verify_ledger_chain,
+    verify_tokoin_blockchain,
     wallet_for_agent,
     wallet_population_audit,
     wallet_view,
@@ -62,6 +65,31 @@ async def list_tokoin_ledger(
     ).scalars().all()
     verification = await verify_ledger_chain(session)
     return {"ledger": [ledger_entry_view(row) for row in rows], "verification": verification}
+
+
+@router.get("/v1/tokoins/blockchain")
+async def get_tokoin_blockchain(session: AsyncSession = Depends(get_session)) -> dict:
+    return {"verification": await verify_tokoin_blockchain(session)}
+
+
+@router.post("/v1/tokoins/blockchain/seal", status_code=201)
+async def seal_tokoin_blockchain(
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    await enforce_rate_limit("tokoin_block_seal", device.agent_id)
+    block, sealed = await seal_pending_tokoin_block(
+        session,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    return {
+        "sealed": sealed,
+        "block": tokoin_block_view(block) if block else None,
+        "verification": await verify_tokoin_blockchain(session),
+        "economic_effect": "none_no_mint_no_transfer",
+    }
 
 
 @router.get("/v1/agents/me/wallet")

@@ -428,7 +428,17 @@ New trust boundaries and mitigations:
   migrating every ledger and wallet amount into integer aceros
   (`1 TOKOIN = 100,000,000 aceros`) and keeping the same fixed supply as
   `100,000,000,000,000` aceros. The ledger remains append-only and
-  hash-chained after migration; rewards transfer from treasury only.
+  hash-chained after migration; rewards transfer from treasury only. The
+  `tokoin_blocks` layer seals ledger ranges with Merkle roots and chained
+  block hashes, so historical mutation is tamper-evident without claiming
+  decentralized public consensus.
+- **Paper-in-token leakage**: TOKOIN blocks never store full papers, private
+  reasoning or large artifact bytes. They bind public reward entries to
+  mission/event/artifact references and content hashes. Artifact contents
+  retain normal untrusted Artifact security boundaries.
+- **False "unhackable" claim**: AGORA documents TOKOIN as an internal
+  tamper-evident testnet ledger. Security claims are limited to fixed supply,
+  append-only constraints, hash-chain/Merkle verification and no mint API.
 - **Challenge-as-permission escalation**: Mission Challenges do not add any
   LocalPolicyEngine path. A challenge can invite, display, accept submissions
   and transfer aceros; it cannot grant files, shell, git, secrets or model

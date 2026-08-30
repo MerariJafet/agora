@@ -160,6 +160,95 @@ async def test_tokoin_mission_reward_transfers_without_minting(api_client, uniqu
     assert ledger["verification"]["total_balance"] == 100_000_000_000_000
 
 
+async def test_tokoin_blockchain_seals_ledger_entries_without_economic_effect(
+    api_client, unique_name
+):
+    coordinator = await register_agent(
+        api_client, SigningKeypair(), f"{unique_name}-block-coordinator"
+    )
+    worker = await register_agent(api_client, SigningKeypair(), f"{unique_name}-block-worker")
+    initial_seal = await api_client.post(
+        "/v1/tokoins/blockchain/seal", headers=_auth(coordinator)
+    )
+    assert initial_seal.status_code == 201, initial_seal.text
+    assert initial_seal.json()["verification"]["valid"] is True
+
+    mission = await _create_mission(api_client, coordinator)
+    mission_id = mission["mission_id"]
+    joined = await api_client.post(
+        f"/v1/missions/{mission_id}/join",
+        json={"roles": ["researcher"]},
+        headers=_auth(worker),
+    )
+    assert joined.status_code == 201
+    before = (await api_client.get("/v1/tokoins/status")).json()
+
+    reward = await api_client.post(
+        f"/v1/missions/{mission_id}/tokoin-rewards",
+        json={
+            "agent_id": worker["agent_id"],
+            "amount": 7,
+            "reason": "blockchain_seal_test_reward",
+        },
+        headers=_auth(coordinator),
+    )
+    assert reward.status_code == 201, reward.text
+    pending = (await api_client.get("/v1/tokoins/blockchain")).json()["verification"]
+    assert pending["valid"] is True
+    assert pending["pending_entries"] >= 1
+
+    sealed = await api_client.post("/v1/tokoins/blockchain/seal", headers=_auth(worker))
+    assert sealed.status_code == 201, sealed.text
+    body = sealed.json()
+    assert body["sealed"] is True
+    assert body["economic_effect"] == "none_no_mint_no_transfer"
+    assert body["verification"]["valid"] is True
+    assert body["verification"]["pending_entries"] == 0
+    block = body["block"]
+    assert block["block_hash"]
+    assert block["transaction_merkle_root"]
+    assert block["proof_bundle_hash"]
+    assert block["proof_bundle"]["schema"] == "agora.tokoin.block_proof_bundle.v1"
+    assert any(
+        entry["entry_id"] == reward.json()["entry_id"]
+        for entry in block["proof_bundle"]["entries"]
+    )
+
+    after = (await api_client.get("/v1/tokoins/status")).json()
+    assert after["treasury_balance_aceros"] == before["treasury_balance_aceros"] - 7
+    assert after["circulating_supply_aceros"] == before["circulating_supply_aceros"] + 7
+    assert after["blockchain"]["valid"] is True
+
+
+async def test_tokoin_blocks_are_append_only(api_client, unique_name):
+    reg = await register_agent(api_client, SigningKeypair(), f"{unique_name}-block-guard")
+    sealed = await api_client.post("/v1/tokoins/blockchain/seal", headers=_auth(reg))
+    assert sealed.status_code == 201, sealed.text
+
+    async with session_factory()() as session:
+        block_id = (
+            await session.execute(text("select block_id from tokoin_blocks limit 1"))
+        ).scalar_one_or_none()
+        assert block_id is not None
+        with pytest.raises(DBAPIError):
+            await session.execute(
+                text("UPDATE tokoin_blocks SET block_hash = block_hash WHERE block_id = :id"),
+                {"id": block_id},
+            )
+            await session.commit()
+        await session.rollback()
+
+        with pytest.raises(DBAPIError):
+            await session.execute(
+                text("DELETE FROM tokoin_blocks WHERE block_id = :id"), {"id": block_id}
+            )
+            await session.commit()
+        await session.rollback()
+
+    blockchain = (await api_client.get("/v1/tokoins/blockchain")).json()
+    assert blockchain["verification"]["valid"] is True
+
+
 async def test_tokoin_rewards_are_creator_and_participant_scoped(api_client, unique_name):
     creator = await register_agent(api_client, SigningKeypair(), f"{unique_name}-creator")
     participant = await register_agent(api_client, SigningKeypair(), f"{unique_name}-participant")

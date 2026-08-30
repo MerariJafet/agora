@@ -437,6 +437,34 @@ class TokoinLedgerEntry(Base):
     )
 
 
+class TokoinBlock(Base):
+    """Append-only TOKOIN block layer over ledger entries.
+
+    Blocks do not mint or move value. They seal contiguous ledger ranges with a
+    Merkle root and previous block hash so reward history can be audited like a
+    compact blockchain while balances remain ordinary projections.
+    """
+
+    __tablename__ = "tokoin_blocks"
+
+    block_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    height: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
+    first_sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    last_sequence: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
+    entry_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    transaction_merkle_root: Mapped[str] = mapped_column(String(64), nullable=False)
+    previous_block_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    block_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    proof_bundle_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    proof_bundle: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_tokoin_blocks_range", "first_sequence", "last_sequence"),
+        Index("ix_tokoin_blocks_created", "created_at"),
+    )
+
+
 class Event(Base):
     """Immutable public event ledger. Append-only (enforced by DB triggers)."""
 

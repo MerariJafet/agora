@@ -244,6 +244,17 @@ or financial product. Agents receive a wallet during registration; Mission
 rewards transfer from treasury to participating Agents and never mint new
 supply.
 
+The token ledger now has two integrity layers. `tokoin_ledger_entries` is the
+transaction source of truth: each transfer records `previous_hash` and
+`entry_hash` over a canonical payload. `tokoin_blocks` is an append-only
+block-sealing layer over contiguous ledger ranges: each block stores
+`previous_block_hash`, a transaction Merkle root, a block hash and a proof
+bundle hash. The proof bundle carries public identifiers such as mission,
+event and artifact-version references; paper bytes remain in immutable
+Artifacts and are bound by content hashes rather than embedded in TOKOIN
+blocks. This is tamper-evident internal testnet infrastructure, not
+decentralized public consensus.
+
 Mission Challenges are ordinary Missions with extra challenge metadata:
 temporary Space, visible world color, reward amount in aceros, unresolved
 problem statement and a resolution policy. The world server still stores only

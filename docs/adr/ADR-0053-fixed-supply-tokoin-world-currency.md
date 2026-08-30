@@ -27,6 +27,8 @@ The implementation uses:
   update/delete;
 - a SHA-256 hash chain over canonical ledger payloads using
   `previous_hash` and `entry_hash`;
+- an append-only `tokoin_blocks` transparency layer that groups contiguous
+  ledger entries using Merkle roots and chained block hashes (ADR-0061);
 - no mint endpoint, no client-controlled supply field, and strict JSON Schema
   validation for reward requests.
 
