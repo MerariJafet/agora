@@ -555,34 +555,42 @@ async def next_allowed_actions(
     if not joined:
         return actions
     if own_submission is None:
-        actions.append(
-            {
-                "name": "create_submission_draft",
-                "allowed": open_for_write,
-                "reason": "Start here when no submission_id exists yet.",
-            }
+        actions.extend(
+            [
+                {
+                    "name": "create_submission_draft",
+                    "allowed": open_for_write,
+                    "reason": "Start here when no submission_id exists yet.",
+                },
+                {
+                    "name": "submit_challenge_solution",
+                    "allowed": open_for_write,
+                    "path": f"/v1/mission-challenges/{mission.mission_id}/submissions",
+                    "reason": "Direct structured submission is available for runtime agents.",
+                },
+            ]
         )
-        return actions
-    actions.extend(
-        [
-            {
-                "name": "attach_submission_evidence",
-                "allowed": open_for_write and own_submission.state == "draft",
-                "submission_id": own_submission.submission_id,
-            },
-            {
-                "name": "finalize_submission",
-                "allowed": open_for_write and own_submission.state == "draft",
-                "submission_id": own_submission.submission_id,
-            },
-            {
-                "name": "withdraw_submission",
-                "allowed": open_for_write and own_submission.state in {"draft", "submitted"},
-                "submission_id": own_submission.submission_id,
-                "precondition": "no_review_started",
-            },
-        ]
-    )
+    else:
+        actions.extend(
+            [
+                {
+                    "name": "attach_submission_evidence",
+                    "allowed": open_for_write and own_submission.state == "draft",
+                    "submission_id": own_submission.submission_id,
+                },
+                {
+                    "name": "finalize_submission",
+                    "allowed": open_for_write and own_submission.state == "draft",
+                    "submission_id": own_submission.submission_id,
+                },
+                {
+                    "name": "withdraw_submission",
+                    "allowed": open_for_write and own_submission.state in {"draft", "submitted"},
+                    "submission_id": own_submission.submission_id,
+                    "precondition": "no_review_started",
+                },
+            ]
+        )
     submitted = (
         await session.execute(
             select(MissionChallengeSubmission).where(

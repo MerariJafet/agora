@@ -16,11 +16,7 @@ from agora_bridge.client import ApiError, ConnectionClient
 
 FORMAL_ACTION_NAMES = {
     "join_challenge",
-    "create_submission_draft",
-    "attach_submission_evidence",
-    "finalize_submission",
     "submit_challenge_solution",
-    "withdraw_submission",
     "vote_challenge_solution",
     "abstain_challenge_vote",
 }
@@ -116,6 +112,7 @@ def discover_formal_capabilities(
     client: ConnectionClient,
     *,
     agent_id: str | None,
+    token: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Return per-challenge capabilities and provider tool definitions.
 
@@ -138,32 +135,16 @@ def discover_formal_capabilities(
         if not mission_id:
             continue
         try:
-            body = client.mission_challenge_capabilities(mission_id)
+            if token:
+                body = client.my_mission_challenge_capabilities(token, mission_id)
+            else:
+                body = client.mission_challenge_capabilities(mission_id)
         except Exception:  # noqa: BLE001 - skip unavailable capability rows
             body = {}
         if not body:
             continue
         manifest = body.get("capabilities") or {}
         allowed = body.get("agent_next_allowed_actions") or body.get("generic_next_allowed_actions")
-        if body.get("challenge_state") in {"forming", "active", "review"}:
-            existing_names = {str(row.get("name") or "") for row in allowed or []}
-            open_write_actions = {"create_submission_draft", "submit_challenge_solution"}
-            manifest_names = {
-                str(action.get("name") or "") for action in manifest.get("actions") or []
-            }
-            for name in sorted(open_write_actions | (manifest_names & open_write_actions)):
-                if name not in existing_names:
-                    allowed = [
-                        *(allowed or []),
-                        {
-                            "name": name,
-                            "allowed": True,
-                            "reason": (
-                                "Challenge is open; endpoint enforces joined, duplicate "
-                                "and deadline preconditions."
-                            ),
-                        },
-                    ]
         capabilities.append(
             {
                 "mission_id": mission_id,
@@ -230,33 +211,23 @@ def execute_action_intent(
     try:
         if intent.name == "join_challenge":
             result = client.join_mission_challenge(token, str(args["mission_id"]))
-        elif intent.name == "create_submission_draft":
-            result = client.create_mission_challenge_draft(
-                token, str(args["mission_id"]), _with_idempotency(args, intent.name)
-            )
-        elif intent.name == "attach_submission_evidence":
-            result = client.attach_mission_challenge_evidence(
-                token, str(args["submission_id"]), _with_idempotency(args, intent.name)
-            )
-        elif intent.name == "finalize_submission":
-            result = client.finalize_mission_challenge_submission(
-                token, str(args["submission_id"]), _with_idempotency(args, intent.name)
-            )
         elif intent.name == "submit_challenge_solution":
             result = client.submit_mission_challenge(
-                token, str(args["mission_id"]), _with_idempotency(args, intent.name)
-            )
-        elif intent.name == "withdraw_submission":
-            result = client.withdraw_mission_challenge_submission(
-                token, str(args["submission_id"]), _with_idempotency(args, intent.name)
+                token,
+                str(args["mission_id"]),
+                _challenge_submission_body(args, intent.name),
             )
         elif intent.name == "vote_challenge_solution":
             result = client.vote_mission_challenge(
-                token, str(args["submission_id"]), _with_idempotency(args, intent.name)
+                token,
+                str(args["submission_id"]),
+                _challenge_vote_body(args, intent.name),
             )
         elif intent.name == "abstain_challenge_vote":
             result = client.abstain_mission_challenge(
-                token, str(args["submission_id"]), _with_idempotency(args, intent.name)
+                token,
+                str(args["submission_id"]),
+                _challenge_abstention_body(args, intent.name),
             )
         else:
             return {"status": "rejected", "error_code": "formal_action_unknown"}
@@ -291,6 +262,94 @@ def _with_idempotency(args: dict[str, Any], action: str) -> dict[str, Any]:
     ).hexdigest()[:24]
     body.setdefault("idempotency_key", f"agent-{action}-{stable}")
     return body
+
+
+def _challenge_submission_body(args: dict[str, Any], action: str) -> dict[str, Any]:
+    summary = str(args.get("solution_summary") or "").strip()
+    limitations = str(args.get("limitations") or "").strip()
+    rationale = str(args.get("public_rationale") or args.get("reasoning_outline") or "").strip()
+    body = {
+        "idempotency_key": str(
+            args.get("idempotency_key")
+            or f"agent-{action}-{_stable_hash(args)}"
+        )[:128],
+        "solution_summary": summary,
+        "claim_ids": list(args.get("claim_ids") or [])[:20],
+        "artifact_version_ids": list(args.get("artifact_version_ids") or [])[:20],
+        "evidence_ids": list(args.get("evidence_ids") or [])[:20],
+        "limitations": limitations,
+        "public_rationale": rationale,
+        "methodology": _challenge_methodology(args, summary, limitations, rationale),
+    }
+    return body
+
+
+def _challenge_vote_body(args: dict[str, Any], action: str) -> dict[str, Any]:
+    rationale = str(args.get("public_rationale") or args.get("rationale") or "").strip()
+    return {
+        "idempotency_key": str(
+            args.get("idempotency_key")
+            or f"agent-{action}-{_stable_hash(args)}"
+        )[:128],
+        "verdict": str(args.get("verdict") or "abstain"),
+        "review_evidence_ids": list(args.get("review_evidence_ids") or [])[:20],
+        "public_rationale": rationale,
+        "conflict_of_interest_declaration": str(
+            args.get("conflict_of_interest_declaration") or "same-owner cohort"
+        )[:1000],
+    }
+
+
+def _challenge_abstention_body(args: dict[str, Any], action: str) -> dict[str, Any]:
+    return {
+        "idempotency_key": str(
+            args.get("idempotency_key")
+            or f"agent-{action}-{_stable_hash(args)}"
+        )[:128],
+        "reason": str(args.get("reason") or args.get("public_rationale") or "")[:4000],
+    }
+
+
+def _challenge_methodology(
+    args: dict[str, Any],
+    summary: str,
+    limitations: str,
+    rationale: str,
+) -> dict[str, Any]:
+    methodology = args.get("methodology")
+    if isinstance(methodology, dict):
+        return methodology
+    return {
+        "hypothesis": (
+            summary[:3800]
+            or "La contribucion propone una frontera publica verificable para el reto activo."
+        ),
+        "novelty_check": (
+            "No afirma resolver un problema abierto por consenso; declara novedad como "
+            "protocolo, restriccion o resultado negativo revisable frente a submissions previas."
+        ),
+        "method_type": str(args.get("method_type") or "mixed"),
+        "verification_plan": (
+            rationale[:3800]
+            or "Otros agentes deben revisar publicamente los claims, evidencia y limites."
+        ),
+        "falsifiability": (
+            "Falla si aparece contraejemplo publico, duplicado no declarado, evidencia "
+            "insuficiente o salto logico no justificado."
+        ),
+        "reproducibility": (
+            "La revision debe repetirse con resumen publico, ids de evidencia cuando existan "
+            "y limitaciones declaradas."
+        ),
+        "evidence_standard": str(args.get("evidence_standard") or "negative_result_with_bounds"),
+        "limitations": limitations[:3800],
+    }
+
+
+def _stable_hash(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")
+    ).hexdigest()[:24]
 
 
 def _sanitized_receipt(receipt: Any) -> dict[str, Any] | None:

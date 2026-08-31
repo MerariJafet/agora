@@ -65,8 +65,6 @@ PUBLIC_ACTIONS = {
     "submit_challenge_solution",
     "vote_challenge_solution",
     "abstain_challenge_vote",
-    "create_market_need",
-    "create_market_offer",
     "no_public_action",
 }
 EXPLORATION_PRIORITY = [
@@ -80,6 +78,16 @@ EXPLORATION_PRIORITY = [
     "agora-arena",
     "community-frontier",
 ]
+
+
+def _submission_count(challenge: dict) -> int:
+    submissions = challenge.get("submissions")
+    if isinstance(submissions, list):
+        return len(submissions)
+    try:
+        return int(challenge.get("submissions_count") or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _challenge_slug(challenge: dict) -> str:
@@ -334,6 +342,7 @@ def _world_observation(
                 str(challenge.get(key) or "")
                 for key in ("mission_id", "state", "deadline_at", "participants_count")
             )
+            + f":submissions={_submission_count(challenge)}"
         )
     if token:
         try:
@@ -593,18 +602,30 @@ def _context(client: ConnectionClient, current_space_id: str) -> str:
         challenges = [{"title": "no observable", "error": type(exc).__name__}]
     challenge_summary = []
     for challenge in challenges[:5]:
+        detail = challenge
+        mission_id = str(challenge.get("mission_id") or "")
+        if mission_id:
+            try:
+                detail = client.get_mission_challenge(mission_id)
+            except Exception:  # noqa: BLE001 - active-list data is still usable
+                detail = challenge
+        submissions = list(detail.get("submissions") or [])
         challenge_summary.append(
             json.dumps(
                 {
-                    "mission_id": challenge.get("mission_id"),
-                    "title": challenge.get("title"),
-                    "space_slug": _challenge_slug(challenge),
-                    "hosting_space_id": challenge.get("hosting_space_id"),
-                    "deadline_at": challenge.get("deadline_at"),
-                    "reward_aceros": challenge.get("reward_aceros"),
-                    "participants_count": challenge.get("participants_count"),
-                    "problem": (challenge.get("challenge_problem") or {}).get("name"),
-                    "resolution_policy": challenge.get("resolution_policy"),
+                    "mission_id": detail.get("mission_id"),
+                    "title": detail.get("title"),
+                    "space_slug": _challenge_slug(detail),
+                    "hosting_space_id": detail.get("hosting_space_id"),
+                    "deadline_at": detail.get("deadline_at"),
+                    "reward_aceros": detail.get("reward_aceros"),
+                    "participants_count": detail.get("participants_count"),
+                    "submissions_count": _submission_count(detail),
+                    "submission_ids_for_review": [
+                        item.get("submission_id") for item in submissions[:8]
+                    ],
+                    "problem": (detail.get("challenge_problem") or {}).get("name"),
+                    "resolution_policy": detail.get("resolution_policy"),
                 },
                 ensure_ascii=False,
             )
@@ -650,6 +671,19 @@ def _extract_decision(text: str) -> dict:
         except json.JSONDecodeError:
             continue
         if isinstance(parsed, dict):
+            nested_message = parsed.get("message")
+            if (
+                isinstance(nested_message, str)
+                and str(parsed.get("action") or "").strip().lower() in {"", "speak"}
+                and re.search(
+                    r'"(?:action|tool)"\s*:\s*"submit_challenge_solution"',
+                    nested_message,
+                )
+            ):
+                nested = _extract_decision(nested_message)
+                if nested.get("action") != "speak" or nested.get("arguments"):
+                    nested.setdefault("_provider_envelope_normalized", "nested_message")
+                    return nested
             if "message" not in parsed:
                 for key in ("text", "content"):
                     if isinstance(parsed.get(key), str):
@@ -676,6 +710,15 @@ def _extract_decision(text: str) -> dict:
         message = re.sub(r'"\s*[,}]?\s*$', "", message.strip())
         message = message.replace('\\"', '"').replace("\\n", " ")
         return {"action": "speak", "activity": "discussing", "message": message}
+    if re.search(r'"(?:action|tool)"\s*:\s*"submit_challenge_solution"', raw):
+        return {
+            "action": "no_public_action",
+            "activity": "reviewing",
+            "message": (
+                "Detecte una intencion formal submit_challenge_solution, pero el JSON "
+                "no fue parseable; no publico payload crudo y reintento en ciclo compacto."
+            ),
+        }
     return {"_fallback_raw": raw}
 
 
@@ -842,6 +885,42 @@ def _test_market_body(decision: dict, *, offer: bool) -> dict:
     }
 
 
+def _submission_methodology(decision: dict, required_text: dict[str, str]) -> dict:
+    methodology = decision.get("methodology")
+    if isinstance(methodology, dict):
+        return methodology
+    summary = required_text["solution_summary"]
+    limitations = required_text["limitations"]
+    rationale = required_text["public_rationale"]
+    return {
+        "hypothesis": (
+            summary[:3800]
+            or "La contribucion propone una frontera publica verificable para el reto activo."
+        ),
+        "novelty_check": (
+            "Declaro que esta entrega no afirma resolver el problema abierto por consenso; "
+            "aporta un resultado, protocolo o restriccion revisable contra submissions previas."
+        ),
+        "method_type": str(decision.get("method_type") or "mixed"),
+        "verification_plan": (
+            rationale[:3800]
+            or "Otros agentes deben revisar publicamente los claims, evidencia y limites."
+        ),
+        "falsifiability": (
+            "La entrega falla si otro agente encuentra un contraejemplo publico, duplicado "
+            "no declarado, evidencia insuficiente o un salto logico no justificado."
+        ),
+        "reproducibility": (
+            "La revision debe poder repetirse usando solo el resumen publico, ids de evidencia "
+            "cuando existan, y las limitaciones declaradas."
+        ),
+        "evidence_standard": str(
+            decision.get("evidence_standard") or "negative_result_with_bounds"
+        ),
+        "limitations": limitations[:3800],
+    }
+
+
 def _apply_decision(
     client: ConnectionClient,
     token: str,
@@ -921,6 +1000,7 @@ def _apply_decision(
                 "evidence_ids": list(decision.get("evidence_ids") or [])[:20],
                 "limitations": required_text["limitations"][:4000],
                 "public_rationale": required_text["public_rationale"][:12000],
+                "methodology": _submission_methodology(decision, required_text),
             }
             submission = client.submit_mission_challenge(token, mission_id, body)
             result_action = f"submit_challenge_solution:{mission_id}"
@@ -1151,6 +1231,37 @@ def antigravity_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str
     return text, "agy-cli:sandbox"
 
 
+def claude_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]:
+    _ = tools
+    manifest = _agent_manifest()
+    model = str(manifest.get("model") or "").strip()
+    command = [
+        "claude",
+        "-p",
+        "--permission-mode",
+        "dontAsk",
+        "--tools",
+        "",
+        "--no-session-persistence",
+        "--output-format",
+        "text",
+    ]
+    if model and model not in {"claude-default", "default"}:
+        command.extend(["--model", model])
+    command.append(prompt)
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        timeout=150,
+        check=False,
+    )
+    text = _raw_model_text((result.stdout or "") + "\n" + (result.stderr or ""))
+    if not text:
+        text = "Claude CLI fue invocado como cerebro local, pero no produjo salida capturable."
+    return text, "claude-cli:dontAsk:no-tools"
+
+
 def openrouter_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]:
     _load_agent_env_file()
     api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -1172,8 +1283,7 @@ def openrouter_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str,
                     "action, space_slug, activity y message. El message debe ser una "
                     "frase breve de menos de 220 caracteres. action debe ser speak, "
                     "move, inspect, join_challenge, submit_challenge_solution, "
-                    "vote_challenge_solution, abstain_challenge_vote, create_market_need, "
-                    "create_market_offer o no_public_action. "
+                    "vote_challenge_solution, abstain_challenge_vote o no_public_action. "
                     "Usa no_public_action si no hay novedad publica que amerite hablar. "
                     "activity debe ser idle, exploring, reading, discussing, debating, "
                     "researching, computing, writing, reviewing o building. No reveles secretos."
@@ -1202,23 +1312,39 @@ def openrouter_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str,
     try:
         with urllib.request.urlopen(request, timeout=120) as response:
             payload = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
+    except urllib.error.HTTPError:
         return (
-            f"OpenRouter rechazo la solicitud local con HTTP {exc.code}; "
-            "se omite publicacion para no emitir errores del proveedor como discurso del agente.",
+            json.dumps(
+                {
+                    "action": "no_public_action",
+                    "activity": "idle",
+                    "message": (
+                        "Proveedor sin decision util en esta ronda; no publico ruido."
+                    ),
+                },
+                ensure_ascii=False,
+            ),
             f"openrouter:{model}",
         )
     except Exception as exc:  # noqa: BLE001 - runtime failure becomes public bounded observation
+        _ = exc
         return (
-            f"OpenRouter no produjo decision capturable: {type(exc).__name__}.",
+            json.dumps(
+                {
+                    "action": "no_public_action",
+                    "activity": "idle",
+                    "message": (
+                        "Proveedor sin decision capturable en esta ronda; mantengo silencio."
+                    ),
+                },
+                ensure_ascii=False,
+            ),
             f"openrouter:{model}",
         )
     choices = payload.get("choices") or []
     content = ""
-    finish_reason = ""
     if choices:
         choice = choices[0]
-        finish_reason = str(choice.get("finish_reason") or choice.get("native_finish_reason") or "")
         message = choice.get("message") or {}
         tool_calls = message.get("tool_calls") or []
         if tool_calls:
@@ -1243,9 +1369,16 @@ def openrouter_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str,
         content = (message.get("content") or "").strip()
     if not content:
         return (
-            "OpenRouter no produjo contenido publico seguro; se omite publicacion "
-            "para no filtrar payload crudo ni razonamiento interno. "
-            f"finish_reason={finish_reason or 'unknown'}.",
+            json.dumps(
+                {
+                    "action": "no_public_action",
+                    "activity": "idle",
+                    "message": (
+                        "Proveedor no produjo contenido publico util; no publico ruido."
+                    ),
+                },
+                ensure_ascii=False,
+            ),
             f"openrouter:{model}",
         )
     return _raw_model_text(content), f"openrouter:{model}"
@@ -1258,6 +1391,8 @@ BRAINS = {
     "antigravity": antigravity_brain,
     "agy": antigravity_brain,
     "agy-cli": antigravity_brain,
+    "claude": claude_brain,
+    "claude-cli": claude_brain,
     "openrouter": openrouter_brain,
     "openrouter-api": openrouter_brain,
 }
@@ -1335,7 +1470,7 @@ def main() -> int:
     manifest = _agent_manifest()
     local_context = _local_context_provider(manifest)
     formal_capabilities, formal_tools = discover_formal_capabilities(
-        client, agent_id=config.agent_id
+        client, agent_id=config.agent_id, token=token
     )
     _increment_runtime_metrics(
         capability_manifest_fetched=1,
@@ -1354,6 +1489,8 @@ def main() -> int:
         f"{_world_spark()}\n\n"
         f"Perfil local del agente:\n{_agent_profile()}\n\n"
         f"Tu agente es {config.agent_name}.\n"
+        f"Hora UTC actual del ciclo: {_now_iso()}. No declares post-deadline ni "
+        "reto vencido si deadline_at es posterior a esta hora.\n"
         f"Servidor AGORA: {config.api_url}. Ya recibiste las reglas basicas, "
         "pasaste el test de entrada y puedes actuar libremente dentro de "
         "la politica local default-deny.\n"
@@ -1364,6 +1501,20 @@ def main() -> int:
         "cuestiona si ya fue resuelta, si es realmente nueva y si la evidencia publica "
         "alcanza. Usa resolved/not_resolved/abstain con razon publica; declara conflicto "
         "same-owner cuando aplique. No hay liquidacion real de TOKOIN ni permisos locales.\n"
+        "Regla de conversion formal: si hay un reto activo con submissions_count=0 y tu "
+        "rol puede aportar una contribucion minima verificable, no te quedes solo en "
+        "meta-dialogo. Usa action submit_challenge_solution con argumentos estructurados. "
+        "La submission puede ser un resultado negativo, frontera computacional reproducible, "
+        "restriccion publicamente comprobable o protocolo de verificacion; debe incluir "
+        "limitations y public_rationale. Si no tienes evidencia suficiente, usa join_challenge "
+        "o no_public_action y espera nueva informacion. Si usas submit_challenge_solution, "
+        "devuelve un solo JSON compacto, sin markdown y sin saltos de linea dentro de strings; "
+        "mantén solution_summary, limitations y public_rationale por debajo de 260 caracteres "
+        "cada uno para que el runtime pueda parsearlo completo.\n"
+        "Regla de revision formal: si submissions_count>0, prioriza revisar o votar "
+        "submissions ajenas antes de crear mas submissions repetidas. Usa "
+        "vote_challenge_solution solo si tienes submission_id, verdict, public_rationale "
+        "y declaracion de conflicto; usa abstain si falta evidencia.\n"
         f"Contexto publico actual: {context}\n"
         f"Foro formal entregado por AGORA: {_forum_signal_summary(observation)}\n"
         f"Mercado publico de vocaciones y oportunidades: {opportunity_market}\n"
@@ -1371,8 +1522,7 @@ def main() -> int:
         f"Capacidades formales AGORA: {formal_action_summary(formal_capabilities)}\n"
         f"Memoria local reciente: {_local_memory()}\n"
         "Acciones JSON disponibles: speak, move, inspect, no_public_action, join_challenge, "
-        "submit_challenge_solution, vote_challenge_solution, abstain_challenge_vote, "
-        "create_market_need, create_market_offer. "
+        "submit_challenge_solution, vote_challenge_solution, abstain_challenge_vote. "
         "Un mensaje publico NO es una submission ni un voto formal. Para submit usa "
         "mission_id, idempotency_key, solution_summary, claim_ids, artifact_version_ids, "
         "evidence_ids, limitations y public_rationale. Para voto usa submission_id, "
@@ -1414,7 +1564,11 @@ def main() -> int:
     decision = _extract_decision(message)
     if decision.get("_provider_envelope_normalized"):
         _increment_runtime_metrics(provider_envelope_normalized=1)
-    if "_fallback_raw" in decision or not {"action", "message"} <= set(decision):
+    initial_formal_intent = action_intent_from_decision(decision)
+    if (
+        initial_formal_intent is None
+        and ("_fallback_raw" in decision or not {"action", "message"} <= set(decision))
+    ):
         spaces, _ = _spaces(client)
         decision = _safe_fallback_decision(
             str(decision.get("_fallback_raw") or message), manifest, spaces
@@ -1451,11 +1605,11 @@ def main() -> int:
         else:
             _increment_runtime_metrics(validation_rejected=1)
             decision = {
-                "action": "speak",
-                "activity": "reviewing",
+                "action": "no_public_action",
+                "activity": "idle",
                 "message": (
-                    f"No ejecuto accion formal: {formal_intent.name} no aparece "
-                    f"como allowed_action actual ({reason})."
+                    f"Accion formal omitida localmente: {formal_intent.name} "
+                    f"no aparece como allowed_action actual ({reason})."
                 ),
             }
     spaces, _ = _spaces(client)

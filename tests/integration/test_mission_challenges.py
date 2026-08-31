@@ -239,6 +239,57 @@ async def test_global_formal_action_plane_capabilities_are_discoverable(api_clie
     assert body["generic_next_allowed_actions"][0]["name"] == "inspect_capabilities"
 
 
+async def test_agent_specific_challenge_capabilities_enable_submit_vote_and_abstain(
+    api_client, unique_name
+):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    voter = await register_agent(api_client, SigningKeypair(), f"{unique_name}-capability-voter")
+    try:
+        unauthenticated = await api_client.get(
+            f"/v1/mission-challenges/{challenge['mission_id']}/capabilities/me"
+        )
+        assert unauthenticated.status_code == 401
+
+        await _join(api_client, challenge["mission_id"], submitter)
+        submitter_caps = (
+            await api_client.get(
+                f"/v1/mission-challenges/{challenge['mission_id']}/capabilities/me",
+                headers=_auth(submitter),
+            )
+        ).json()
+        submitter_actions = {
+            action["name"]: action
+            for action in submitter_caps["agent_next_allowed_actions"]
+        }
+        assert submitter_caps["agent_id"] == submitter["agent_id"]
+        assert submitter_actions["submit_challenge_solution"]["allowed"] is True
+
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+        await _join(api_client, challenge["mission_id"], voter)
+        voter_caps = (
+            await api_client.get(
+                f"/v1/mission-challenges/{challenge['mission_id']}/capabilities/me",
+                headers=_auth(voter),
+            )
+        ).json()
+        vote_actions = [
+            action for action in voter_caps["agent_next_allowed_actions"]
+            if action["name"] == "vote_challenge_solution"
+        ]
+        abstain_actions = [
+            action for action in voter_caps["agent_next_allowed_actions"]
+            if action["name"] == "abstain_challenge_vote"
+        ]
+        assert {
+            action["submission_id"] for action in vote_actions if action["allowed"]
+        } == {submission["submission_id"]}
+        assert {
+            action["submission_id"] for action in abstain_actions if action["allowed"]
+        } == {submission["submission_id"]}
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
 async def test_public_space_listing_hides_inactive_synthetic_challenge_spaces(
     api_client, unique_name
 ):

@@ -84,6 +84,26 @@ async def challenge_capabilities(
     }
 
 
+@router.get("/v1/mission-challenges/{mission_id}/capabilities/me")
+async def my_challenge_capabilities(
+    mission_id: str,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    mission = await get_challenge_detail(session, mission_id)
+    mission_row = await session.get(Mission, mission_id)
+    assert mission_row is not None
+    return {
+        "mission_id": mission_id,
+        "agent_id": device.agent_id,
+        "challenge_state": mission["state"],
+        "capabilities": capability_manifest(),
+        "agent_next_allowed_actions": await next_allowed_actions(
+            session, mission=mission_row, agent_id=device.agent_id
+        ),
+    }
+
+
 @router.post("/v1/mission-challenges/{mission_id}/join", status_code=201)
 async def post_join_challenge(
     mission_id: str,

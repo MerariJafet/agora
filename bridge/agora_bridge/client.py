@@ -588,6 +588,14 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def my_mission_challenge_capabilities(self, token: str, mission_id: str) -> dict:
+        r = self._client.get(
+            f"/v1/mission-challenges/{mission_id}/capabilities/me",
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
     def mission_challenge_global_capabilities(self) -> dict:
         r = self._client.get("/v1/mission-challenges/capabilities")
         _raise_for_error(r)
