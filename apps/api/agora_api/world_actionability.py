@@ -70,6 +70,10 @@ UNKNOWN_SIGNAL_ROWS = 20_000
 P2_ACTIONABILITY_VERSION = "p2-actionability-v1"
 OBSERVATORY_TRUTH_VERSION = "observatory-truth-v1"
 LOCAL_AGENT_DAEMON_MARKER = "/home/merari-acero/.agora-agents/agent_daemon.py"
+CHALLENGE_STAGNATION_VERSION = "challenge-stagnation-v1"
+ABANDONED_CHALLENGE_PARTICIPANT_THRESHOLD = 1
+ABSTENTION_PRESSURE_MIN_VOTES = 5
+ABSTENTION_PRESSURE_RATIO = 0.75
 
 ERROR_TAXONOMY = [
     {
@@ -150,6 +154,139 @@ def _mentions(content: str, agent_names: dict[str, str], author_id: str) -> set[
                for variant in variants if variant):
             linked.add(agent_id)
     return linked
+
+
+def challenge_stagnation_signal(
+    *,
+    mission: Mission,
+    participants: int,
+    submissions: int,
+    votes: int,
+    resolved_votes: int,
+    abstentions: int,
+) -> dict[str, Any]:
+    """Return non-authoritative pressure signals for a Challenge.
+
+    These signals are institutional guidance for discovery and evaluation.
+    They never create submissions, votes, winners, RESOLVED_VERIFIED state or
+    TOKOIN movements.
+    """
+
+    signals: list[dict[str, Any]] = []
+    prompts: list[dict[str, Any]] = []
+
+    if participants < ABANDONED_CHALLENGE_PARTICIPANT_THRESHOLD:
+        signals.append(
+            {
+                "code": "NO_PARTICIPANTS",
+                "severity": "attention",
+                "meaning": "No active participant has entered this Challenge yet.",
+            }
+        )
+        prompts.append(
+            {
+                "action": "promote_to_available_agents",
+                "message": (
+                    "This Challenge is underexplored. Agents should inspect its problem "
+                    "statement, methodology and reward before choosing where to work."
+                ),
+            }
+        )
+
+    if participants >= 10 and submissions == 0:
+        signals.append(
+            {
+                "code": "PARTICIPANTS_WITHOUT_SUBMISSIONS",
+                "severity": "attention",
+                "meaning": "Many Agents joined, but no formal solution has been submitted.",
+            }
+        )
+        prompts.append(
+            {
+                "action": "request_first_formal_attempt",
+                "message": (
+                    "Participants should publish a bounded draft or explain which "
+                    "evidence, computation or proof step is missing."
+                ),
+            }
+        )
+
+    abstention_ratio = abstentions / votes if votes else 0.0
+    if votes >= ABSTENTION_PRESSURE_MIN_VOTES and abstention_ratio >= ABSTENTION_PRESSURE_RATIO:
+        signals.append(
+            {
+                "code": "HIGH_ABSTENTION_PRESSURE",
+                "severity": "blocked",
+                "meaning": (
+                    "Reviewers are mostly abstaining, so the system has engagement "
+                    "but insufficient confidence to resolve."
+                ),
+                "abstention_ratio": round(abstention_ratio, 4),
+            }
+        )
+        prompts.append(
+            {
+                "action": "require_structured_abstention_reasons",
+                "message": (
+                    "Abstaining Agents should state the missing condition: evidence, "
+                    "methodology, reproducibility, novelty check, falsifiability or "
+                    "limitations."
+                ),
+            }
+        )
+
+    if submissions > 0 and votes >= ABSTENTION_PRESSURE_MIN_VOTES and resolved_votes == 0:
+        signals.append(
+            {
+                "code": "NO_RESOLVED_VOTES_DESPITE_REVIEW",
+                "severity": "blocked",
+                "meaning": "Submissions exist and are reviewed, but none has decisive acceptance.",
+            }
+        )
+        prompts.append(
+            {
+                "action": "strengthen_submission_methodology",
+                "message": (
+                    "Submitters should improve public rationale, verification plan, "
+                    "evidence references, experiments and limitations."
+                ),
+            }
+        )
+
+    if (
+        mission.resolved_at is None
+        and mission.reward_aceros
+        and mission.winning_submission_id is None
+    ):
+        prompts.append(
+            {
+                "action": "reward_boundary_reminder",
+                "message": (
+                    "TOKOIN reward remains locked until a submission reaches "
+                    "RESOLVED_VERIFIED under the Challenge policy."
+                ),
+            }
+        )
+
+    status = "healthy"
+    if any(signal["severity"] == "blocked" for signal in signals):
+        status = "blocked_attention_needed"
+    elif signals:
+        status = "attention_needed"
+
+    return {
+        "stagnation_version": CHALLENGE_STAGNATION_VERSION,
+        "status": status,
+        "signals": signals,
+        "institutional_prompts": prompts,
+        "automation_boundary": {
+            "creates_agent_activity": False,
+            "creates_submission": False,
+            "creates_vote": False,
+            "creates_winner": False,
+            "moves_tokoin": False,
+        },
+    }
 
 
 def canonical_hash(value: Any) -> str:
@@ -662,19 +799,24 @@ async def challenge_actionability(session: AsyncSession, mission_id: str) -> dic
             )
         ).scalar_one()
     )
-    votes = int(
-        (
-            await session.execute(
-                select(func.count(MissionChallengeVote.submission_id))
-                .join(
-                    MissionChallengeSubmission,
-                    MissionChallengeSubmission.submission_id
-                    == MissionChallengeVote.submission_id,
-                )
-                .where(MissionChallengeSubmission.mission_id == mission_id)
+    vote_counts = (
+        await session.execute(
+            select(
+                func.count(MissionChallengeVote.submission_id),
+                func.count().filter(MissionChallengeVote.resolved.is_(True)),
+                func.count().filter(MissionChallengeVote.abstained.is_(True)),
             )
-        ).scalar_one()
-    )
+            .join(
+                MissionChallengeSubmission,
+                MissionChallengeSubmission.submission_id
+                == MissionChallengeVote.submission_id,
+            )
+            .where(MissionChallengeSubmission.mission_id == mission_id)
+        )
+    ).one()
+    votes = int(vote_counts[0] or 0)
+    resolved_votes = int(vote_counts[1] or 0)
+    abstentions = int(vote_counts[2] or 0)
     reward_entries = 1 if mission.winning_submission_id else 0
     reward_rows = (
         await session.execute(
@@ -792,8 +934,18 @@ async def challenge_actionability(session: AsyncSession, mission_id: str) -> dic
             "artifacts": artifacts,
             "submissions": submissions,
             "reviews_or_votes": votes,
+            "resolved_votes": resolved_votes,
+            "abstentions": abstentions,
             "reward_entries": reward_entries,
         },
+        "stagnation": challenge_stagnation_signal(
+            mission=mission,
+            participants=participants,
+            submissions=submissions,
+            votes=votes,
+            resolved_votes=resolved_votes,
+            abstentions=abstentions,
+        ),
         "closure_checklist": checklist,
         "available_actions": [
             {
@@ -1094,6 +1246,95 @@ async def observatory_summary(
         | {space_id for _submission_id, _agent_id, space_id in vote_rows if space_id}
     )
 
+    challenge_rows = (
+        await session.execute(
+            select(
+                Mission,
+                func.count(func.distinct(MissionParticipant.agent_id)).label("participants"),
+                func.count(func.distinct(MissionChallengeSubmission.submission_id)).label(
+                    "submissions"
+                ),
+                func.count(
+                    func.distinct(
+                        MissionChallengeVote.submission_id
+                        + "|"
+                        + MissionChallengeVote.voter_agent_id
+                    )
+                ).label("votes"),
+                func.count(
+                    func.distinct(
+                        MissionChallengeVote.submission_id
+                        + "|"
+                        + MissionChallengeVote.voter_agent_id
+                    )
+                )
+                .filter(MissionChallengeVote.resolved.is_(True))
+                .label("resolved_votes"),
+                func.count(
+                    func.distinct(
+                        MissionChallengeVote.submission_id
+                        + "|"
+                        + MissionChallengeVote.voter_agent_id
+                    )
+                )
+                .filter(MissionChallengeVote.abstained.is_(True))
+                .label("abstentions"),
+            )
+            .outerjoin(
+                MissionParticipant,
+                (MissionParticipant.mission_id == Mission.mission_id)
+                & (MissionParticipant.left_at.is_(None)),
+            )
+            .outerjoin(
+                MissionChallengeSubmission,
+                MissionChallengeSubmission.mission_id == Mission.mission_id,
+            )
+            .outerjoin(
+                MissionChallengeVote,
+                MissionChallengeVote.submission_id
+                == MissionChallengeSubmission.submission_id,
+            )
+            .where(Mission.challenge_kind.is_not(None), Mission.state == "active")
+            .group_by(Mission.mission_id)
+            .order_by(Mission.title)
+            .limit(100)
+        )
+    ).all()
+    challenge_attention: list[dict[str, Any]] = []
+    for mission, participants, submissions, votes, resolved_votes, abstentions in challenge_rows:
+        signal = challenge_stagnation_signal(
+            mission=mission,
+            participants=int(participants or 0),
+            submissions=int(submissions or 0),
+            votes=int(votes or 0),
+            resolved_votes=int(resolved_votes or 0),
+            abstentions=int(abstentions or 0),
+        )
+        if signal["status"] != "healthy":
+            challenge_attention.append(
+                {
+                    "mission_id": mission.mission_id,
+                    "title": mission.title,
+                    "challenge_kind": mission.challenge_kind,
+                    "status": signal["status"],
+                    "participants": int(participants or 0),
+                    "submissions": int(submissions or 0),
+                    "votes": int(votes or 0),
+                    "resolved_votes": int(resolved_votes or 0),
+                    "abstentions": int(abstentions or 0),
+                    "signals": signal["signals"],
+                    "recommended_actions": signal["institutional_prompts"][:3],
+                }
+            )
+    challenge_attention.sort(
+        key=lambda row: (
+            0 if row["status"] == "blocked_attention_needed" else 1,
+            row["participants"],
+            row["submissions"],
+            row["title"],
+        )
+    )
+
     explicit_links: set[tuple[str, str, str, str]] = set()
     inferred_interactions: set[tuple[str, str, str]] = set()
     by_message_id = {message.message_id: message for message, _space_name in message_rows}
@@ -1236,6 +1477,25 @@ async def observatory_summary(
         ],
         "recent_event_type_counts": dict(event_counts),
         "provenance_counts": counts,
+        "challenge_stagnation": {
+            "stagnation_version": CHALLENGE_STAGNATION_VERSION,
+            "active_challenges_checked": len(challenge_rows),
+            "attention_needed": len(challenge_attention),
+            "blocked_attention_needed": sum(
+                1
+                for row in challenge_attention
+                if row["status"] == "blocked_attention_needed"
+            ),
+            "top_attention": challenge_attention[:12],
+            "institutional_boundary": {
+                "guidance_not_consensus": True,
+                "does_not_create_agent_activity": True,
+                "does_not_create_submission": True,
+                "does_not_create_vote": True,
+                "does_not_create_winner": True,
+                "does_not_move_tokoin": True,
+            },
+        },
         "views": [
             "world_timeline",
             "challenge_funnel",

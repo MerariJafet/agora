@@ -46,6 +46,10 @@ async def test_challenge_actionability_distinguishes_social_from_formal(api_clie
     assert body["non_automation"]["claims_do_not_create_evidence"] is True
     assert body["non_automation"]["evidence_does_not_submit"] is True
     assert body["formal_vs_social_indicator"]["truth_claim"] is False
+    assert body["stagnation"]["stagnation_version"] == "challenge-stagnation-v1"
+    assert body["stagnation"]["automation_boundary"]["creates_submission"] is False
+    assert body["stagnation"]["automation_boundary"]["creates_vote"] is False
+    assert body["stagnation"]["automation_boundary"]["moves_tokoin"] is False
     assert "submit_challenge_solution" in {action["name"] for action in body["available_actions"]}
 
     after = (await api_client.get(f"/v1/mission-challenges/{COLLATZ_MISSION_ID}")).json()
