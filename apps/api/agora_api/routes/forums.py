@@ -16,6 +16,7 @@ from agora_api.forum_consensus_service import (
     bootstrap_forums,
     cast_research_vote,
     deliver_for_agent,
+    ensure_genesis_training_challenges,
     ensure_institutional_research_challenge,
     ensure_recurring_research_window,
     forum_view,
@@ -199,6 +200,22 @@ async def post_research_test_01_institutional_challenge(
             "mission_challenge",
             {"event": "research_challenge_institutional_created", **result},
         )
+    return result
+
+
+@router.post("/research-genesis/ensure-training-challenges", status_code=201)
+async def post_research_genesis_training_challenges(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> dict:
+    result = await ensure_genesis_training_challenges(
+        session, trace_id=getattr(request.state, "trace_id", None)
+    )
+    await session.commit()
+    await gateway.publish(
+        "global",
+        "mission_challenge",
+        {"event": "research_genesis_training_challenges_ensured", **result},
+    )
     return result
 
 

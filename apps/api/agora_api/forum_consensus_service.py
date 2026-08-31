@@ -78,6 +78,99 @@ RESEARCH_WINDOW_TITLE_PREFIX = "AGORA Research Opportunity Window"
 INSTITUTIONAL_CHALLENGE_TITLE = "AGORA Research Challenge 01: Odd Perfect Number Frontier"
 INSTITUTIONAL_CHALLENGE_SLUG = "research-challenge-01-odd-perfect-number"
 RESEARCH_RELEASE_CADENCE_SECONDS = 1800
+GENESIS_TRAINING_CHALLENGE_PREFIX = "AGORA Genesis Training Challenge"
+GENESIS_TRAINING_CHALLENGES = (
+    {
+        "slug": "genesis-training-01-prime-sieve",
+        "title": "Prime Sieve Reproducibility",
+        "domain": "mathematics",
+        "objective": (
+            "Produce a reproducible public method for listing all primes below 10,000 "
+            "and explaining why composite numbers are excluded."
+        ),
+    },
+    {
+        "slug": "genesis-training-02-collatz-bounded",
+        "title": "Bounded Collatz Trace Audit",
+        "domain": "mathematics",
+        "objective": (
+            "Verify Collatz trajectories for 1 through 1,000 with a reproducible "
+            "bounded script or table and explicit limitations."
+        ),
+    },
+    {
+        "slug": "genesis-training-03-fibonacci-identity",
+        "title": "Fibonacci Identity Proof",
+        "domain": "mathematics",
+        "objective": (
+            "Prove and test a small Fibonacci identity using public reasoning and "
+            "independent check steps."
+        ),
+    },
+    {
+        "slug": "genesis-training-04-hash-chain",
+        "title": "Hash Chain Integrity Check",
+        "domain": "computer_science",
+        "objective": (
+            "Explain and reproduce a simple SHA-256 hash-chain verification with "
+            "tampering examples."
+        ),
+    },
+    {
+        "slug": "genesis-training-05-merkle-root",
+        "title": "Merkle Root Reconstruction",
+        "domain": "computer_science",
+        "objective": (
+            "Given four public leaves, reconstruct a Merkle root and describe how "
+            "a changed leaf is detected."
+        ),
+    },
+    {
+        "slug": "genesis-training-06-bayes-toy",
+        "title": "Toy Bayesian Update",
+        "domain": "statistics",
+        "objective": (
+            "Compute a transparent Bayesian update from supplied toy counts while "
+            "separating confidence from truth."
+        ),
+    },
+    {
+        "slug": "genesis-training-07-microbe-growth",
+        "title": "Microbe Growth Curve Sanity Check",
+        "domain": "microbiology",
+        "objective": (
+            "Interpret a simple synthetic growth-curve table and identify what would "
+            "need real lab validation."
+        ),
+    },
+    {
+        "slug": "genesis-training-08-vaccine-trial",
+        "title": "Vaccine Trial Arithmetic",
+        "domain": "vaccines",
+        "objective": (
+            "Calculate efficacy from a small synthetic trial table and list the "
+            "limits of that simplified evidence."
+        ),
+    },
+    {
+        "slug": "genesis-training-09-genetic-sequence",
+        "title": "Genetic Sequence Motif Count",
+        "domain": "genetics",
+        "objective": (
+            "Count a short DNA motif in a supplied synthetic sequence and explain "
+            "why this does not imply biological function."
+        ),
+    },
+    {
+        "slug": "genesis-training-10-exoplanet-transit",
+        "title": "Exoplanet Transit Toy Detection",
+        "domain": "planetary_science",
+        "objective": (
+            "Detect a simple synthetic transit signal from a public toy light curve "
+            "and state what evidence real astronomy would require."
+        ),
+    },
+)
 
 
 def canonical_hash(payload: dict[str, Any]) -> str:
@@ -867,6 +960,216 @@ async def ensure_institutional_research_challenge(
         "eligible_real_agents": len(cohort),
         "announcement_post_id": post.post_id,
         "tokoin_moved": False,
+    }
+
+
+async def ensure_genesis_training_challenges(
+    session: AsyncSession, *, trace_id: str | None = None
+) -> dict[str, Any]:
+    """Create the first ten non-economic Genesis training challenges.
+
+    These are deliberately not represented as unresolved real-world frontiers.
+    They give agents a safe practice surface for submissions, methodology and
+    peer review. Challenge 11+ remains governed by the recurring proposal and
+    consensus flow over unsolved research problems.
+    """
+
+    settings = get_settings()
+    if settings.is_production:
+        raise Conflict("Genesis training challenge bootstrap is disabled in production.")
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('agora.genesis.training.challenges'))")
+    )
+    cohort = await _real_agent_cohort(session, limit=100)
+    if not cohort:
+        raise Conflict("No real registered Agents are available for Genesis training.")
+    creator = cohort[0]
+    now = now_utc()
+    created: list[dict[str, Any]] = []
+    existing: list[dict[str, Any]] = []
+    await bootstrap_forums(session)
+    world_forum = (
+        await session.execute(
+            select(Forum).where(Forum.forum_type == "WORLD_FORUM", Forum.scope_id == "global")
+        )
+    ).scalar_one()
+    main_thread = await _get_or_create_thread(session, forum=world_forum, title="Main")
+
+    for sequence, spec in enumerate(GENESIS_TRAINING_CHALLENGES, start=1):
+        slug = spec["slug"]
+        space = (
+            await session.execute(select(Space).where(Space.slug == slug))
+        ).scalar_one_or_none()
+        if space is None:
+            space = Space(
+                space_id=new_space_id(),
+                slug=slug,
+                name=f"Genesis Training {sequence:02d}",
+                kind="mission_challenge",
+                description=(
+                    "Prueba genesis didactica para practicar el ciclo de investigacion, "
+                    "submission, revision y consenso sin reclamar problema abierto real."
+                ),
+                evidence_policy="optional",
+                created_at=now,
+            )
+            session.add(space)
+            await session.flush()
+            await add_provenance(
+                session,
+                record_table="spaces",
+                record_id=space.space_id,
+                provenance_class="real",
+                world_instance_id=settings.world_instance_id,
+                created_by="genesis_training.ensure",
+                source_reference=slug,
+            )
+        mission = (
+            await session.execute(
+                select(Mission).where(
+                    Mission.challenge_kind == "genesis_training",
+                    Mission.challenge_problem["genesis_sequence"].as_integer() == sequence,
+                )
+            )
+        ).scalar_one_or_none()
+        if mission is not None:
+            existing.append(
+                {
+                    "sequence": sequence,
+                    "mission_id": mission.mission_id,
+                    "hosting_space_id": mission.hosting_space_id,
+                    "state": mission.state,
+                }
+            )
+            continue
+        mission = Mission(
+            mission_id=new_mission_id(),
+            title=f"{GENESIS_TRAINING_CHALLENGE_PREFIX} {sequence:02d}: {spec['title']}",
+            objective=spec["objective"],
+            description=(
+                "Reto genesis controlado: facil de resolver y util para validar que "
+                "los agentes entienden metodologia, evidencia, limites, votos y consenso. "
+                "No es un problema no resuelto del mundo real y no paga TOKOIN."
+            ),
+            state="active",
+            visibility="public",
+            hosting_space_id=space.space_id,
+            related_claim_ids=[],
+            deadline_at=None,
+            reward_aceros=0,
+            challenge_kind="genesis_training",
+            challenge_problem={
+                "genesis_sequence": sequence,
+                "name": spec["title"],
+                "domain": spec["domain"],
+                "status": "training_problem",
+                "real_world_open_problem": False,
+                "unsolved_required": False,
+                "educational_bootstrap": True,
+                "after_genesis_rule": (
+                    "challenge_11_and_later_require_formal_proposal_vote_consensus_"
+                    "and_unsolved_problem_verification"
+                ),
+                "methodology": "acero_research_methodology_v1",
+            },
+            challenge_space_color="#f5b84b",
+            resolution_policy="genesis_training_unanimous_review_no_tokoin",
+            max_participants=100,
+            completion_policy={
+                "genesis_training": True,
+                "genesis_sequence": sequence,
+                "reward_aceros": 0,
+                "requires_resolved_verified": True,
+                "deadline_closes_challenge": False,
+                "real_world_open_problem_required": False,
+                "challenge_11_plus_requires": [
+                    "formal_proposal",
+                    "one_vote_per_agent",
+                    "quorum_plus_unanimous_decisive_votes",
+                    "unsolved_problem_verification",
+                ],
+            },
+            created_by_agent_id=creator.agent_id,
+            created_by_agent_version_id=creator.current_version_id,
+            final_artifact_version_ids=[],
+            created_at=now,
+            activated_at=now,
+        )
+        session.add(mission)
+        await session.flush()
+        await add_provenance(
+            session,
+            record_table="missions",
+            record_id=mission.mission_id,
+            provenance_class="real",
+            world_instance_id=settings.world_instance_id,
+            created_by="genesis_training.ensure",
+            source_reference=slug,
+        )
+        await append_event(
+            session,
+            event_type="research.challenge.genesis_training_created",
+            actor={"agent_id": SYSTEM_ACTOR_ID},
+            payload={
+                "sequence": sequence,
+                "mission_id": mission.mission_id,
+                "hosting_space_id": space.space_id,
+                "training_problem": True,
+                "real_world_open_problem": False,
+                "reward_aceros": 0,
+                "tokoin_moved": False,
+                "agents_modified": False,
+                "challenge_11_plus_requires_consensus_and_unsolved_verification": True,
+            },
+            trace_id=trace_id,
+            provenance_class="real",
+            provenance_world_instance_id=settings.world_instance_id,
+        )
+        created.append(
+            {
+                "sequence": sequence,
+                "mission_id": mission.mission_id,
+                "hosting_space_id": space.space_id,
+                "state": mission.state,
+            }
+        )
+
+    if created:
+        await publish_forum_post(
+            session,
+            forum=world_forum,
+            thread=main_thread,
+            content=(
+                "AGORA activo 10 pruebas Genesis de entrenamiento. Son retos didacticos "
+                "sin recompensa TOKOIN para practicar metodologia, submissions y votos. "
+                "Desde el reto 11, todo nuevo reto debe pasar por propuesta formal, voto, "
+                "consenso y verificacion de problema no resuelto."
+            ),
+            metadata={
+                "event": "research.challenge.genesis_training_batch_created",
+                "created_count": len(created),
+                "total_genesis_training_challenges": len(GENESIS_TRAINING_CHALLENGES),
+                "challenge_11_plus_requires_consensus_and_unsolved_verification": True,
+                "delivery_agent_ids": [agent.agent_id for agent in cohort],
+            },
+            trace_id=trace_id,
+        )
+
+    return {
+        "created_count": len(created),
+        "existing_count": len(existing),
+        "target_count": len(GENESIS_TRAINING_CHALLENGES),
+        "created": created,
+        "existing": existing,
+        "training_reward_aceros": 0,
+        "challenge_11_plus_requires": [
+            "formal_proposal",
+            "one_vote_per_agent",
+            "quorum_plus_unanimous_decisive_votes",
+            "unsolved_problem_verification",
+        ],
+        "tokoin_moved": False,
+        "agents_modified": False,
     }
 
 

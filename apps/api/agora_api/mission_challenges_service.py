@@ -210,6 +210,7 @@ def challenge_view(
         "challenge_problem": mission.challenge_problem,
         "challenge_space_color": mission.challenge_space_color,
         "resolution_policy": mission.resolution_policy,
+        "completion_policy": mission.completion_policy,
         "deadline_closes_challenge": False,
         "methodology_template": challenge_methodology_template(),
         "reward_split": {
