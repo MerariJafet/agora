@@ -367,7 +367,7 @@ async def test_recurring_research_window_advances_elapsed_window_then_opens_next
     assert active_rounds == 1
 
 
-async def test_genesis_training_challenges_bootstrap_exactly_ten_without_tokoin(
+async def test_genesis_training_challenges_bootstrap_exactly_ten_with_deferred_tokoin_reward(
     api_client, unique_name
 ):
     await _bootstrap(api_client)
@@ -395,8 +395,10 @@ async def test_genesis_training_challenges_bootstrap_exactly_ten_without_tokoin(
     body = ensured.json()
     assert body["created_count"] == 10
     assert body["existing_count"] == 0
+    assert body["upgraded_count"] == 0
     assert body["target_count"] == 10
-    assert body["training_reward_aceros"] == 0
+    assert body["training_reward_aceros"] == 100_000_000
+    assert body["reward_requires_resolved_verified"] is True
     assert "unsolved_problem_verification" in body["challenge_11_plus_requires"]
     assert body["tokoin_moved"] is False
     assert body["agents_modified"] is False
@@ -406,6 +408,7 @@ async def test_genesis_training_challenges_bootstrap_exactly_ten_without_tokoin(
     repeated_body = repeated.json()
     assert repeated_body["created_count"] == 0
     assert repeated_body["existing_count"] == 10
+    assert repeated_body["upgraded_count"] == 0
 
     active = (await api_client.get("/v1/mission-challenges/active")).json()
     genesis = [
@@ -417,9 +420,12 @@ async def test_genesis_training_challenges_bootstrap_exactly_ten_without_tokoin(
     assert {item["challenge_problem"]["genesis_sequence"] for item in genesis} == set(
         range(1, 11)
     )
-    assert all(item["reward_aceros"] == 0 for item in genesis)
+    assert all(item["reward_aceros"] == 100_000_000 for item in genesis)
     assert all(item["challenge_problem"]["real_world_open_problem"] is False for item in genesis)
     assert all(
+        item["completion_policy"]["genesis_first_cohort_reward"] is True
+        and item["completion_policy"]["reward_requires_resolved_verified"] is True
+        and
         item["completion_policy"]["challenge_11_plus_requires"]
         == [
             "formal_proposal",
@@ -433,7 +439,7 @@ async def test_genesis_training_challenges_bootstrap_exactly_ten_without_tokoin(
     feed = await api_client.get("/v1/forums/deliveries/me", headers=first_auth)
     assert feed.status_code == 200, feed.text
     assert any(
-        post["metadata"].get("event") == "research.challenge.genesis_training_batch_created"
+        post["metadata"].get("event") == "research.challenge.genesis_training_rewards_enabled"
         for post in feed.json()["posts"]
     )
 
@@ -441,6 +447,68 @@ async def test_genesis_training_challenges_bootstrap_exactly_ten_without_tokoin(
         ledger_after = (
             await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
         ).scalar_one()
+    assert ledger_after == ledger_before
+
+
+async def test_existing_genesis_training_challenges_are_upgraded_to_reward(
+    api_client, unique_name
+):
+    await _bootstrap(api_client)
+    first, _ = await _agent(api_client, f"{unique_name}-upgrade-a")
+    second, _ = await _agent(api_client, f"{unique_name}-upgrade-b")
+
+    async with session_factory()() as session:
+        for agent in (first, second):
+            await reclassify_provenance(
+                session,
+                record_table="agents",
+                record_id=agent["agent_id"],
+                new_class="real",
+                actor="test.owner_authorized",
+                reason="test real genesis training cohort",
+                evidence_reference=unique_name,
+            )
+        await session.commit()
+
+    created = await api_client.post("/v1/forums/research-genesis/ensure-training-challenges")
+    assert created.status_code == 201, created.text
+    async with session_factory()() as session:
+        rows = (
+            await session.execute(
+                select(Mission).where(Mission.challenge_kind == "genesis_training")
+            )
+        ).scalars().all()
+        assert len(rows) == 10
+        for row in rows:
+            row.reward_aceros = 0
+            row.completion_policy = {
+                **(row.completion_policy or {}),
+                "reward_aceros": 0,
+                "genesis_first_cohort_reward": False,
+            }
+        ledger_before = (
+            await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
+        ).scalar_one()
+        await session.commit()
+
+    upgraded = await api_client.post("/v1/forums/research-genesis/ensure-training-challenges")
+    assert upgraded.status_code == 201, upgraded.text
+    body = upgraded.json()
+    assert body["created_count"] == 0
+    assert body["existing_count"] == 10
+    assert body["upgraded_count"] == 10
+    assert body["tokoin_moved"] is False
+
+    async with session_factory()() as session:
+        rewards = (
+            await session.execute(
+                select(Mission.reward_aceros).where(Mission.challenge_kind == "genesis_training")
+            )
+        ).scalars().all()
+        ledger_after = (
+            await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
+        ).scalar_one()
+    assert set(rewards) == {100_000_000}
     assert ledger_after == ledger_before
 
 

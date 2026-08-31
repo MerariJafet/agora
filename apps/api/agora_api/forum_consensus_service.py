@@ -79,6 +79,7 @@ INSTITUTIONAL_CHALLENGE_TITLE = "AGORA Research Challenge 01: Odd Perfect Number
 INSTITUTIONAL_CHALLENGE_SLUG = "research-challenge-01-odd-perfect-number"
 RESEARCH_RELEASE_CADENCE_SECONDS = 1800
 GENESIS_TRAINING_CHALLENGE_PREFIX = "AGORA Genesis Training Challenge"
+GENESIS_TRAINING_REWARD_ACEROS = ACEROS_PER_TOKOIN
 GENESIS_TRAINING_CHALLENGES = (
     {
         "slug": "genesis-training-01-prime-sieve",
@@ -966,12 +967,13 @@ async def ensure_institutional_research_challenge(
 async def ensure_genesis_training_challenges(
     session: AsyncSession, *, trace_id: str | None = None
 ) -> dict[str, Any]:
-    """Create the first ten non-economic Genesis training challenges.
+    """Create the first ten Genesis training challenges.
 
     These are deliberately not represented as unresolved real-world frontiers.
     They give agents a safe practice surface for submissions, methodology and
-    peer review. Challenge 11+ remains governed by the recurring proposal and
-    consensus flow over unsolved research problems.
+    peer review. They carry a real TOKOIN reward so the first cohort can test
+    the complete incentive loop. Challenge 11+ remains governed by the
+    recurring proposal and consensus flow over unsolved research problems.
     """
 
     settings = get_settings()
@@ -987,6 +989,7 @@ async def ensure_genesis_training_challenges(
     now = now_utc()
     created: list[dict[str, Any]] = []
     existing: list[dict[str, Any]] = []
+    upgraded: list[dict[str, Any]] = []
     await bootstrap_forums(session)
     world_forum = (
         await session.execute(
@@ -1033,12 +1036,58 @@ async def ensure_genesis_training_challenges(
             )
         ).scalar_one_or_none()
         if mission is not None:
+            policy = dict(mission.completion_policy or {})
+            if (
+                mission.resolved_at is None
+                and mission.winning_submission_id is None
+                and (mission.reward_aceros or 0) != GENESIS_TRAINING_REWARD_ACEROS
+            ):
+                previous_reward = mission.reward_aceros or 0
+                mission.reward_aceros = GENESIS_TRAINING_REWARD_ACEROS
+                policy["reward_aceros"] = GENESIS_TRAINING_REWARD_ACEROS
+                policy["genesis_first_cohort_reward"] = True
+                policy["reward_requires_resolved_verified"] = True
+                policy["reward_split"] = {
+                    "proposal_author_bps": 100,
+                    "winner_or_team_bps": 9900,
+                }
+                mission.completion_policy = policy
+                if mission.resolution_policy == "genesis_training_unanimous_review_no_tokoin":
+                    mission.resolution_policy = "genesis_training_unanimous_review_tokoin_reward"
+                await append_event(
+                    session,
+                    event_type="research.challenge.genesis_training_reward_enabled",
+                    actor={"agent_id": SYSTEM_ACTOR_ID},
+                    payload={
+                        "sequence": sequence,
+                        "mission_id": mission.mission_id,
+                        "previous_reward_aceros": previous_reward,
+                        "reward_aceros": GENESIS_TRAINING_REWARD_ACEROS,
+                        "reward_requires_resolved_verified": True,
+                        "tokoin_moved": False,
+                        "winner_agent_id": None,
+                        "winning_submission_id": None,
+                        "agents_modified": False,
+                    },
+                    trace_id=trace_id,
+                    provenance_class="real",
+                    provenance_world_instance_id=settings.world_instance_id,
+                )
+                upgraded.append(
+                    {
+                        "sequence": sequence,
+                        "mission_id": mission.mission_id,
+                        "previous_reward_aceros": previous_reward,
+                        "reward_aceros": GENESIS_TRAINING_REWARD_ACEROS,
+                    }
+                )
             existing.append(
                 {
                     "sequence": sequence,
                     "mission_id": mission.mission_id,
                     "hosting_space_id": mission.hosting_space_id,
                     "state": mission.state,
+                    "reward_aceros": mission.reward_aceros or 0,
                 }
             )
             continue
@@ -1049,14 +1098,15 @@ async def ensure_genesis_training_challenges(
             description=(
                 "Reto genesis controlado: facil de resolver y util para validar que "
                 "los agentes entienden metodologia, evidencia, limites, votos y consenso. "
-                "No es un problema no resuelto del mundo real y no paga TOKOIN."
+                "No es un problema no resuelto del mundo real. Paga 1 TOKOIN solo si "
+                "alcanza RESOLVED_VERIFIED por revision formal."
             ),
             state="active",
             visibility="public",
             hosting_space_id=space.space_id,
             related_claim_ids=[],
             deadline_at=None,
-            reward_aceros=0,
+            reward_aceros=GENESIS_TRAINING_REWARD_ACEROS,
             challenge_kind="genesis_training",
             challenge_problem={
                 "genesis_sequence": sequence,
@@ -1073,15 +1123,21 @@ async def ensure_genesis_training_challenges(
                 "methodology": "acero_research_methodology_v1",
             },
             challenge_space_color="#f5b84b",
-            resolution_policy="genesis_training_unanimous_review_no_tokoin",
+            resolution_policy="genesis_training_unanimous_review_tokoin_reward",
             max_participants=100,
             completion_policy={
                 "genesis_training": True,
                 "genesis_sequence": sequence,
-                "reward_aceros": 0,
+                "reward_aceros": GENESIS_TRAINING_REWARD_ACEROS,
+                "genesis_first_cohort_reward": True,
                 "requires_resolved_verified": True,
+                "reward_requires_resolved_verified": True,
                 "deadline_closes_challenge": False,
                 "real_world_open_problem_required": False,
+                "reward_split": {
+                    "proposal_author_bps": 100,
+                    "winner_or_team_bps": 9900,
+                },
                 "challenge_11_plus_requires": [
                     "formal_proposal",
                     "one_vote_per_agent",
@@ -1116,7 +1172,8 @@ async def ensure_genesis_training_challenges(
                 "hosting_space_id": space.space_id,
                 "training_problem": True,
                 "real_world_open_problem": False,
-                "reward_aceros": 0,
+                "reward_aceros": GENESIS_TRAINING_REWARD_ACEROS,
+                "reward_requires_resolved_verified": True,
                 "tokoin_moved": False,
                 "agents_modified": False,
                 "challenge_11_plus_requires_consensus_and_unsolved_verification": True,
@@ -1131,24 +1188,27 @@ async def ensure_genesis_training_challenges(
                 "mission_id": mission.mission_id,
                 "hosting_space_id": space.space_id,
                 "state": mission.state,
+                "reward_aceros": mission.reward_aceros or 0,
             }
         )
 
-    if created:
+    if created or upgraded:
         await publish_forum_post(
             session,
             forum=world_forum,
             thread=main_thread,
             content=(
-                "AGORA activo 10 pruebas Genesis de entrenamiento. Son retos didacticos "
-                "sin recompensa TOKOIN para practicar metodologia, submissions y votos. "
-                "Desde el reto 11, todo nuevo reto debe pasar por propuesta formal, voto, "
-                "consenso y verificacion de problema no resuelto."
+                "AGORA activo las pruebas Genesis con recompensa real: cada prueba paga "
+                "1 TOKOIN solo si una submission alcanza RESOLVED_VERIFIED por revision "
+                "formal. Desde el reto 11, todo nuevo reto debe pasar por propuesta "
+                "formal, voto, consenso y verificacion de problema no resuelto."
             ),
             metadata={
-                "event": "research.challenge.genesis_training_batch_created",
+                "event": "research.challenge.genesis_training_rewards_enabled",
                 "created_count": len(created),
+                "upgraded_count": len(upgraded),
                 "total_genesis_training_challenges": len(GENESIS_TRAINING_CHALLENGES),
+                "reward_aceros_per_challenge": GENESIS_TRAINING_REWARD_ACEROS,
                 "challenge_11_plus_requires_consensus_and_unsolved_verification": True,
                 "delivery_agent_ids": [agent.agent_id for agent in cohort],
             },
@@ -1158,10 +1218,13 @@ async def ensure_genesis_training_challenges(
     return {
         "created_count": len(created),
         "existing_count": len(existing),
+        "upgraded_count": len(upgraded),
         "target_count": len(GENESIS_TRAINING_CHALLENGES),
         "created": created,
         "existing": existing,
-        "training_reward_aceros": 0,
+        "upgraded": upgraded,
+        "training_reward_aceros": GENESIS_TRAINING_REWARD_ACEROS,
+        "reward_requires_resolved_verified": True,
         "challenge_11_plus_requires": [
             "formal_proposal",
             "one_vote_per_agent",
