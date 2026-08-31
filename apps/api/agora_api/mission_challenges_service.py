@@ -174,7 +174,26 @@ def challenge_view(
     *,
     participants_count: int = 0,
     submissions: list[MissionChallengeSubmission] | None = None,
+    votes_by_submission: dict[str, list[MissionChallengeVote]] | None = None,
+    submissions_count: int | None = None,
+    votes_count: int | None = None,
+    resolved_votes_count: int | None = None,
+    abstentions_count: int | None = None,
 ) -> dict[str, Any]:
+    submission_rows = submissions or []
+    vote_map = votes_by_submission or {}
+    if submissions_count is None:
+        submissions_count = len(submission_rows)
+    if votes_count is None:
+        votes_count = sum(len(votes) for votes in vote_map.values())
+    if resolved_votes_count is None:
+        resolved_votes_count = sum(
+            1 for votes in vote_map.values() for vote in votes if vote.resolved
+        )
+    if abstentions_count is None:
+        abstentions_count = sum(
+            1 for votes in vote_map.values() for vote in votes if vote.abstained
+        )
     return {
         "mission_id": mission.mission_id,
         "title": mission.title,
@@ -203,7 +222,14 @@ def challenge_view(
         "resolved_by_agent_id": mission.resolved_by_agent_id,
         "resolved_at": mission.resolved_at.isoformat() if mission.resolved_at else None,
         "participants_count": participants_count,
-        "submissions": [submission_view(row) for row in submissions or []],
+        "submissions_count": submissions_count,
+        "votes_count": votes_count,
+        "resolved_votes": resolved_votes_count,
+        "abstentions_count": abstentions_count,
+        "submissions": [
+            submission_view(row, votes=vote_map.get(row.submission_id, []))
+            for row in submission_rows
+        ],
     }
 
 
@@ -592,6 +618,37 @@ async def list_active_challenges(session: AsyncSession) -> list[Mission]:
     return list(rows)
 
 
+async def challenge_activity_counts(session: AsyncSession, mission_id: str) -> dict[str, int]:
+    submissions_count = (
+        await session.execute(
+            select(func.count(MissionChallengeSubmission.submission_id)).where(
+                MissionChallengeSubmission.mission_id == mission_id
+            )
+        )
+    ).scalar_one()
+    vote_counts = (
+        await session.execute(
+            select(
+                func.count(MissionChallengeVote.voter_agent_id),
+                func.count().filter(MissionChallengeVote.resolved.is_(True)),
+                func.count().filter(MissionChallengeVote.abstained.is_(True)),
+            )
+            .join(
+                MissionChallengeSubmission,
+                MissionChallengeSubmission.submission_id
+                == MissionChallengeVote.submission_id,
+            )
+            .where(MissionChallengeSubmission.mission_id == mission_id)
+        )
+    ).one()
+    return {
+        "submissions_count": int(submissions_count),
+        "votes_count": int(vote_counts[0] or 0),
+        "resolved_votes_count": int(vote_counts[1] or 0),
+        "abstentions_count": int(vote_counts[2] or 0),
+    }
+
+
 async def expire_due_challenges(session: AsyncSession, *, trace_id: str | None = None) -> int:
     """Record due Mission Challenge deadlines without closing unresolved problems.
 
@@ -659,8 +716,25 @@ async def get_challenge_detail(session: AsyncSession, mission_id: str) -> dict[s
             .order_by(MissionChallengeSubmission.created_at.desc())
         )
     ).scalars().all()
+    submission_ids = [row.submission_id for row in submissions]
+    votes_by_submission: dict[str, list[MissionChallengeVote]] = {
+        submission_id: [] for submission_id in submission_ids
+    }
+    if submission_ids:
+        votes = (
+            await session.execute(
+                select(MissionChallengeVote).where(
+                    MissionChallengeVote.submission_id.in_(submission_ids)
+                )
+            )
+        ).scalars().all()
+        for vote in votes:
+            votes_by_submission.setdefault(vote.submission_id, []).append(vote)
     return challenge_view(
-        mission, participants_count=len(participants), submissions=list(submissions)
+        mission,
+        participants_count=len(participants),
+        submissions=list(submissions),
+        votes_by_submission=votes_by_submission,
     )
 
 

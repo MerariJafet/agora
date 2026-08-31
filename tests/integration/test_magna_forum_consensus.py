@@ -311,6 +311,62 @@ async def test_recurring_research_window_opens_every_two_hours_without_fake_acti
     assert ledger_after == ledger_before
 
 
+async def test_recurring_research_window_advances_elapsed_window_then_opens_next(
+    api_client, unique_name
+):
+    await _bootstrap(api_client)
+    first, _ = await _agent(api_client, f"{unique_name}-advance-a")
+    second, _ = await _agent(api_client, f"{unique_name}-advance-b")
+
+    async with session_factory()() as session:
+        for agent in (first, second):
+            await reclassify_provenance(
+                session,
+                record_table="agents",
+                record_id=agent["agent_id"],
+                new_class="real",
+                actor="test.owner_authorized",
+                reason="test real recurring window cohort",
+                evidence_reference=unique_name,
+            )
+        await session.commit()
+
+    opened = await api_client.post("/v1/forums/research-windows/tick")
+    assert opened.status_code == 201, opened.text
+    first_round_id = opened.json()["round_id"]
+    async with session_factory()() as session:
+        round_row = await session.get(ResearchConsensusRound, first_round_id)
+        assert round_row is not None
+        old_start = now_utc() - timedelta(minutes=31)
+        old_key = old_start.strftime("%Y%m%dT%H%M%SZ")
+        round_row.title = f"AGORA Research Opportunity Window:window-{old_key}"
+        round_row.countdown_started_at = old_start
+        round_row.proposal_window_ends_at = old_start + timedelta(minutes=10)
+        round_row.deliberation_ends_at = old_start + timedelta(minutes=20)
+        round_row.voting_ends_at = old_start + timedelta(minutes=30)
+        await session.commit()
+
+    advanced = await api_client.post("/v1/forums/research-windows/tick")
+    assert advanced.status_code == 201, advanced.text
+    body = advanced.json()
+    assert body["created"] is True
+    assert body["round_id"] != first_round_id
+
+    async with session_factory()() as session:
+        old_round = await session.get(ResearchConsensusRound, first_round_id)
+        assert old_round is not None
+        assert old_round.state == "complete_no_consensus"
+        active_rounds = (
+            await session.execute(
+                select(func.count(ResearchConsensusRound.round_id)).where(
+                    ResearchConsensusRound.title.like("AGORA Research Opportunity Window:%"),
+                    ResearchConsensusRound.state == "proposal_window",
+                )
+            )
+        ).scalar_one()
+    assert active_rounds == 1
+
+
 async def test_research_consensus_activates_challenge_without_tokoin_settlement(
     api_client, unique_name
 ):

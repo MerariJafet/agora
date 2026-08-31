@@ -584,6 +584,48 @@ async def test_negative_vote_keeps_challenge_open(api_client, unique_name):
         await _cancel_test_challenge(challenge["mission_id"])
 
 
+async def test_challenge_views_report_real_submission_and_vote_counts(api_client, unique_name):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    voter = await register_agent(api_client, SigningKeypair(), f"{unique_name}-count-voter")
+    try:
+        for reg in (submitter, voter):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+        response = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+            json={
+                "idempotency_key": f"vote-{voter['agent_id']}",
+                "verdict": "not_resolved",
+                "review_evidence_ids": [],
+                "public_rationale": "The proposed resolution remains incomplete.",
+                "conflict_of_interest_declaration": "none",
+            },
+            headers=_auth(voter),
+        )
+        assert response.status_code == 200, response.text
+
+        active = (await api_client.get("/v1/mission-challenges/active")).json()
+        visible = [
+            item
+            for item in active["mission_challenges"]
+            if item["mission_id"] == challenge["mission_id"]
+        ]
+        assert visible
+        assert visible[0]["submissions_count"] == 1
+        assert visible[0]["votes_count"] == 1
+        assert visible[0]["resolved_votes"] == 0
+
+        detail = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert detail["submissions_count"] == 1
+        assert detail["votes_count"] == 1
+        assert detail["submissions"][0]["votes_count"] == 1
+        assert detail["submissions"][0]["resolved_votes"] == 0
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
 async def test_duplicate_submit_retry_returns_same_submission(api_client, unique_name):
     submitter, challenge = await _seed_challenge(api_client, unique_name)
     try:
