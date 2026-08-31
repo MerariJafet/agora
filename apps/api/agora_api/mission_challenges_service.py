@@ -7,12 +7,16 @@ configured TOKOIN reward from treasury. This stays separate from Arena scoring:
 there are no rankings, no points and no truth score.
 """
 
+import json
+from collections.abc import AsyncIterator
 from typing import Any
 
 from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from agora_api.artifact_store import get_artifact_store
+from agora_api.artifacts_service import create_artifact, publish_version
 from agora_api.boundary import validate_boundary
 from agora_api.errors import (
     AgoraError,
@@ -25,6 +29,7 @@ from agora_api.events import append_event, now_utc
 from agora_api.ids import new_submission_id
 from agora_api.models import (
     Agent,
+    ArtifactVersion,
     Event,
     Evidence,
     Mission,
@@ -68,6 +73,7 @@ class DuplicateChallengeSubmission(AgoraError):
 REWARD_BASIS_POINTS = 10_000
 PROPOSER_REWARD_BPS = 100
 WINNER_REWARD_BPS = REWARD_BASIS_POINTS - PROPOSER_REWARD_BPS
+CHALLENGE_RESOLUTION_PAPER_VERSION = "challenge-resolution-paper.v1"
 
 
 def challenge_methodology_template() -> dict[str, Any]:
@@ -234,6 +240,7 @@ def challenge_view(
         "winning_submission_id": mission.winning_submission_id,
         "resolved_by_agent_id": mission.resolved_by_agent_id,
         "resolved_at": mission.resolved_at.isoformat() if mission.resolved_at else None,
+        "final_artifact_version_ids": mission.final_artifact_version_ids or [],
         "participants_count": participants_count,
         "submissions_count": submissions_count,
         "votes_count": votes_count,
@@ -286,6 +293,229 @@ def receipt_view(event_id: str, action: str, mission_id: str, resource_id: str) 
         "ledger": "events",
         "institutional_action": True,
     }
+
+
+async def _single_chunk(data: bytes) -> AsyncIterator[bytes]:
+    yield data
+
+
+def _json_block(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, default=str)
+
+
+def _challenge_resolution_paper_bytes(
+    *,
+    mission: Mission,
+    submission: MissionChallengeSubmission,
+    winner_agent: Agent | None,
+    votes: list[MissionChallengeVote],
+    submission_methodology: dict[str, Any],
+    reward_aceros: int,
+    proposer_reward_aceros: int,
+    winner_reward_aceros: int,
+) -> bytes:
+    resolved_votes = [vote for vote in votes if vote.resolved and not vote.abstained]
+    abstentions = [vote for vote in votes if vote.abstained]
+    rejected_votes = [
+        vote
+        for vote in votes
+        if not vote.resolved and not vote.abstained
+    ]
+    paper = {
+        "paper_type": "challenge_resolution_paper",
+        "schema_version": CHALLENGE_RESOLUTION_PAPER_VERSION,
+        "status": "RESOLVED_VERIFIED",
+        "challenge": {
+            "mission_id": mission.mission_id,
+            "title": mission.title,
+            "challenge_kind": mission.challenge_kind,
+            "problem": mission.challenge_problem,
+            "resolution_policy": mission.resolution_policy,
+        },
+        "winner": {
+            "submission_id": submission.submission_id,
+            "winner_agent_id": submission.agent_id,
+            "winner_agent_name": winner_agent.name if winner_agent else None,
+            "team_agent_ids": submission.team_agent_ids or [submission.agent_id],
+        },
+        "submission": {
+            "solution_summary": submission.solution_summary,
+            "public_rationale": submission.public_rationale or submission.reasoning_outline,
+            "reasoning_outline": submission.reasoning_outline,
+            "claim_ids": submission.claim_ids or [],
+            "evidence_ids": submission.evidence_ids or [],
+            "source_artifact_version_ids": submission.artifact_version_ids or (
+                [submission.artifact_version_id] if submission.artifact_version_id else []
+            ),
+        },
+        "methodology": {
+            "submission_methodology": submission_methodology,
+            "experiments": submission.experiments,
+            "limitations": submission.limitations,
+            "verification_note": (
+                "AGORA records public methodology and review decisions; it does not store "
+                "private chain-of-thought and does not equate consensus with truth."
+            ),
+        },
+        "review": {
+            "votes_count": len(votes),
+            "resolved_votes_count": len(resolved_votes),
+            "abstentions_count": len(abstentions),
+            "rejected_votes_count": len(rejected_votes),
+            "resolved_voter_agent_ids": [vote.voter_agent_id for vote in resolved_votes],
+            "abstaining_voter_agent_ids": [vote.voter_agent_id for vote in abstentions],
+            "vote_rationales": [
+                {
+                    "voter_agent_id": vote.voter_agent_id,
+                    "verdict": vote.verdict,
+                    "resolved": vote.resolved,
+                    "abstained": vote.abstained,
+                    "rationale": vote.rationale,
+                    "review_evidence_ids": vote.review_evidence_ids or [],
+                    "conflict_of_interest_declaration": (
+                        vote.conflict_of_interest_declaration
+                    ),
+                }
+                for vote in sorted(votes, key=lambda item: item.created_at)
+            ],
+        },
+        "tokoin": {
+            "reward_aceros": reward_aceros,
+            "proposal_author_agent_id": mission.created_by_agent_id,
+            "proposal_author_aceros": proposer_reward_aceros,
+            "winner_or_team_aceros": winner_reward_aceros,
+            "aceros_per_tokoin": ACEROS_PER_TOKOIN,
+        },
+        "provenance": {
+            "created_from": [
+                "missions",
+                "mission_challenge_submissions",
+                "mission_challenge_votes",
+                "tokoin_ledger_entries",
+            ],
+            "winner_submission_id": submission.submission_id,
+            "created_by_process": "mission_challenge_resolution",
+        },
+    }
+    markdown = (
+        f"# {mission.title} - Resolution Paper\n\n"
+        "This ArtifactVersion was generated by AGORA at challenge closure from public, "
+        "already-recorded challenge state. It is an audit object, not private reasoning "
+        "and not a truth oracle.\n\n"
+        "```json\n"
+        f"{_json_block(paper)}\n"
+        "```\n"
+    )
+    return markdown.encode("utf-8")
+
+
+async def _submission_methodology_from_ledger(
+    session: AsyncSession, submission_id: str
+) -> dict[str, Any]:
+    event = (
+        await session.execute(
+            select(Event)
+            .where(
+                Event.event_type == "mission.challenge_solution_submitted",
+                Event.payload["submission_id"].as_string() == submission_id,
+            )
+            .order_by(Event.occurred_at.asc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if event is None:
+        return {}
+    methodology = event.payload.get("methodology")
+    return methodology if isinstance(methodology, dict) else {}
+
+
+async def _publish_challenge_resolution_paper(
+    session: AsyncSession,
+    *,
+    mission: Mission,
+    submission: MissionChallengeSubmission,
+    votes: list[MissionChallengeVote],
+    reward_aceros: int,
+    proposer_reward_aceros: int,
+    winner_reward_aceros: int,
+    trace_id: str | None,
+) -> ArtifactVersion:
+    winner_agent = await session.get(Agent, submission.agent_id)
+    submission_methodology = await _submission_methodology_from_ledger(
+        session, submission.submission_id
+    )
+    paper_bytes = _challenge_resolution_paper_bytes(
+        mission=mission,
+        submission=submission,
+        winner_agent=winner_agent,
+        votes=votes,
+        submission_methodology=submission_methodology,
+        reward_aceros=reward_aceros,
+        proposer_reward_aceros=proposer_reward_aceros,
+        winner_reward_aceros=winner_reward_aceros,
+    )
+    blob = await get_artifact_store().put_stream(_single_chunk(paper_bytes))
+    artifact = await create_artifact(
+        session,
+        agent_id=submission.agent_id,
+        payload={
+            "title": f"{mission.title} Resolution Paper",
+            "description": (
+                "Canonical AGORA-generated audit paper for a RESOLVED_VERIFIED "
+                "Mission Challenge."
+            ),
+            "artifact_type": "document",
+            "visibility": "public",
+        },
+        trace_id=trace_id,
+    )
+    await session.flush()
+    await add_provenance(
+        session,
+        record_table="artifacts",
+        record_id=artifact.artifact_id,
+        created_by="mission_challenge_resolution.paper",
+        source_reference=mission.mission_id,
+        created_by_actor_id=submission.agent_id,
+    )
+    version = await publish_version(
+        session,
+        artifact=artifact,
+        agent_id=submission.agent_id,
+        agent_version_id=winner_agent.current_version_id if winner_agent else None,
+        content_hash=blob.content_hash,
+        content_size=blob.content_size,
+        media_type="text/markdown",
+        display_filename=f"{mission.mission_id}-resolution-paper.md",
+        storage_key=blob.storage_key,
+        metadata={
+            "mission_id": mission.mission_id,
+            "source_claim_ids": submission.claim_ids or [],
+            "source_evidence_ids": submission.evidence_ids or [],
+            "source_artifact_version_ids": submission.artifact_version_ids or (
+                [submission.artifact_version_id] if submission.artifact_version_id else []
+            ),
+            "declared_inputs": [
+                f"mission:{mission.mission_id}",
+                f"submission:{submission.submission_id}",
+                "review_votes",
+                "tokoin_reward_split",
+            ],
+            "declared_media_type": "text/markdown",
+            "display_filename": f"{mission.mission_id}-resolution-paper.md",
+        },
+        trace_id=trace_id,
+    )
+    await session.flush()
+    await add_provenance(
+        session,
+        record_table="artifact_versions",
+        record_id=version.artifact_version_id,
+        created_by="mission_challenge_resolution.paper",
+        source_reference=submission.submission_id,
+        created_by_actor_id=submission.agent_id,
+    )
+    return version
 
 
 def capability_manifest() -> dict[str, Any]:
@@ -1337,11 +1567,11 @@ async def _maybe_resolve(
         return False
 
     reward = mission.reward_aceros if mission.reward_aceros is not None else ACEROS_PER_TOKOIN
+    proposer_amount = (reward * PROPOSER_REWARD_BPS) // REWARD_BASIS_POINTS
+    winner_pool = reward - proposer_amount
     proposer_entry = None
     winner_entries = []
     if reward > 0:
-        proposer_amount = (reward * PROPOSER_REWARD_BPS) // REWARD_BASIS_POINTS
-        winner_pool = reward - proposer_amount
         if proposer_amount > 0:
             proposer_entry = await transfer_from_treasury(
                 session,
@@ -1376,8 +1606,23 @@ async def _maybe_resolve(
     mission.resolved_at = mission.completed_at
     mission.resolved_by_agent_id = submission.agent_id
     mission.winning_submission_id = submission.submission_id
-    if submission.artifact_version_id:
-        mission.final_artifact_version_ids = [submission.artifact_version_id]
+    resolution_paper = await _publish_challenge_resolution_paper(
+        session,
+        mission=mission,
+        submission=submission,
+        votes=votes,
+        reward_aceros=reward,
+        proposer_reward_aceros=proposer_amount,
+        winner_reward_aceros=winner_pool,
+        trace_id=trace_id,
+    )
+    source_artifact_version_ids = submission.artifact_version_ids or (
+        [submission.artifact_version_id] if submission.artifact_version_id else []
+    )
+    mission.final_artifact_version_ids = [
+        *source_artifact_version_ids,
+        resolution_paper.artifact_version_id,
+    ]
 
     agent = await session.get(Agent, submission.agent_id)
     await append_event(
@@ -1397,11 +1642,11 @@ async def _maybe_resolve(
             "winner_reward_entry_ids": [entry.entry_id for entry in winner_entries],
             "reward_entry_id": winner_entries[0].entry_id if winner_entries else None,
             "reward_aceros": reward,
+            "resolution_paper_artifact_version_id": resolution_paper.artifact_version_id,
+            "final_artifact_version_ids": mission.final_artifact_version_ids,
             "reward_split": {
-                "proposal_author_aceros": (reward * PROPOSER_REWARD_BPS)
-                // REWARD_BASIS_POINTS,
-                "winner_or_team_aceros": reward
-                - ((reward * PROPOSER_REWARD_BPS) // REWARD_BASIS_POINTS),
+                "proposal_author_aceros": proposer_amount,
+                "winner_or_team_aceros": winner_pool,
                 "proposal_author_bps": PROPOSER_REWARD_BPS,
                 "winner_or_team_bps": WINNER_REWARD_BPS,
             },

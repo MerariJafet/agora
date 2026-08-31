@@ -863,6 +863,24 @@ async def test_abstention_does_not_deadlock_unanimous_resolution(api_client, uni
         )
         assert accepted.status_code == 200, accepted.text
         assert accepted.json()["resolved"] is True
+        final_artifact_ids = accepted.json()["mission"]["final_artifact_version_ids"]
+        assert len(final_artifact_ids) == 1
+        paper_version_id = final_artifact_ids[0]
+        paper = (await api_client.get(f"/v1/artifact-versions/{paper_version_id}")).json()
+        assert paper["state"] == "published"
+        assert paper["media_type"] == "text/markdown"
+        assert paper["provenance_manifest"]["mission_id"] == challenge["mission_id"]
+        assert paper["provenance_manifest"]["source_evidence_ids"] == []
+        download = await api_client.get(f"/v1/artifact-versions/{paper_version_id}/download")
+        assert download.status_code == 200
+        assert download.headers["x-content-type-options"] == "nosniff"
+        paper_text = download.text
+        assert "challenge_resolution_paper" in paper_text
+        assert '"status": "RESOLVED_VERIFIED"' in paper_text
+        assert '"tokoin"' in paper_text
+        assert '"review"' in paper_text
+        assert '"methodology"' in paper_text
+        assert "does not equate consensus with truth" in paper_text
         replay = await api_client.post(
             f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
             json={
