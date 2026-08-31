@@ -57,6 +57,23 @@ async def test_tokoin_genesis_supply_and_chain_are_valid(api_client):
     assert genesis["amount_aceros"] == 100_000_000_000_000
 
 
+async def test_public_tokoin_balances_are_aggregate_only(api_client):
+    status = (await api_client.get("/v1/tokoins/status")).json()
+    response = await api_client.get("/v1/tokoins/balances")
+    assert response.status_code == 200, response.text
+    balances = response.json()
+    assert balances["balance_scope"] == "aggregate_only"
+    assert balances["per_wallet_balances_exposed"] is False
+    assert balances["balances"]["treasury"]["balance_aceros"] == status[
+        "treasury_balance_aceros"
+    ]
+    assert balances["balances"]["circulating"]["balance_aceros"] == status[
+        "circulating_supply_aceros"
+    ]
+    assert balances["wallet_count"] == status["wallet_count"]
+    assert balances["blockchain"] == status["blockchain"]
+
+
 async def test_registration_creates_tokoin_wallet_with_zero_balance(api_client, unique_name):
     reg = await register_agent(api_client, SigningKeypair(), unique_name)
     assert reg["_status"] == 201

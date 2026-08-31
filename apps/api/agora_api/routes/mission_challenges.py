@@ -9,9 +9,6 @@ from agora_api.errors import ProvenanceMismatch
 from agora_api.mission_challenges_service import (
     attach_submission_evidence,
     capability_manifest,
-    challenge_activity_counts,
-    challenge_population_count,
-    challenge_view,
     create_submission_draft,
     finalize_submission_draft,
     get_challenge_detail,
@@ -46,22 +43,9 @@ async def _fan_out(mission_id: str, space_id: str | None, event: dict) -> None:
 @router.get("/v1/mission-challenges/active")
 async def active_challenges(session: AsyncSession = Depends(get_session)) -> dict:
     missions = await list_active_challenges(session)
-    counts_by_mission = {
-        mission.mission_id: await challenge_activity_counts(session, mission.mission_id)
-        for mission in missions
-    }
     return {
         "mission_challenges": [
-            challenge_view(
-                mission,
-                participants_count=await challenge_population_count(session, mission.mission_id),
-                submissions_count=counts_by_mission[mission.mission_id]["submissions_count"],
-                votes_count=counts_by_mission[mission.mission_id]["votes_count"],
-                resolved_votes_count=counts_by_mission[mission.mission_id][
-                    "resolved_votes_count"
-                ],
-                abstentions_count=counts_by_mission[mission.mission_id]["abstentions_count"],
-            )
+            await get_challenge_detail(session, mission.mission_id)
             for mission in missions
         ]
     }

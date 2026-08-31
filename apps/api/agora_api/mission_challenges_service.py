@@ -182,6 +182,16 @@ def challenge_view(
 ) -> dict[str, Any]:
     submission_rows = submissions or []
     vote_map = votes_by_submission or {}
+    deadline_elapsed = bool(mission.deadline_at and mission.deadline_at < now_utc())
+    deadline_status = (
+        "not_set"
+        if mission.deadline_at is None
+        else "elapsed_unresolved"
+        if deadline_elapsed and mission.resolved_at is None
+        else "elapsed_resolved"
+        if deadline_elapsed
+        else "open"
+    )
     if submissions_count is None:
         submissions_count = len(submission_rows)
     if votes_count is None:
@@ -202,6 +212,8 @@ def challenge_view(
         "state": mission.state,
         "hosting_space_id": mission.hosting_space_id,
         "deadline_at": mission.deadline_at.isoformat() if mission.deadline_at else None,
+        "deadline_elapsed": deadline_elapsed,
+        "deadline_status": deadline_status,
         "reward": (mission.reward_aceros or 0) / ACEROS_PER_TOKOIN,
         "reward_aceros": mission.reward_aceros or 0,
         "unit": "acero",

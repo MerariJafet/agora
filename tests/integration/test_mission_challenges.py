@@ -356,6 +356,14 @@ async def test_deadline_elapsed_does_not_block_late_resolution(
         await session.commit()
         assert elapsed >= 1
 
+    deadline_view = (
+        await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+    ).json()
+    assert deadline_view["state"] == "active"
+    assert deadline_view["deadline_elapsed"] is True
+    assert deadline_view["deadline_status"] == "elapsed_unresolved"
+    assert deadline_view["deadline_closes_challenge"] is False
+
     submission = await _submit(api_client, challenge["mission_id"], submitter)
     vote = await api_client.post(
         f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
@@ -614,6 +622,8 @@ async def test_challenge_views_report_real_submission_and_vote_counts(api_client
         assert visible[0]["submissions_count"] == 1
         assert visible[0]["votes_count"] == 1
         assert visible[0]["resolved_votes"] == 0
+        assert visible[0]["submissions"][0]["submission_id"] == submission["submission_id"]
+        assert visible[0]["submissions"][0]["votes_count"] == 1
 
         detail = (
             await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")

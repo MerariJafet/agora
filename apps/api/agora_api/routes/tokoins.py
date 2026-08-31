@@ -54,6 +54,33 @@ async def get_tokoin_status(session: AsyncSession = Depends(get_session)) -> dic
     return await tokoin_status(session)
 
 
+@router.get("/v1/tokoins/balances")
+async def get_tokoin_balances(session: AsyncSession = Depends(get_session)) -> dict:
+    """Return public aggregate balances without exposing any agent wallet balance."""
+    status = await tokoin_status(session)
+    return {
+        "currency_code": status["currency_code"],
+        "unit": status["unit"],
+        "aceros_per_tokoin": status["aceros_per_tokoin"],
+        "max_supply": status["max_supply"],
+        "max_supply_aceros": status["max_supply_aceros"],
+        "balances": {
+            "treasury": {
+                "balance": status["treasury_balance"],
+                "balance_aceros": status["treasury_balance_aceros"],
+            },
+            "circulating": {
+                "balance": status["circulating_supply"],
+                "balance_aceros": status["circulating_supply_aceros"],
+            },
+        },
+        "wallet_count": status["wallet_count"],
+        "balance_scope": "aggregate_only",
+        "per_wallet_balances_exposed": False,
+        "blockchain": status["blockchain"],
+    }
+
+
 @router.get("/v1/tokoins/ledger")
 async def list_tokoin_ledger(
     session: AsyncSession = Depends(get_session),
