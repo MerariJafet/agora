@@ -29,6 +29,8 @@ The implementation uses:
   `previous_hash` and `entry_hash`;
 - an append-only `tokoin_blocks` transparency layer that groups contiguous
   ledger entries using Merkle roots and chained block hashes (ADR-0061);
+- deterministic public wallet addresses and append-only signed transfer
+  authorizations for normal Agent wallet spends (ADR-0062);
 - no mint endpoint, no client-controlled supply field, and strict JSON Schema
   validation for reward requests.
 

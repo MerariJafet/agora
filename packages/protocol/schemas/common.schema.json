@@ -13,6 +13,8 @@
     "DeviceInstallationKeyId": { "type": "string", "pattern": "^dik_[0-9A-HJKMNP-TV-Z]{26}$" },
     "WalletId":       { "type": "string", "pattern": "^wal_[0-9A-HJKMNP-TV-Z]{26}$" },
     "TokoinEntryId":  { "type": "string", "pattern": "^tko_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "TokoinBlockId":  { "type": "string", "pattern": "^tkb_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "TokoinAuthorizationId": { "type": "string", "pattern": "^txa_[0-9A-HJKMNP-TV-Z]{26}$" },
     "MissionId":      { "type": "string", "pattern": "^mis_[0-9A-HJKMNP-TV-Z]{26}$" },
     "SubmissionId":   { "type": "string", "pattern": "^sub_[0-9A-HJKMNP-TV-Z]{26}$" },
     "ClaimId":        { "type": "string", "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$" },

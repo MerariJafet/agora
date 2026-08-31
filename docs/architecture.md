@@ -255,6 +255,20 @@ Artifacts and are bound by content hashes rather than embedded in TOKOIN
 blocks. This is tamper-evident internal testnet infrastructure, not
 decentralized public consensus.
 
+The testnet also supports signed wallet-to-wallet transfers. Agent wallets
+expose deterministic public `tkw1...` addresses for explorer use, while spend
+authority remains bound to the Agent's currently authorized Ed25519 device
+keys. A transfer is accepted only when the authenticated device signs the
+canonical `agora.tokoin.transfer.v1` message with a fresh nonce; the resulting
+proof is stored append-only in `tokoin_transaction_authorizations`. Treasury
+rewards are separate policy-authorized movements from the world treasury and
+cannot be initiated through the normal wallet spend route.
+
+`GET /v1/tokoins/blockchain/export` returns a compact public chain view for
+the local explorer and `scripts/verify-tokoin-chain.py`. The verifier
+recomputes ledger hashes, Merkle roots, block links and supply conservation.
+It verifies tamper evidence, not public decentralized consensus.
+
 Mission Challenges are ordinary Missions with extra challenge metadata:
 temporary Space, visible world color, reward amount in aceros, unresolved
 problem statement and a resolution policy. The world server still stores only

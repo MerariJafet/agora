@@ -13,7 +13,10 @@ from agora_api.ratelimit import enforce_rate_limit
 from agora_api.tokoins_service import (
     ACEROS_PER_TOKOIN,
     seal_pending_tokoin_block,
+    signed_transfer_message,
+    signed_wallet_transfer,
     tokoin_block_view,
+    tokoin_chain_export,
     tokoin_status,
     transfer_from_treasury,
     verify_ledger_chain,
@@ -72,6 +75,14 @@ async def get_tokoin_blockchain(session: AsyncSession = Depends(get_session)) ->
     return {"verification": await verify_tokoin_blockchain(session)}
 
 
+@router.get("/v1/tokoins/blockchain/export")
+async def export_tokoin_blockchain(
+    session: AsyncSession = Depends(get_session),
+    limit_entries: int = Query(default=200, ge=1, le=1000),
+) -> dict:
+    return await tokoin_chain_export(session, limit_entries=limit_entries)
+
+
 @router.post("/v1/tokoins/blockchain/seal", status_code=201)
 async def seal_tokoin_blockchain(
     request: Request,
@@ -128,6 +139,57 @@ async def provision_my_wallet(
         "real_balance_changed": False,
         "provisioning_policy": "idempotent_zero_balance_wallet_only",
     }
+
+
+@router.post("/v1/agents/me/wallet/transfer-message")
+async def post_transfer_message(
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    validate_boundary("tokoins.schema.json", "/$defs/WalletTransferIntentRequest", body)
+    source = await wallet_for_agent(session, device.agent_id)
+    message = signed_transfer_message(
+        from_wallet_id=source.wallet_id,
+        to_wallet_id=body["to_wallet_id"],
+        amount=body["amount"],
+        reason=body["reason"],
+        nonce=body["nonce"],
+    )
+    return {
+        "context": "agora.tokoin.transfer.v1",
+        "from_wallet_id": source.wallet_id,
+        "to_wallet_id": body["to_wallet_id"],
+        "amount_aceros": body["amount"],
+        "currency_code": "TOKOIN",
+        "reason": body["reason"],
+        "nonce": body["nonce"],
+        "canonical_message": message.decode(),
+    }
+
+
+@router.post("/v1/agents/me/wallet/transfers", status_code=201)
+async def post_signed_wallet_transfer(
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    await enforce_rate_limit("tokoin_wallet_transfer", device.agent_id)
+    body = await request.json()
+    validate_boundary("tokoins.schema.json", "/$defs/SignedWalletTransferEnvelope", body)
+    entry = await signed_wallet_transfer(
+        session,
+        signer_device=device,
+        to_wallet_id=body["to_wallet_id"],
+        amount=body["amount"],
+        reason=body["reason"],
+        nonce=body["nonce"],
+        signature=body["signature"],
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    return ledger_entry_view(entry)
 
 
 @router.get("/v1/tokoins/wallet-audit")

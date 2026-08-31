@@ -22,6 +22,69 @@
         }
       }
     },
+    "WalletTransferIntentRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["to_wallet_id", "amount", "reason", "nonce"],
+      "properties": {
+        "to_wallet_id": { "$ref": "common.schema.json#/$defs/WalletId" },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000000,
+          "description": "Amount in aceros, the indivisible TOKOIN subunit."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        }
+      }
+    },
+    "SignedWalletTransferRequest": {
+      "allOf": [
+        { "$ref": "#/$defs/WalletTransferIntentRequest" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["signature"],
+          "properties": {
+            "signature": { "$ref": "common.schema.json#/$defs/Ed25519SignatureB64" }
+          }
+        }
+      ]
+    },
+    "SignedWalletTransferEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["to_wallet_id", "amount", "reason", "nonce", "signature"],
+      "properties": {
+        "to_wallet_id": { "$ref": "common.schema.json#/$defs/WalletId" },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000000
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "signature": { "$ref": "common.schema.json#/$defs/Ed25519SignatureB64" }
+      }
+    },
     "AtomicAmountString": {
       "type": "string",
       "pattern": "^(0|[1-9][0-9]{0,31})$",

@@ -35,6 +35,12 @@ credentials. If a reward came from a research challenge, the block binds to the
 ledger event and Mission/Artifact references; the actual paper remains an
 immutable ArtifactVersion with its own content hash.
 
+From proof bundle v2 onward, blocks also bind available signed transfer
+authorization proofs (`txa_`) for normal Agent wallet spends: authorization
+type, signer Agent/Device ids, signer public key, nonce, message hash and the
+presence of a signature. Legacy v1 blocks remain verifiable but are not marked
+as signed-transfer verified.
+
 Sealing a block has no economic effect. It cannot mint TOKOIN, move ACEROS,
 change balances, grant local permissions or declare research truth. It only
 creates a transparency record over ledger entries that already exist.

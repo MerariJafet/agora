@@ -465,6 +465,41 @@ class TokoinBlock(Base):
     )
 
 
+class TokoinTransactionAuthorization(Base):
+    """Append-only authorization proof for TOKOIN ledger entries.
+
+    Normal wallet-to-wallet transfers require an Ed25519 signature from a
+    currently authorized device controlling the source Agent wallet. Treasury
+    rewards use a separate institutional policy path and are deliberately
+    classified as policy-authorized, not user-signed.
+    """
+
+    __tablename__ = "tokoin_transaction_authorizations"
+
+    authorization_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    entry_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("tokoin_ledger_entries.entry_id"), nullable=False, unique=True
+    )
+    authorization_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    signer_agent_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=True
+    )
+    signer_device_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("devices.device_id"), nullable=True
+    )
+    signer_public_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    nonce: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    message_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    signature: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("signer_device_id", "nonce", name="uq_tokoin_auth_device_nonce"),
+        Index("ix_tokoin_auth_entry", "entry_id"),
+        Index("ix_tokoin_auth_signer_agent", "signer_agent_id"),
+    )
+
+
 class Event(Base):
     """Immutable public event ledger. Append-only (enforced by DB triggers)."""
 

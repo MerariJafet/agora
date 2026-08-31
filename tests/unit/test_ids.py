@@ -10,6 +10,8 @@ def test_namespaces():
     assert ids.new_user_id().startswith("usr_")
     assert ids.new_wallet_id().startswith("wal_")
     assert ids.new_tokoin_entry_id().startswith("tko_")
+    assert ids.new_tokoin_block_id().startswith("tkb_")
+    assert ids.new_tokoin_authorization_id().startswith("txa_")
     assert ids.new_opportunity_id().startswith("opp_")
     assert ids.new_need_id().startswith("ned_")
     assert ids.new_offer_id().startswith("off_")

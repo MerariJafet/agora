@@ -439,6 +439,14 @@ New trust boundaries and mitigations:
 - **False "unhackable" claim**: AGORA documents TOKOIN as an internal
   tamper-evident testnet ledger. Security claims are limited to fixed supply,
   append-only constraints, hash-chain/Merkle verification and no mint API.
+- **Signed-transfer replay**: Wallet transfers require a canonical
+  `agora.tokoin.transfer.v1` payload, an Ed25519 signature from the
+  authenticated Agent device and a nonce that is unique per device. Replay
+  attempts are rejected before any balance projection changes.
+- **Explorer-as-public-chain confusion**: The TOKOIN explorer and standalone
+  verifier prove local testnet integrity: hashes, Merkle roots, block links
+  and supply conservation. They do not prove decentralized consensus, market
+  value, legal tender status or external custody.
 - **Challenge-as-permission escalation**: Mission Challenges do not add any
   LocalPolicyEngine path. A challenge can invite, display, accept submissions
   and transfer aceros; it cannot grant files, shell, git, secrets or model

@@ -14,15 +14,23 @@ from typing import Any
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agora_api.crypto import verify_signature
 from agora_api.errors import AgoraError, NotFound, ValidationFailed
 from agora_api.events import append_event, now_utc
-from agora_api.ids import new_tokoin_block_id, new_tokoin_entry_id, new_wallet_id
+from agora_api.ids import (
+    new_tokoin_authorization_id,
+    new_tokoin_block_id,
+    new_tokoin_entry_id,
+    new_wallet_id,
+)
 from agora_api.models import (
     Agent,
+    Device,
     RecordProvenance,
     TokoinBlock,
     TokoinLedgerEntry,
     TokoinSupply,
+    TokoinTransactionAuthorization,
     TokoinWallet,
 )
 from agora_api.provenance import add_provenance
@@ -34,6 +42,7 @@ MAX_SUPPLY_ACEROS = MAX_SUPPLY_TOKOINS * ACEROS_PER_TOKOIN
 TREASURY_WALLET_ID = "wal_0000000000000000000TREASRY"
 SYSTEM_AGENT_ID = "agt_0000000000000000000AG0RA00"
 SYSTEM_VERSION_ID = "agv_0000000000000000000AG0RA01"
+TOKOIN_TRANSFER_CONTEXT = "agora.tokoin.transfer.v1"
 
 
 class InsufficientTokoins(AgoraError):
@@ -87,6 +96,53 @@ def canonical_json_hash(payload: dict[str, Any], *, domain: str) -> str:
     envelope = {"domain": domain, "payload": payload}
     raw = json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(raw).hexdigest()
+
+
+def tokoin_wallet_address(wallet_id: str, agent_id: str | None) -> str:
+    """Public deterministic dev/testnet address.
+
+    This is not a private-key-derived public-chain address. Spend authority is
+    checked by Ed25519 signatures from currently authorized Agent devices.
+    """
+    seed = f"agora.tokoin.wallet_address.v1|{wallet_id}|{agent_id or 'treasury'}"
+    return "tkw1" + hashlib.sha256(seed.encode()).hexdigest()[:40]
+
+
+def transfer_message_payload(
+    *,
+    from_wallet_id: str,
+    to_wallet_id: str,
+    amount: int,
+    reason: str,
+    nonce: str,
+) -> dict[str, Any]:
+    return {
+        "context": TOKOIN_TRANSFER_CONTEXT,
+        "from_wallet_id": from_wallet_id,
+        "to_wallet_id": to_wallet_id,
+        "amount_aceros": amount,
+        "currency_code": CURRENCY_CODE,
+        "reason": reason,
+        "nonce": nonce,
+    }
+
+
+def signed_transfer_message(
+    *,
+    from_wallet_id: str,
+    to_wallet_id: str,
+    amount: int,
+    reason: str,
+    nonce: str,
+) -> bytes:
+    payload = transfer_message_payload(
+        from_wallet_id=from_wallet_id,
+        to_wallet_id=to_wallet_id,
+        amount=amount,
+        reason=reason,
+        nonce=nonce,
+    )
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
 
 
 def merkle_root(leaves: list[str]) -> str:
@@ -393,7 +449,7 @@ def _entry_proof(entry: TokoinLedgerEntry) -> dict[str, Any]:
     }
 
 
-def _block_proof_bundle(entries: list[TokoinLedgerEntry]) -> dict[str, Any]:
+def _block_proof_bundle_v1(entries: list[TokoinLedgerEntry]) -> dict[str, Any]:
     return {
         "schema": "agora.tokoin.block_proof_bundle.v1",
         "currency_code": CURRENCY_CODE,
@@ -406,6 +462,48 @@ def _block_proof_bundle(entries: list[TokoinLedgerEntry]) -> dict[str, Any]:
         ),
         "entries": [_entry_proof(entry) for entry in entries],
     }
+
+
+def _block_proof_bundle(
+    entries: list[TokoinLedgerEntry],
+    authorizations: dict[str, TokoinTransactionAuthorization] | None = None,
+) -> dict[str, Any]:
+    authorizations = authorizations or {}
+    return {
+        "schema": "agora.tokoin.block_proof_bundle.v2",
+        "currency_code": CURRENCY_CODE,
+        "unit": "acero",
+        "aceros_per_tokoin": ACEROS_PER_TOKOIN,
+        "max_supply_aceros": MAX_SUPPLY_ACEROS,
+        "paper_binding_policy": (
+            "Blocks bind reward entries to mission_id/event_id/artifact references; "
+            "paper bytes remain in ArtifactVersion content hashes, not inside TOKOIN."
+        ),
+        "authorization_policy": (
+            "Agent wallet transfers include nonce-bound Ed25519 authorization proofs; "
+            "treasury rewards remain policy-authorized world actions."
+        ),
+        "entries": [
+            _entry_proof(entry)
+            | {"authorization": authorization_view(authorizations.get(entry.entry_id))}
+            for entry in entries
+        ],
+    }
+
+
+async def _authorizations_for_entries(
+    session: AsyncSession, entries: list[TokoinLedgerEntry]
+) -> dict[str, TokoinTransactionAuthorization]:
+    if not entries:
+        return {}
+    rows = (
+        await session.execute(
+            select(TokoinTransactionAuthorization).where(
+                TokoinTransactionAuthorization.entry_id.in_([entry.entry_id for entry in entries])
+            )
+        )
+    ).scalars().all()
+    return {row.entry_id: row for row in rows}
 
 
 async def seal_pending_tokoin_block(
@@ -440,7 +538,9 @@ async def seal_pending_tokoin_block(
         if current.sequence != previous.sequence + 1:
             raise ValidationFailed("TOKOIN block entries must be contiguous.")
     entry_hashes = [entry.entry_hash for entry in entries]
-    proof_bundle = _block_proof_bundle(entries)
+    proof_bundle = _block_proof_bundle(
+        entries, await _authorizations_for_entries(session, entries)
+    )
     proof_bundle_hash = canonical_json_hash(
         proof_bundle, domain="tokoin.block_proof_bundle.v1"
     )
@@ -528,7 +628,12 @@ async def verify_tokoin_blockchain(session: AsyncSession) -> dict[str, Any]:
         if merkle_root(entry_hashes) != block.transaction_merkle_root:
             return {"valid": False, "reason": "merkle_root_mismatch",
                     "block_id": block.block_id}
-        proof_bundle = _block_proof_bundle(entries)
+        if block.proof_bundle.get("schema") == "agora.tokoin.block_proof_bundle.v2":
+            proof_bundle = _block_proof_bundle(
+                entries, await _authorizations_for_entries(session, entries)
+            )
+        else:
+            proof_bundle = _block_proof_bundle_v1(entries)
         if (
             canonical_json_hash(proof_bundle, domain="tokoin.block_proof_bundle.v1")
             != block.proof_bundle_hash
@@ -543,6 +648,24 @@ async def verify_tokoin_blockchain(session: AsyncSession) -> dict[str, Any]:
     ledger_entries = int(
         (await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))).scalar_one()
     )
+    signed_transfer_entries = int(
+        (
+            await session.execute(
+                select(func.count(TokoinTransactionAuthorization.authorization_id)).where(
+                    TokoinTransactionAuthorization.authorization_type == "agent_wallet_signature"
+                )
+            )
+        ).scalar_one()
+    )
+    transfer_entries = int(
+        (
+            await session.execute(
+                select(func.count(TokoinLedgerEntry.entry_id)).where(
+                    TokoinLedgerEntry.entry_type == "transfer"
+                )
+            )
+        ).scalar_one()
+    )
     sealed_entries = expected_first_sequence - 1
     return {
         "valid": True,
@@ -551,6 +674,8 @@ async def verify_tokoin_blockchain(session: AsyncSession) -> dict[str, Any]:
         "sealed_entries": sealed_entries,
         "pending_entries": max(ledger_entries - sealed_entries, 0),
         "tip_hash": previous_block_hash,
+        "signed_transfer_entries": signed_transfer_entries,
+        "unsigned_legacy_transfer_entries": max(transfer_entries - signed_transfer_entries, 0),
         "currency_code": CURRENCY_CODE,
         "unit": "acero",
         "aceros_per_tokoin": ACEROS_PER_TOKOIN,
@@ -559,9 +684,75 @@ async def verify_tokoin_blockchain(session: AsyncSession) -> dict[str, Any]:
     }
 
 
+async def tokoin_chain_export(
+    session: AsyncSession, *, limit_entries: int = 200
+) -> dict[str, Any]:
+    """Return a compact self-verifying explorer/export view.
+
+    The export intentionally contains public transaction metadata only. It is
+    enough for the standalone verifier to recompute ledger/block hashes and
+    supply conservation without seeing private keys, sessions or provider
+    credentials.
+    """
+    if limit_entries < 1 or limit_entries > 1000:
+        raise ValidationFailed("limit_entries must be between 1 and 1000.")
+    wallets = (
+        await session.execute(select(TokoinWallet).order_by(TokoinWallet.wallet_id))
+    ).scalars().all()
+    entries = (
+        await session.execute(
+            select(TokoinLedgerEntry).order_by(TokoinLedgerEntry.sequence).limit(limit_entries)
+        )
+    ).scalars().all()
+    auth_rows = (
+        (
+            await session.execute(
+                select(TokoinTransactionAuthorization).where(
+                    TokoinTransactionAuthorization.entry_id.in_(
+                        [entry.entry_id for entry in entries]
+                    )
+                )
+            )
+        ).scalars().all()
+        if entries
+        else []
+    )
+    auth_by_entry = {row.entry_id: row for row in auth_rows}
+    blocks = (
+        await session.execute(select(TokoinBlock).order_by(TokoinBlock.height))
+    ).scalars().all()
+    return {
+        "schema": "agora.tokoin.chain_export.v1",
+        "currency_code": CURRENCY_CODE,
+        "unit": "acero",
+        "aceros_per_tokoin": ACEROS_PER_TOKOIN,
+        "max_supply_aceros": MAX_SUPPLY_ACEROS,
+        "wallets": [wallet_view(wallet) for wallet in wallets],
+        "ledger_entries": [
+            {
+                **canonical_ledger_payload(entry),
+                "entry_id": entry.entry_id,
+                "entry_hash": entry.entry_hash,
+                "authorization": authorization_view(auth_by_entry.get(entry.entry_id)),
+            }
+            for entry in entries
+        ],
+        "ledger_entries_returned": len(entries),
+        "ledger_entry_limit": limit_entries,
+        "blocks": [tokoin_block_view(block) for block in blocks],
+        "verification": await verify_tokoin_blockchain(session),
+        "trust_boundary": (
+            "Internal AGORA testnet export: verifier checks hashes and supply, "
+            "not public decentralized consensus."
+        ),
+    }
+
+
 def wallet_view(wallet: TokoinWallet) -> dict[str, Any]:
     return {
         "wallet_id": wallet.wallet_id,
+        "wallet_address": tokoin_wallet_address(wallet.wallet_id, wallet.agent_id),
+        "address_scheme": "agora_tokoin_wallet_address_v1",
         "agent_id": wallet.agent_id,
         "label": wallet.label,
         "currency_code": CURRENCY_CODE,
@@ -574,6 +765,23 @@ def wallet_view(wallet: TokoinWallet) -> dict[str, Any]:
     }
 
 
+def authorization_view(auth: TokoinTransactionAuthorization | None) -> dict[str, Any] | None:
+    if auth is None:
+        return None
+    return {
+        "authorization_id": auth.authorization_id,
+        "entry_id": auth.entry_id,
+        "authorization_type": auth.authorization_type,
+        "signer_agent_id": auth.signer_agent_id,
+        "signer_device_id": auth.signer_device_id,
+        "signer_public_key": auth.signer_public_key,
+        "nonce": auth.nonce,
+        "message_hash": auth.message_hash,
+        "signature_present": auth.signature is not None,
+        "created_at": _iso_z(auth.created_at),
+    }
+
+
 async def _last_entry(session: AsyncSession, *, lock: bool = False) -> TokoinLedgerEntry:
     query = select(TokoinLedgerEntry).order_by(TokoinLedgerEntry.sequence.desc()).limit(1)
     if lock:
@@ -582,6 +790,166 @@ async def _last_entry(session: AsyncSession, *, lock: bool = False) -> TokoinLed
     if entry is None:
         raise NotFound("TOKOIN ledger has no genesis entry.")
     return entry
+
+
+async def _append_signed_transfer_entry(
+    session: AsyncSession,
+    *,
+    from_wallet: TokoinWallet,
+    to_wallet: TokoinWallet,
+    signer_device: Device,
+    amount: int,
+    reason: str,
+    nonce: str,
+    signature: str,
+    trace_id: str | None = None,
+) -> TokoinLedgerEntry:
+    if amount <= 0:
+        raise ValidationFailed("TOKOIN amount must be positive.")
+    if len(reason) > 128:
+        raise ValidationFailed("TOKOIN reason is too long.")
+    if from_wallet.agent_id != signer_device.agent_id:
+        raise ValidationFailed("Source wallet is not controlled by this device.")
+    if from_wallet.wallet_id == TREASURY_WALLET_ID:
+        raise ValidationFailed("Treasury spends require institutional reward policy.")
+    if from_wallet.wallet_id == to_wallet.wallet_id:
+        raise ValidationFailed("TOKOIN transfer source and destination must differ.")
+    if from_wallet.balance < amount:
+        raise InsufficientTokoins("Source wallet cannot cover this transfer.")
+
+    duplicate_nonce = (
+        await session.execute(
+            select(TokoinTransactionAuthorization).where(
+                TokoinTransactionAuthorization.signer_device_id == signer_device.device_id,
+                TokoinTransactionAuthorization.nonce == nonce,
+            )
+        )
+    ).scalar_one_or_none()
+    if duplicate_nonce is not None:
+        raise ValidationFailed("TOKOIN transfer nonce has already been used by this device.")
+
+    message = signed_transfer_message(
+        from_wallet_id=from_wallet.wallet_id,
+        to_wallet_id=to_wallet.wallet_id,
+        amount=amount,
+        reason=reason,
+        nonce=nonce,
+    )
+    if not verify_signature(signer_device.public_key, message, signature):
+        raise ValidationFailed("TOKOIN transfer signature verification failed.")
+
+    ts = now_utc()
+    event = await append_event(
+        session,
+        event_type="tokoin.wallet_transfer",
+        actor={"agent_id": signer_device.agent_id, "device_id": signer_device.device_id},
+        payload={
+            "from_wallet_id": from_wallet.wallet_id,
+            "to_wallet_id": to_wallet.wallet_id,
+            "amount_aceros": amount,
+            "currency_code": CURRENCY_CODE,
+            "reason": reason,
+            "authorization": "agent_wallet_signature",
+        },
+        trace_id=trace_id,
+    )
+    await session.flush()
+    last = await _last_entry(session, lock=True)
+    entry_data = {
+        "sequence": last.sequence + 1,
+        "entry_type": "transfer",
+        "from_wallet_id": from_wallet.wallet_id,
+        "to_wallet_id": to_wallet.wallet_id,
+        "amount": amount,
+        "currency_code": CURRENCY_CODE,
+        "reason": reason,
+        "mission_id": None,
+        "event_id": event.event_id,
+        "previous_hash": last.entry_hash,
+        "created_at": ts,
+    }
+    entry = TokoinLedgerEntry(
+        entry_id=new_tokoin_entry_id(),
+        entry_hash=ledger_hash(entry_data),
+        **entry_data,
+    )
+    from_wallet.balance -= amount
+    from_wallet.updated_at = ts
+    to_wallet.balance += amount
+    to_wallet.updated_at = ts
+    auth = TokoinTransactionAuthorization(
+        authorization_id=new_tokoin_authorization_id(),
+        entry_id=entry.entry_id,
+        authorization_type="agent_wallet_signature",
+        signer_agent_id=signer_device.agent_id,
+        signer_device_id=signer_device.device_id,
+        signer_public_key=signer_device.public_key,
+        nonce=nonce,
+        message_hash=hashlib.sha256(message).hexdigest(),
+        signature=signature,
+        created_at=ts,
+    )
+    session.add_all([entry, auth])
+    await add_provenance(
+        session,
+        record_table="tokoin_ledger_entries",
+        record_id=entry.entry_id,
+        created_by="tokoin.signed_wallet_transfer",
+        source_reference=signer_device.agent_id,
+    )
+    await add_provenance(
+        session,
+        record_table="tokoin_transaction_authorizations",
+        record_id=auth.authorization_id,
+        created_by="tokoin.signed_wallet_transfer",
+        source_reference=entry.entry_id,
+    )
+    return entry
+
+
+async def signed_wallet_transfer(
+    session: AsyncSession,
+    *,
+    signer_device: Device,
+    to_wallet_id: str,
+    amount: int,
+    reason: str,
+    nonce: str,
+    signature: str,
+    trace_id: str | None = None,
+) -> TokoinLedgerEntry:
+    await get_supply(session)
+    from_wallet = await wallet_for_agent(
+        session, signer_device.agent_id, create=True, trace_id=trace_id
+    )
+    await session.flush()
+    from_wallet = (
+        await session.execute(
+            select(TokoinWallet)
+            .where(TokoinWallet.wallet_id == from_wallet.wallet_id)
+            .with_for_update()
+        )
+    ).scalar_one()
+    to_wallet = (
+        await session.execute(
+            select(TokoinWallet)
+            .where(TokoinWallet.wallet_id == to_wallet_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if to_wallet is None:
+        raise NotFound("Destination TOKOIN wallet not found.")
+    return await _append_signed_transfer_entry(
+        session,
+        from_wallet=from_wallet,
+        to_wallet=to_wallet,
+        signer_device=signer_device,
+        amount=amount,
+        reason=reason,
+        nonce=nonce,
+        signature=signature,
+        trace_id=trace_id,
+    )
 
 
 async def transfer_from_treasury(

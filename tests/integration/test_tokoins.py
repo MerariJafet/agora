@@ -5,9 +5,13 @@ that matter for the first in-world currency: no mint API, automatic wallets,
 mission-scoped rewards, append-only ledger entries and hash-chain integrity.
 """
 
+import importlib.util
+from pathlib import Path
+
 import pytest
 from agora_api.db import session_factory
 from agora_api.models import RecordProvenance, TokoinWallet
+from agora_api.tokoins_service import signed_transfer_message
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -208,7 +212,7 @@ async def test_tokoin_blockchain_seals_ledger_entries_without_economic_effect(
     assert block["block_hash"]
     assert block["transaction_merkle_root"]
     assert block["proof_bundle_hash"]
-    assert block["proof_bundle"]["schema"] == "agora.tokoin.block_proof_bundle.v1"
+    assert block["proof_bundle"]["schema"] == "agora.tokoin.block_proof_bundle.v2"
     assert any(
         entry["entry_id"] == reward.json()["entry_id"]
         for entry in block["proof_bundle"]["entries"]
@@ -218,6 +222,129 @@ async def test_tokoin_blockchain_seals_ledger_entries_without_economic_effect(
     assert after["treasury_balance_aceros"] == before["treasury_balance_aceros"] - 7
     assert after["circulating_supply_aceros"] == before["circulating_supply_aceros"] + 7
     assert after["blockchain"]["valid"] is True
+
+
+async def test_signed_wallet_transfer_requires_device_signature_and_rejects_replay(
+    api_client, unique_name
+):
+    coordinator_key = SigningKeypair()
+    receiver_key = SigningKeypair()
+    coordinator = await register_agent(
+        api_client, coordinator_key, f"{unique_name}-signed-sender"
+    )
+    receiver = await register_agent(api_client, receiver_key, f"{unique_name}-signed-receiver")
+    mission = await _create_mission(api_client, coordinator)
+    mission_id = mission["mission_id"]
+    joined = await api_client.post(
+        f"/v1/missions/{mission_id}/join",
+        json={"roles": ["researcher"]},
+        headers=_auth(coordinator),
+    )
+    assert joined.status_code == 201
+    funded = await api_client.post(
+        f"/v1/missions/{mission_id}/tokoin-rewards",
+        json={
+            "agent_id": coordinator["agent_id"],
+            "amount": 50,
+            "reason": "signed_transfer_funding",
+        },
+        headers=_auth(coordinator),
+    )
+    assert funded.status_code == 201, funded.text
+
+    receiver_wallet = (await api_client.get("/v1/agents/me/wallet", headers=_auth(receiver))).json()
+    nonce = f"nonce-{unique_name}-001"
+    intent = {
+        "to_wallet_id": receiver_wallet["wallet_id"],
+        "amount": 11,
+        "reason": "signed_peer_transfer",
+        "nonce": nonce,
+    }
+    message = (
+        await api_client.post(
+            "/v1/agents/me/wallet/transfer-message",
+            json=intent,
+            headers=_auth(coordinator),
+        )
+    ).json()
+    assert message["context"] == "agora.tokoin.transfer.v1"
+    assert message["from_wallet_id"] == coordinator["wallet_id"]
+    assert message["canonical_message"] == signed_transfer_message(
+        from_wallet_id=coordinator["wallet_id"],
+        to_wallet_id=receiver_wallet["wallet_id"],
+        amount=11,
+        reason="signed_peer_transfer",
+        nonce=nonce,
+    ).decode()
+
+    invalid = await api_client.post(
+        "/v1/agents/me/wallet/transfers",
+        json={**intent, "signature": receiver_key.sign_b64(message["canonical_message"].encode())},
+        headers=_auth(coordinator),
+    )
+    assert invalid.status_code == 422
+    assert invalid.json()["error"]["code"] == "validation_failed"
+
+    valid_signature = coordinator_key.sign_b64(message["canonical_message"].encode())
+    valid = await api_client.post(
+        "/v1/agents/me/wallet/transfers",
+        json={**intent, "signature": valid_signature},
+        headers=_auth(coordinator),
+    )
+    assert valid.status_code == 201, valid.text
+    entry = valid.json()
+    assert entry["entry_type"] == "transfer"
+    assert entry["amount_aceros"] == 11
+
+    replay = await api_client.post(
+        "/v1/agents/me/wallet/transfers",
+        json={**intent, "signature": valid_signature},
+        headers=_auth(coordinator),
+    )
+    assert replay.status_code == 422
+    assert "nonce" in replay.json()["error"]["message"]
+
+    async with session_factory()() as session:
+        authorization = (
+            await session.execute(
+                text(
+                    "select authorization_type, signer_agent_id, signer_device_id "
+                    "from tokoin_transaction_authorizations where entry_id = :entry_id"
+                ),
+                {"entry_id": entry["entry_id"]},
+            )
+        ).one()
+        assert authorization.authorization_type == "agent_wallet_signature"
+        assert authorization.signer_agent_id == coordinator["agent_id"]
+        assert authorization.signer_device_id == coordinator["device_id"]
+
+    blockchain = (await api_client.get("/v1/tokoins/blockchain")).json()["verification"]
+    assert blockchain["valid"] is True
+    assert blockchain["signed_transfer_entries"] >= 1
+
+
+async def test_tokoin_blockchain_export_is_independently_verifiable(api_client, unique_name):
+    reg = await register_agent(api_client, SigningKeypair(), f"{unique_name}-export")
+    sealed = await api_client.post("/v1/tokoins/blockchain/seal", headers=_auth(reg))
+    assert sealed.status_code == 201, sealed.text
+    export = (await api_client.get("/v1/tokoins/blockchain/export?limit_entries=1000")).json()
+    assert export["schema"] == "agora.tokoin.chain_export.v1"
+    assert export["verification"]["valid"] is True
+    assert export["wallets"]
+    assert export["blocks"]
+    total_balance = sum(wallet["balance_aceros"] for wallet in export["wallets"])
+    assert total_balance == 100_000_000_000_000
+
+    script_path = Path(__file__).parents[2] / "scripts" / "verify-tokoin-chain.py"
+    spec = importlib.util.spec_from_file_location("verify_tokoin_chain", script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    result = module.verify(export)
+    assert result["valid"] is True
+    assert result["blocks"] == export["verification"]["blocks"]
+    assert result["total_balance_aceros"] == 100_000_000_000_000
 
 
 async def test_tokoin_blocks_are_append_only(api_client, unique_name):

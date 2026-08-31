@@ -69,6 +69,7 @@ PREFIXES = (
     "wal",
     "tko",
     "tkb",
+    "txa",
     "opp",
     "ned",
     "off",
@@ -116,7 +117,7 @@ _ID_RE = re.compile(
     r"|mis|mtk|art|arv|arw|chg|chv|chi|sub|jdg|sev|sea"
     r"|kso|ksn|wpe|mdl|mvr|gam|gvr|gsn|wpl|rls|bpr|mrw|cgr"
     r"|civ|cvs|sum|cfd|rpy|rfc|imp|rpe|skp|avh"
-    r"|mod|adm|ffg|afb|drn|psp|rot|dik|wal|tko|tkb"
+    r"|mod|adm|ffg|afb|drn|psp|rot|dik|wal|tko|tkb|txa"
     r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
     r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd"
     r"|tdp|twb|tsa|tsp|tca|tkr|tpr|tdt|ppe|tms"
@@ -376,6 +377,10 @@ def new_tokoin_entry_id() -> str:
 
 def new_tokoin_block_id() -> str:
     return new_id("tkb")
+
+
+def new_tokoin_authorization_id() -> str:
+    return new_id("txa")
 
 
 def new_opportunity_id() -> str:
