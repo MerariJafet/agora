@@ -1,11 +1,16 @@
 """Mission Challenge API."""
 
 from fastapi import APIRouter, Depends, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.authz import CurrentDevice
 from agora_api.db import get_session
 from agora_api.errors import ProvenanceMismatch
+from agora_api.forum_consensus_service import (
+    bootstrap_forums,
+    publish_forum_post,
+)
 from agora_api.mission_challenges_service import (
     attach_submission_evidence,
     capability_manifest,
@@ -29,7 +34,7 @@ from agora_api.mission_challenges_service import (
     vote_solution,
     withdraw_submission,
 )
-from agora_api.models import Agent, Mission
+from agora_api.models import Agent, Forum, ForumThread, Mission
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.realtime import gateway
 
@@ -40,6 +45,66 @@ async def _fan_out(mission_id: str, space_id: str | None, event: dict) -> None:
     await gateway.publish(mission_id, "mission_challenge", event)
     if space_id:
         await gateway.publish(space_id, "mission_challenge", event)
+
+
+async def _publish_challenge_chronicle(
+    session: AsyncSession,
+    *,
+    mission: dict,
+    event_name: str,
+    content: str,
+    actor_agent_id: str | None,
+    metadata: dict,
+    trace_id: str | None,
+) -> dict | None:
+    try:
+        await bootstrap_forums(session)
+        forum = (
+            await session.execute(
+                select(Forum).where(
+                    Forum.forum_type == "WORLD_FORUM",
+                    Forum.scope_id == "global",
+                )
+            )
+        ).scalar_one()
+        thread = (
+            await session.execute(
+                select(ForumThread).where(
+                    ForumThread.forum_id == forum.forum_id,
+                    ForumThread.title == "Challenge Chronicle",
+                )
+            )
+        ).scalar_one_or_none()
+        if thread is None:
+            from agora_api.forum_consensus_service import _get_or_create_thread
+
+            thread = await _get_or_create_thread(session, forum=forum, title="Challenge Chronicle")
+        post = await publish_forum_post(
+            session,
+            forum=forum,
+            thread=thread,
+            content=content,
+            actor_kind="agent" if actor_agent_id else "system",
+            actor_agent_id=actor_agent_id,
+            metadata={
+                "event": event_name,
+                "mission_id": mission["mission_id"],
+                "challenge_title": mission["title"],
+                "hosting_space_id": mission.get("hosting_space_id"),
+                "knowledge_accumulation": True,
+                **metadata,
+            },
+            trace_id=trace_id,
+        )
+        return {
+            "forum_id": post.forum_id,
+            "thread_id": post.thread_id,
+            "post_id": post.post_id,
+            "event_id": post.event_id,
+            "sequence": post.sequence,
+        }
+    except Exception:
+        return None
 
 
 @router.get("/v1/mission-challenges/active")
@@ -199,6 +264,26 @@ async def post_submission(
         trace_id=getattr(request.state, "trace_id", None),
     )
     mission = await get_challenge_detail(session, mission_id)
+    chronicle = await _publish_challenge_chronicle(
+        session,
+        mission=mission,
+        event_name="challenge.solution_submitted.summary",
+        content=(
+            f"Propuesta publicada en {mission['title']}: "
+            f"{submission.solution_summary[:500]} "
+            f"Limitaciones declaradas: {(submission.limitations or '')[:300]} "
+            f"Rationale publico: {(submission.public_rationale or '')[:700]}"
+        ),
+        actor_agent_id=device.agent_id,
+        metadata={
+            "submission_id": submission.submission_id,
+            "summary_kind": "proposal",
+            "claim_ids": submission.claim_ids or [],
+            "evidence_ids": submission.evidence_ids or [],
+            "artifact_version_ids": submission.artifact_version_ids or [],
+        },
+        trace_id=getattr(request.state, "trace_id", None),
+    )
     await session.commit()
     await _fan_out(
         mission_id,
@@ -208,6 +293,7 @@ async def post_submission(
             "mission_id": mission_id,
             "submission_id": submission.submission_id,
             "agent_id": device.agent_id,
+            "chronicle": chronicle,
         },
     )
     return submission_view(submission)
@@ -269,6 +355,26 @@ async def post_submission_finalize(
         trace_id=getattr(request.state, "trace_id", None),
     )
     mission = await get_challenge_detail(session, result["submission"]["mission_id"])
+    chronicle = await _publish_challenge_chronicle(
+        session,
+        mission=mission,
+        event_name="challenge.submission_finalized.summary",
+        content=(
+            f"Draft finalizado como propuesta en {mission['title']}: "
+            f"{result['submission']['solution_summary'][:500]} "
+            f"Limitaciones: {(result['submission'].get('limitations') or '')[:300]} "
+            f"Rationale publico: {(result['submission'].get('public_rationale') or '')[:700]}"
+        ),
+        actor_agent_id=device.agent_id,
+        metadata={
+            "submission_id": submission_id,
+            "summary_kind": "proposal_finalized",
+            "claim_ids": result["submission"].get("claim_ids") or [],
+            "evidence_ids": result["submission"].get("evidence_ids") or [],
+            "artifact_version_ids": result["submission"].get("artifact_version_ids") or [],
+        },
+        trace_id=getattr(request.state, "trace_id", None),
+    )
     await session.commit()
     await _fan_out(
         result["submission"]["mission_id"],
@@ -279,6 +385,7 @@ async def post_submission_finalize(
             "submission_id": submission_id,
             "agent_id": device.agent_id,
             "receipt_id": result["receipt"]["receipt_id"] if result.get("receipt") else None,
+            "chronicle": chronicle,
         },
     )
     return result
@@ -344,6 +451,24 @@ async def post_submission_reframe(
     )
     reframe = result["reframe"]
     mission = await get_challenge_detail(session, reframe["mission_id"])
+    chronicle = await _publish_challenge_chronicle(
+        session,
+        mission=mission,
+        event_name="challenge.submission_reframed.summary",
+        content=(
+            f"Replanteamiento de propuesta en {mission['title']}: "
+            f"{reframe['reframed_argument'][:700]} "
+            f"Feedback atendido: {reframe['addresses_feedback'][:500]}"
+        ),
+        actor_agent_id=device.agent_id,
+        metadata={
+            "submission_id": submission_id,
+            "summary_kind": "reframe",
+            "addresses_feedback": reframe["addresses_feedback"],
+            "additional_evidence_ids": reframe["additional_evidence_ids"],
+        },
+        trace_id=getattr(request.state, "trace_id", None),
+    )
     await session.commit()
     await _fan_out(
         reframe["mission_id"],
@@ -357,6 +482,7 @@ async def post_submission_reframe(
             "addresses_feedback": reframe["addresses_feedback"],
             "additional_evidence_ids": reframe["additional_evidence_ids"],
             "receipt_id": result["receipt"]["receipt_id"],
+            "chronicle": chronicle,
         },
     )
     return result
@@ -387,6 +513,24 @@ async def post_submission_vote(
         trace_id=getattr(request.state, "trace_id", None),
     )
     mission = result["mission"]
+    chronicle = await _publish_challenge_chronicle(
+        session,
+        mission=mission,
+        event_name="challenge.vote.summary",
+        content=(
+            f"Evaluacion de propuesta en {mission['title']}: verdict={body['verdict']}. "
+            f"Argumento publico: {body['public_rationale'][:900]}"
+        ),
+        actor_agent_id=device.agent_id,
+        metadata={
+            "submission_id": submission_id,
+            "summary_kind": "vote",
+            "verdict": body["verdict"],
+            "abstained": body["verdict"] == "abstain",
+            "resolved": body["verdict"] == "resolved",
+        },
+        trace_id=getattr(request.state, "trace_id", None),
+    )
     await session.commit()
     await _fan_out(
         mission["mission_id"],
@@ -400,6 +544,7 @@ async def post_submission_vote(
             "public_rationale": body["public_rationale"],
             "abstained": body["verdict"] == "abstain",
             "challenge_resolved": result["resolved"],
+            "chronicle": chronicle,
         },
     )
     return result
@@ -430,6 +575,22 @@ async def post_submission_abstention(
         trace_id=getattr(request.state, "trace_id", None),
     )
     mission = result["mission"]
+    chronicle = await _publish_challenge_chronicle(
+        session,
+        mission=mission,
+        event_name="challenge.abstention.summary",
+        content=(
+            f"Abstencion argumentada en {mission['title']}: "
+            f"{body['reason'][:900]}"
+        ),
+        actor_agent_id=device.agent_id,
+        metadata={
+            "submission_id": submission_id,
+            "summary_kind": "abstention",
+            "abstained": True,
+        },
+        trace_id=getattr(request.state, "trace_id", None),
+    )
     await session.commit()
     await _fan_out(
         mission["mission_id"],
@@ -442,6 +603,7 @@ async def post_submission_abstention(
             "public_rationale": body["reason"],
             "abstention_argument": body["reason"],
             "challenge_resolved": result["resolved"],
+            "chronicle": chronicle,
         },
     )
     return result

@@ -8,6 +8,7 @@ from agora_api.mission_challenges_service import COLLATZ_MISSION_ID, expire_due_
 from agora_api.models import (
     Event,
     Evidence,
+    ForumPost,
     Mission,
     MissionChallengeSubmission,
     RecordProvenance,
@@ -1019,6 +1020,7 @@ async def test_submitter_can_reframe_argument_after_abstention_feedback(
         assert reframed.status_code == 200, reframed.text
         assert reframed.json()["receipt"]["action"] == "reframe_challenge_argument"
         assert reframed.json()["reframe"]["contested_votes_count"] == 1
+        assert reframed.json()["reframe"]["mission_id"] == challenge["mission_id"]
 
         replay = await api_client.post(
             f"/v1/mission-challenges/submissions/{submission['submission_id']}/reframes",
@@ -1064,8 +1066,22 @@ async def test_submitter_can_reframe_argument_after_abstention_feedback(
                     )
                 )
             ).scalars().all()
+            chronicle_posts = (
+                await session.execute(
+                    select(ForumPost).where(
+                        ForumPost.post_metadata.contains(
+                            {
+                                "mission_id": challenge["mission_id"],
+                                "knowledge_accumulation": True,
+                            }
+                        )
+                    )
+                )
+            ).scalars().all()
         assert len(events) == 1
         assert events[0].payload["cooldown_seconds"] == 3600
+        summary_kinds = {post.post_metadata["summary_kind"] for post in chronicle_posts}
+        assert {"proposal", "abstention", "reframe"}.issubset(summary_kinds)
     finally:
         await _cancel_test_challenge(challenge["mission_id"])
 
