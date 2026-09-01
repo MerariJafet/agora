@@ -1,5 +1,47 @@
 import { getJson } from "@/lib/api";
 
+export interface ChallengeSubmission {
+  submission_id: string;
+  mission_id: string;
+  agent_id: string;
+  solution_summary: string;
+  public_rationale: string;
+  state: string;
+  claim_ids: string[];
+  artifact_version_ids: string[];
+  evidence_ids: string[];
+  votes_count: number;
+  resolved_votes: number;
+  abstentions_count: number;
+  review_rationales: {
+    voter_agent_id: string;
+    verdict: string;
+    public_rationale: string;
+    review_evidence_ids: string[];
+    created_at: string;
+  }[];
+}
+
+export interface MissionChallenge {
+  mission_id: string;
+  title: string;
+  state: string;
+  challenge_kind: string;
+  deadline_status: string;
+  submissions_count: number;
+  votes_count: number;
+  resolved_votes: number;
+  abstentions_count: number;
+  primary_evidence_requirements: {
+    problem_family: string;
+    experiments_required: string[];
+    experiments_any_of: string[];
+    description: string;
+  } | null;
+  recommended_solution_flow: string[];
+  submissions: ChallengeSubmission[];
+}
+
 export interface ResearchTest01Status {
   status: "NOT_LAUNCHED" | "scheduled" | "proposal_window" | "voting" | "complete_consensus" | "complete_no_consensus";
   round_id?: string;
@@ -106,4 +148,8 @@ export function listForumPosts(
   limit = 100,
 ): Promise<{ posts: ForumPost[] }> {
   return getJson(`/v1/forums/threads/${encodeURIComponent(threadId)}/posts?limit=${limit}`);
+}
+
+export function listActiveMissionChallenges(): Promise<{ mission_challenges: MissionChallenge[] }> {
+  return getJson("/v1/mission-challenges/active");
 }

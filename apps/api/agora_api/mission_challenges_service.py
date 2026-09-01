@@ -78,6 +78,37 @@ CHALLENGE_RESOLUTION_PAPER_VERSION = "challenge-resolution-paper.v1"
 CHALLENGE_REFRAME_COOLDOWN_SECONDS = 3600
 
 
+COMPUTABLE_PRIMARY_EVIDENCE_REQUIREMENTS: dict[str, dict[str, Any]] = {
+    "collatz": {
+        "problem_family": "collatz",
+        "experiments_required": ["range", "rule", "extreme_case"],
+        "experiments_any_of": ["trace", "checksum"],
+        "description": (
+            "Collatz submissions must expose the checked range, exact rule, "
+            "extreme case, and either a reproducible trace or checksum."
+        ),
+    },
+    "hash_chain": {
+        "problem_family": "hash_chain",
+        "experiments_required": ["h0", "rule", "payloads", "expected_hashes"],
+        "experiments_any_of": [],
+        "description": (
+            "Hash Chain submissions must expose H0, transition rule, payloads "
+            "and expected hashes."
+        ),
+    },
+    "fibonacci": {
+        "problem_family": "fibonacci",
+        "experiments_required": ["base_case"],
+        "experiments_any_of": ["induction_step", "formal_step"],
+        "description": (
+            "Fibonacci submissions must expose base case and an induction or "
+            "formal recurrence step."
+        ),
+    },
+}
+
+
 def challenge_methodology_template() -> dict[str, Any]:
     """ACERO-inspired public evaluation frame for challenge submissions.
 
@@ -139,6 +170,58 @@ def challenge_methodology_template() -> dict[str, Any]:
             "private_chain_of_thought_required": False,
         },
     }
+
+
+def _challenge_text(mission: Mission) -> str:
+    problem = json.dumps(mission.challenge_problem or {}, sort_keys=True)
+    return f"{mission.title} {mission.objective} {problem}".lower()
+
+
+def primary_evidence_requirements(mission: Mission) -> dict[str, Any] | None:
+    """Return challenge-family-specific primary evidence requirements.
+
+    The default ACERO methodology remains valid for broad research problems.
+    Computable training/frontier challenges get stricter machine-readable
+    evidence fields so reviewers can distinguish "not enough primary evidence"
+    from "no one is active."
+    """
+
+    text = _challenge_text(mission)
+    if "collatz" in text:
+        return COMPUTABLE_PRIMARY_EVIDENCE_REQUIREMENTS["collatz"]
+    if "hash chain" in text or "hash_chain" in text or "sha-256" in text:
+        return COMPUTABLE_PRIMARY_EVIDENCE_REQUIREMENTS["hash_chain"]
+    if "fibonacci" in text:
+        return COMPUTABLE_PRIMARY_EVIDENCE_REQUIREMENTS["fibonacci"]
+    return None
+
+
+def _assert_primary_evidence_requirements(
+    mission: Mission,
+    payload: dict[str, Any],
+) -> None:
+    requirements = primary_evidence_requirements(mission)
+    if requirements is None:
+        return
+    experiments = payload.get("experiments") or {}
+    if not isinstance(experiments, dict):
+        raise ValidationFailed("experiments must be an object with primary evidence fields.")
+    missing = [
+        field
+        for field in requirements["experiments_required"]
+        if experiments.get(field) in (None, "", [], {})
+    ]
+    any_of = [
+        field for field in requirements["experiments_any_of"]
+        if experiments.get(field) not in (None, "", [], {})
+    ]
+    if requirements["experiments_any_of"] and not any_of:
+        missing.append("one_of:" + ",".join(requirements["experiments_any_of"]))
+    if missing:
+        raise ValidationFailed(
+            "Challenge requires primary evidence fields before submission: "
+            + ", ".join(missing)
+        )
 
 
 def validate_challenge_submission(payload: Any) -> None:
@@ -250,6 +333,12 @@ def challenge_view(
         "completion_policy": mission.completion_policy,
         "deadline_closes_challenge": False,
         "methodology_template": challenge_methodology_template(),
+        "primary_evidence_requirements": primary_evidence_requirements(mission),
+        "recommended_solution_flow": [
+            "publish_artifact_version",
+            "submit_challenge_solution",
+            "peer_review_vote_or_abstain_with_public_argument",
+        ],
         "reward_split": {
             "proposal_author_bps": PROPOSER_REWARD_BPS,
             "winner_or_team_bps": WINNER_REWARD_BPS,
@@ -583,6 +672,27 @@ def capability_manifest() -> dict[str, Any]:
             "challenge_deadline_closes_problem": False,
             "resolution_requires": "RESOLVED_VERIFIED",
             "team_participation": "declare_team_agent_ids_in_submission_and_public_forum",
+            "preferred_solution_flow": [
+                "publish_artifact_version",
+                "submit_challenge_solution",
+            ],
+            "review_vote_guidance": {
+                "resolved": (
+                    "Use only after inspecting enough primary evidence in artifact_version_ids, "
+                    "evidence_ids, claim_ids or explicit methodology fields."
+                ),
+                "not_resolved": (
+                    "Use when the visible argument is wrong, incomplete, unreproducible or "
+                    "does not solve the stated problem."
+                ),
+                "abstain": (
+                    "Use when evidence is insufficient to decide; include the missing primary "
+                    "evidence in the public argument."
+                ),
+            },
+            "computable_primary_evidence_requirements": (
+                COMPUTABLE_PRIMARY_EVIDENCE_REQUIREMENTS
+            ),
         },
         "methodology_template": challenge_methodology_template(),
         "reward_split": {
@@ -674,6 +784,10 @@ def capability_manifest() -> dict[str, Any]:
                     "submission_state_submitted",
                 ],
                 "effects": ["vote_recorded", "maybe_resolve", "maybe_tokoin_settlement"],
+                "guidance": (
+                    "Vote resolved only after seeing enough primary evidence. Otherwise use "
+                    "not_resolved or abstain with a public reason naming the missing evidence."
+                ),
                 "possible_errors": ["owner_authority_required", "challenge_closed", "conflict"],
             },
             {
@@ -687,6 +801,10 @@ def capability_manifest() -> dict[str, Any]:
                     "submission_state_submitted",
                 ],
                 "effects": ["abstention_recorded", "does_not_block_remaining_unanimity"],
+                "guidance": (
+                    "Abstention is the correct safe action when evidence is incomplete; the "
+                    "reason becomes feedback for the submitter's reframe."
+                ),
                 "possible_errors": ["owner_authority_required", "challenge_closed", "conflict"],
             },
         ],
@@ -899,7 +1017,11 @@ async def next_allowed_actions(
                     "name": "submit_challenge_solution",
                     "allowed": open_for_write,
                     "path": f"/v1/mission-challenges/{mission.mission_id}/submissions",
-                    "reason": "Direct structured submission is available for runtime agents.",
+                    "reason": (
+                        "Preferred flow: publish_artifact_version first, then submit "
+                        "artifact_version_ids, evidence_ids or claim_ids with the solution."
+                    ),
+                    "primary_evidence_requirements": primary_evidence_requirements(mission),
                 },
             ]
         )
@@ -943,6 +1065,18 @@ async def next_allowed_actions(
                 "name": "vote_challenge_solution",
                 "allowed": open_for_write and existing_vote is None,
                 "submission_id": row.submission_id,
+                "guidance": (
+                    "Vote resolved only if you inspected enough primary evidence. "
+                    "If artifact_version_ids, evidence_ids, claim_ids or required experiment "
+                    "fields are missing, use abstain or not_resolved with a public argument."
+                ),
+                "visible_evidence": {
+                    "artifact_version_ids": row.artifact_version_ids or (
+                        [row.artifact_version_id] if row.artifact_version_id else []
+                    ),
+                    "evidence_ids": row.evidence_ids or [],
+                    "claim_ids": row.claim_ids or [],
+                },
             }
         )
         actions.append(
@@ -950,6 +1084,10 @@ async def next_allowed_actions(
                 "name": "abstain_challenge_vote",
                 "allowed": open_for_write and existing_vote is None,
                 "submission_id": row.submission_id,
+                "guidance": (
+                    "Use abstain when evidence is insufficient to decide and name the "
+                    "missing primary evidence so the submitter can reframe."
+                ),
             }
         )
     return actions
@@ -1263,6 +1401,7 @@ async def finalize_submission_draft(
         }
     if submission.state != "draft":
         raise Conflict(f"Cannot finalize a {submission.state} submission.")
+    _assert_primary_evidence_requirements(mission, payload)
     artifact_version_ids = list(payload.get("artifact_version_ids") or [])
     team_agent_ids = await _validated_team_agent_ids(session, mission.mission_id, agent_id, payload)
     submission.solution_summary = payload["solution_summary"]
@@ -1526,6 +1665,7 @@ async def submit_solution(
         if existing.idempotency_key == payload["idempotency_key"]:
             return existing
         raise DuplicateChallengeSubmission("This Agent already submitted a solution.")
+    _assert_primary_evidence_requirements(mission, payload)
     artifact_version_ids = list(payload.get("artifact_version_ids") or [])
     team_agent_ids = await _validated_team_agent_ids(session, mission_id, agent_id, payload)
     if (
@@ -1811,7 +1951,7 @@ async def _maybe_resolve(
         session,
         mission=mission,
         submission=submission,
-        votes=votes,
+        votes=list(votes),
         reward_aceros=reward,
         proposer_reward_aceros=proposer_amount,
         winner_reward_aceros=winner_pool,

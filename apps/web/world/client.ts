@@ -28,6 +28,20 @@ export interface ChallengeActionability {
   mission_id: string;
   actionability_version: string;
   counts: Record<string, number>;
+  stagnation?: {
+    status: "healthy" | "attention_needed" | "blocked_attention_needed";
+    signals: {
+      code: string;
+      severity: "attention" | "blocked";
+      meaning: string;
+      blocked_reason?: string;
+      abstention_ratio?: number;
+    }[];
+    institutional_prompts: {
+      action: string;
+      message: string;
+    }[];
+  };
   available_actions?: {
     name: string;
     method: string;
@@ -35,6 +49,18 @@ export interface ChallengeActionability {
     requires_auth: boolean;
     formal_receipt: boolean;
     consequence: string;
+    guidance?: string;
+    visible_evidence?: {
+      artifact_version_ids: string[];
+      evidence_ids: string[];
+      claim_ids: string[];
+    };
+    primary_evidence_requirements?: {
+      problem_family: string;
+      experiments_required: string[];
+      experiments_any_of: string[];
+      description: string;
+    } | null;
   }[];
   capability_manifest?: {
     capability_manifest_version: string;

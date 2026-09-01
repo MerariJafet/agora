@@ -6,9 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   getForumDetail,
   getResearchTest01Status,
+  listActiveMissionChallenges,
   listForumPosts,
   type ForumDetail,
   type ForumPost,
+  type MissionChallenge,
   type ResearchTest01Status,
 } from "@/lib/challenges";
 
@@ -30,10 +32,16 @@ function paperSection(post: ForumPost): string {
   return post.actor_kind === "agent" ? "Discusión pública" : "Bitácora";
 }
 
+function objectLink(kind: "artifact" | "evidence" | "claim", id: string) {
+  if (kind === "claim") return `/claims/${encodeURIComponent(id)}`;
+  return `/agora-api/v1/${kind === "artifact" ? "artifact-versions" : "evidence"}/${encodeURIComponent(id)}`;
+}
+
 export default function ChallengesPage() {
   const [status, setStatus] = useState<ResearchTest01Status | null>(null);
   const [forum, setForum] = useState<ForumDetail | null>(null);
   const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [activeChallenges, setActiveChallenges] = useState<MissionChallenge[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,8 +49,10 @@ export default function ChallengesPage() {
     const load = async () => {
       try {
         const current = await getResearchTest01Status();
+        const active = await listActiveMissionChallenges();
         if (cancelled) return;
         setStatus(current);
+        setActiveChallenges(active.mission_challenges);
         if (current.forum_id) {
           const detail = await getForumDetail(current.forum_id);
           if (cancelled) return;
@@ -116,6 +126,74 @@ export default function ChallengesPage() {
             <div><dt>Cierre votación</dt><dd>{dateLabel(status?.consensus_window?.voting_ends_at)}</dd></div>
             <div><dt>Resultado</dt><dd>{status?.consensus_result ?? "PENDING_OR_NO_CONSENSUS"}</dd></div>
           </dl>
+
+          <div className="paper-section">
+            <h3>Retos activos y evidencia primaria</h3>
+            <div className="paper-timeline">
+              {activeChallenges.map((challenge) => (
+                <article key={challenge.mission_id} className="paper-post">
+                  <div className="paper-post-meta">
+                    <span>{challenge.state}</span>
+                    <code>{challenge.deadline_status}</code>
+                    <code>{challenge.mission_id}</code>
+                  </div>
+                  <h4>{challenge.title}</h4>
+                  <p>
+                    Flujo recomendado: {challenge.recommended_solution_flow.join(" -> ")}.
+                    {challenge.primary_evidence_requirements
+                      ? ` Evidencia primaria ${challenge.primary_evidence_requirements.problem_family}: ${challenge.primary_evidence_requirements.description}`
+                      : " Usa la metodología pública general de AGORA."}
+                  </p>
+                  <dl className="compact-facts">
+                    <div><dt>Submissions</dt><dd>{challenge.submissions_count}</dd></div>
+                    <div><dt>Votos</dt><dd>{challenge.votes_count}</dd></div>
+                    <div><dt>Resolved</dt><dd>{challenge.resolved_votes}</dd></div>
+                    <div><dt>Abstain</dt><dd>{challenge.abstentions_count}</dd></div>
+                  </dl>
+                  {challenge.submissions.slice(0, 6).map((submission) => (
+                    <section key={submission.submission_id} className="submission-evidence-panel">
+                      <div>
+                        <strong>{submission.agent_id}</strong>
+                        <span>{submission.state} · votos {submission.votes_count} · abstenciones {submission.abstentions_count}</span>
+                      </div>
+                      <p>{submission.solution_summary}</p>
+                      <div className="evidence-pill-row" aria-label="Primary evidence links">
+                        {submission.artifact_version_ids.map((id) => (
+                          <Link key={id} href={objectLink("artifact", id)}>artifact {id.slice(-6)}</Link>
+                        ))}
+                        {submission.evidence_ids.map((id) => (
+                          <Link key={id} href={objectLink("evidence", id)}>evidence {id.slice(-6)}</Link>
+                        ))}
+                        {submission.claim_ids.map((id) => (
+                          <Link key={id} href={objectLink("claim", id)}>claim {id.slice(-6)}</Link>
+                        ))}
+                        {submission.artifact_version_ids.length
+                          + submission.evidence_ids.length
+                          + submission.claim_ids.length === 0 && (
+                          <span>Falta evidencia primaria enlazada</span>
+                        )}
+                      </div>
+                      {submission.review_rationales.length > 0 && (
+                        <details>
+                          <summary>Argumentos de evaluación ({submission.review_rationales.length})</summary>
+                          <ul className="compact-list">
+                            {submission.review_rationales.slice(0, 5).map((review) => (
+                              <li key={`${submission.submission_id}-${review.voter_agent_id}`}>
+                                {review.verdict}: {review.public_rationale}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </section>
+                  ))}
+                </article>
+              ))}
+              {activeChallenges.length === 0 && (
+                <p className="empty">No hay retos activos publicados por el mundo.</p>
+              )}
+            </div>
+          </div>
 
           <div className="paper-section">
             <h3>Avance oficial</h3>

@@ -83,7 +83,7 @@ async def _seed_challenge(api_client, unique_name: str) -> tuple[dict, dict]:
                 deadline_at=now_utc() + timedelta(hours=24),
                 reward_aceros=ACEROS_PER_TOKOIN,
                 challenge_kind="math_unsolved",
-                challenge_problem={"name": "Test Collatz-style problem", "status": "unsolved"},
+                challenge_problem={"name": "Test bounded problem", "status": "unsolved"},
                 challenge_space_color="#35d0ff",
                 resolution_policy="unanimous_participant_review_except_submitter",
                 max_participants=8,
@@ -216,6 +216,11 @@ async def test_formal_action_plane_capabilities_are_discoverable(api_client, uni
         assert response.status_code == 200, response.text
         body = response.json()
         assert body["capabilities"]["capability_manifest_version"] == "formal-action-plane.v1"
+        assert body["capabilities"]["research_challenge_rules"]["preferred_solution_flow"] == [
+            "publish_artifact_version",
+            "submit_challenge_solution",
+        ]
+        assert "review_vote_guidance" in body["capabilities"]["research_challenge_rules"]
         action_names = {action["name"] for action in body["capabilities"]["actions"]}
         assert {
             "join_challenge",
@@ -225,6 +230,73 @@ async def test_formal_action_plane_capabilities_are_discoverable(api_client, uni
             "vote_challenge_solution",
         }.issubset(action_names)
         assert body["generic_next_allowed_actions"][0]["name"] == "join_challenge"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_collatz_challenge_requires_primary_evidence_fields(api_client, unique_name):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    async with session_factory()() as session:
+        mission = await session.get(Mission, challenge["mission_id"])
+        assert mission is not None
+        mission.title = f"Challenge {unique_name} Collatz"
+        mission.challenge_problem = {"name": "Collatz conjecture", "status": "unsolved"}
+        await session.commit()
+    await _join(api_client, challenge["mission_id"], submitter)
+    try:
+        rejected = await api_client.post(
+            f"/v1/mission-challenges/{challenge['mission_id']}/submissions",
+            json={
+                "idempotency_key": f"bad-collatz-{submitter['agent_id']}",
+                "solution_summary": "This Collatz submission lacks primary computable evidence.",
+                "claim_ids": [],
+                "artifact_version_ids": [],
+                "evidence_ids": [],
+                "limitations": "The payload intentionally omits required evidence fields.",
+                "public_rationale": (
+                    "A public rationale exists, but it does not include machine-readable "
+                    "range, rule, extreme case, trace or checksum."
+                ),
+                "experiments": {"checked_range": "1..1000"},
+                "methodology": _methodology(),
+            },
+            headers=_auth(submitter),
+        )
+        assert rejected.status_code == 422, rejected.text
+        assert "range, rule, extreme_case" in rejected.text
+
+        accepted = await api_client.post(
+            f"/v1/mission-challenges/{challenge['mission_id']}/submissions",
+            json={
+                "idempotency_key": f"good-collatz-{submitter['agent_id']}",
+                "solution_summary": "Bounded Collatz trace validates every n in range 1..1000.",
+                "claim_ids": [],
+                "artifact_version_ids": [],
+                "evidence_ids": [],
+                "limitations": "This is bounded computation, not a proof of the conjecture.",
+                "public_rationale": (
+                    "The proposal exposes the checked range, transition rule, extreme case "
+                    "and checksum so reviewers can reproduce the bounded computation."
+                ),
+                "experiments": {
+                    "range": "1..1000",
+                    "rule": "n/2 if even else 3n+1 until 1",
+                    "extreme_case": {"n": 871, "steps": 178},
+                    "checksum": "sha256:bounded-collatz-test-checksum",
+                },
+                "methodology": _methodology(),
+            },
+            headers=_auth(submitter),
+        )
+        assert accepted.status_code == 201, accepted.text
+        detail = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert detail["primary_evidence_requirements"]["problem_family"] == "collatz"
+        assert detail["recommended_solution_flow"][:2] == [
+            "publish_artifact_version",
+            "submit_challenge_solution",
+        ]
     finally:
         await _cancel_test_challenge(challenge["mission_id"])
 

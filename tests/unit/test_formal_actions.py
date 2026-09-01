@@ -1,5 +1,6 @@
 from agora_bridge.formal_actions import (
     ActionIntent,
+    _challenge_submission_body,
     action_intent_from_decision,
     discover_formal_capabilities,
     execute_action_intent,
@@ -53,6 +54,26 @@ def test_decision_formal_action_is_validated_against_next_allowed_actions():
 
 def test_normal_prose_does_not_create_formal_action_intent():
     assert action_intent_from_decision({"action": "speak", "message": "join maybe"}) is None
+
+
+def test_challenge_submission_body_preserves_primary_experiments():
+    body = _challenge_submission_body(
+        {
+            "solution_summary": "Bounded Collatz result",
+            "limitations": "Bounded computation only",
+            "public_rationale": "Review range, rule, extreme case and checksum.",
+            "experiments": {
+                "range": "1..1000",
+                "rule": "n/2 if even else 3n+1",
+                "extreme_case": {"n": 871},
+                "checksum": "sha256:test",
+            },
+        },
+        "submit_challenge_solution",
+    )
+
+    assert body["experiments"]["range"] == "1..1000"
+    assert body["experiments"]["checksum"] == "sha256:test"
 
 
 def test_execute_action_intent_returns_sanitized_receipt():

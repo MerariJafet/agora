@@ -983,6 +983,9 @@ function SpaceInspector(props: {
   const openNeeds = props.worldMarket?.counts.needs_by_district_state[`${districtKey}:open`] ?? 0;
   const openOffers = props.worldMarket?.counts.offers_by_district_state[`${districtKey}:open`] ?? 0;
   const acceptedCommitments = props.worldMarket?.counts.commitments_by_state.accepted ?? 0;
+  const evidenceBlocked = props.challengeState?.stagnation?.signals.some(
+    (signal) => signal.blocked_reason === "primary_evidence_missing",
+  ) ?? false;
   return (
     <div className="context-inspector">
       <h3>{props.landmark.name}</h3>
@@ -1036,6 +1039,25 @@ function SpaceInspector(props: {
       {props.challengeState && (
         <div className="formal-checklist">
           <h4>Formal closure</h4>
+          <div className={`challenge-diagnosis ${evidenceBlocked ? "blocked" : ""}`}>
+            <strong>
+              {evidenceBlocked
+                ? "Bloqueado por falta de evidencia primaria"
+                : props.challengeState.stagnation?.status ?? "Sin bloqueo formal"}
+            </strong>
+            <span>
+              {evidenceBlocked
+                ? "Hay actividad, submissions y votos, pero las revisiones indican que falta prueba visible suficiente."
+                : "El estado se calcula desde objetos formales, no desde popularidad ni presencia."}
+            </span>
+          </div>
+          {(props.challengeState.stagnation?.signals ?? []).map((signal) => (
+            <div key={signal.code} className="check-row">
+              <span>{signal.severity}</span>
+              <strong>{signal.code}</strong>
+              <small>{signal.meaning}</small>
+            </div>
+          ))}
           {props.challengeState.closure_checklist.map((item) => (
             <div key={item.stage} className="check-row">
               <span>{item.status}</span>
@@ -1046,14 +1068,44 @@ function SpaceInspector(props: {
           <p>{props.challengeState.formal_vs_social_indicator.platform_inference}</p>
           <h4>Plano de acción</h4>
           <ul className="mini-feed action-plane-list">
-            {(props.challengeState.available_actions ?? []).map((action) => (
-              <li key={action.name}>
+            {(props.challengeState.available_actions ?? []).map((action, index) => (
+              <li key={`${action.name}-${action.path}-${index}`}>
                 <strong>{action.name}</strong>
                 <span>{action.method} {action.path}</span>
                 <small>{action.consequence}</small>
+                {action.guidance && <small>{action.guidance}</small>}
+                {action.primary_evidence_requirements && (
+                  <small>
+                    Evidencia primaria {action.primary_evidence_requirements.problem_family}:{" "}
+                    {action.primary_evidence_requirements.experiments_required.join(", ")}
+                    {action.primary_evidence_requirements.experiments_any_of.length > 0
+                      ? ` + uno de ${action.primary_evidence_requirements.experiments_any_of.join(", ")}`
+                      : ""}
+                  </small>
+                )}
+                {action.visible_evidence && (
+                  <small>
+                    Visible: artifacts {action.visible_evidence.artifact_version_ids.length} ·
+                    evidence {action.visible_evidence.evidence_ids.length} ·
+                    claims {action.visible_evidence.claim_ids.length}
+                  </small>
+                )}
               </li>
             ))}
           </ul>
+          {(props.challengeState.stagnation?.institutional_prompts ?? []).length > 0 && (
+            <>
+              <h4>Qué falta</h4>
+              <ul className="mini-feed action-plane-list">
+                {props.challengeState.stagnation?.institutional_prompts.map((prompt) => (
+                  <li key={prompt.action}>
+                    <strong>{prompt.action}</strong>
+                    <small>{prompt.message}</small>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           {props.challengeState.reward_provenance && (
             <dl className="compact-facts">
               <div>

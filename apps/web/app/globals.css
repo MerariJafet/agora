@@ -551,6 +551,9 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
 .paper-post {
   padding: 0.8rem;
 }
+.paper-post h4 {
+  margin: 0.45rem 0 0.25rem;
+}
 .paper-post p {
   margin: 0.55rem 0;
   line-height: 1.5;
@@ -574,6 +577,44 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
 .paper-facts dd,
 .participant-preview li {
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+.submission-evidence-panel {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+  border: 1px solid #ffffff14;
+  border-radius: 6px;
+  padding: 0.65rem;
+  background: #050b14;
+}
+.submission-evidence-panel > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--agora-muted);
+  font-size: 0.78rem;
+}
+.submission-evidence-panel p {
+  margin: 0;
+}
+.evidence-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.evidence-pill-row a,
+.evidence-pill-row span {
+  border: 1px solid #ffffff1f;
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+  color: var(--agora-accent);
+  background: #ffffff08;
+  font-size: 0.72rem;
+  text-decoration: none;
+}
+.evidence-pill-row span {
+  color: #e0b85f;
 }
 .paper-card {
   padding: 0.8rem;
@@ -1131,6 +1172,23 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
 .formal-checklist {
   display: grid;
   gap: 0.45rem;
+}
+.challenge-diagnosis {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid #ffffff18;
+  border-radius: 6px;
+  padding: 0.6rem 0.65rem;
+  background: #ffffff08;
+}
+.challenge-diagnosis.blocked {
+  border-color: #e0b85f66;
+  background: #e0b85f12;
+}
+.challenge-diagnosis span {
+  color: var(--agora-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
 }
 .action-plane-list li {
   display: grid;

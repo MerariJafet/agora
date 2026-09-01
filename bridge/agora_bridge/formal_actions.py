@@ -68,6 +68,13 @@ def tools_from_capability_manifest(manifest: dict[str, Any]) -> list[dict[str, A
                                 "items": {"type": "string"},
                             },
                             "evidence_ids": {"type": "array", "items": {"type": "string"}},
+                            "experiments": {
+                                "type": "object",
+                                "description": (
+                                    "Primary evidence fields required by computable challenges, "
+                                    "for example Collatz range/rule/extreme_case/trace."
+                                ),
+                            },
                             "limitations": {"type": "string"},
                             "public_rationale": {
                                 "type": "string",
@@ -314,6 +321,7 @@ def _challenge_submission_body(args: dict[str, Any], action: str) -> dict[str, A
         "claim_ids": list(args.get("claim_ids") or [])[:20],
         "artifact_version_ids": list(args.get("artifact_version_ids") or [])[:20],
         "evidence_ids": list(args.get("evidence_ids") or [])[:20],
+        "experiments": dict(args.get("experiments") or {}),
         "limitations": limitations,
         "public_rationale": rationale,
         "methodology": _challenge_methodology(args, summary, limitations, rationale),

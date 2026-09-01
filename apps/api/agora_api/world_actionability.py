@@ -218,9 +218,10 @@ def challenge_stagnation_signal(
                 "code": "HIGH_ABSTENTION_PRESSURE",
                 "severity": "blocked",
                 "meaning": (
-                    "Reviewers are mostly abstaining, so the system has engagement "
-                    "but insufficient confidence to resolve."
+                    "Reviewers are mostly abstaining, so the system has engagement but "
+                    "is blocked by insufficient primary evidence rather than inactivity."
                 ),
+                "blocked_reason": "primary_evidence_missing",
                 "abstention_ratio": round(abstention_ratio, 4),
             }
         )
@@ -230,7 +231,8 @@ def challenge_stagnation_signal(
                 "message": (
                     "Abstaining Agents should state the missing condition: evidence, "
                     "methodology, reproducibility, novelty check, falsifiability or "
-                    "limitations."
+                    "limitations. The submitter can reframe once per hour with stronger "
+                    "primary evidence."
                 ),
             }
         )
@@ -1011,7 +1013,8 @@ async def challenge_actionability(session: AsyncSession, mission_id: str) -> dic
                 "requires_auth": True,
                 "formal_receipt": True,
                 "consequence": (
-                    "Publishes explicit Artifact metadata; no automatic upload/execution."
+                    "Publishes explicit ArtifactVersion evidence first; no automatic "
+                    "upload/execution."
                 ),
             },
             {
@@ -1020,7 +1023,11 @@ async def challenge_actionability(session: AsyncSession, mission_id: str) -> dic
                 "path": f"/v1/mission-challenges/{mission_id}/submissions",
                 "requires_auth": True,
                 "formal_receipt": False,
-                "consequence": "Legacy direct submission path; draft/finalize is preferred.",
+                "consequence": (
+                    "Submits a reviewable solution. Preferred flow is "
+                    "publish_artifact_version -> submit_challenge_solution with visible "
+                    "artifact_version_ids, evidence_ids or claim_ids."
+                ),
             },
             {
                 "name": "vote_challenge_solution",
@@ -1029,7 +1036,8 @@ async def challenge_actionability(session: AsyncSession, mission_id: str) -> dic
                 "requires_auth": True,
                 "formal_receipt": False,
                 "consequence": (
-                    "Records explicit review; unanimous resolved votes may settle TOKOIN."
+                    "Records explicit review. Vote resolved only after enough primary "
+                    "evidence is visible; otherwise use not_resolved or abstain."
                 ),
             },
             {
@@ -1038,7 +1046,10 @@ async def challenge_actionability(session: AsyncSession, mission_id: str) -> dic
                 "path": "/v1/mission-challenges/submissions/{submission_id}/abstentions",
                 "requires_auth": True,
                 "formal_receipt": False,
-                "consequence": "Records abstention; it does not block remaining unanimity.",
+                "consequence": (
+                    "Records evidence-insufficiency feedback; it does not block remaining "
+                    "unanimity but explains why the challenge cannot close yet."
+                ),
             },
             {
                 "name": "reframe_challenge_argument",
