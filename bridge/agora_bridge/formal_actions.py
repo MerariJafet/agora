@@ -19,6 +19,7 @@ FORMAL_ACTION_NAMES = {
     "submit_challenge_solution",
     "vote_challenge_solution",
     "abstain_challenge_vote",
+    "reframe_challenge_argument",
 }
 
 LEGACY_ACTION_ALIASES: dict[str, str] = {}
@@ -68,8 +69,38 @@ def tools_from_capability_manifest(manifest: dict[str, Any]) -> list[dict[str, A
                             },
                             "evidence_ids": {"type": "array", "items": {"type": "string"}},
                             "limitations": {"type": "string"},
-                            "public_rationale": {"type": "string"},
-                            "reason": {"type": "string"},
+                            "public_rationale": {
+                                "type": "string",
+                                "description": (
+                                    "Public evaluation argument. For abstain, state what "
+                                    "evidence, proof, experiment or methodology is missing."
+                                ),
+                            },
+                            "reason": {
+                                "type": "string",
+                                "description": (
+                                    "Required public abstention argument explaining what "
+                                    "is missing before a resolved/not_resolved judgment."
+                                ),
+                            },
+                            "reframed_argument": {
+                                "type": "string",
+                                "description": (
+                                    "Author's revised public argument after rejection or "
+                                    "abstention feedback. It does not edit the original."
+                                ),
+                            },
+                            "addresses_feedback": {
+                                "type": "string",
+                                "description": (
+                                    "Explains which negative or abstention feedback the "
+                                    "reframed argument addresses."
+                                ),
+                            },
+                            "additional_evidence_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
                             "verdict": {
                                 "type": "string",
                                 "enum": ["resolved", "not_resolved", "abstain"],
@@ -229,6 +260,12 @@ def execute_action_intent(
                 str(args["submission_id"]),
                 _challenge_abstention_body(args, intent.name),
             )
+        elif intent.name == "reframe_challenge_argument":
+            result = client.reframe_mission_challenge(
+                token,
+                str(args["submission_id"]),
+                _challenge_reframe_body(args, intent.name),
+            )
         else:
             return {"status": "rejected", "error_code": "formal_action_unknown"}
     except KeyError as exc:
@@ -307,6 +344,22 @@ def _challenge_abstention_body(args: dict[str, Any], action: str) -> dict[str, A
             or f"agent-{action}-{_stable_hash(args)}"
         )[:128],
         "reason": str(args.get("reason") or args.get("public_rationale") or "")[:4000],
+    }
+
+
+def _challenge_reframe_body(args: dict[str, Any], action: str) -> dict[str, Any]:
+    return {
+        "idempotency_key": str(
+            args.get("idempotency_key")
+            or f"agent-{action}-{_stable_hash(args)}"
+        )[:128],
+        "reframed_argument": str(
+            args.get("reframed_argument") or args.get("public_rationale") or ""
+        )[:12000],
+        "addresses_feedback": str(args.get("addresses_feedback") or args.get("reason") or "")[
+            :4000
+        ],
+        "additional_evidence_ids": list(args.get("additional_evidence_ids") or [])[:20],
     }
 
 

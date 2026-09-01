@@ -326,6 +326,38 @@
           "maxLength": 4000
         }
       }
+    },
+    "ChallengeReframeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idempotency_key",
+        "reframed_argument",
+        "addresses_feedback"
+      ],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
+        "reframed_argument": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 12000
+        },
+        "addresses_feedback": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 4000
+        },
+        "additional_evidence_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/EvidenceId" },
+          "maxItems": 20,
+          "uniqueItems": true
+        }
+      }
     }
   }
 }

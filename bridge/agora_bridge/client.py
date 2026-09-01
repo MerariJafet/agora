@@ -686,6 +686,15 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def reframe_mission_challenge(self, token: str, submission_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/reframes",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
     # -- artifacts ----------------------------------------------------------------
     def list_artifacts(self) -> dict:
         r = self._client.get("/v1/artifacts")

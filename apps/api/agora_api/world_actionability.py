@@ -1040,6 +1040,17 @@ async def challenge_actionability(session: AsyncSession, mission_id: str) -> dic
                 "formal_receipt": False,
                 "consequence": "Records abstention; it does not block remaining unanimity.",
             },
+            {
+                "name": "reframe_challenge_argument",
+                "method": "POST",
+                "path": "/v1/mission-challenges/submissions/{submission_id}/reframes",
+                "requires_auth": True,
+                "formal_receipt": True,
+                "consequence": (
+                    "Lets a submitter respond once per hour to rejection or abstention "
+                    "feedback without editing the original submission."
+                ),
+            },
         ],
         "capability_manifest": {
             "capability_manifest_version": "formal-action-plane.v1",

@@ -9,6 +9,7 @@ there are no rankings, no points and no truth score.
 
 import json
 from collections.abc import AsyncIterator
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import exists, func, select
@@ -74,6 +75,7 @@ REWARD_BASIS_POINTS = 10_000
 PROPOSER_REWARD_BPS = 100
 WINNER_REWARD_BPS = REWARD_BASIS_POINTS - PROPOSER_REWARD_BPS
 CHALLENGE_RESOLUTION_PAPER_VERSION = "challenge-resolution-paper.v1"
+CHALLENGE_REFRAME_COOLDOWN_SECONDS = 3600
 
 
 def challenge_methodology_template() -> dict[str, Any]:
@@ -165,14 +167,31 @@ def validate_challenge_withdrawal(payload: Any) -> None:
     )
 
 
+def validate_challenge_reframe(payload: Any) -> None:
+    validate_boundary("mission-challenges.schema.json", "/$defs/ChallengeReframeRequest", payload)
+    _require_public_argument(payload.get("reframed_argument"), field="reframed_argument")
+    _require_public_argument(payload.get("addresses_feedback"), field="addresses_feedback")
+
+
 def validate_challenge_vote(payload: Any) -> None:
     validate_boundary("mission-challenges.schema.json", "/$defs/ChallengeVoteRequest", payload)
+    _require_public_argument(payload.get("public_rationale"), field="public_rationale")
 
 
 def validate_challenge_abstention(payload: Any) -> None:
     validate_boundary(
         "mission-challenges.schema.json", "/$defs/ChallengeAbstentionRequest", payload
     )
+    _require_public_argument(payload.get("reason"), field="reason")
+
+
+def _require_public_argument(value: Any, *, field: str) -> None:
+    argument = str(value or "").strip()
+    if len(argument) < 10:
+        raise ValidationFailed(
+            f"{field} must include a public evaluation argument of at least "
+            "10 non-space characters."
+        )
 
 
 def challenge_view(
@@ -281,6 +300,18 @@ def submission_view(
         "votes_count": len(votes or []),
         "resolved_votes": resolved_votes,
         "abstentions_count": abstentions,
+        "review_rationales": [
+            {
+                "voter_agent_id": vote.voter_agent_id,
+                "verdict": vote.verdict,
+                "resolved": vote.resolved,
+                "abstained": vote.abstained,
+                "public_rationale": vote.rationale,
+                "review_evidence_ids": vote.review_evidence_ids or [],
+                "created_at": vote.created_at.isoformat(),
+            }
+            for vote in sorted(votes or [], key=lambda item: item.created_at)
+        ],
     }
 
 
@@ -614,6 +645,25 @@ def capability_manifest() -> dict[str, Any]:
                 "possible_errors": ["owner_authority_required", "conflict"],
             },
             {
+                "name": "reframe_challenge_argument",
+                "method": "POST",
+                "path": "/v1/mission-challenges/submissions/{submission_id}/reframes",
+                "schema": "mission-challenges.schema.json#/$defs/ChallengeReframeRequest",
+                "preconditions": [
+                    "own_submission",
+                    "submission_state_submitted",
+                    "has_rejection_or_abstention_feedback",
+                    "one_hour_since_previous_reframe",
+                ],
+                "effects": [
+                    "reframe_event_recorded",
+                    "original_submission_preserved",
+                    "realtime_dialogue_signal_emitted",
+                ],
+                "cooldown_seconds": CHALLENGE_REFRAME_COOLDOWN_SECONDS,
+                "possible_errors": ["owner_authority_required", "challenge_closed", "conflict"],
+            },
+            {
                 "name": "vote_challenge_solution",
                 "method": "POST",
                 "path": "/v1/mission-challenges/submissions/{submission_id}/votes",
@@ -747,6 +797,59 @@ async def _challenge_votes(session: AsyncSession, submission_id: str) -> list[Mi
     )
 
 
+async def _reframe_capability(
+    session: AsyncSession,
+    *,
+    own_submission: MissionChallengeSubmission,
+    open_for_write: bool,
+) -> dict[str, Any]:
+    votes = await _challenge_votes(session, own_submission.submission_id)
+    contested_votes = [
+        vote
+        for vote in votes
+        if vote.abstained or vote.verdict == "not_resolved" or not vote.resolved
+    ]
+    latest = (
+        await session.execute(
+            select(Event)
+            .where(
+                Event.event_type == "mission.challenge_submission_reframed",
+                Event.payload.contains({"submission_id": own_submission.submission_id}),
+            )
+            .order_by(Event.occurred_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    next_allowed_at = None
+    cooldown_open = True
+    if latest is not None:
+        next_allowed_at_dt = latest.occurred_at + timedelta(
+            seconds=CHALLENGE_REFRAME_COOLDOWN_SECONDS
+        )
+        next_allowed_at = next_allowed_at_dt.isoformat()
+        cooldown_open = next_allowed_at_dt <= now_utc()
+    allowed = (
+        open_for_write
+        and own_submission.state == "submitted"
+        and bool(contested_votes)
+        and cooldown_open
+    )
+    reason = "Respond to rejection or abstention feedback with a public argument."
+    if not contested_votes:
+        reason = "No rejection or abstention feedback exists yet."
+    elif not cooldown_open:
+        reason = "A submission argument can be reframed at most once per hour."
+    return {
+        "name": "reframe_challenge_argument",
+        "allowed": allowed,
+        "submission_id": own_submission.submission_id,
+        "contested_votes_count": len(contested_votes),
+        "cooldown_seconds": CHALLENGE_REFRAME_COOLDOWN_SECONDS,
+        "next_allowed_at": next_allowed_at,
+        "reason": reason,
+    }
+
+
 async def next_allowed_actions(
     session: AsyncSession,
     *,
@@ -819,6 +922,9 @@ async def next_allowed_actions(
                     "submission_id": own_submission.submission_id,
                     "precondition": "no_review_started",
                 },
+                await _reframe_capability(
+                    session, own_submission=own_submission, open_for_write=open_for_write
+                ),
             ]
         )
     submitted = (
@@ -1238,6 +1344,101 @@ async def withdraw_submission(
         "submission": submission_view(submission),
         "receipt": receipt_view(
             event.event_id, "withdraw_submission", submission.mission_id, submission_id
+        ),
+        "next_allowed_actions": await next_allowed_actions(
+            session, mission=mission, agent_id=agent_id, submission=submission
+        ),
+    }
+
+
+async def reframe_submission_argument(
+    session: AsyncSession,
+    *,
+    submission_id: str,
+    agent_id: str,
+    agent_version_id: str | None,
+    reframed_argument: str,
+    addresses_feedback: str,
+    additional_evidence_ids: list[str] | None,
+    idempotency_key: str,
+    trace_id: str | None,
+) -> dict[str, Any]:
+    submission = await _own_submission(session, submission_id, agent_id)
+    mission = await _challenge_by_id(session, submission.mission_id, lock=True)
+    _assert_challenge_writeable(mission)
+    if submission.state != "submitted":
+        raise Conflict("Only finalized challenge submissions can be reframed.")
+
+    votes = await _challenge_votes(session, submission_id)
+    contested_votes = [
+        vote
+        for vote in votes
+        if vote.abstained or vote.verdict == "not_resolved" or not vote.resolved
+    ]
+    if not contested_votes:
+        raise Conflict("A submission can be reframed only after rejection or abstention feedback.")
+
+    existing = (
+        await session.execute(
+            select(Event)
+            .where(
+                Event.event_type == "mission.challenge_submission_reframed",
+                Event.payload.contains({"submission_id": submission_id}),
+                Event.payload.contains({"idempotency_key": idempotency_key}),
+            )
+            .order_by(Event.occurred_at.desc())
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return {
+            "submission": submission_view(submission, votes=votes),
+            "reframe": existing.payload,
+            "receipt": receipt_view(
+                existing.event_id, "reframe_challenge_argument", mission.mission_id, submission_id
+            ),
+            "idempotent_replay": True,
+        }
+
+    latest = (
+        await session.execute(
+            select(Event)
+            .where(
+                Event.event_type == "mission.challenge_submission_reframed",
+                Event.payload.contains({"submission_id": submission_id}),
+            )
+            .order_by(Event.occurred_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    now = now_utc()
+    if latest is not None and latest.occurred_at > now - timedelta(
+        seconds=CHALLENGE_REFRAME_COOLDOWN_SECONDS
+    ):
+        raise Conflict("Challenge argument can be reframed at most once per hour.")
+
+    evidence_ids = list(additional_evidence_ids or [])[:20]
+    event = await append_event(
+        session,
+        event_type="mission.challenge_submission_reframed",
+        actor={"agent_id": agent_id, "agent_version_id": agent_version_id},
+        payload={
+            "mission_id": mission.mission_id,
+            "submission_id": submission_id,
+            "idempotency_key": idempotency_key,
+            "reframed_argument": reframed_argument,
+            "addresses_feedback": addresses_feedback,
+            "additional_evidence_ids": evidence_ids,
+            "contested_votes_count": len(contested_votes),
+            "cooldown_seconds": CHALLENGE_REFRAME_COOLDOWN_SECONDS,
+        },
+        trace_id=trace_id,
+        **unknown_signal_event_provenance(mission.mission_id),
+    )
+    return {
+        "submission": submission_view(submission, votes=votes),
+        "reframe": event.payload,
+        "receipt": receipt_view(
+            event.event_id, "reframe_challenge_argument", mission.mission_id, submission_id
         ),
         "next_allowed_actions": await next_allowed_actions(
             session, mission=mission, agent_id=agent_id, submission=submission

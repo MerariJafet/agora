@@ -849,6 +849,20 @@ async def test_abstention_does_not_deadlock_unanimous_resolution(api_client, uni
         )
         assert abstained.status_code == 200, abstained.text
         assert abstained.json()["resolved"] is False
+        rationales = abstained.json()["submission"]["review_rationales"]
+        assert rationales == [
+            {
+                "voter_agent_id": abstainer["agent_id"],
+                "verdict": "abstain",
+                "resolved": False,
+                "abstained": True,
+                "public_rationale": (
+                    "I lack enough independent evidence and abstain without blocking."
+                ),
+                "review_evidence_ids": [],
+                "created_at": rationales[0]["created_at"],
+            }
+        ]
 
         accepted = await api_client.post(
             f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
@@ -908,5 +922,184 @@ async def test_abstention_does_not_deadlock_unanimous_resolution(api_client, uni
             ).scalars().all()
             assert len(reward_entries) == 2
             assert sum(entry.amount for entry in reward_entries) == ACEROS_PER_TOKOIN
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_abstention_requires_public_evaluation_argument(api_client, unique_name):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    abstainer = await register_agent(api_client, SigningKeypair(), f"{unique_name}-abstainer")
+    try:
+        for reg in (submitter, abstainer):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+        rejected = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/abstentions",
+            json={
+                "idempotency_key": f"abstain-{abstainer['agent_id']}",
+                "reason": "          ",
+            },
+            headers=_auth(abstainer),
+        )
+        assert rejected.status_code == 422
+        assert rejected.json()["error"]["code"] == "validation_failed"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_submitter_can_reframe_argument_after_abstention_feedback(
+    api_client, unique_name
+):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    abstainer = await register_agent(api_client, SigningKeypair(), f"{unique_name}-abstainer")
+    try:
+        for reg in (submitter, abstainer):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+
+        premature = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/reframes",
+            json={
+                "idempotency_key": f"reframe-early-{submitter['agent_id']}",
+                "reframed_argument": (
+                    "I now explain the argument with a clearer verification boundary."
+                ),
+                "addresses_feedback": "No external feedback exists yet.",
+                "additional_evidence_ids": [],
+            },
+            headers=_auth(submitter),
+        )
+        assert premature.status_code == 409
+        assert premature.json()["error"]["code"] == "conflict"
+
+        abstained = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/abstentions",
+            json={
+                "idempotency_key": f"abstain-{abstainer['agent_id']}",
+                "reason": (
+                    "I cannot resolve this until the proof boundary and experiment "
+                    "criteria are stated more clearly."
+                ),
+            },
+            headers=_auth(abstainer),
+        )
+        assert abstained.status_code == 200, abstained.text
+
+        capabilities = (
+            await api_client.get(
+                f"/v1/mission-challenges/{challenge['mission_id']}/capabilities/me",
+                headers=_auth(submitter),
+            )
+        ).json()
+        reframe_actions = [
+            action
+            for action in capabilities["agent_next_allowed_actions"]
+            if action["name"] == "reframe_challenge_argument"
+        ]
+        assert reframe_actions and reframe_actions[0]["allowed"] is True
+        assert reframe_actions[0]["contested_votes_count"] == 1
+
+        reframed = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/reframes",
+            json={
+                "idempotency_key": f"reframe-{submitter['agent_id']}",
+                "reframed_argument": (
+                    "I reframe the proof as a bounded reproducibility claim: reviewers "
+                    "should verify the stated input range, hash the output transcript and "
+                    "compare it against the public artifact."
+                ),
+                "addresses_feedback": (
+                    "This answers the abstention by naming the proof boundary and the "
+                    "experiment criteria reviewers asked for."
+                ),
+                "additional_evidence_ids": [],
+            },
+            headers=_auth(submitter),
+        )
+        assert reframed.status_code == 200, reframed.text
+        assert reframed.json()["receipt"]["action"] == "reframe_challenge_argument"
+        assert reframed.json()["reframe"]["contested_votes_count"] == 1
+
+        replay = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/reframes",
+            json={
+                "idempotency_key": f"reframe-{submitter['agent_id']}",
+                "reframed_argument": (
+                    "I reframe the proof as a bounded reproducibility claim: reviewers "
+                    "should verify the stated input range, hash the output transcript and "
+                    "compare it against the public artifact."
+                ),
+                "addresses_feedback": (
+                    "This answers the abstention by naming the proof boundary and the "
+                    "experiment criteria reviewers asked for."
+                ),
+                "additional_evidence_ids": [],
+            },
+            headers=_auth(submitter),
+        )
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["idempotent_replay"] is True
+
+        too_soon = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/reframes",
+            json={
+                "idempotency_key": f"reframe-too-soon-{submitter['agent_id']}",
+                "reframed_argument": (
+                    "I add a second version immediately, which should be blocked by "
+                    "the hourly cadence."
+                ),
+                "addresses_feedback": "This tries to respond again too soon.",
+                "additional_evidence_ids": [],
+            },
+            headers=_auth(submitter),
+        )
+        assert too_soon.status_code == 409
+
+        async with session_factory()() as session:
+            events = (
+                await session.execute(
+                    select(Event).where(
+                        Event.event_type == "mission.challenge_submission_reframed",
+                        Event.payload.contains({"submission_id": submission["submission_id"]}),
+                    )
+                )
+            ).scalars().all()
+        assert len(events) == 1
+        assert events[0].payload["cooldown_seconds"] == 3600
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_only_submission_author_can_reframe_argument(api_client, unique_name):
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    abstainer = await register_agent(api_client, SigningKeypair(), f"{unique_name}-abstainer")
+    outsider = await register_agent(api_client, SigningKeypair(), f"{unique_name}-outsider")
+    try:
+        for reg in (submitter, abstainer, outsider):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+        abstained = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/abstentions",
+            json={
+                "idempotency_key": f"abstain-{abstainer['agent_id']}",
+                "reason": "I need a stronger public proof before accepting resolution.",
+            },
+            headers=_auth(abstainer),
+        )
+        assert abstained.status_code == 200, abstained.text
+        denied = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/reframes",
+            json={
+                "idempotency_key": f"reframe-denied-{outsider['agent_id']}",
+                "reframed_argument": (
+                    "I should not be able to rewrite another agent's public argument."
+                ),
+                "addresses_feedback": "This attempts a cross-agent reframe.",
+                "additional_evidence_ids": [],
+            },
+            headers=_auth(outsider),
+        )
+        assert denied.status_code == 403
+        assert denied.json()["error"]["code"] == "owner_authority_required"
     finally:
         await _cancel_test_challenge(challenge["mission_id"])

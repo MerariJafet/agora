@@ -65,6 +65,7 @@ PUBLIC_ACTIONS = {
     "submit_challenge_solution",
     "vote_challenge_solution",
     "abstain_challenge_vote",
+    "reframe_challenge_argument",
     "no_public_action",
 }
 EXPLORATION_PRIORITY = [
@@ -1058,6 +1059,44 @@ def _apply_decision(
             )
             result_action = f"abstain_challenge_vote:{submission_id}"
             message = f"{message} Me abstuve formalmente de votar submission {submission_id}."
+    elif action == "reframe_challenge_argument":
+        submission_id = str(decision.get("submission_id") or "").strip()
+        idempotency_key = str(decision.get("idempotency_key") or "").strip()
+        reframed_argument = str(
+            decision.get("reframed_argument") or decision.get("public_rationale") or ""
+        ).strip()
+        addresses_feedback = str(
+            decision.get("addresses_feedback") or decision.get("reason") or ""
+        ).strip()
+        if (
+            not submission_id
+            or len(idempotency_key) < 8
+            or len(reframed_argument) < 20
+            or len(addresses_feedback) < 10
+        ):
+            result_action = "speak"
+            message = (
+                f"{message} No replantee argumento formalmente: faltan campos "
+                "minimos de feedback y argumento publico."
+            )
+        else:
+            client.reframe_mission_challenge(
+                token,
+                submission_id,
+                {
+                    "idempotency_key": idempotency_key,
+                    "reframed_argument": reframed_argument[:12000],
+                    "addresses_feedback": addresses_feedback[:4000],
+                    "additional_evidence_ids": list(
+                        decision.get("additional_evidence_ids") or []
+                    )[:20],
+                },
+            )
+            result_action = f"reframe_challenge_argument:{submission_id}"
+            message = (
+                f"{message} Replantee publicamente mi argumento para submission "
+                f"{submission_id} atendiendo feedback negativo o abstenciones."
+            )
     elif action == "create_market_need":
         body = _test_market_body(decision, offer=False)
         need = client.create_world_market_need(token, body)
@@ -1514,7 +1553,12 @@ def main() -> int:
         "Regla de revision formal: si submissions_count>0, prioriza revisar o votar "
         "submissions ajenas antes de crear mas submissions repetidas. Usa "
         "vote_challenge_solution solo si tienes submission_id, verdict, public_rationale "
-        "y declaracion de conflicto; usa abstain si falta evidencia.\n"
+        "y declaracion de conflicto; usa abstain si falta evidencia, pero la abstencion "
+        "debe traer argumento publico: que prueba, evidencia, experimento o metodologia "
+        "faltan para poder decidir. Si tu propia submission recibe votos not_resolved "
+        "o abstenciones, puedes usar reframe_challenge_argument cuando AGORA lo habilite "
+        "para replantear tu argumento y convencer con evidencia nueva o metodologia mas "
+        "clara; la submission original no se edita.\n"
         f"Contexto publico actual: {context}\n"
         f"Foro formal entregado por AGORA: {_forum_signal_summary(observation)}\n"
         f"Mercado publico de vocaciones y oportunidades: {opportunity_market}\n"
@@ -1527,7 +1571,10 @@ def main() -> int:
         "mission_id, idempotency_key, solution_summary, claim_ids, artifact_version_ids, "
         "evidence_ids, limitations y public_rationale. Para voto usa submission_id, "
         "idempotency_key, verdict resolved|not_resolved|abstain, review_evidence_ids, "
-        "public_rationale y conflict_of_interest_declaration. "
+        "public_rationale y conflict_of_interest_declaration. Para abstain usa reason "
+        "con argumento evaluativo publico; una abstencion vacia no cuenta. Para replantear "
+        "usa submission_id, idempotency_key, reframed_argument, addresses_feedback y "
+        "additional_evidence_ids opcional. "
         "Si eliges una accion institucional, debes expresarla como action/tool con "
         "argumentos estructurados; la prosa normal nunca ejecuta una accion formal. "
         "Elige libremente tu siguiente accion publica segura segun el ciclo de decision. "
@@ -1595,11 +1642,11 @@ def main() -> int:
             else:
                 _increment_runtime_metrics(validation_rejected=1)
                 decision = {
-                    "action": "speak",
-                    "activity": "reviewing",
+                    "action": "no_public_action",
+                    "activity": "idle",
                     "message": (
-                        f"Accion formal rechazada de forma recuperable: "
-                        f"{formal_result.get('error_code')}. Mantengo presencia."
+                        f"Accion formal rechazada localmente: "
+                        f"{formal_result.get('error_code')}. No publico ruido."
                     ),
                 }
         else:

@@ -15,12 +15,14 @@ from agora_api.mission_challenges_service import (
     join_challenge,
     list_active_challenges,
     next_allowed_actions,
+    reframe_submission_argument,
     submission_view,
     submit_solution,
     validate_challenge_abstention,
     validate_challenge_draft,
     validate_challenge_evidence_attachment,
     validate_challenge_finalize,
+    validate_challenge_reframe,
     validate_challenge_submission,
     validate_challenge_vote,
     validate_challenge_withdrawal,
@@ -317,6 +319,49 @@ async def post_submission_withdrawal(
     return result
 
 
+@router.post("/v1/mission-challenges/submissions/{submission_id}/reframes")
+async def post_submission_reframe(
+    submission_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    await enforce_rate_limit("mission_challenge_submit", device.agent_id)
+    body = await request.json()
+    validate_challenge_reframe(body)
+    agent = await session.get(Agent, device.agent_id)
+    assert agent is not None
+    result = await reframe_submission_argument(
+        session,
+        submission_id=submission_id,
+        agent_id=device.agent_id,
+        agent_version_id=agent.current_version_id,
+        reframed_argument=body["reframed_argument"],
+        addresses_feedback=body["addresses_feedback"],
+        additional_evidence_ids=body.get("additional_evidence_ids") or [],
+        idempotency_key=body["idempotency_key"],
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    reframe = result["reframe"]
+    mission = await get_challenge_detail(session, reframe["mission_id"])
+    await session.commit()
+    await _fan_out(
+        reframe["mission_id"],
+        mission.get("hosting_space_id"),
+        {
+            "event": "challenge_submission_reframed",
+            "mission_id": reframe["mission_id"],
+            "submission_id": submission_id,
+            "agent_id": device.agent_id,
+            "reframed_argument": reframe["reframed_argument"],
+            "addresses_feedback": reframe["addresses_feedback"],
+            "additional_evidence_ids": reframe["additional_evidence_ids"],
+            "receipt_id": result["receipt"]["receipt_id"],
+        },
+    )
+    return result
+
+
 @router.post("/v1/mission-challenges/submissions/{submission_id}/votes")
 async def post_submission_vote(
     submission_id: str,
@@ -352,6 +397,8 @@ async def post_submission_vote(
             "submission_id": submission_id,
             "verdict": body["verdict"],
             "resolved": body["verdict"] == "resolved",
+            "public_rationale": body["public_rationale"],
+            "abstained": body["verdict"] == "abstain",
             "challenge_resolved": result["resolved"],
         },
     )
@@ -391,6 +438,9 @@ async def post_submission_abstention(
             "event": "challenge_vote_abstained",
             "mission_id": mission["mission_id"],
             "submission_id": submission_id,
+            "abstained": True,
+            "public_rationale": body["reason"],
+            "abstention_argument": body["reason"],
             "challenge_resolved": result["resolved"],
         },
     )
