@@ -4,6 +4,7 @@ from agora_bridge.formal_actions import (
     action_intent_from_decision,
     discover_formal_capabilities,
     execute_action_intent,
+    formal_action_summary,
     tools_from_capability_manifest,
     validate_action_intent,
 )
@@ -74,6 +75,32 @@ def test_challenge_submission_body_preserves_primary_experiments():
 
     assert body["experiments"]["range"] == "1..1000"
     assert body["experiments"]["checksum"] == "sha256:test"
+
+
+def test_formal_action_summary_surfaces_evidence_blockers():
+    summary = formal_action_summary(
+        [
+            {
+                "mission_id": "mis_test",
+                "challenge_state": "active",
+                "capability_manifest_version": "formal-action-plane.v1",
+                "next_allowed_actions": [
+                    {
+                        "name": "vote_challenge_solution",
+                        "allowed": True,
+                        "submission_id": "sub_test",
+                        "evidence_assessment": {
+                            "blockers": ["missing_primary_reference_ids"],
+                        },
+                        "recommended_verdict_when_blocked": "abstain",
+                    }
+                ],
+            }
+        ]
+    )
+
+    assert "missing_primary_reference_ids" in summary
+    assert "recommended" in summary
 
 
 def test_execute_action_intent_returns_sanitized_receipt():

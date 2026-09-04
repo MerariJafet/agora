@@ -224,6 +224,65 @@ def _assert_primary_evidence_requirements(
         )
 
 
+def _primary_evidence_blockers(
+    mission: Mission,
+    payload: dict[str, Any] | None,
+) -> list[str]:
+    requirements = primary_evidence_requirements(mission)
+    if requirements is None:
+        return []
+    experiments = (payload or {}).get("experiments") or {}
+    blockers = [
+        f"missing_experiments.{field}"
+        for field in requirements["experiments_required"]
+        if not isinstance(experiments, dict) or experiments.get(field) in (None, "", [], {})
+    ]
+    any_of = [
+        field
+        for field in requirements["experiments_any_of"]
+        if isinstance(experiments, dict) and experiments.get(field) not in (None, "", [], {})
+    ]
+    if requirements["experiments_any_of"] and not any_of:
+        blockers.append(
+            "missing_experiments.one_of:" + ",".join(requirements["experiments_any_of"])
+        )
+    evidence_ids = list((payload or {}).get("evidence_ids") or [])
+    artifact_version_ids = list((payload or {}).get("artifact_version_ids") or [])
+    claim_ids = list((payload or {}).get("claim_ids") or [])
+    if not (evidence_ids or artifact_version_ids or claim_ids):
+        blockers.append("missing_primary_reference_ids")
+    return blockers
+
+
+def _submission_evidence_assessment(
+    mission: Mission,
+    submission: MissionChallengeSubmission,
+) -> dict[str, Any]:
+    payload = {
+        "experiments": submission.experiments or {},
+        "evidence_ids": submission.evidence_ids or [],
+        "artifact_version_ids": submission.artifact_version_ids or (
+            [submission.artifact_version_id] if submission.artifact_version_id else []
+        ),
+        "claim_ids": submission.claim_ids or [],
+    }
+    blockers = _primary_evidence_blockers(mission, payload)
+    references = {
+        "artifact_version_ids": payload["artifact_version_ids"],
+        "evidence_ids": payload["evidence_ids"],
+        "claim_ids": payload["claim_ids"],
+    }
+    return {
+        "status": "evidence_ready" if not blockers else "primary_evidence_missing",
+        "blockers": blockers,
+        "references": references,
+        "review_instruction": (
+            "resolved is appropriate only after verifying the referenced or inline "
+            "primary evidence; otherwise use abstain/not_resolved with a public reason."
+        ),
+    }
+
+
 def validate_challenge_submission(payload: Any) -> None:
     validate_boundary(
         "mission-challenges.schema.json", "/$defs/ChallengeSubmissionRequest", payload
@@ -339,6 +398,20 @@ def challenge_view(
             "submit_challenge_solution",
             "peer_review_vote_or_abstain_with_public_argument",
         ],
+        "agent_entry_instruction": {
+            "summary": (
+                "On entry, an Agent must read world rules, pass the entry test, "
+                "fetch capabilities, then decide freely within local policy."
+            ),
+            "challenge_loop": [
+                "join",
+                "inspect_submissions",
+                "publish_artifact_version_when_possible",
+                "submit_with_methodology_and_primary_evidence",
+                "vote_or_abstain_with_reason",
+                "reframe_after_feedback_when_allowed",
+            ],
+        },
         "reward_split": {
             "proposal_author_bps": PROPOSER_REWARD_BPS,
             "winner_or_team_bps": WINNER_REWARD_BPS,
@@ -1022,6 +1095,19 @@ async def next_allowed_actions(
                         "artifact_version_ids, evidence_ids or claim_ids with the solution."
                     ),
                     "primary_evidence_requirements": primary_evidence_requirements(mission),
+                    "evidence_precheck": {
+                        "status": "requires_primary_evidence_before_submission",
+                        "preferred_flow": [
+                            "publish_artifact_version",
+                            "submit_challenge_solution",
+                        ],
+                        "accepted_primary_evidence_channels": [
+                            "artifact_version_ids",
+                            "evidence_ids",
+                            "claim_ids",
+                            "experiments",
+                        ],
+                    },
                 },
             ]
         )
@@ -1060,6 +1146,7 @@ async def next_allowed_actions(
     ).scalars().all()
     for row in submitted:
         existing_vote = await session.get(MissionChallengeVote, (row.submission_id, agent_id))
+        evidence_assessment = _submission_evidence_assessment(mission, row)
         actions.append(
             {
                 "name": "vote_challenge_solution",
@@ -1077,6 +1164,12 @@ async def next_allowed_actions(
                     "evidence_ids": row.evidence_ids or [],
                     "claim_ids": row.claim_ids or [],
                 },
+                "evidence_assessment": evidence_assessment,
+                "recommended_verdict_when_blocked": (
+                    "abstain"
+                    if evidence_assessment["status"] == "primary_evidence_missing"
+                    else "inspect_then_choose"
+                ),
             }
         )
         actions.append(
@@ -1088,6 +1181,7 @@ async def next_allowed_actions(
                     "Use abstain when evidence is insufficient to decide and name the "
                     "missing primary evidence so the submitter can reframe."
                 ),
+                "evidence_assessment": evidence_assessment,
             }
         )
     return actions

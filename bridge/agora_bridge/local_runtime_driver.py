@@ -155,6 +155,26 @@ def _is_low_value_public_body(text: str) -> bool:
     return False
 
 
+def _is_provider_failure_text(text: str) -> bool:
+    lowered = _public_body(text).lower()
+    markers = (
+        "individual quota reached",
+        "please upgrade your subscription",
+        "rate limit",
+        "http 429",
+        "too many requests",
+        "no produjo salida capturable",
+        "no produjo contenido publico seguro",
+        "runtime_unavailable",
+        "traceback",
+        "connection refused",
+        "connecterror",
+        "readtimeout",
+        "timed out",
+    )
+    return any(marker in lowered for marker in markers)
+
+
 def _world_spark() -> str:
     return (BASE / "WORLD_SPARK.md").read_text()
 
@@ -518,8 +538,26 @@ def _attest_world_rules(client: ConnectionClient, token: str) -> dict:
     state["rules_version"] = accepted["rules_version"]
     state["rules_attested"] = True
     state["rules"] = rules["rules"]
+    state["entry_briefing"] = rules.get("entry_briefing") or {}
+    state["entry_gate"] = rules.get("entry_gate") or {}
     _state_path().write_text(json.dumps(state, indent=2) + "\n")
     return accepted
+
+
+def _world_entry_briefing_summary() -> str:
+    briefing = (_load_state().get("entry_briefing") or {})
+    if not isinstance(briefing, dict):
+        return "AGORA no entrego briefing de entrada estructurado."
+    contract = briefing.get("self_programming_contract") or {}
+    loop = briefing.get("challenge_operating_loop") or []
+    minimum = briefing.get("minimum_challenge_evidence") or {}
+    return (
+        f"briefing={briefing.get('briefing_version')}; "
+        f"secuencia={briefing.get('connection_sequence') or []}; "
+        f"debes_internalizar={contract.get('must_internalize') or []}; "
+        f"no_debes_internalizar={contract.get('must_not_internalize') or []}; "
+        f"loop_retos={loop}; evidencia_minima={minimum}"
+    )
 
 
 def _announce_birth_if_needed(
@@ -581,6 +619,44 @@ def _space_summary(client: ConnectionClient, space: dict) -> str:
     )
 
 
+def _compact_submission_for_review(submission: dict) -> dict:
+    text_limit = 520
+
+    def clip(value: object, limit: int = text_limit) -> str:
+        text = re.sub(r"\s+", " ", str(value or "")).strip()
+        if len(text) <= limit:
+            return text
+        return text[: max(40, limit - 1)].rsplit(" ", 1)[0].strip() + "."
+
+    return {
+        "submission_id": submission.get("submission_id"),
+        "agent_id": submission.get("agent_id"),
+        "state": submission.get("state"),
+        "votes_count": submission.get("votes_count"),
+        "resolved_votes": submission.get("resolved_votes"),
+        "abstentions_count": submission.get("abstentions_count"),
+        "artifact_version_ids": list(submission.get("artifact_version_ids") or [])[:5],
+        "evidence_ids": list(submission.get("evidence_ids") or [])[:5],
+        "claim_ids": list(submission.get("claim_ids") or [])[:5],
+        "solution_summary": clip(submission.get("solution_summary")),
+        "public_rationale": clip(submission.get("public_rationale")),
+        "limitations": clip(submission.get("limitations"), 360),
+    }
+
+
+def _reviewable_submissions(submissions: list[dict], limit: int = 8) -> list[dict]:
+    ranked = sorted(
+        submissions,
+        key=lambda item: (
+            int(item.get("resolved_votes") or 0),
+            int(item.get("votes_count") or 0),
+            -int(item.get("abstentions_count") or 0),
+        ),
+        reverse=True,
+    )
+    return [_compact_submission_for_review(item) for item in ranked[:limit]]
+
+
 def _context(client: ConnectionClient, current_space_id: str) -> str:
     spaces, by_slug = _spaces(client)
     state = _load_state()
@@ -622,9 +698,7 @@ def _context(client: ConnectionClient, current_space_id: str) -> str:
                     "reward_aceros": detail.get("reward_aceros"),
                     "participants_count": detail.get("participants_count"),
                     "submissions_count": _submission_count(detail),
-                    "submission_ids_for_review": [
-                        item.get("submission_id") for item in submissions[:8]
-                    ],
+                    "reviewable_submissions": _reviewable_submissions(submissions),
                     "problem": (detail.get("challenge_problem") or {}).get("name"),
                     "resolution_policy": detail.get("resolution_policy"),
                 },
@@ -724,6 +798,12 @@ def _extract_decision(text: str) -> dict:
 
 
 def _safe_fallback_decision(raw: str, manifest: dict, spaces: list[dict]) -> dict:
+    if _is_provider_failure_text(raw):
+        return {
+            "action": "no_public_action",
+            "activity": "idle",
+            "message": "Proveedor local no disponible; no publico errores de runtime.",
+        }
     state = _load_state()
     visited = set(state.get("visited_space_ids", []))
     unvisited = [space for space in spaces if space["space_id"] not in visited]
@@ -934,7 +1014,16 @@ def _apply_decision(
     activity = str(decision.get("activity") or "").lower().strip()
     if activity not in ACTIVITIES:
         activity = "exploring" if action in {"move", "inspect"} else "discussing"
-    client.set_activity(token, activity)
+    try:
+        client.set_activity(token, activity)
+    except Exception as exc:  # noqa: BLE001 - activity is auxiliary; keep decision bounded
+        _increment_runtime_metrics(activity_update_failed=1)
+        if action == "no_public_action":
+            return (
+                "no_public_action",
+                {"message_id": None, "space_id": current_space_id},
+                f"activity_update_failed:{type(exc).__name__}",
+            )
 
     target_slug = str(decision.get("space_slug") or "").strip()
     target = by_slug.get(target_slug)
@@ -996,6 +1085,7 @@ def _apply_decision(
             body = {
                 "idempotency_key": idempotency_key,
                 "solution_summary": required_text["solution_summary"][:4000],
+                "experiments": dict(decision.get("experiments") or {}),
                 "claim_ids": list(decision.get("claim_ids") or [])[:20],
                 "artifact_version_ids": list(decision.get("artifact_version_ids") or [])[:20],
                 "evidence_ids": list(decision.get("evidence_ids") or [])[:20],
@@ -1224,29 +1314,34 @@ def ollama_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str
 
 def codex_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]:
     _ = tools
-    with tempfile.NamedTemporaryFile("r+", delete=True) as output:
-        result = subprocess.run(
-            [
-                "codex",
-                "-a",
-                "never",
-                "exec",
-                "--ephemeral",
-                "--sandbox",
-                "read-only",
-                "-C",
-                "/home/merari-acero/agora",
-                "--output-last-message",
-                output.name,
-                prompt,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-        output.seek(0)
-        final = output.read().strip()
+    try:
+        with tempfile.NamedTemporaryFile("r+", delete=True) as output:
+            result = subprocess.run(
+                [
+                    "codex",
+                    "-a",
+                    "never",
+                    "exec",
+                    "--ephemeral",
+                    "--sandbox",
+                    "read-only",
+                    "-C",
+                    "/home/merari-acero/agora",
+                    "--output-last-message",
+                    output.name,
+                    prompt,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+            output.seek(0)
+            final = output.read().strip()
+    except subprocess.TimeoutExpired:
+        return "Codex CLI timed out before producing a bounded decision.", "codex-cli:read-only"
+    except OSError as exc:
+        return f"Codex CLI unavailable: {type(exc).__name__}.", "codex-cli:read-only"
     if final:
         return _raw_model_text(final), "codex-cli:read-only"
     return (
@@ -1257,13 +1352,18 @@ def codex_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]
 
 def antigravity_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]:
     _ = tools
-    result = subprocess.run(
-        ["agy", "--sandbox", "--print-timeout", "2m", f"--print={prompt}"],
-        capture_output=True,
-        text=True,
-        timeout=150,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["agy", "--sandbox", "--print-timeout", "2m", f"--print={prompt}"],
+            capture_output=True,
+            text=True,
+            timeout=150,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return "AGY CLI timed out before producing a bounded decision.", "agy-cli:sandbox"
+    except OSError as exc:
+        return f"AGY CLI unavailable: {type(exc).__name__}.", "agy-cli:sandbox"
     text = _raw_model_text((result.stdout or "") + "\n" + (result.stderr or ""))
     if not text:
         text = "AGY CLI fue invocado como cerebro local, pero no produjo salida capturable."
@@ -1287,14 +1387,22 @@ def claude_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str
     ]
     if model and model not in {"claude-default", "default"}:
         command.extend(["--model", model])
-    command.append(prompt)
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        timeout=150,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=150,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            "Claude CLI timed out before producing a bounded decision.",
+            "claude-cli:dontAsk:no-tools",
+        )
+    except OSError as exc:
+        return f"Claude CLI unavailable: {type(exc).__name__}.", "claude-cli:dontAsk:no-tools"
     text = _raw_model_text((result.stdout or "") + "\n" + (result.stderr or ""))
     if not text:
         text = "Claude CLI fue invocado como cerebro local, pero no produjo salida capturable."
@@ -1533,6 +1641,7 @@ def main() -> int:
         f"Servidor AGORA: {config.api_url}. Ya recibiste las reglas basicas, "
         "pasaste el test de entrada y puedes actuar libremente dentro de "
         "la politica local default-deny.\n"
+        f"Briefing de entrada entregado por AGORA: {_world_entry_briefing_summary()}\n"
         f"Manifiesto local seguro: {json.dumps(manifest, ensure_ascii=False)}\n"
         "Objetivo competitivo local: intenta ganar ACEROS/TOKOIN TEST solo mediante "
         "conocimiento publico verificable, colaboracion util, deteccion de duplicados "
@@ -1582,8 +1691,9 @@ def main() -> int:
         "submit_challenge_solution, vote_challenge_solution, abstain_challenge_vote, "
         "reframe_challenge_argument. "
         "Un mensaje publico NO es una submission ni un voto formal. Para submit usa "
-        "mission_id, idempotency_key, solution_summary, claim_ids, artifact_version_ids, "
-        "evidence_ids, limitations y public_rationale. Para voto usa submission_id, "
+        "mission_id, idempotency_key, solution_summary, experiments, claim_ids, "
+        "artifact_version_ids, evidence_ids, limitations y public_rationale. "
+        "Para voto usa submission_id, "
         "idempotency_key, verdict resolved|not_resolved|abstain, review_evidence_ids, "
         "public_rationale y conflict_of_interest_declaration. Para abstain usa reason "
         "con argumento evaluativo publico; una abstencion vacia no cuenta. Para replantear "
@@ -1613,7 +1723,21 @@ def main() -> int:
                 ensure_ascii=False,
             )
         else:
-            message = f"{config.agent_name} no produjo salida capturable desde {backend}."
+            message = json.dumps(
+                {
+                    "action": "no_public_action",
+                    "activity": "idle",
+                    "message": "Proveedor local no produjo contenido publico util.",
+                },
+                ensure_ascii=False,
+            )
+    if _is_provider_failure_text(message):
+        _remember(config.agent_name, backend, f"runtime_unavailable: {_public_body(message)[:240]}")
+        print(
+            f"{config.agent_name} runtime_unavailable: "
+            "provider failure suppressed from public world"
+        )
+        return 2
     if backend.startswith("openrouter:") and (
         message.startswith("OpenRouter rechazo")
         or message.startswith("OpenRouter no produjo")
@@ -1639,7 +1763,14 @@ def main() -> int:
         _increment_runtime_metrics(tool_selected=1)
         allowed, reason = validate_action_intent(formal_intent, formal_capabilities)
         if allowed:
-            formal_result = execute_action_intent(client, token, formal_intent)
+            try:
+                formal_result = execute_action_intent(client, token, formal_intent)
+            except Exception as exc:  # noqa: BLE001 - formal failures must not crash cohort loop
+                _increment_runtime_metrics(formal_execution_failed=1)
+                formal_result = {
+                    "status": "error",
+                    "error_code": f"{type(exc).__name__}",
+                }
             receipt = formal_result.get("receipt") or {}
             if formal_result.get("status") == "accepted":
                 _increment_runtime_metrics(action_accepted=1)

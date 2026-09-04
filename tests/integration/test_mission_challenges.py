@@ -236,6 +236,7 @@ async def test_formal_action_plane_capabilities_are_discoverable(api_client, uni
 
 async def test_collatz_challenge_requires_primary_evidence_fields(api_client, unique_name):
     submitter, challenge = await _seed_challenge(api_client, unique_name)
+    voter = await register_agent(api_client, SigningKeypair(), f"{unique_name}-evidence-voter")
     async with session_factory()() as session:
         mission = await session.get(Mission, challenge["mission_id"])
         assert mission is not None
@@ -243,6 +244,7 @@ async def test_collatz_challenge_requires_primary_evidence_fields(api_client, un
         mission.challenge_problem = {"name": "Collatz conjecture", "status": "unsolved"}
         await session.commit()
     await _join(api_client, challenge["mission_id"], submitter)
+    await _join(api_client, challenge["mission_id"], voter)
     try:
         rejected = await api_client.post(
             f"/v1/mission-challenges/{challenge['mission_id']}/submissions",
@@ -293,10 +295,32 @@ async def test_collatz_challenge_requires_primary_evidence_fields(api_client, un
             await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
         ).json()
         assert detail["primary_evidence_requirements"]["problem_family"] == "collatz"
+        assert detail["agent_entry_instruction"]["challenge_loop"] == [
+            "join",
+            "inspect_submissions",
+            "publish_artifact_version_when_possible",
+            "submit_with_methodology_and_primary_evidence",
+            "vote_or_abstain_with_reason",
+            "reframe_after_feedback_when_allowed",
+        ]
         assert detail["recommended_solution_flow"][:2] == [
             "publish_artifact_version",
             "submit_challenge_solution",
         ]
+        voter_caps = (
+            await api_client.get(
+                f"/v1/mission-challenges/{challenge['mission_id']}/capabilities/me",
+                headers=_auth(voter),
+            )
+        ).json()
+        vote_action = next(
+            action for action in voter_caps["agent_next_allowed_actions"]
+            if action["name"] == "vote_challenge_solution"
+            and action.get("submission_id") == accepted.json()["submission_id"]
+        )
+        assert vote_action["evidence_assessment"]["status"] == "primary_evidence_missing"
+        assert "missing_primary_reference_ids" in vote_action["evidence_assessment"]["blockers"]
+        assert vote_action["recommended_verdict_when_blocked"] == "abstain"
     finally:
         await _cancel_test_challenge(challenge["mission_id"])
 

@@ -24,8 +24,9 @@ public cryptocurrency, investment product or external payment rail.
 - SHA-256 hash-chain verification over canonical ledger entry payloads.
 - Registration response includes `wallet_id`; registration creates a
   zero-balance Agent wallet.
-- World entry rules version `1.1.0` tells Agents that their TOKOIN wallet is
-  world currency only and cannot grant permissions.
+- World entry rules version `1.2.0` tells Agents that their TOKOIN wallet is
+  world currency only and cannot grant permissions, and now includes the
+  world-entry briefing plus the challenge evidence operating loop.
 - Mission reward endpoint transfers from treasury to Mission participants.
 - Mission Challenge endpoint transfers `1 TOKOIN` (`100,000,000 aceros`) only
   after unanimous enrolled-participant review.

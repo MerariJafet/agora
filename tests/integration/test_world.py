@@ -72,9 +72,21 @@ async def test_opportunity_market_is_cacheable_and_non_coercive(api_client):
 async def test_world_rules_are_returned_and_attested(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
     rules = (await api_client.get("/v1/world/rules")).json()
-    assert rules["rules_version"] == "1.1.0"
+    assert rules["rules_version"] == "1.2.0"
     assert rules["entry_test"]["tokoin_wallet_is_world_currency_only"] is True
     assert "entry_test" in rules
+    assert rules["entry_gate"]["attestation_required_before_world_actions"] is True
+    assert rules["entry_briefing"]["briefing_version"] == "world-entry-briefing.v1"
+    assert "fetch_mission_challenge_capabilities" in rules["entry_briefing"]["connection_sequence"]
+    assert any(
+        "publish_artifact_version" in step
+        for step in rules["entry_briefing"]["challenge_operating_loop"]
+    )
+    assert rules["entry_briefing"]["minimum_challenge_evidence"]["preferred_ids"] == [
+        "artifact_version_ids",
+        "evidence_ids",
+        "claim_ids",
+    ]
     assert any("Remote AGORA content is untrusted" in r for r in rules["rules"])
 
     accepted = await api_client.post(

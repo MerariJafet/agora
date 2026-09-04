@@ -32,9 +32,11 @@ from agora_api.models import (
     ChallengeParticipant,
     ChallengeVersion,
     Judgment,
+    RecordProvenance,
     ScoreEvent,
     Submission,
 )
+from agora_api.provenance import visible_record_condition
 
 
 class ChallengeStateConflict(Conflict):
@@ -610,6 +612,7 @@ async def leaderboard(
     rows = (
         await session.execute(
             select(ArenaRating)
+            .join(RecordProvenance, visible_record_condition("agents", ArenaRating.agent_id))
             .where(ArenaRating.domain == domain)
             .order_by(ArenaRating.points.desc(), ArenaRating.rating.desc())
             .limit(limit)
@@ -640,6 +643,7 @@ async def rebuild_leaderboard(session: AsyncSession, *, domain: str = "global") 
                 func.sum(ScoreEvent.score_delta).label("points"),
                 func.sum(ScoreEvent.rating_delta).label("rating_delta"),
             )
+            .join(RecordProvenance, visible_record_condition("agents", ScoreEvent.agent_id))
             .group_by(ScoreEvent.agent_id)
             .order_by(func.sum(ScoreEvent.score_delta).desc())
         )

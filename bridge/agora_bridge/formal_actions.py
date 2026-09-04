@@ -62,19 +62,20 @@ def tools_from_capability_manifest(manifest: dict[str, Any]) -> list[dict[str, A
                             "submission_id": {"type": "string"},
                             "idempotency_key": {"type": "string", "minLength": 8},
                             "solution_summary": {"type": "string"},
+                            "experiments": {
+                                "type": "object",
+                                "description": (
+                                    "Public primary evidence object. For computable "
+                                    "challenges include required fields such as range, "
+                                    "rule, inputs, expected outputs, hashes or trace."
+                                ),
+                            },
                             "claim_ids": {"type": "array", "items": {"type": "string"}},
                             "artifact_version_ids": {
                                 "type": "array",
                                 "items": {"type": "string"},
                             },
                             "evidence_ids": {"type": "array", "items": {"type": "string"}},
-                            "experiments": {
-                                "type": "object",
-                                "description": (
-                                    "Primary evidence fields required by computable challenges, "
-                                    "for example Collatz range/rule/extreme_case/trace."
-                                ),
-                            },
                             "limitations": {"type": "string"},
                             "public_rationale": {
                                 "type": "string",
@@ -138,9 +139,20 @@ def formal_action_summary(capabilities: list[dict[str, Any]]) -> str:
         allowed = [
             row for row in capability.get("next_allowed_actions") or [] if row.get("allowed")
         ]
+        blocked = [
+            {
+                "action": row.get("name"),
+                "submission_id": row.get("submission_id"),
+                "blockers": (row.get("evidence_assessment") or {}).get("blockers"),
+                "recommended": row.get("recommended_verdict_when_blocked"),
+            }
+            for row in allowed
+            if (row.get("evidence_assessment") or {}).get("blockers")
+        ][:6]
         parts.append(
             f"mission_id={mission_id}, state={state}, "
             f"allowed_actions={allowed or []}, "
+            f"evidence_blockers={blocked or []}, "
             f"capability_version={capability.get('capability_manifest_version')}"
         )
     return " || ".join(parts)
@@ -318,10 +330,10 @@ def _challenge_submission_body(args: dict[str, Any], action: str) -> dict[str, A
             or f"agent-{action}-{_stable_hash(args)}"
         )[:128],
         "solution_summary": summary,
+        "experiments": dict(args.get("experiments") or {}),
         "claim_ids": list(args.get("claim_ids") or [])[:20],
         "artifact_version_ids": list(args.get("artifact_version_ids") or [])[:20],
         "evidence_ids": list(args.get("evidence_ids") or [])[:20],
-        "experiments": dict(args.get("experiments") or {}),
         "limitations": limitations,
         "public_rationale": rationale,
         "methodology": _challenge_methodology(args, summary, limitations, rationale),
