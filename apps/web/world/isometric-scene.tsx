@@ -96,6 +96,25 @@ function avatarStyle(agent: IsoAgentProjection): CSSProperties {
   } as CSSProperties;
 }
 
+function stationTone(count: number, capacity: number): "quiet" | "active" | "busy" {
+  if (count === 0) return "quiet";
+  if (count / capacity >= 0.7) return "busy";
+  return "active";
+}
+
+function cameraOffsetFor(agent: IsoAgentProjection | null, challenge: ChallengeConstructionProjection | null) {
+  const target = agent ?? challenge;
+  if (!target) return { x: 0, y: 0 };
+  return {
+    x: Math.round((50 - target.x) * 7) - 110,
+    y: Math.round((48 - target.y) * 4),
+  };
+}
+
+function compactName(value: string): string {
+  return value.length > 22 ? `${value.slice(0, 19)}...` : value;
+}
+
 function Avatar({ item, selected, onSelect }: {
   item: IsoAgentProjection;
   selected: boolean;
@@ -196,6 +215,34 @@ function RoomInspector({ agent, district, challenge }: {
   );
 }
 
+function SocialPulse({ messages, agents }: {
+  messages: WorldMessageEvent[];
+  agents: IsoAgentProjection[];
+}) {
+  const speakers = messages
+    .map((message) => ({
+      message,
+      agent: agents.find((item) => item.agent.agent_id === message.agent_id),
+    }))
+    .filter((item) => item.agent)
+    .slice(0, 4);
+  return (
+    <aside className="iso-social-pulse" aria-label="Pulso social del distrito">
+      <p className="eyebrow">Pulso social</p>
+      <div className="pulse-lines">
+        {speakers.map(({ message, agent }) => (
+          <div key={message.message_id}>
+            <span style={{ background: tintFor(agent!.agent) }} />
+            <strong>{compactName(message.agent_name ?? agent!.agent.name)}</strong>
+            <small>{message.content.slice(0, 82)}</small>
+          </div>
+        ))}
+        {speakers.length === 0 && <small>Sin dialogos publicos recientes en esta sala.</small>}
+      </div>
+    </aside>
+  );
+}
+
 function LoadingRoom() {
   return (
     <main className="iso-world-shell">
@@ -248,6 +295,12 @@ export function IsometricWorldScene({ targetId, mode }: {
   const effectiveSelectedChallengeId = focus?.kind === "challenge" ? focus.id : selectedChallengeId;
   const selectedAgent = projection.agents.find((agent) => agent.agent.agent_id === effectiveSelectedAgentId) ?? null;
   const selectedChallenge = projection.constructions.find((item) => item.id === effectiveSelectedChallengeId) ?? null;
+  const focusCamera = cameraOffsetFor(selectedAgent, selectedChallenge);
+  const stationCounts = useMemo(() => {
+    const counts = new Map<IsoStation["kind"], number>();
+    projection.agents.forEach((agent) => counts.set(agent.station, (counts.get(agent.station) ?? 0) + 1));
+    return counts;
+  }, [projection.agents]);
 
   const replaceFocus = useCallback((nextFocus: ReturnType<typeof parseFocus>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -367,8 +420,8 @@ export function IsometricWorldScene({ targetId, mode }: {
           data-testid="isometric-stage"
           aria-label={`Sala isometrica ${district.name}`}
           style={{
-            "--camera-x": `${camera.x}px`,
-            "--camera-y": `${camera.y}px`,
+            "--camera-x": `${camera.x + focusCamera.x}px`,
+            "--camera-y": `${camera.y + focusCamera.y}px`,
             "--zoom": zoom,
             "--room-cols": projection.sizing.columns,
             "--room-rows": projection.sizing.rows,
@@ -409,6 +462,9 @@ export function IsometricWorldScene({ targetId, mode }: {
               >
                 <span />
                 <strong>{station.label}</strong>
+                <em className={`station-occupancy occupancy-${stationTone(stationCounts.get(station.kind) ?? 0, station.capacity)}`}>
+                  {stationCounts.get(station.kind) ?? 0}/{station.capacity}
+                </em>
               </div>
             ))}
             {projection.constructions.map((item) => (
@@ -439,6 +495,7 @@ export function IsometricWorldScene({ targetId, mode }: {
             <strong>{latestMessage?.agent_name ?? latestMessage?.agent_id ?? "AGORA Brain"}</strong>
             <span>{latestMessage?.content?.slice(0, 138) ?? "La sala proyecta solo presencia, mensajes y eventos confirmados por AGORA."}</span>
           </div>
+          <SocialPulse messages={messages} agents={projection.agents} />
         </section>
 
         <details className="iso-timeline">

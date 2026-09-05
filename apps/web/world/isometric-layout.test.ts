@@ -116,6 +116,21 @@ test("dense districts expand and assign one deterministic footprint per agent", 
   assert.equal(footprints.size, denseAgents.length);
 });
 
+test("crowded conversations distribute into visible social pods", () => {
+  const central = testManifest().landmarks[0]!;
+  const denseAgents = Array.from({ length: 35 }, (_, index) => agent(`agt_social_${index}`, "discussing"));
+  const projection = buildIsoRoomProjection({
+    district: central,
+    agents: denseAgents,
+    messages: [],
+    missions: [],
+  });
+  const xs = projection.agents.map((item) => item.tileX);
+  const ys = projection.agents.map((item) => item.tileY);
+  assert.ok(Math.max(...xs) - Math.min(...xs) >= 8);
+  assert.ok(Math.max(...ys) - Math.min(...ys) >= 6);
+});
+
 test("visible speech bubbles stay bounded in crowded rooms", () => {
   const central = testManifest().landmarks[0]!;
   const denseAgents = Array.from({ length: 12 }, (_, index) => agent(`agt_bubble_${index}`, "idle"));

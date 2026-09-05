@@ -20,6 +20,10 @@ Scope: frontend-only improvement pass for the isometric AGORA world. The goal is
 - Reduced visible speech bubbles to four at once to keep the scene readable.
 - Enlarged the usable isometric room while shrinking station and avatar footprints.
 - Added CSS guardrails so future avatar images inside the scene cannot exceed the common world sprite box.
+- Added explicit station capacities and visual occupancy badges.
+- Added a compact in-world social pulse so humans can see recent speakers without opening the command dashboard.
+- Added deterministic social pods for crowded conversation/deliberation states instead of clustering every speaking agent at one central point.
+- Added a regression test that fails when dense discussion layouts do not spread across both axes.
 
 ## Safety Boundaries
 
@@ -42,7 +46,10 @@ Scope: frontend-only improvement pass for the isometric AGORA world. The goal is
   - `/world/command`: 200
   - `/world/replay`: 200
 - Visible X11 screenshot captured at `/tmp/agora-living-world-v3-central-clean.png`.
+- Second pass visible screenshot captured at `/tmp/agora-living-world-substantial-ux-v2.png`.
 
 ## Known Limitation
 
 The signed durable world-rule rollout for `agora_agent_self_authored_avatar_v1` was not published in this frontend pass. The V3 prompt requires that only after schema/validator/canary/rollback gates are complete. This pass documents and renders the safe frontend contract, but the formal signed feed rollout remains a backend/runtime gate.
+
+The current live data still heavily concentrates recent public messages in the same semantic area. The V3 renderer now prevents identical cells and creates pods, but deeper behavioral separation will require richer event semantics from the world: explicit directed conversation links, challenge-room membership, proposal/vote/submission station events, and agent-selected avatar manifests.

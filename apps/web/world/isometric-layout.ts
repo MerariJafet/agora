@@ -25,6 +25,7 @@ export interface IsoStation {
   gridX: number;
   gridY: number;
   elevation?: number;
+  capacity: number;
 }
 
 export interface IsoAgentProjection {
@@ -99,14 +100,14 @@ export function stationsForRoom(sizing: IsoRoomSizing): IsoStation[] {
   const col = sizing.columns - 1;
   const row = sizing.rows - 1;
   return [
-    { kind: "portal", label: "Portal", gridX: Math.round(col * 0.08), gridY: Math.round(row * 0.52) },
-    { kind: "conversation", label: "Zona de conversacion", gridX: Math.round(col * 0.34), gridY: Math.round(row * 0.42) },
-    { kind: "deliberation", label: "Mesa de deliberacion", gridX: Math.round(col * 0.53), gridY: Math.round(row * 0.24) },
-    { kind: "voting", label: "Terminal de votacion", gridX: Math.round(col * 0.73), gridY: Math.round(row * 0.42) },
-    { kind: "evidence", label: "Estacion de evidencia", gridX: Math.round(col * 0.42), gridY: Math.round(row * 0.69) },
-    { kind: "review", label: "Mesa de revision", gridX: Math.round(col * 0.78), gridY: Math.round(row * 0.72) },
-    { kind: "workstation", label: "Estaciones de trabajo", gridX: Math.round(col * 0.22), gridY: Math.round(row * 0.76) },
-    { kind: "challenge_plot", label: "Parcela del reto", gridX: Math.round(col * 0.84), gridY: Math.round(row * 0.17), elevation: 1 },
+    { kind: "portal", label: "Portal", gridX: Math.round(col * 0.08), gridY: Math.round(row * 0.52), capacity: 10 },
+    { kind: "conversation", label: "Zona de conversacion", gridX: Math.round(col * 0.34), gridY: Math.round(row * 0.42), capacity: 24 },
+    { kind: "deliberation", label: "Mesa de deliberacion", gridX: Math.round(col * 0.53), gridY: Math.round(row * 0.24), capacity: 20 },
+    { kind: "voting", label: "Terminal de votacion", gridX: Math.round(col * 0.73), gridY: Math.round(row * 0.42), capacity: 14 },
+    { kind: "evidence", label: "Estacion de evidencia", gridX: Math.round(col * 0.42), gridY: Math.round(row * 0.69), capacity: 24 },
+    { kind: "review", label: "Mesa de revision", gridX: Math.round(col * 0.78), gridY: Math.round(row * 0.72), capacity: 16 },
+    { kind: "workstation", label: "Estaciones de trabajo", gridX: Math.round(col * 0.22), gridY: Math.round(row * 0.76), capacity: 28 },
+    { kind: "challenge_plot", label: "Parcela del reto", gridX: Math.round(col * 0.84), gridY: Math.round(row * 0.17), elevation: 1, capacity: 18 },
   ];
 }
 
@@ -170,6 +171,35 @@ export function motionForStation(station: IsoStationKind, hasBubble: boolean): I
   return "idle";
 }
 
+function clampTile(value: number, max: number): number {
+  return Math.max(1, Math.min(max - 2, value));
+}
+
+function stationAnchorForAgent(
+  station: IsoStation,
+  stationKind: IsoStationKind,
+  stationPeerCount: number,
+  index: number,
+  hash: number,
+  sizing: IsoRoomSizing,
+) {
+  const podOffsets: Partial<Record<IsoStationKind, [number, number][]>> = {
+    conversation: [[0, 0], [-5, 2], [4, 3], [-3, -3], [6, -1]],
+    deliberation: [[0, 0], [-5, 2], [5, 2], [0, -5], [-3, 6], [4, -4]],
+    evidence: [[0, 0], [-5, 2], [5, 1], [0, 4]],
+    workstation: [[0, 0], [-5, -1], [4, 3], [-2, 4]],
+    review: [[0, 0], [-3, 2], [3, -1]],
+  };
+  const offsets = podOffsets[stationKind];
+  if (!offsets || stationPeerCount <= 6) return station;
+  const pod = offsets[(hash + Math.floor(index / 5)) % offsets.length]!;
+  return {
+    ...station,
+    gridX: clampTile(station.gridX + pod[0], sizing.columns),
+    gridY: clampTile(station.gridY + pod[1], sizing.rows),
+  };
+}
+
 export function projectAgentsIntoRoom(
   agents: AgentSemanticState[],
   district: Landmark,
@@ -201,15 +231,16 @@ export function projectAgentsIntoRoom(
     const stationPeers = byStation.get(stationKind) ?? [];
     const index = Math.max(0, stationPeers.findIndex((peer) => peer.agent_id === agent.agent_id));
     const hash = stableHash(`${VISUAL_SCHEMA_VERSION}|${district.id}|${agent.agent_id}`);
-    let tileX = station.gridX;
-    let tileY = station.gridY;
+    const anchor = stationAnchorForAgent(station, stationKind, stationPeers.length, index, hash, sizing);
+    let tileX = anchor.gridX;
+    let tileY = anchor.gridY;
     let found = false;
     for (let ring = 0; ring <= Math.max(sizing.columns, sizing.rows) && !found; ring += 1) {
       const candidates: [number, number][] = [];
       for (let dx = -ring; dx <= ring; dx += 1) {
         for (let dy = -ring; dy <= ring; dy += 1) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
-          candidates.push([station.gridX + dx, station.gridY + dy]);
+          candidates.push([anchor.gridX + dx, anchor.gridY + dy]);
         }
       }
       candidates.sort((left, right) =>
@@ -224,7 +255,7 @@ export function projectAgentsIntoRoom(
         found = true;
       }
     }
-    const point = isoToScreen(tileX, tileY, station.elevation ?? 0, sizing);
+    const point = isoToScreen(tileX, tileY, anchor.elevation ?? 0, sizing);
     const message = bubbleAgentIds.has(agent.agent_id)
       ? latestMessageForAgent(agent.agent_id, messages)
       : undefined;
@@ -237,7 +268,7 @@ export function projectAgentsIntoRoom(
       station: stationKind,
       x,
       y,
-      z: station.gridX + station.gridY + index,
+      z: tileX + tileY + index,
       facing,
       bubble,
       motion: motionForStation(stationKind, Boolean(bubble)),
