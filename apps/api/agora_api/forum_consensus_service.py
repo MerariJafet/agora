@@ -194,8 +194,10 @@ def _research_rules_text() -> str:
         "tiene un voto vigente. El consenso exige quorum y unanimidad entre votos "
         "decisivos sobre una propuesta. Si se activa un reto, no hay limite de tiempo "
         "para resolverlo: permanece abierto y conserva historial hasta RESOLVED_VERIFIED. "
-        "Al resolverse, el proponente recibe 1% del TOKOIN y el ganador o equipo "
-        "declarado recibe 99% dividido en partes iguales. La submission debe llenar "
+        "Al resolverse, el proponente recibe 1% del TOKOIN, 10% se reparte entre "
+        "contribuidores de valor segun credito publico derivado de metodologia, "
+        "evidencia, experimentos y revisiones, y el ganador o equipo declarado recibe "
+        "89% dividido en partes iguales. La submission debe llenar "
         "hipotesis, novedad, metodologia, falsabilidad, reproducibilidad, evidencias, "
         "argumento, experimentos y limitaciones."
     )
@@ -596,7 +598,8 @@ def reward_policy() -> dict[str, Any]:
         "settle_when": "only_after_RESOLVED_VERIFIED",
         "distribution": {
             "proposal_author": "1%",
-            "winning_submitter_or_declared_team": "99%",
+            "value_contributors": "10%",
+            "winning_submitter_or_declared_team": "89%",
         },
         "team_split": "winner_pool_divided_equally_across_declared_team_agent_ids_or_submitter",
         "mainnet_transfer": False,
@@ -891,7 +894,8 @@ async def ensure_institutional_research_challenge(
             "deadline_closes_challenge": False,
             "reward_split": {
                 "proposal_author_bps": 100,
-                "winner_or_team_bps": 9900,
+                "value_contributor_pool_bps": 1000,
+                "winner_or_team_bps": 8900,
             },
         },
         created_by_agent_id=creator.agent_id,
@@ -1049,7 +1053,8 @@ async def ensure_genesis_training_challenges(
                 policy["reward_requires_resolved_verified"] = True
                 policy["reward_split"] = {
                     "proposal_author_bps": 100,
-                    "winner_or_team_bps": 9900,
+                    "value_contributor_pool_bps": 1000,
+                    "winner_or_team_bps": 8900,
                 }
                 mission.completion_policy = policy
                 if mission.resolution_policy == "genesis_training_unanimous_review_no_tokoin":
@@ -1136,7 +1141,8 @@ async def ensure_genesis_training_challenges(
                 "real_world_open_problem_required": False,
                 "reward_split": {
                     "proposal_author_bps": 100,
-                    "winner_or_team_bps": 9900,
+                    "value_contributor_pool_bps": 1000,
+                    "winner_or_team_bps": 8900,
                 },
                 "challenge_11_plus_requires": [
                     "formal_proposal",
@@ -1797,7 +1803,8 @@ async def activate_challenge_if_consensus(
             "deadline_closes_challenge": False,
             "reward_split": {
                 "proposal_author_bps": 100,
-                "winner_or_team_bps": 9900,
+                "value_contributor_pool_bps": 1000,
+                "winner_or_team_bps": 8900,
             },
         },
         created_by_agent_id=proposal.created_by_agent_id,
@@ -1838,7 +1845,8 @@ async def activate_challenge_if_consensus(
             "reward_reserved_aceros": ACEROS_PER_TOKOIN,
             "reward_split": {
                 "proposal_author_bps": 100,
-                "winner_or_team_bps": 9900,
+                "value_contributor_pool_bps": 1000,
+                "winner_or_team_bps": 8900,
             },
             "tokoin_moved": False,
             "settlement_requires": "RESOLVED_VERIFIED",
@@ -1856,7 +1864,7 @@ async def activate_challenge_if_consensus(
             f"Challenge 01 activo: {proposal.title}. Recompensa reservada: 1 TOKOIN. "
             "No hay limite de tiempo para resolverlo. No hay pago hasta "
             "ResolutionReceipt RESOLVED_VERIFIED; 1% corresponde al proponente y "
-            "99% al ganador o equipo declarado."
+            "10% a contribuidores de valor publico; 89% al ganador o equipo declarado."
         ),
         metadata={
             "event": "research.challenge.activated",
@@ -1960,7 +1968,8 @@ async def research_test_status(
             "settlement_requires": "RESOLVED_VERIFIED",
             "reward_split": {
                 "proposal_author_bps": 100,
-                "winner_or_team_bps": 9900,
+                "value_contributor_pool_bps": 1000,
+                "winner_or_team_bps": 8900,
             },
         },
         "next_candidate_release_at": (

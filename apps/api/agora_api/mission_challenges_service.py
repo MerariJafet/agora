@@ -3,8 +3,8 @@
 Retos are Mission-hosted, temporary world problems with a fixed review rule:
 an enrolled Agent may publish a deliberate solution claim, and every other
 active participant must unanimously accept it before the world transfers the
-configured TOKOIN reward from treasury. This stays separate from Arena scoring:
-there are no rankings, no points and no truth score.
+configured TOKOIN reward from treasury. Research-board value signals are
+reputation/contribution signals, not truth scores and not Arena scoring.
 """
 
 import json
@@ -73,9 +73,23 @@ class DuplicateChallengeSubmission(AgoraError):
 
 REWARD_BASIS_POINTS = 10_000
 PROPOSER_REWARD_BPS = 100
-WINNER_REWARD_BPS = REWARD_BASIS_POINTS - PROPOSER_REWARD_BPS
+VALUE_POOL_REWARD_BPS = 1_000
+WINNER_REWARD_BPS = REWARD_BASIS_POINTS - PROPOSER_REWARD_BPS - VALUE_POOL_REWARD_BPS
 CHALLENGE_RESOLUTION_PAPER_VERSION = "challenge-resolution-paper.v1"
 CHALLENGE_REFRAME_COOLDOWN_SECONDS = 3600
+
+RESEARCH_BOARD_SECTION_IDS = (
+    "hypothesis",
+    "experiment",
+    "evidence",
+    "support",
+    "objection",
+    "failed_experiment",
+    "result",
+    "reframe",
+    "review",
+    "merge_candidate",
+)
 
 
 COMPUTABLE_PRIMARY_EVIDENCE_REQUIREMENTS: dict[str, dict[str, Any]] = {
@@ -336,6 +350,277 @@ def _require_public_argument(value: Any, *, field: str) -> None:
         )
 
 
+def _submission_artifact_version_ids(submission: MissionChallengeSubmission) -> list[str]:
+    return submission.artifact_version_ids or (
+        [submission.artifact_version_id] if submission.artifact_version_id else []
+    )
+
+
+def _research_sections_for_submission(submission: MissionChallengeSubmission) -> list[str]:
+    sections = ["hypothesis"]
+    experiments = submission.experiments or {}
+    if experiments:
+        sections.append("experiment")
+        failed_markers = ("counterexample", "failed", "negative_result", "failure")
+        if any(marker in experiments for marker in failed_markers):
+            sections.append("failed_experiment")
+    if (
+        _submission_artifact_version_ids(submission)
+        or submission.evidence_ids
+        or submission.claim_ids
+    ):
+        sections.append("evidence")
+    if submission.limitations:
+        sections.append("objection")
+    if submission.state in {"submitted", "accepted"}:
+        sections.append("result")
+    if submission.state == "accepted":
+        sections.append("merge_candidate")
+    return list(dict.fromkeys(sections))
+
+
+def _submission_value_credit(
+    submission: MissionChallengeSubmission,
+    *,
+    votes: list[MissionChallengeVote],
+) -> int:
+    """Derived non-monetary contribution credit for the research board.
+
+    The credit helps agents understand where value is accumulating. It is not a
+    truth score and only becomes a TOKOIN allocation input after formal
+    resolution has already passed unanimous review.
+    """
+
+    credit = 10
+    if submission.experiments:
+        credit += 20
+    if submission.public_rationale or submission.reasoning_outline:
+        credit += 10
+    if submission.limitations:
+        credit += 10
+    credit += min(len(_submission_artifact_version_ids(submission)) * 30, 60)
+    credit += min(len(submission.evidence_ids or []) * 20, 60)
+    credit += min(len(submission.claim_ids or []) * 15, 45)
+    substantive_reviews = [
+        vote for vote in votes if len((vote.rationale or "").strip()) >= 20
+    ]
+    credit += min(len(substantive_reviews) * 8, 40)
+    if any(vote.resolved for vote in votes):
+        credit += 10
+    return credit
+
+
+def _branch_status(
+    mission: Mission,
+    submission: MissionChallengeSubmission,
+    *,
+    votes: list[MissionChallengeVote],
+) -> str:
+    if submission.state == "accepted":
+        return "merged_verified_resolution"
+    blockers = _submission_evidence_assessment(mission, submission)["blockers"]
+    if blockers:
+        return "blocked_primary_evidence"
+    if any(not vote.resolved and not vote.abstained for vote in votes):
+        return "needs_reframe"
+    if votes:
+        return "under_peer_review"
+    return "open"
+
+
+def _value_contribution_credits(
+    submissions: list[MissionChallengeSubmission],
+    votes_by_submission: dict[str, list[MissionChallengeVote]],
+) -> dict[str, int]:
+    credits: dict[str, int] = {}
+    for submission in submissions:
+        submission_credit = _submission_value_credit(
+            submission, votes=votes_by_submission.get(submission.submission_id, [])
+        )
+        team_ids = list(dict.fromkeys(submission.team_agent_ids or [submission.agent_id]))
+        share = max(1, submission_credit // max(1, len(team_ids)))
+        for agent_id in team_ids:
+            credits[agent_id] = credits.get(agent_id, 0) + share
+        for vote in votes_by_submission.get(submission.submission_id, []):
+            if len((vote.rationale or "").strip()) >= 20:
+                review_credit = 8 + min(len(vote.review_evidence_ids or []) * 5, 15)
+                if vote.abstained or not vote.resolved:
+                    review_credit += 4
+                credits[vote.voter_agent_id] = (
+                    credits.get(vote.voter_agent_id, 0) + review_credit
+                )
+    return credits
+
+
+def _split_value_pool(value_pool: int, credits: dict[str, int]) -> dict[str, int]:
+    positive = {agent_id: credit for agent_id, credit in credits.items() if credit > 0}
+    total_credit = sum(positive.values())
+    if value_pool <= 0 or total_credit <= 0:
+        return {}
+    ordered = sorted(positive.items(), key=lambda item: (-item[1], item[0]))
+    allocations: dict[str, int] = {}
+    allocated = 0
+    for agent_id, credit in ordered:
+        amount = (value_pool * credit) // total_credit
+        if amount > 0:
+            allocations[agent_id] = amount
+            allocated += amount
+    remainder = value_pool - allocated
+    for agent_id, _credit in ordered:
+        if remainder <= 0:
+            break
+        allocations[agent_id] = allocations.get(agent_id, 0) + 1
+        remainder -= 1
+    return allocations
+
+
+def research_board_view(
+    mission: Mission,
+    *,
+    submissions: list[MissionChallengeSubmission],
+    votes_by_submission: dict[str, list[MissionChallengeVote]],
+) -> dict[str, Any]:
+    branches: list[dict[str, Any]] = []
+    section_counts = {section_id: 0 for section_id in RESEARCH_BOARD_SECTION_IDS}
+    graph_nodes: list[dict[str, Any]] = [
+        {
+            "id": f"challenge:{mission.mission_id}",
+            "kind": "challenge",
+            "label": mission.title,
+            "state": mission.state,
+        }
+    ]
+    graph_edges = []
+
+    for submission in sorted(submissions, key=lambda item: item.created_at):
+        votes = votes_by_submission.get(submission.submission_id, [])
+        sections = _research_sections_for_submission(submission)
+        for section_id in sections:
+            if section_id in section_counts:
+                section_counts[section_id] += 1
+        branch_id = f"branch:{submission.submission_id}"
+        value_credit = _submission_value_credit(submission, votes=votes)
+        branch = {
+            "branch_id": branch_id,
+            "submission_id": submission.submission_id,
+            "agent_id": submission.agent_id,
+            "team_agent_ids": submission.team_agent_ids or [submission.agent_id],
+            "status": _branch_status(mission, submission, votes=votes),
+            "sections": sections,
+            "value_credit": value_credit,
+            "votes_count": len(votes),
+            "resolved_votes": len([vote for vote in votes if vote.resolved]),
+            "abstentions_count": len([vote for vote in votes if vote.abstained]),
+            "last_public_argument": (
+                submission.public_rationale or submission.reasoning_outline or ""
+            )[:280],
+        }
+        branches.append(branch)
+        graph_nodes.append(
+            {
+                "id": branch_id,
+                "kind": "research_branch",
+                "label": f"{submission.agent_id[-6:]} proposal",
+                "state": branch["status"],
+                "value_credit": value_credit,
+            }
+        )
+        graph_edges.append(
+            {
+                "from": f"challenge:{mission.mission_id}",
+                "to": branch_id,
+                "kind": "opens_branch",
+            }
+        )
+        for artifact_id in _submission_artifact_version_ids(submission)[:5]:
+            node_id = f"artifact:{artifact_id}"
+            graph_nodes.append(
+                {
+                    "id": node_id,
+                    "kind": "artifact_version",
+                    "label": artifact_id[-8:],
+                    "trust": "untrusted_remote_until_reviewed",
+                }
+            )
+            graph_edges.append({"from": branch_id, "to": node_id, "kind": "publishes"})
+        for evidence_id in (submission.evidence_ids or [])[:5]:
+            node_id = f"evidence:{evidence_id}"
+            graph_nodes.append(
+                {
+                    "id": node_id,
+                    "kind": "evidence",
+                    "label": evidence_id[-8:],
+                    "trust": "metadata_only_not_agora_verified",
+                }
+            )
+            graph_edges.append({"from": branch_id, "to": node_id, "kind": "supports_with"})
+        for claim_id in (submission.claim_ids or [])[:5]:
+            node_id = f"claim:{claim_id}"
+            graph_nodes.append(
+                {"id": node_id, "kind": "claim", "label": claim_id[-8:]}
+            )
+            graph_edges.append({"from": branch_id, "to": node_id, "kind": "claims"})
+
+    branch_summary: dict[str, int] = {}
+    for branch in branches:
+        status = str(branch["status"])
+        branch_summary[status] = branch_summary.get(status, 0) + 1
+
+    return {
+        "board_version": "challenge-research-board.v1",
+        "mission_id": mission.mission_id,
+        "purpose": "solve_the_challenge_with_public_methodology",
+        "agent_operating_goal": (
+            "If an Agent enters this challenge world, its local goal is to help "
+            "resolve this problem by publishing public hypotheses, experiments, "
+            "evidence, objections, reframes and reviews."
+        ),
+        "sections": [
+            {
+                "section_id": section_id,
+                "label": section_id.replace("_", " ").title(),
+                "entries_count": section_counts[section_id],
+            }
+            for section_id in RESEARCH_BOARD_SECTION_IDS
+        ],
+        "branches": branches,
+        "branch_summary": branch_summary,
+        "contribution_value_policy": {
+            "currency": "reputation_points_until_resolution",
+            "tokoin_pool_bps_on_resolution": VALUE_POOL_REWARD_BPS,
+            "proposal_author_bps_on_resolution": PROPOSER_REWARD_BPS,
+            "winner_or_team_bps_on_resolution": WINNER_REWARD_BPS,
+            "not_a_truth_score": True,
+            "settlement_trigger": "RESOLVED_VERIFIED",
+            "distribution_basis": (
+                "Derived from public submissions, linked artifacts/evidence/claims, "
+                "experiments, limitations and substantive peer-review rationales."
+            ),
+        },
+        "value_signals": {
+            "hypothesis_or_proposal": 10,
+            "experiments": 20,
+            "artifact_linked": "up_to_60",
+            "evidence_linked": "up_to_60",
+            "claim_linked": "up_to_45",
+            "limitations_or_negative_findings": 10,
+            "substantive_review_rationale": "up_to_40_per_submission_context",
+            "reframe_after_criticism": "tracked_as_public_forum_event",
+        },
+        "collaboration_model": {
+            "branch": "one submitted solution thread or team path",
+            "commit": "public submission, evidence attachment, vote, abstention or reframe",
+            "review": "peer vote with public rationale",
+            "merge": "accepted verified resolution after unanimous active review",
+        },
+        "graph": {
+            "nodes": graph_nodes[:120],
+            "edges": graph_edges[:180],
+            "truncated": len(graph_nodes) > 120 or len(graph_edges) > 180,
+        },
+    }
+
+
 def challenge_view(
     mission: Mission,
     *,
@@ -414,9 +699,17 @@ def challenge_view(
         },
         "reward_split": {
             "proposal_author_bps": PROPOSER_REWARD_BPS,
+            "value_contributor_pool_bps": VALUE_POOL_REWARD_BPS,
             "winner_or_team_bps": WINNER_REWARD_BPS,
             "team_split": "equal_aceros_per_declared_team_member",
+            "value_pool": (
+                "distributed only on RESOLVED_VERIFIED using public contribution "
+                "credits; credits are not TOKOIN before resolution"
+            ),
         },
+        "research_board": research_board_view(
+            mission, submissions=submission_rows, votes_by_submission=vote_map
+        ),
         "max_participants": mission.max_participants,
         "winning_submission_id": mission.winning_submission_id,
         "resolved_by_agent_id": mission.resolved_by_agent_id,
@@ -428,7 +721,9 @@ def challenge_view(
         "resolved_votes": resolved_votes_count,
         "abstentions_count": abstentions_count,
         "submissions": [
-            submission_view(row, votes=vote_map.get(row.submission_id, []))
+            submission_view(
+                row, mission=mission, votes=vote_map.get(row.submission_id, [])
+            )
             for row in submission_rows
         ],
     }
@@ -437,10 +732,18 @@ def challenge_view(
 def submission_view(
     submission: MissionChallengeSubmission,
     *,
+    mission: Mission | None = None,
     votes: list[MissionChallengeVote] | None = None,
 ) -> dict[str, Any]:
     resolved_votes = len([vote for vote in votes or [] if vote.resolved])
     abstentions = len([vote for vote in votes or [] if vote.abstained])
+    branch_status = (
+        _branch_status(mission, submission, votes=votes or [])
+        if mission is not None
+        else "open"
+        if submission.state in {"draft", "submitted"}
+        else submission.state
+    )
     return {
         "submission_id": submission.submission_id,
         "mission_id": submission.mission_id,
@@ -462,6 +765,9 @@ def submission_view(
         "votes_count": len(votes or []),
         "resolved_votes": resolved_votes,
         "abstentions_count": abstentions,
+        "research_sections": _research_sections_for_submission(submission),
+        "branch_status": branch_status,
+        "value_credit": _submission_value_credit(submission, votes=votes or []),
         "review_rationales": [
             {
                 "voter_agent_id": vote.voter_agent_id,
@@ -506,6 +812,9 @@ def _challenge_resolution_paper_bytes(
     reward_aceros: int,
     proposer_reward_aceros: int,
     winner_reward_aceros: int,
+    value_contributor_reward_aceros: int,
+    value_contributor_allocations: dict[str, int],
+    value_contribution_credits: dict[str, int],
 ) -> bytes:
     resolved_votes = [vote for vote in votes if vote.resolved and not vote.abstained]
     abstentions = [vote for vote in votes if vote.abstained]
@@ -577,7 +886,15 @@ def _challenge_resolution_paper_bytes(
             "proposal_author_agent_id": mission.created_by_agent_id,
             "proposal_author_aceros": proposer_reward_aceros,
             "winner_or_team_aceros": winner_reward_aceros,
+            "value_contributor_pool_aceros": value_contributor_reward_aceros,
+            "value_contributor_allocations": value_contributor_allocations,
+            "value_contribution_credits": value_contribution_credits,
             "aceros_per_tokoin": ACEROS_PER_TOKOIN,
+            "split_basis_points": {
+                "proposal_author_bps": PROPOSER_REWARD_BPS,
+                "value_contributor_pool_bps": VALUE_POOL_REWARD_BPS,
+                "winner_or_team_bps": WINNER_REWARD_BPS,
+            },
         },
         "provenance": {
             "created_from": [
@@ -631,6 +948,9 @@ async def _publish_challenge_resolution_paper(
     reward_aceros: int,
     proposer_reward_aceros: int,
     winner_reward_aceros: int,
+    value_contributor_reward_aceros: int,
+    value_contributor_allocations: dict[str, int],
+    value_contribution_credits: dict[str, int],
     trace_id: str | None,
 ) -> ArtifactVersion:
     winner_agent = await session.get(Agent, submission.agent_id)
@@ -646,6 +966,9 @@ async def _publish_challenge_resolution_paper(
         reward_aceros=reward_aceros,
         proposer_reward_aceros=proposer_reward_aceros,
         winner_reward_aceros=winner_reward_aceros,
+        value_contributor_reward_aceros=value_contributor_reward_aceros,
+        value_contributor_allocations=value_contributor_allocations,
+        value_contribution_credits=value_contribution_credits,
     )
     blob = await get_artifact_store().put_stream(_single_chunk(paper_bytes))
     artifact = await create_artifact(
@@ -770,8 +1093,13 @@ def capability_manifest() -> dict[str, Any]:
         "methodology_template": challenge_methodology_template(),
         "reward_split": {
             "proposal_author_bps": PROPOSER_REWARD_BPS,
+            "value_contributor_pool_bps": VALUE_POOL_REWARD_BPS,
             "winner_or_team_bps": WINNER_REWARD_BPS,
             "team_split": "equal_aceros_per_declared_team_member",
+            "value_pool": (
+                "10% is distributed at RESOLVED_VERIFIED from public research-board "
+                "contribution credits; no TOKOIN moves before resolution."
+            ),
         },
         "actions": [
             {
@@ -1352,6 +1680,7 @@ async def create_submission_draft(
             return {
                 "submission": submission_view(
                     existing,
+                    mission=mission,
                     votes=await _challenge_votes(session, existing.submission_id),
                 ),
                 "receipt": None,
@@ -1412,7 +1741,7 @@ async def create_submission_draft(
         provenance_world_instance_id=provenance["world_instance_id"],
     )
     return {
-        "submission": submission_view(submission),
+        "submission": submission_view(submission, mission=mission),
         "receipt": receipt_view(
             event.event_id, "create_submission_draft", mission_id, submission.submission_id
         ),
@@ -1460,7 +1789,7 @@ async def attach_submission_evidence(
         **unknown_signal_event_provenance(submission.mission_id),
     )
     return {
-        "submission": submission_view(submission),
+        "submission": submission_view(submission, mission=mission),
         "receipt": receipt_view(
             event.event_id, "attach_submission_evidence", submission.mission_id, submission_id
         ),
@@ -1485,7 +1814,9 @@ async def finalize_submission_draft(
     if submission.state == "submitted":
         return {
             "submission": submission_view(
-                submission, votes=await _challenge_votes(session, submission_id)
+                submission,
+                mission=mission,
+                votes=await _challenge_votes(session, submission_id),
             ),
             "receipt": None,
             "next_allowed_actions": await next_allowed_actions(
@@ -1534,7 +1865,7 @@ async def finalize_submission_draft(
         **unknown_signal_event_provenance(submission.mission_id),
     )
     return {
-        "submission": submission_view(submission),
+        "submission": submission_view(submission, mission=mission),
         "receipt": receipt_view(
             event.event_id, "finalize_submission", submission.mission_id, submission_id
         ),
@@ -1574,7 +1905,7 @@ async def withdraw_submission(
         **unknown_signal_event_provenance(submission.mission_id),
     )
     return {
-        "submission": submission_view(submission),
+        "submission": submission_view(submission, mission=mission),
         "receipt": receipt_view(
             event.event_id, "withdraw_submission", submission.mission_id, submission_id
         ),
@@ -1624,7 +1955,7 @@ async def reframe_submission_argument(
     ).scalar_one_or_none()
     if existing is not None:
         return {
-            "submission": submission_view(submission, votes=votes),
+            "submission": submission_view(submission, mission=mission, votes=votes),
             "reframe": existing.payload,
             "receipt": receipt_view(
                 existing.event_id, "reframe_challenge_argument", mission.mission_id, submission_id
@@ -1668,7 +1999,7 @@ async def reframe_submission_argument(
         **unknown_signal_event_provenance(mission.mission_id),
     )
     return {
-        "submission": submission_view(submission, votes=votes),
+        "submission": submission_view(submission, mission=mission, votes=votes),
         "reframe": event.payload,
         "receipt": receipt_view(
             event.event_id, "reframe_challenge_argument", mission.mission_id, submission_id
@@ -1906,7 +2237,7 @@ async def vote_solution(
                 )
             ).scalars().all()
             return {
-                "submission": submission_view(submission, votes=list(votes)),
+                "submission": submission_view(submission, mission=mission, votes=list(votes)),
                 "resolved": False,
                 "mission": challenge_view(
                     mission,
@@ -1950,7 +2281,7 @@ async def vote_solution(
         )
     ).scalars().all()
     return {
-        "submission": submission_view(submission, votes=list(votes)),
+        "submission": submission_view(submission, mission=mission, votes=list(votes)),
         "resolved": resolution,
         "mission": challenge_view(
             mission,
@@ -2003,9 +2334,13 @@ async def _maybe_resolve(
 
     reward = mission.reward_aceros if mission.reward_aceros is not None else ACEROS_PER_TOKOIN
     proposer_amount = (reward * PROPOSER_REWARD_BPS) // REWARD_BASIS_POINTS
-    winner_pool = reward - proposer_amount
+    value_pool = (reward * VALUE_POOL_REWARD_BPS) // REWARD_BASIS_POINTS
+    winner_pool = reward - proposer_amount - value_pool
     proposer_entry = None
     winner_entries = []
+    value_entries = []
+    value_allocations: dict[str, int] = {}
+    value_credits: dict[str, int] = {}
     if reward > 0:
         if proposer_amount > 0:
             proposer_entry = await transfer_from_treasury(
@@ -2015,6 +2350,51 @@ async def _maybe_resolve(
                 reason="mission_challenge_proposal_author_reward",
                 mission_id=mission.mission_id,
                 trace_id=trace_id,
+            )
+        challenge_submissions = (
+            await session.execute(
+                select(MissionChallengeSubmission).where(
+                    MissionChallengeSubmission.mission_id == mission.mission_id,
+                    MissionChallengeSubmission.state.in_(("submitted", "accepted")),
+                )
+            )
+        ).scalars().all()
+        submission_ids = [row.submission_id for row in challenge_submissions]
+        challenge_votes: list[MissionChallengeVote] = []
+        if submission_ids:
+            challenge_votes = list(
+                (
+                    await session.execute(
+                        select(MissionChallengeVote).where(
+                            MissionChallengeVote.submission_id.in_(submission_ids)
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        challenge_votes_by_submission: dict[str, list[MissionChallengeVote]] = {}
+        for challenge_vote in challenge_votes:
+            challenge_votes_by_submission.setdefault(challenge_vote.submission_id, []).append(
+                challenge_vote
+            )
+        value_credits = _value_contribution_credits(
+            list(challenge_submissions), challenge_votes_by_submission
+        )
+        value_allocations = _split_value_pool(value_pool, value_credits)
+        if not value_allocations:
+            winner_pool += value_pool
+            value_pool = 0
+        for agent_id, amount in value_allocations.items():
+            value_entries.append(
+                await transfer_from_treasury(
+                    session,
+                    to_agent_id=agent_id,
+                    amount=amount,
+                    reason="mission_challenge_value_contribution_reward",
+                    mission_id=mission.mission_id,
+                    trace_id=trace_id,
+                )
             )
         team_agent_ids = list(dict.fromkeys(submission.team_agent_ids or [submission.agent_id]))
         if not team_agent_ids:
@@ -2049,6 +2429,9 @@ async def _maybe_resolve(
         reward_aceros=reward,
         proposer_reward_aceros=proposer_amount,
         winner_reward_aceros=winner_pool,
+        value_contributor_reward_aceros=value_pool,
+        value_contributor_allocations=value_allocations,
+        value_contribution_credits=value_credits,
         trace_id=trace_id,
     )
     source_artifact_version_ids = submission.artifact_version_ids or (
@@ -2075,6 +2458,9 @@ async def _maybe_resolve(
             "proposal_author_agent_id": mission.created_by_agent_id,
             "proposer_reward_entry_id": proposer_entry.entry_id if proposer_entry else None,
             "winner_reward_entry_ids": [entry.entry_id for entry in winner_entries],
+            "value_contributor_reward_entry_ids": [
+                entry.entry_id for entry in value_entries
+            ],
             "reward_entry_id": winner_entries[0].entry_id if winner_entries else None,
             "reward_aceros": reward,
             "resolution_paper_artifact_version_id": resolution_paper.artifact_version_id,
@@ -2082,7 +2468,11 @@ async def _maybe_resolve(
             "reward_split": {
                 "proposal_author_aceros": proposer_amount,
                 "winner_or_team_aceros": winner_pool,
+                "value_contributor_pool_aceros": value_pool,
+                "value_contributor_allocations": value_allocations,
+                "value_contribution_credits": value_credits,
                 "proposal_author_bps": PROPOSER_REWARD_BPS,
+                "value_contributor_pool_bps": VALUE_POOL_REWARD_BPS,
                 "winner_or_team_bps": WINNER_REWARD_BPS,
             },
             "resolution_policy": mission.resolution_policy,

@@ -598,6 +598,114 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
 .submission-evidence-panel p {
   margin: 0;
 }
+.research-board {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  border: 1px solid #55d6ff2b;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background:
+    linear-gradient(135deg, #07131f 0%, #0d1725 55%, #121528 100%);
+}
+.research-board-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.research-board-header div {
+  display: grid;
+  gap: 0.18rem;
+}
+.research-board-header span {
+  color: var(--agora-accent);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.research-board-header strong {
+  max-width: 74ch;
+  color: #e7f2ff;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.methodology-strip,
+.section-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+}
+.methodology-strip span,
+.section-chip-row span {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  border: 1px solid #ffffff18;
+  border-radius: 999px;
+  padding: 0.25rem 0.52rem;
+  color: var(--agora-muted);
+  background: #ffffff06;
+  font-size: 0.68rem;
+  text-transform: capitalize;
+}
+.methodology-strip span.filled,
+.section-chip-row span {
+  border-color: #72e2a34d;
+  color: #c9f8dc;
+  background: #153b2733;
+}
+.methodology-strip b {
+  color: #fff;
+  font-weight: 700;
+}
+.branch-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.55rem;
+}
+.branch-node {
+  border: 1px solid #ffffff18;
+  border-left: 3px solid #5fb3ff;
+  border-radius: 7px;
+  padding: 0.6rem;
+  background: #060d17;
+}
+.branch-node.blocked_primary_evidence {
+  border-left-color: #e0b85f;
+}
+.branch-node.needs_reframe {
+  border-left-color: #ff8f70;
+}
+.branch-node.merged_verified_resolution {
+  border-left-color: #72e2a3;
+}
+.branch-node header,
+.branch-node footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: space-between;
+  color: var(--agora-muted);
+  font-size: 0.68rem;
+}
+.branch-node header strong {
+  color: #e7f2ff;
+}
+.branch-node header span {
+  color: var(--agora-accent);
+  text-transform: capitalize;
+}
+.branch-node p {
+  display: -webkit-box;
+  margin: 0.45rem 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  color: #c8d6e7;
+  font-size: 0.74rem;
+}
 .evidence-pill-row {
   display: flex;
   flex-wrap: wrap;

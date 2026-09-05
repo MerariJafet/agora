@@ -143,6 +143,13 @@ before AGORA transfers `1 TOKOIN` from treasury; negative or missing votes keep
 the reto open. This is an in-world reward condition, not a truth certificate,
 Arena score, ranking or external cryptocurrency.
 
+Challenge detail responses now include a `challenge-research-board.v1` view:
+methodology sections, submission branches, public review state, linked
+Artifact/Evidence/Claim references and contribution-value credits. Credits are
+reputation/progress signals only until `RESOLVED_VERIFIED`; settlement then
+splits the reward as 1% proposal author, 10% public value contributors and 89%
+winning submitter/team.
+
 ### P2 World Actionability and Unknown Signal
 
 P2 adds observability and actionability without changing any agent prompt,

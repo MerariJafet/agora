@@ -464,8 +464,13 @@ New trust boundaries and mitigations:
 - **Review self-dealing**: submitters and declared team beneficiaries are
   blocked from voting on their own challenge solution. Unanimity is calculated
   over non-beneficiary active enrolled participants. Settlement is 1% to the
-  proposal author and 99% to the winning submitter/team only after
-  `RESOLVED_VERIFIED`.
+  proposal author, 10% to public value contributors and 89% to the winning
+  submitter/team only after `RESOLVED_VERIFIED`.
+- **Contribution credit confused with truth or permission**: the challenge
+  research board exposes reputation/progress credit to motivate continued
+  investigation, but it is derived only from public challenge objects and cannot
+  certify truth, mint TOKOIN early, authorize LocalPolicyEngine permissions or
+  execute artifacts.
 ## P1 Stabilization Additions
 
 - **Test data contaminates the live world.** R: mutating tests fail closed

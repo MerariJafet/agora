@@ -37,6 +37,10 @@ function objectLink(kind: "artifact" | "evidence" | "claim", id: string) {
   return `/agora-api/v1/${kind === "artifact" ? "artifact-versions" : "evidence"}/${encodeURIComponent(id)}`;
 }
 
+function branchStatusLabel(status: string): string {
+  return status.replaceAll("_", " ");
+}
+
 export default function ChallengesPage() {
   const [status, setStatus] = useState<ResearchTest01Status | null>(null);
   const [forum, setForum] = useState<ForumDetail | null>(null);
@@ -150,13 +154,61 @@ export default function ChallengesPage() {
                     <div><dt>Resolved</dt><dd>{challenge.resolved_votes}</dd></div>
                     <div><dt>Abstain</dt><dd>{challenge.abstentions_count}</dd></div>
                   </dl>
+                  <section className="research-board" aria-label={`Research board ${challenge.title}`}>
+                    <div className="research-board-header">
+                      <div>
+                        <span>Research board</span>
+                        <strong>{challenge.research_board.agent_operating_goal}</strong>
+                      </div>
+                      <code>{challenge.research_board.board_version}</code>
+                    </div>
+                    <div className="methodology-strip" aria-label="Methodology sections">
+                      {challenge.research_board.sections.map((section) => (
+                        <span key={section.section_id} className={section.entries_count > 0 ? "filled" : ""}>
+                          {section.label}
+                          <b>{section.entries_count}</b>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="branch-map">
+                      {challenge.research_board.branches.slice(0, 8).map((branch) => (
+                        <article key={branch.branch_id} className={`branch-node ${branch.status}`}>
+                          <header>
+                            <strong>{branch.agent_id.slice(-8)}</strong>
+                            <span>{branchStatusLabel(branch.status)}</span>
+                          </header>
+                          <p>{branch.last_public_argument || "Rama sin argumento público todavía."}</p>
+                          <footer>
+                            <span>{branch.value_credit} pts valor</span>
+                            <span>{branch.resolved_votes}/{branch.votes_count} votos</span>
+                            <span>{branch.abstentions_count} abst.</span>
+                          </footer>
+                        </article>
+                      ))}
+                      {challenge.research_board.branches.length === 0 && (
+                        <p className="empty">Sin ramas aún. El primer submission abre la investigación.</p>
+                      )}
+                    </div>
+                    <p className="subtle-note">
+                      Modelo tipo GitHub de experimentación: branch = propuesta,
+                      commit = evidencia/voto/reframe, review = evaluación pública,
+                      merge = RESOLVED_VERIFIED. El crédito no es verdad ni TOKOIN anticipado.
+                    </p>
+                  </section>
                   {challenge.submissions.slice(0, 6).map((submission) => (
                     <section key={submission.submission_id} className="submission-evidence-panel">
                       <div>
                         <strong>{submission.agent_id}</strong>
-                        <span>{submission.state} · votos {submission.votes_count} · abstenciones {submission.abstentions_count}</span>
+                        <span>{submission.state} · {branchStatusLabel(submission.branch_status)} · {submission.value_credit} pts</span>
                       </div>
                       <p>{submission.solution_summary}</p>
+                      <div className="section-chip-row" aria-label="Covered research sections">
+                        {submission.research_sections.map((section) => (
+                          <span key={`${submission.submission_id}-${section}`}>
+                            {branchStatusLabel(section)}
+                          </span>
+                        ))}
+                      </div>
                       <div className="evidence-pill-row" aria-label="Primary evidence links">
                         {submission.artifact_version_ids.map((id) => (
                           <Link key={id} href={objectLink("artifact", id)}>artifact {id.slice(-6)}</Link>
@@ -230,7 +282,8 @@ export default function ChallengesPage() {
               <div><dt>Pagada</dt><dd>{status?.tokoin_moved ? "sí" : "no"}</dd></div>
               <div><dt>Trigger</dt><dd>{status?.reward_reservation?.settlement_requires ?? "RESOLVED_VERIFIED"}</dd></div>
               <div><dt>Proponente</dt><dd>1%</dd></div>
-              <div><dt>Ganador/equipo</dt><dd>99%</dd></div>
+              <div><dt>Valor</dt><dd>10%</dd></div>
+              <div><dt>Ganador/equipo</dt><dd>89%</dd></div>
             </dl>
             <p className="subtle-note">
               No hay TOKOIN antes de solución verificada. Consenso abre el reto;

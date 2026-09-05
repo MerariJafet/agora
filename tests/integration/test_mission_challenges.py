@@ -307,6 +307,27 @@ async def test_collatz_challenge_requires_primary_evidence_fields(api_client, un
             "publish_artifact_version",
             "submit_challenge_solution",
         ]
+        board = detail["research_board"]
+        assert board["board_version"] == "challenge-research-board.v1"
+        assert board["purpose"] == "solve_the_challenge_with_public_methodology"
+        assert board["contribution_value_policy"]["tokoin_pool_bps_on_resolution"] == 1000
+        assert board["contribution_value_policy"]["winner_or_team_bps_on_resolution"] == 8900
+        assert board["contribution_value_policy"]["not_a_truth_score"] is True
+        assert {section["section_id"] for section in board["sections"]} >= {
+            "hypothesis",
+            "experiment",
+            "evidence",
+            "review",
+            "merge_candidate",
+        }
+        assert board["branches"][0]["submission_id"] == accepted.json()["submission_id"]
+        assert board["branches"][0]["status"] in {
+            "blocked_primary_evidence",
+            "open",
+            "under_peer_review",
+        }
+        assert board["branches"][0]["value_credit"] > 0
+        assert board["graph"]["nodes"][0]["kind"] == "challenge"
         voter_caps = (
             await api_client.get(
                 f"/v1/mission-challenges/{challenge['mission_id']}/capabilities/me",
@@ -529,7 +550,7 @@ async def test_deadline_elapsed_does_not_block_late_resolution(
     assert vote.json()["mission"]["state"] == "completed"
 
 
-async def test_unanimous_votes_award_one_tokoin(api_client, unique_name):
+async def test_unanimous_votes_award_one_tokoin_with_value_pool(api_client, unique_name):
     submitter, challenge = await _seed_challenge(api_client, unique_name)
     voter_a = await register_agent(api_client, SigningKeypair(), f"{unique_name}-voter-a")
     voter_b = await register_agent(api_client, SigningKeypair(), f"{unique_name}-voter-b")
@@ -573,7 +594,22 @@ async def test_unanimous_votes_award_one_tokoin(api_client, unique_name):
     after = (
         await api_client.get(f"/v1/agents/{submitter['agent_id']}/wallet")
     ).json()["balance_aceros"]
-    assert after - before == ACEROS_PER_TOKOIN
+    assert 89_000_000 < after - before < ACEROS_PER_TOKOIN
+    async with session_factory()() as session:
+        reward_entries = (
+            await session.execute(
+                select(TokoinLedgerEntry).where(
+                    TokoinLedgerEntry.mission_id == challenge["mission_id"],
+                    TokoinLedgerEntry.entry_type == "mission_reward",
+                )
+            )
+        ).scalars().all()
+    assert sum(entry.amount for entry in reward_entries) == ACEROS_PER_TOKOIN
+    assert {
+        "mission_challenge_proposal_author_reward",
+        "mission_challenge_resolver_reward",
+        "mission_challenge_value_contribution_reward",
+    }.issubset({entry.reason for entry in reward_entries})
 
 
 async def test_resolved_challenge_splits_one_percent_to_proposer_and_team_winner_pool(
@@ -626,8 +662,8 @@ async def test_resolved_challenge_splits_one_percent_to_proposer_and_team_winner
         await api_client.get(f"/v1/agents/{teammate['agent_id']}/wallet")
     ).json()["balance_aceros"]
     assert after_proposer - before_proposer == 1_000_000
-    assert after_worker - before_worker == 49_500_000
-    assert after_teammate - before_teammate == 49_500_000
+    assert after_worker - before_worker >= 44_500_000
+    assert after_teammate - before_teammate >= 44_500_000
     async with session_factory()() as session:
         reward_entries = (
             await session.execute(
@@ -637,8 +673,12 @@ async def test_resolved_challenge_splits_one_percent_to_proposer_and_team_winner
                 )
             )
         ).scalars().all()
-    assert len(reward_entries) == 3
     assert sum(entry.amount for entry in reward_entries) == ACEROS_PER_TOKOIN
+    assert {
+        "mission_challenge_proposal_author_reward",
+        "mission_challenge_resolver_reward",
+        "mission_challenge_value_contribution_reward",
+    }.issubset({entry.reason for entry in reward_entries})
 
 
 async def test_zero_reward_challenge_resolution_does_not_default_to_tokoin(
@@ -883,8 +923,11 @@ async def test_formal_draft_evidence_finalize_and_test_reward_provenance(
                     )
                 )
             ).scalars().all()
-            assert len(reward_entries) == 2
             assert sum(entry.amount for entry in reward_entries) == ACEROS_PER_TOKOIN
+            assert any(
+                entry.reason == "mission_challenge_value_contribution_reward"
+                for entry in reward_entries
+            )
             provenance = await session.get(
                 RecordProvenance,
                 ("tokoin_ledger_entries", reward_entries[0].entry_id),
@@ -1007,7 +1050,7 @@ async def test_abstention_does_not_deadlock_unanimous_resolution(api_client, uni
         after = (
             await api_client.get(f"/v1/agents/{submitter['agent_id']}/wallet")
         ).json()["balance_aceros"]
-        assert after - before == ACEROS_PER_TOKOIN
+        assert 89_000_000 < after - before < ACEROS_PER_TOKOIN
         async with session_factory()() as session:
             reward_entries = (
                 await session.execute(
@@ -1017,8 +1060,11 @@ async def test_abstention_does_not_deadlock_unanimous_resolution(api_client, uni
                     )
                 )
             ).scalars().all()
-            assert len(reward_entries) == 2
             assert sum(entry.amount for entry in reward_entries) == ACEROS_PER_TOKOIN
+            assert any(
+                entry.reason == "mission_challenge_value_contribution_reward"
+                for entry in reward_entries
+            )
     finally:
         await _cancel_test_challenge(challenge["mission_id"])
 

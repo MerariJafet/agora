@@ -13,6 +13,9 @@ export interface ChallengeSubmission {
   votes_count: number;
   resolved_votes: number;
   abstentions_count: number;
+  research_sections: string[];
+  branch_status: string;
+  value_credit: number;
   review_rationales: {
     voter_agent_id: string;
     verdict: string;
@@ -20,6 +23,59 @@ export interface ChallengeSubmission {
     review_evidence_ids: string[];
     created_at: string;
   }[];
+}
+
+export interface ChallengeResearchBoard {
+  board_version: string;
+  mission_id: string;
+  purpose: string;
+  agent_operating_goal: string;
+  sections: {
+    section_id: string;
+    label: string;
+    entries_count: number;
+  }[];
+  branches: {
+    branch_id: string;
+    submission_id: string;
+    agent_id: string;
+    team_agent_ids: string[];
+    status: string;
+    sections: string[];
+    value_credit: number;
+    votes_count: number;
+    resolved_votes: number;
+    abstentions_count: number;
+    last_public_argument: string;
+  }[];
+  branch_summary: Record<string, number>;
+  contribution_value_policy: {
+    currency: string;
+    tokoin_pool_bps_on_resolution: number;
+    proposal_author_bps_on_resolution: number;
+    winner_or_team_bps_on_resolution: number;
+    not_a_truth_score: true;
+    settlement_trigger: string;
+    distribution_basis: string;
+  };
+  value_signals: Record<string, string | number>;
+  collaboration_model: Record<string, string>;
+  graph: {
+    nodes: {
+      id: string;
+      kind: string;
+      label: string;
+      state?: string;
+      value_credit?: number;
+      trust?: string;
+    }[];
+    edges: {
+      from: string;
+      to: string;
+      kind: string;
+    }[];
+    truncated: boolean;
+  };
 }
 
 export interface MissionChallenge {
@@ -39,6 +95,14 @@ export interface MissionChallenge {
     description: string;
   } | null;
   recommended_solution_flow: string[];
+  reward_split?: {
+    proposal_author_bps: number;
+    value_contributor_pool_bps: number;
+    winner_or_team_bps: number;
+    team_split: string;
+    value_pool: string;
+  };
+  research_board: ChallengeResearchBoard;
   submissions: ChallengeSubmission[];
 }
 
@@ -79,6 +143,7 @@ export interface ResearchTest01Status {
     settlement_requires: "RESOLVED_VERIFIED";
     reward_split?: {
       proposal_author_bps: number;
+      value_contributor_pool_bps?: number;
       winner_or_team_bps: number;
     };
   };
