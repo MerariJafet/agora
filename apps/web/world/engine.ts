@@ -33,6 +33,13 @@ function parseLandmarkColor(value?: string): number | null {
 }
 
 const MOVE_SPEED = 210; // world units / second (cosmetic only)
+const LANDMARK_LABEL_LIMIT = 22;
+
+function landmarkLabel(landmark: Landmark): string {
+  if (landmark.shape === "challenge") return landmark.challenge_kind?.toUpperCase() ?? "CHALLENGE";
+  if (landmark.name.length <= LANDMARK_LABEL_LIMIT) return landmark.name.toUpperCase();
+  return `${landmark.name.slice(0, LANDMARK_LABEL_LIMIT - 1).toUpperCase()}...`;
+}
 
 export interface EngineCallbacks {
   onSelectAgent(agentId: string): void;
@@ -221,13 +228,24 @@ export class WorldEngine {
       g.star(0, 0, 8, landmark.radius * 0.18, landmark.radius * 0.07)
         .fill({ color, alpha: 0.24 })
         .stroke({ color, width: 1, alpha: 0.75 });
+    } else if (landmark.id === "central") {
+      g.circle(0, 0, landmark.radius * 0.18).fill({ color, alpha: 0.18 });
+      g.circle(0, 0, landmark.radius * 0.26).stroke({ color, width: 2, alpha: 0.35 });
+    } else {
+      const glyphRadius = Math.max(16, Math.min(34, landmark.radius * 0.13));
+      g.roundRect(-glyphRadius, -glyphRadius, glyphRadius * 2, glyphRadius * 2, 8)
+        .fill({ color, alpha: 0.12 })
+        .stroke({ color, width: 1.5, alpha: 0.45 });
     }
 
     const title = new Text({
-      text: landmark.name.toUpperCase(),
+      text: landmarkLabel(landmark),
       style: new TextStyle({
-        fill: color, fontSize: 20, fontFamily: "ui-sans-serif, system-ui",
-        letterSpacing: 3, fontWeight: "600",
+        fill: color,
+        fontSize: landmark.shape === "challenge" ? 14 : 18,
+        fontFamily: "ui-sans-serif, system-ui",
+        letterSpacing: landmark.shape === "challenge" ? 1 : 2,
+        fontWeight: "600",
       }),
     });
     title.anchor.set(0.5);

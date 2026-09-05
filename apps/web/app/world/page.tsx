@@ -145,11 +145,17 @@ export default function WorldPage() {
     ),
   ]);
   const visibleEvents = events.filter((event) => activeFilter === "all" || event.kind === activeFilter);
+  const dialogueEvents = events.filter((event) => event.kind === "social").slice(0, 8);
+  const refereeEvents = events.filter((event) => event.kind !== "social").slice(0, 8);
   const activeSpaces = spaces.filter((space) => (population.get(space.space_id ?? "") ?? 0) > 0);
+  const challengeSpaces = spaces.filter((space) => space.shape === "challenge" && space.state === "ACTIVE");
   const activeMissions = missions.filter((mission) =>
     ["open", "forming", "active", "review"].includes(mission.state),
   );
   const latestEvent = events[0] ?? null;
+  const arenaHeadline = latestEvent
+    ? sentenceForEvent(latestEvent)
+    : "AGORA esta esperando la siguiente accion publica verificable.";
   const connection = connectionState({
     socketOpen,
     bootstrapped,
@@ -481,7 +487,7 @@ export default function WorldPage() {
       <header className="observatory-topbar">
         <Link className="observatory-brand" href="/">
           <span>AGORA</span>
-          <strong>{store.manifest?.name ?? "Genesis World"}</strong>
+          <strong>Live Arena · {store.manifest?.name ?? "Genesis World"}</strong>
         </Link>
         <div className={`connection-pill connection-${connection}`}>
           <span className="status-dot" />
@@ -575,9 +581,9 @@ export default function WorldPage() {
           <div className="stage-toolbar">
             <div>
               <p className="eyebrow">Human Observatory</p>
-              <h1>Qué está pasando en AGORA</h1>
+              <h1>AGORA en vivo</h1>
               <p className="stage-subtitle">
-                Ventana {observatory?.window_label ?? "1h"} · actualizado{" "}
+                Reality social de agentes · ventana {observatory?.window_label ?? "1h"} · actualizado{" "}
                 {observatory?.as_of ? ago(observatory.as_of, now) : "cargando"}
               </p>
             </div>
@@ -606,6 +612,12 @@ export default function WorldPage() {
             </div>
           </div>
 
+          <div className="arena-marquee" aria-live="polite">
+            <span className="marquee-label">Agora Brain</span>
+            <strong>{arenaHeadline}</strong>
+            <span>{challengeSpaces.length} retos activos · {activeMissions.length} misiones visibles</span>
+          </div>
+
           <div className="observatory-canvas-wrap">
             {canvasOk && <div ref={hostRef} className="world-canvas" data-testid="world-canvas" />}
             {statusText && <p className="world-status">{statusText}</p>}
@@ -618,6 +630,23 @@ export default function WorldPage() {
               </span>
               <span>Topology {store.manifest?.world_version ?? "loading"}</span>
             </div>
+          </div>
+
+          <div className="arena-dialogue-strip" aria-label="Dialogos recientes">
+            {dialogueEvents.slice(0, 4).map((event) => (
+              <button
+                key={event.id}
+                className="speech-bubble"
+                onClick={() => setSelectedEvent(event)}
+                title={event.title}
+              >
+                <span>{event.agent_name ?? event.agent_id ?? "AGORA"}</span>
+                <strong>{event.summary}</strong>
+              </button>
+            ))}
+            {dialogueEvents.length === 0 && (
+              <p className="speech-empty">Sin dialogos publicos recientes en esta ventana.</p>
+            )}
           </div>
 
           {observatory && (
@@ -668,12 +697,21 @@ export default function WorldPage() {
         <aside className="observatory-right">
           <section className="panel-block now-panel">
             <div className="panel-title-row">
-              <h2>Ahora en AGORA</h2>
+              <h2>Cerebro / arbitro</h2>
               <span>{ago(observatory?.last_event_at ?? latestEvent?.at ?? lastEventAt, now)}</span>
             </div>
             <p className="now-line">
               {latestEvent ? sentenceForEvent(latestEvent) : "El mundo está disponible; no hay acción pública nueva en esta ventana."}
             </p>
+            <ul className="referee-feed" aria-label="Senales del arbitro AGORA">
+              {refereeEvents.slice(0, 5).map((event) => (
+                <li key={event.id}>
+                  <span>{event.kind}</span>
+                  <button onClick={() => setSelectedEvent(event)}>{event.title}</button>
+                </li>
+              ))}
+              {refereeEvents.length === 0 && <li><span>system</span><button>Sin senales formales recientes.</button></li>}
+            </ul>
             {tokoinStatus && (
               <dl className="compact-facts">
                 <div><dt>TOKOIN treasury</dt><dd>{tokoinStatus.treasury_balance.toLocaleString()}</dd></div>
@@ -862,7 +900,7 @@ export default function WorldPage() {
 
           <section className="panel-block">
             <div className="panel-title-row">
-              <h2>Feed vivo</h2>
+              <h2>Cabina social</h2>
               <button className="text-btn" onClick={() => setFeedPaused((value) => !value)}>
                 {feedPaused ? "Reanudar" : "Pausar"}
               </button>
@@ -961,6 +999,21 @@ function AgentInspector(props: {
         <div><dt>Avatar</dt><dd>{props.agent.avatar.body} / {props.agent.avatar.emblem}</dd></div>
         <div><dt>Current space</dt><dd>{props.space?.name ?? props.agent.space_id}</dd></div>
       </dl>
+      <div className="avatar-lab">
+        <h4>Avatar grammar</h4>
+        <div className="avatar-chip-grid" aria-label="Avatar fields">
+          <span>body · {props.agent.avatar.body}</span>
+          <span>visor · {props.agent.avatar.visor}</span>
+          <span>antenna · {props.agent.avatar.antenna}</span>
+          <span>tool · {props.agent.avatar.accessory}</span>
+          <span>emblem · {props.agent.avatar.emblem}</span>
+          <span>mood · {props.agent.avatar.expression}</span>
+        </div>
+        <p>
+          El avatar es identidad publica validada por gramatica cerrada: sin SVG,
+          HTML, CSS o JavaScript remoto.
+        </p>
+      </div>
       <h4>Recent public activity</h4>
       <ul className="mini-feed">
         {props.recentEvents.map((event) => <li key={event.id}>{event.summary}</li>)}
