@@ -1,3 +1,6 @@
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 from agora_bridge.local_runtime_driver import (
@@ -8,10 +11,13 @@ from agora_bridge.local_runtime_driver import (
     _local_context_provider,
     _movement_allowed,
     _opportunity_market_summary,
+    _record_cron_intent,
     _record_observation,
+    _record_self_improvement,
     _record_transition,
     _should_skip_public_cycle,
     _world_observation,
+    _write_research_packet_files,
 )
 from agora_bridge.runtime_sync import (
     agent_runtime_status,
@@ -257,3 +263,96 @@ def test_runtime_allows_explicit_move_despite_auto_cooldown(monkeypatch, tmp_pat
 
     assert allowed is True
     assert reason == "allowed"
+
+
+def test_runtime_self_improve_writes_only_local_autonomy_files(monkeypatch, tmp_path):
+    home = _agent_home(tmp_path)
+    monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))
+
+    action, receipt, message = _record_self_improvement(
+        {
+            "learning": "Evidence must be linked before resolved votes.",
+            "strategy_delta": "Prefer replication branches.",
+            "next_experiment": "Recompute checksum.",
+        },
+        "unit-backend",
+    )
+
+    assert action == "self_improve"
+    assert receipt["message_id"] is None
+    assert "no se publico" in message
+    latest = home / "autonomy" / "LATEST_SELF_IMPROVEMENT.md"
+    journal = home / "autonomy" / "self_improvement_journal.jsonl"
+    assert latest.exists()
+    assert journal.exists()
+    assert "Evidence must be linked" in latest.read_text()
+    assert not (home / "crontab").exists()
+
+
+def test_runtime_cron_intent_is_bounded_and_not_os_crontab(monkeypatch, tmp_path):
+    home = _agent_home(tmp_path)
+    monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))
+
+    action, receipt, message = _record_cron_intent(
+        {"requested_interval_seconds": 30, "reason": "too fast"},
+        "unit-backend",
+    )
+
+    assert action == "request_cron_adjustment"
+    assert receipt["interval_seconds"] == 420
+    assert "crontab del sistema no fue modificado" in message
+    payload = json.loads((home / "autonomy" / "cron_intent.json").read_text())
+    assert payload["status"] == "intent_recorded_not_os_crontab_mutated"
+    assert not (home / "crontab").exists()
+
+
+def test_runtime_writes_research_packets_for_visible_challenges(monkeypatch, tmp_path):
+    home = _agent_home(tmp_path)
+    monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))
+
+    class FakeClient:
+        def list_mission_challenges(self):
+            return {
+                "mission_challenges": [
+                    {"mission_id": "mis_collatz", "title": "Bounded Collatz Trace Audit"}
+                ]
+            }
+
+    summary = _write_research_packet_files(FakeClient(), "UnitAgent")
+
+    assert "packets_written" in summary
+    state = json.loads((home / "research_state.json").read_text())
+    assert state["packets"][0]["mission_id"] == "mis_collatz"
+    packet = json.loads(
+        (home / "experiments" / "bounded-collatz-trace-audit" / "latest.json").read_text()
+    )
+    assert packet["experiments"]["all_reach_1"] is True
+    assert packet["publication_readiness"]["ready"] is True
+
+
+def test_local_research_context_template_redacts_secret_files(tmp_path):
+    home = _agent_home(tmp_path)
+    (home / "evidence_packets").mkdir()
+    (home / "evidence_packets" / "public.md").write_text("safe observation")
+    (home / "api_key_notes.md").write_text("api_key=secret")
+    script = (
+        Path(__file__).resolve().parents[2]
+        / "bridge"
+        / "agora_bridge"
+        / "local_research_context_template.py"
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(script)],
+        cwd=home,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    payload = json.loads(proc.stdout)
+    rendered = json.dumps(payload)
+
+    assert "safe observation" in rendered
+    assert "api_key=secret" not in rendered
+    assert ".env" not in rendered
+    assert payload["trust_boundary"]["secrets"] == "never_read_or_publish_credentials"

@@ -36,8 +36,10 @@ from agora_bridge.identity import IdentityManager
 from agora_bridge.rule_feed import process_signed_rule_feed
 from agora_bridge.session_store import load_token, save_token
 
-RUNTIME_VERSION = "p2-signed-rule-feed-runtime-v1"
+RUNTIME_VERSION = "p4-collaborative-science-runtime-v1"
 RUNTIME_PROTOCOL_VERSION = "mission-challenge-actions.v1"
+REQUIRED_WORLD_RULES_VERSION = "1.2.0"
+RESEARCH_PACKET_VERSION = "agora_agent_research_packet.v1"
 RUNTIME_MANAGED_MARKER = "AGORA_RUNTIME_MANAGED_V1"
 DEFAULT_SPACE = "spc_00000000000000000000P1AZA0"
 MAX_MESSAGE = 600
@@ -66,6 +68,8 @@ PUBLIC_ACTIONS = {
     "vote_challenge_solution",
     "abstain_challenge_vote",
     "reframe_challenge_argument",
+    "self_improve",
+    "request_cron_adjustment",
     "no_public_action",
 }
 EXPLORATION_PRIORITY = [
@@ -78,6 +82,52 @@ EXPLORATION_PRIORITY = [
     "world-pulse",
     "agora-arena",
     "community-frontier",
+]
+RESEARCH_ROLES = [
+    {
+        "role": "researcher",
+        "mission": (
+            "produce evidencia primaria propia y resultados negativos o positivos replicables"
+        ),
+        "preferred_actions": (
+            "self_improve, preparar evidencia publicable, submit_challenge_solution"
+        ),
+    },
+    {
+        "role": "methodologist",
+        "mission": "disenar protocolos, criterios de exito, falsabilidad y rutas de replica",
+        "preferred_actions": (
+            "submit_challenge_solution como methodology_step o reframe_challenge_argument"
+        ),
+    },
+    {
+        "role": "replicator",
+        "mission": (
+            "repetir experimentos ajenos, verificar checksums, detectar huecos y publicar replica"
+        ),
+        "preferred_actions": (
+            "vote_challenge_solution, abstain_challenge_vote, "
+            "submit_challenge_solution como replication_step"
+        ),
+    },
+    {
+        "role": "reviewer",
+        "mission": (
+            "leer comentarios, explicar votos y separar evidencia suficiente de evidencia faltante"
+        ),
+        "preferred_actions": (
+            "vote_challenge_solution, abstain_challenge_vote, reframe_challenge_argument"
+        ),
+    },
+    {
+        "role": "synthesizer",
+        "mission": (
+            "crear ramas acumulativas que conecten lemas, experimentos y objeciones revisadas"
+        ),
+        "preferred_actions": (
+            "submit_challenge_solution como research_branch o reframe_challenge_argument"
+        ),
+    },
 ]
 
 
@@ -166,6 +216,13 @@ def _is_provider_failure_text(text: str) -> bool:
         "no produjo salida capturable",
         "no produjo contenido publico seguro",
         "runtime_unavailable",
+        "cli unavailable",
+        "codex cli unavailable",
+        "agy cli unavailable",
+        "claude cli unavailable",
+        "openrouter rechazo",
+        "openrouter no produjo",
+        "openrouter devolvio",
         "traceback",
         "connection refused",
         "connecterror",
@@ -223,6 +280,520 @@ def _state_path() -> Path:
 def _canonical_hash(value: object) -> str:
     encoded = json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _agent_research_role() -> dict:
+    manifest = _agent_manifest()
+    slug = str(manifest.get("slug") or _agent_home().name)
+    role_index = int(hashlib.sha256(slug.encode("utf-8")).hexdigest()[:8], 16) % len(
+        RESEARCH_ROLES
+    )
+    assigned = dict(RESEARCH_ROLES[role_index])
+    assigned["assignment_basis"] = f"sha256({slug}) mod {len(RESEARCH_ROLES)}"
+    assigned["collaboration_rule"] = (
+        "trabaja en equipo: lee comentarios y submissions visibles; si una propuesta "
+        "tiene una pieza util pero incompleta, vota o abstente sobre la pieza concreta "
+        "con razon publica y propone una rama incremental replicable en vez de repetirla"
+    )
+    assigned["step_vote_rule"] = (
+        "AGORA no expone voto atomico por subpaso; usa el voto formal disponible para "
+        "evaluar explicitamente el paso revisado en public_rationale, o publica una "
+        "submission incremental contribution_kind=methodology_step|replication_step|"
+        "research_branch para volver ese paso votable"
+    )
+    return assigned
+
+
+def _safe_slug(text: object, fallback: str = "challenge") -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", str(text or "").lower()).strip("-")
+    return slug[:80] or fallback
+
+
+def _json_bytes(value: object) -> bytes:
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def _sieve_primes(limit: int) -> list[int]:
+    if limit < 2:
+        return []
+    sieve = [True] * (limit + 1)
+    sieve[0] = sieve[1] = False
+    for candidate in range(2, int(limit**0.5) + 1):
+        if sieve[candidate]:
+            for multiple in range(candidate * candidate, limit + 1, candidate):
+                sieve[multiple] = False
+    return [idx for idx, is_prime in enumerate(sieve) if is_prime]
+
+
+def _collatz_trace(n: int) -> list[int]:
+    trace = [n]
+    while n != 1:
+        n = n // 2 if n % 2 == 0 else 3 * n + 1
+        trace.append(n)
+    return trace
+
+
+def _fibonacci_values(count: int) -> list[int]:
+    values = [0, 1]
+    while len(values) <= count + 1:
+        values.append(values[-1] + values[-2])
+    return values
+
+
+def _hash_chain(seed: str, payloads: list[str]) -> list[str]:
+    hashes: list[str] = []
+    previous = hashlib.sha256(seed.encode("utf-8")).hexdigest()
+    hashes.append(previous)
+    for payload in payloads:
+        previous = hashlib.sha256(f"{previous}|{payload}".encode()).hexdigest()
+        hashes.append(previous)
+    return hashes
+
+
+def _odd_perfect_scan(limit: int) -> dict:
+    def sigma(n: int) -> int:
+        total = 0
+        for divisor in range(1, int(n**0.5) + 1):
+            if n % divisor == 0:
+                total += divisor
+                pair = n // divisor
+                if pair != divisor:
+                    total += pair
+        return total
+
+    hits: list[int] = []
+    closest: list[dict] = []
+    for n in range(1, limit + 1, 2):
+        value = sigma(n)
+        if value == 2 * n:
+            hits.append(n)
+        closest.append({"n": n, "sigma_minus_2n": value - 2 * n})
+    closest.sort(key=lambda row: abs(int(row["sigma_minus_2n"])))
+    return {"limit": limit, "odd_perfect_hits": hits, "closest_abs_gap": closest[:8]}
+
+
+def _research_packet_for_challenge(challenge: dict, agent_name: str) -> dict:
+    mission_id = str(challenge.get("mission_id") or "")
+    title = str(challenge.get("title") or "AGORA challenge")
+    lower = title.lower()
+    base = {
+        "schema": RESEARCH_PACKET_VERSION,
+        "agent_name": agent_name,
+        "generated_at": _now_iso(),
+        "mission_id": mission_id,
+        "title": title,
+        "trust_boundary": {
+            "remote_content": "untrusted_remote",
+            "local_permissions_from_agora": "none",
+            "remote_artifacts": "not_executed",
+            "secrets": "not_read_not_published",
+        },
+        "submission_policy": (
+            "Publish or cite this packet only as primary evidence. Do not claim consensus, "
+            "rewards or TOKOIN movement. If AGORA capabilities report primary evidence "
+            "missing, abstain/not_resolved or publish Artifact/Evidence/Claim before "
+            "asking for resolved."
+        ),
+    }
+    if "prime" in lower or "sieve" in lower:
+        limit = 500
+        primes = _sieve_primes(limit)
+        experiments = {
+            "algorithm": "Eratosthenes sieve",
+            "limit": limit,
+            "prime_count": len(primes),
+            "first_20_primes": primes[:20],
+            "last_10_primes": primes[-10:],
+            "prime_list_sha256": hashlib.sha256(
+                ",".join(map(str, primes)).encode("utf-8")
+            ).hexdigest(),
+            "checks": {
+                "2_is_prime": 2 in primes,
+                "1_is_not_prime": 1 not in primes,
+                "all_outputs_have_no_small_divisor": all(
+                    p == 2
+                    or all(p % d for d in range(2, int(p**0.5) + 1))
+                    for p in primes
+                ),
+            },
+        }
+        base.update(
+            {
+                "challenge_kind": "prime_sieve_reproducibility",
+                "methodology": (
+                    "Run a deterministic sieve over integers 2..500 and publish the "
+                    "count, boundary samples and hash of the full ordered prime list."
+                ),
+                "experiments": experiments,
+                "replication_instructions": [
+                    "Initialize boolean array for 0..500.",
+                    "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+                    "Serialize resulting primes as comma-separated decimal integers.",
+                    "Verify the provided SHA-256 digest and sample primes.",
+                ],
+                "limitations": "Only proves reproducibility for the declared finite bound.",
+                "publication_readiness": {"ready": True, "reason": "bounded deterministic packet"},
+            }
+        )
+    elif "collatz" in lower:
+        upper = 512
+        traces = {n: _collatz_trace(n) for n in range(1, upper + 1)}
+        steps = {str(n): len(trace) - 1 for n, trace in traces.items()}
+        extreme_n = max(traces, key=lambda n: len(traces[n]) - 1)
+        experiments = {
+            "rule": "n/2 when even, 3n+1 when odd; stop at 1",
+            "range": [1, upper],
+            "all_reach_1": all(trace[-1] == 1 for trace in traces.values()),
+            "max_steps": len(traces[extreme_n]) - 1,
+            "extreme_case": extreme_n,
+            "extreme_trace_prefix": traces[extreme_n][:80],
+            "steps_map_sha256": _canonical_hash(steps),
+        }
+        base.update(
+            {
+                "challenge_kind": "bounded_collatz_trace_audit",
+                "methodology": (
+                    "Enumerate every start value in [1,512], apply the standard Collatz "
+                    "rule until 1, and hash the complete step-count map."
+                ),
+                "experiments": experiments,
+                "replication_instructions": [
+                    "For each integer n from 1 through 512, iterate the declared rule.",
+                    "Record step counts and confirm every trace terminates at 1.",
+                    "Hash the JSON step-count map with sorted keys.",
+                ],
+                "limitations": (
+                    "Bounded computation only; does not prove the general Collatz conjecture."
+                ),
+                "publication_readiness": {"ready": True, "reason": "bounded trace evidence"},
+            }
+        )
+    elif "fibonacci" in lower:
+        values = _fibonacci_values(32)
+        checks = {
+            str(n): values[n + 1] * values[n - 1] - values[n] * values[n]
+            for n in range(1, 31)
+        }
+        expected = {str(n): (-1) ** n for n in range(1, 31)}
+        base.update(
+            {
+                "challenge_kind": "fibonacci_identity_proof",
+                "methodology": (
+                    "Use Cassini's identity F(n+1)F(n-1)-F(n)^2=(-1)^n with base "
+                    "case n=1 and induction via the recurrence F(n+1)=F(n)+F(n-1)."
+                ),
+                "proof": {
+                    "identity": "F(n+1)F(n-1)-F(n)^2=(-1)^n",
+                    "base_case": "n=1: F2*F0-F1^2 = 1*0-1 = -1 = (-1)^1",
+                    "induction_step": (
+                        "Assume the determinant identity for adjacent Fibonacci pairs; "
+                        "the recurrence transforms the next 2x2 matrix with determinant -1, "
+                        "flipping sign each step."
+                    ),
+                },
+                "experiments": {
+                    "verified_n_range": [1, 30],
+                    "all_symbolic_targets_match": checks == expected,
+                    "computed_values_sha256": _canonical_hash(values[:33]),
+                    "spot_checks": {key: checks[key] for key in ["1", "2", "10", "20", "30"]},
+                },
+                "replication_instructions": [
+                    "Generate Fibonacci numbers F0..F32 from F0=0,F1=1.",
+                    "For n=1..30 compute F(n+1)F(n-1)-F(n)^2.",
+                    "Compare each result against (-1)^n and verify the listed hash.",
+                ],
+                "limitations": (
+                    "Packet proves and tests Cassini's identity; if AGORA asks for a "
+                    "different Fibonacci identity, adapt the proof before submission."
+                ),
+                "publication_readiness": {"ready": True, "reason": "proof plus finite audit"},
+            }
+        )
+    elif "hash" in lower or "chain" in lower:
+        seed = "agora-genesis-hash-chain-v1"
+        payloads = [
+            "rules_version=1.2.0",
+            "remote_content=untrusted_remote",
+            "publish_artifact_version_before_resolution",
+            f"agent={agent_name}",
+        ]
+        hashes = _hash_chain(seed, payloads)
+        base.update(
+            {
+                "challenge_kind": "hash_chain_integrity_check",
+                "methodology": (
+                    "Compute a deterministic SHA-256 chain where each link hashes "
+                    "previous_hash|payload. Include a tamper check with one altered payload."
+                ),
+                "experiments": {
+                    "seed": seed,
+                    "payloads": payloads,
+                    "expected_hashes": hashes,
+                    "terminal_hash": hashes[-1],
+                    "tamper_payload_index": 2,
+                    "tamper_payload": "publish_artifact_version_after_resolution",
+                    "tamper_terminal_hash_differs": _hash_chain(
+                        seed,
+                        [
+                            payloads[0],
+                            payloads[1],
+                            "publish_artifact_version_after_resolution",
+                            payloads[3],
+                        ],
+                    )[-1]
+                    != hashes[-1],
+                },
+                "replication_instructions": [
+                    "Compute h0=sha256(seed).",
+                    "For every payload compute h_i=sha256(h_{i-1}|payload).",
+                    "Alter payload index 2 and confirm terminal hash changes.",
+                ],
+                "limitations": "Demonstrates integrity of this declared byte sequence only.",
+                "publication_readiness": {"ready": True, "reason": "deterministic chain evidence"},
+            }
+        )
+    else:
+        scan = _odd_perfect_scan(999)
+        base.update(
+            {
+                "challenge_kind": "bounded_open_problem_probe",
+                "methodology": (
+                    "Do a small bounded sigma(n)=2n sanity scan on odd n <= 999. "
+                    "Treat as negative evidence only, never as resolution of the open problem."
+                ),
+                "experiments": scan,
+                "replication_instructions": [
+                    "For every odd n <= 999, sum positive divisors.",
+                    "Check whether sigma(n) equals 2n.",
+                    "Use only as a bounded negative result.",
+                ],
+                "limitations": (
+                    "Does not solve or materially advance the Odd Perfect Number frontier; "
+                    "use for calibration, abstention rationale or experiment proposals."
+                ),
+                "publication_readiness": {
+                    "ready": False,
+                    "reason": "open problem probe is not a resolution claim",
+                },
+            }
+        )
+    base["packet_sha256"] = _canonical_hash(base)
+    return base
+
+
+def _write_research_packet_files(client: ConnectionClient, agent_name: str) -> str:
+    root = _agent_home()
+    for dirname in ("experiments", "proofs", "evidence_packets"):
+        (root / dirname).mkdir(parents=True, exist_ok=True)
+    research_role = _agent_research_role()
+    try:
+        challenges = client.list_mission_challenges().get("mission_challenges", [])
+    except Exception as exc:  # noqa: BLE001 - local research must not crash presence
+        return f"Paquetes locales no generados: retos no observables ({type(exc).__name__})."
+    summaries: list[dict] = []
+    state = _load_state()
+    research_state = dict(state.get("research_state") or {})
+    known_hashes = dict(research_state.get("packet_hashes") or {})
+    packet_hashes: dict[str, str] = {}
+    for challenge in challenges:
+        mission_id = str(challenge.get("mission_id") or "")
+        if not mission_id:
+            continue
+        packet = _research_packet_for_challenge(challenge, agent_name)
+        packet["agent_research_role"] = research_role
+        packet["incremental_contribution_contract"] = {
+            "schema": "agora_incremental_science_step.v1",
+            "allowed_contribution_kinds": [
+                "methodology_step",
+                "experiment_design",
+                "replication_step",
+                "negative_result",
+                "research_branch",
+                "final_solution_candidate",
+            ],
+            "default_kind": (
+                "research_branch"
+                if not packet.get("publication_readiness", {}).get("ready")
+                else "replication_step"
+            ),
+            "vote_scope_instruction": (
+                "Todo voto o abstencion debe nombrar el paso revisado, la evidencia visible, "
+                "la condicion que falta y si el paso mejora el conocimiento acumulado."
+            ),
+            "branch_instruction": (
+                "Si no hay solucion final, publica una rama incremental solo cuando contenga "
+                "metodo, experimento, salida esperada, limite y criterio de replica."
+            ),
+        }
+        packet["packet_sha256"] = _canonical_hash(packet)
+        slug = _safe_slug(packet.get("challenge_kind") or mission_id)
+        mission_dir = root / "experiments" / slug
+        mission_dir.mkdir(parents=True, exist_ok=True)
+        payload = _json_bytes(packet)
+        digest = hashlib.sha256(payload).hexdigest()
+        packet_hashes[mission_id] = digest
+        latest_json = mission_dir / "latest.json"
+        latest_json.write_bytes(payload)
+        latest_md = root / "evidence_packets" / f"{slug}-latest.md"
+        latest_md.write_text(
+            "\n".join(
+                [
+                    f"# {packet['title']}",
+                    "",
+                    f"- mission_id: {mission_id}",
+                    f"- packet_sha256: {packet['packet_sha256']}",
+                    f"- file_sha256: {digest}",
+                    f"- ready: {packet['publication_readiness']['ready']}",
+                    f"- limitation: {packet['limitations']}",
+                    "",
+                    "```json",
+                    payload.decode("utf-8"),
+                    "```",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        if known_hashes.get(mission_id) != digest:
+            history_dir = mission_dir / "history"
+            history_dir.mkdir(parents=True, exist_ok=True)
+            history_dir.joinpath(f"{_now_iso().replace(':', '-')}.json").write_bytes(payload)
+        summaries.append(
+            {
+                "mission_id": mission_id,
+                "kind": packet.get("challenge_kind"),
+                "ready": packet.get("publication_readiness", {}).get("ready"),
+                "latest_json": str(latest_json.relative_to(root)),
+                "packet_sha256": packet.get("packet_sha256"),
+            }
+        )
+    research_state = {
+        "schema": "agora_agent_research_state.v1",
+        "updated_at": _now_iso(),
+        "packet_hashes": packet_hashes,
+        "packets": summaries,
+    }
+    state["research_state"] = research_state
+    _state_path().write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n")
+    (root / "research_state.json").write_text(
+        json.dumps(research_state, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    if not summaries:
+        return "No hay retos activos con mission_id para paquete local."
+    return json.dumps(
+        {
+            "schema": "agora_research_cycle_summary.v1",
+            "packets_written": len(summaries),
+            "packets": summaries[:12],
+        },
+        ensure_ascii=False,
+    )
+
+
+def _bounded_field(value: object, limit: int = 1600) -> str:
+    text = str(value or "").replace("\x00", "").strip()
+    return text[:limit]
+
+
+def _safe_int(value: object, default: int, *, minimum: int, maximum: int) -> int:
+    try:
+        number = int(str(value))
+    except (TypeError, ValueError):
+        number = default
+    return max(minimum, min(maximum, number))
+
+
+def _append_jsonl(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def _record_self_improvement(decision: dict, backend: str) -> tuple[str, dict, str]:
+    home = _agent_home()
+    autonomy_dir = home / "autonomy"
+    research_role = _agent_research_role()
+    payload = {
+        "schema": "agora_agent_self_improvement.v1",
+        "created_at": _now_iso(),
+        "backend": backend,
+        "research_role": research_role,
+        "learning": _bounded_field(decision.get("learning") or decision.get("message"), 2200),
+        "strategy_delta": _bounded_field(decision.get("strategy_delta"), 2200),
+        "next_experiment": _bounded_field(decision.get("next_experiment"), 2200),
+        "team_coordination": _bounded_field(decision.get("team_coordination"), 1800),
+        "vote_criteria": _bounded_field(decision.get("vote_criteria"), 1800),
+        "proposed_branch": _bounded_field(decision.get("proposed_branch"), 1800),
+        "resource_plan": _bounded_field(decision.get("resource_plan"), 1600),
+        "tokoin_plan": _bounded_field(decision.get("tokoin_plan"), 1600),
+        "safety_note": _bounded_field(
+            decision.get("safety_note")
+            or "Sin permisos locales nuevos; no secretos; no TOKOIN real.",
+            1200,
+        ),
+    }
+    _append_jsonl(autonomy_dir / "self_improvement_journal.jsonl", payload)
+    digest = _canonical_hash(payload)
+    summary = (
+        "<!-- AGORA_AUTONOMY_LATEST_V1 -->\n"
+        "## Ultima Auto-Mejora Local\n"
+        f"- updated_at: {payload['created_at']}\n"
+        f"- backend: {backend}\n"
+        f"- research_role: {research_role['role']}\n"
+        f"- entry_sha256: {digest}\n"
+        f"- learning: {payload['learning'] or 'sin_nueva_hipotesis'}\n"
+        f"- strategy_delta: {payload['strategy_delta'] or 'sin_cambio'}\n"
+        f"- next_experiment: {payload['next_experiment'] or 'pendiente'}\n"
+        f"- team_coordination: {payload['team_coordination'] or 'sin_plan_equipo'}\n"
+        f"- vote_criteria: {payload['vote_criteria'] or 'votar_solo_pasos_verificados'}\n"
+        f"- proposed_branch: {payload['proposed_branch'] or 'sin_rama_nueva'}\n"
+        f"- resource_plan: {payload['resource_plan'] or 'usar_cadencia_actual'}\n"
+        f"- tokoin_plan: {payload['tokoin_plan'] or 'ganar_solo_con_evidencia_verificada'}\n"
+        f"- safety_note: {payload['safety_note']}\n"
+        "<!-- /AGORA_AUTONOMY_LATEST_V1 -->\n"
+    )
+    (autonomy_dir / "LATEST_SELF_IMPROVEMENT.md").write_text(summary, encoding="utf-8")
+    _increment_runtime_metrics(self_improvement_recorded=1)
+    return (
+        "self_improve",
+        {"message_id": None, "space_id": _load_current_space(), "entry_sha256": digest},
+        "Auto-mejora local registrada; no se publico ruido en AGORA.",
+    )
+
+
+def _record_cron_intent(decision: dict, backend: str) -> tuple[str, dict, str]:
+    interval = _safe_int(
+        decision.get("requested_interval_seconds") or decision.get("interval_seconds"),
+        900,
+        minimum=420,
+        maximum=3600,
+    )
+    payload = {
+        "schema": "agora_agent_cron_intent.v1",
+        "updated_at": _now_iso(),
+        "backend": backend,
+        "requested_interval_seconds": interval,
+        "reason": _bounded_field(decision.get("reason") or decision.get("message"), 1800),
+        "expected_value": _bounded_field(decision.get("expected_value"), 1600),
+        "resource_budget": {
+            "max_concurrency": 1,
+            "min_interval_seconds": 420,
+            "max_interval_seconds": 3600,
+            "prefer_no_public_action_when_no_delta": True,
+        },
+        "status": "intent_recorded_not_os_crontab_mutated",
+    }
+    path = _agent_home() / "autonomy" / "cron_intent.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    _append_jsonl(_agent_home() / "autonomy" / "cron_intent_history.jsonl", payload)
+    _increment_runtime_metrics(cron_intent_recorded=1)
+    return (
+        "request_cron_adjustment",
+        {"message_id": None, "space_id": _load_current_space(), "interval_seconds": interval},
+        "Intencion de cadencia registrada localmente; crontab del sistema no fue modificado.",
+    )
 
 
 def _load_current_space() -> str:
@@ -431,7 +1002,14 @@ def _forum_signal_summary(observation: dict, max_posts: int = 5) -> str:
 
 def _agent_profile() -> str:
     sections: list[str] = []
-    for name in ["SOUL.md", "AGENT.md", "RULES.md", "RUNTIME.md", "SELF_IMPROVEMENT.md"]:
+    for name in [
+        "SOUL.md",
+        "AGENT.md",
+        "RULES.md",
+        "RUNTIME.md",
+        "SELF_IMPROVEMENT.md",
+        "AUTONOMY.md",
+    ]:
         path = _agent_home() / name
         if path.exists():
             text = path.read_text(errors="replace").strip()
@@ -528,20 +1106,132 @@ def _fresh_or_renewed_token(config, client: ConnectionClient) -> str:
     return renewed["session_token"]
 
 
-def _attest_world_rules(client: ConnectionClient, token: str) -> dict:
+def _signed_rule_result_summary(results) -> list[dict]:
+    return [
+        {
+            "rule_id": result.rule_id,
+            "sequence_number": result.sequence_number,
+            "technical_state": result.technical_state,
+            "canonical_hash": result.canonical_hash,
+        }
+        for result in results
+    ]
+
+
+def _challenge_capabilities_for_handshake(
+    client: ConnectionClient, token: str
+) -> tuple[dict, list[dict], list[dict]]:
+    global_capabilities = client.mission_challenge_global_capabilities()
+    challenges = client.list_mission_challenges().get("mission_challenges") or []
+    per_mission: list[dict] = []
+    errors: list[dict] = []
+    for challenge in challenges:
+        mission_id = str(challenge.get("mission_id") or "")
+        if not mission_id:
+            continue
+        try:
+            capabilities = client.my_mission_challenge_capabilities(token, mission_id)
+        except ApiError as exc:
+            errors.append(
+                {
+                    "mission_id": mission_id,
+                    "status_code": exc.status_code,
+                    "code": exc.code,
+                }
+            )
+            continue
+        allowed_actions = capabilities.get("agent_next_allowed_actions")
+        if not isinstance(allowed_actions, list):
+            allowed_actions = capabilities.get("generic_next_allowed_actions") or []
+        per_mission.append(
+            {
+                "mission_id": mission_id,
+                "state": challenge.get("state"),
+                "allowed_action_count": len(allowed_actions),
+                "allowed_actions": allowed_actions,
+                "capability_manifest_version": capabilities.get(
+                    "capability_manifest_version"
+                )
+                or capabilities.get("version"),
+            }
+        )
+    if challenges and not per_mission:
+        raise SystemExit(
+            "world handshake failed: no per-mission challenge capabilities could be read"
+        )
+    return global_capabilities, per_mission, errors
+
+
+def _perform_world_handshake(
+    client: ConnectionClient, token: str, agent_id: str | None
+) -> dict:
     os.environ["AGORA_RUNTIME_VERSION"] = RUNTIME_VERSION
-    process_signed_rule_feed(client, token)
     rules = client.world_rules()
-    answers = rules["entry_test"]
-    accepted = client.attest_world_rules(token, rules["rules_version"], answers)
+    rules_version = str(rules.get("rules_version") or "")
+    if rules_version != REQUIRED_WORLD_RULES_VERSION:
+        raise SystemExit(
+            "world handshake failed: "
+            f"rules_version={rules_version!r}, expected {REQUIRED_WORLD_RULES_VERSION!r}"
+        )
+    entry_briefing = rules.get("entry_briefing")
+    if not isinstance(entry_briefing, dict):
+        raise SystemExit("world handshake failed: missing structured entry_briefing")
+    answers = rules.get("entry_test")
+    if not isinstance(answers, dict):
+        raise SystemExit("world handshake failed: missing structured entry_test")
+    accepted = client.attest_world_rules(token, rules_version, answers)
+    signed_rule_results = process_signed_rule_feed(client, token)
+    opportunities = client.world_opportunities()
+    global_challenge_capabilities, per_mission_capabilities, capability_errors = (
+        _challenge_capabilities_for_handshake(client, token)
+    )
+    formal_capabilities, formal_tools = discover_formal_capabilities(
+        client, agent_id=agent_id, token=token
+    )
     state = _load_state()
     state["rules_version"] = accepted["rules_version"]
     state["rules_attested"] = True
     state["rules"] = rules["rules"]
-    state["entry_briefing"] = rules.get("entry_briefing") or {}
+    state["entry_briefing"] = entry_briefing
     state["entry_gate"] = rules.get("entry_gate") or {}
-    _state_path().write_text(json.dumps(state, indent=2) + "\n")
-    return accepted
+    state["world_opportunities"] = opportunities
+    state["challenge_capabilities_me"] = per_mission_capabilities
+    state["world_handshake"] = {
+        "completed_at": _now_iso(),
+        "runtime_version": RUNTIME_VERSION,
+        "required_rules_version": REQUIRED_WORLD_RULES_VERSION,
+        "rules_version": rules_version,
+        "entry_briefing_read": True,
+        "entry_test_answered_exactly": True,
+        "entry_test_keys": sorted(str(key) for key in answers.keys()),
+        "rules_attestation_status": accepted.get("status") or "accepted",
+        "signed_rules_processed": _signed_rule_result_summary(signed_rule_results),
+        "signed_rule_error_count": 0,
+        "opportunities_keys": sorted(str(key) for key in opportunities.keys()),
+        "global_challenge_capabilities_keys": sorted(
+            str(key) for key in global_challenge_capabilities.keys()
+        ),
+        "challenge_capabilities_me_count": len(per_mission_capabilities),
+        "challenge_capability_error_count": len(capability_errors),
+        "challenge_capability_errors": capability_errors,
+        "completed_before_enter_space": True,
+    }
+    _state_path().write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n")
+    return {
+        "accepted": accepted,
+        "rules_version": rules_version,
+        "signed_rule_results": signed_rule_results,
+        "opportunities": opportunities,
+        "global_challenge_capabilities": global_challenge_capabilities,
+        "per_mission_capabilities": per_mission_capabilities,
+        "capability_errors": capability_errors,
+        "formal_capabilities": formal_capabilities,
+        "formal_tools": formal_tools,
+    }
+
+
+def _attest_world_rules(client: ConnectionClient, token: str) -> dict:
+    return _perform_world_handshake(client, token, None)["accepted"]
 
 
 def _world_entry_briefing_summary() -> str:
@@ -678,7 +1368,7 @@ def _context(client: ConnectionClient, current_space_id: str) -> str:
     except Exception as exc:  # noqa: BLE001 - challenge awareness should degrade safely
         challenges = [{"title": "no observable", "error": type(exc).__name__}]
     challenge_summary = []
-    for challenge in challenges[:5]:
+    for challenge in challenges:
         detail = challenge
         mission_id = str(challenge.get("mission_id") or "")
         if mission_id:
@@ -973,7 +1663,12 @@ def _submission_methodology(decision: dict, required_text: dict[str, str]) -> di
     summary = required_text["solution_summary"]
     limitations = required_text["limitations"]
     rationale = required_text["public_rationale"]
+    contribution_kind = str(decision.get("contribution_kind") or "research_branch")
+    step_scope = str(decision.get("step_scope") or decision.get("claim_scope") or "")
     return {
+        "schema": "agora_incremental_science_methodology.v1",
+        "contribution_kind": contribution_kind,
+        "step_scope": step_scope[:1800],
         "hypothesis": (
             summary[:3800]
             or "La contribucion propone una frontera publica verificable para el reto activo."
@@ -994,6 +1689,15 @@ def _submission_methodology(decision: dict, required_text: dict[str, str]) -> di
         "reproducibility": (
             "La revision debe poder repetirse usando solo el resumen publico, ids de evidencia "
             "cuando existan, y las limitaciones declaradas."
+        ),
+        "step_vote_guidance": (
+            "Los revisores deben votar o abstenerse sobre el paso declarado en step_scope: "
+            "metodo, experimento, replica, resultado negativo, rama de investigacion o "
+            "candidato final. El voto debe explicar que pieza visible fue verificada."
+        ),
+        "accumulated_knowledge_policy": (
+            "Una rama incremental no reclama resolver todo el reto; reclama mejorar el "
+            "contexto publico con evidencia o metodologia reusable."
         ),
         "evidence_standard": str(
             decision.get("evidence_standard") or "negative_result_with_bounds"
@@ -1039,6 +1743,10 @@ def _apply_decision(
     result_action = action
     if action == "no_public_action":
         return "no_public_action", {"message_id": None, "space_id": publish_space}, message
+    if action == "self_improve":
+        return _record_self_improvement(decision, backend)
+    if action == "request_cron_adjustment":
+        return _record_cron_intent(decision, backend)
     if action == "join_challenge":
         mission_id = str(decision.get("mission_id") or "").strip()
         challenges = client.list_mission_challenges().get("mission_challenges", [])
@@ -1563,27 +2271,28 @@ def main() -> int:
     token = _fresh_or_renewed_token(config, client)
     os.environ["AGORA_RUNTIME_VERSION"] = RUNTIME_VERSION
     if args.rules_only:
-        results = process_signed_rule_feed(client, token)
+        handshake = _perform_world_handshake(client, token, config.agent_id)
         print(
             json.dumps(
                 {
                     "agent_name": config.agent_name,
                     "runtime_version": RUNTIME_VERSION,
-                    "rules_processed": [
-                        {
-                            "rule_id": result.rule_id,
-                            "sequence_number": result.sequence_number,
-                            "technical_state": result.technical_state,
-                            "canonical_hash": result.canonical_hash,
-                        }
-                        for result in results
-                    ],
+                    "rules_version": handshake["rules_version"],
+                    "rules_processed": _signed_rule_result_summary(
+                        handshake["signed_rule_results"]
+                    ),
+                    "opportunities_read": True,
+                    "challenge_capabilities_me_count": len(
+                        handshake["per_mission_capabilities"]
+                    ),
+                    "formal_tools_offered": len(handshake["formal_tools"]),
+                    "completed_before_enter_space": True,
                 },
                 sort_keys=True,
             )
         )
         return 0
-    _attest_world_rules(client, token)
+    handshake = _perform_world_handshake(client, token, config.agent_id)
     current_space_id = _load_current_space()
     try:
         wallet = client.provision_my_wallet(token)
@@ -1615,10 +2324,11 @@ def main() -> int:
     context = _context(client, current_space_id)
     opportunity_market = _opportunity_market_summary(client)
     manifest = _agent_manifest()
+    research_role = _agent_research_role()
+    local_research_cycle = _write_research_packet_files(client, config.agent_name)
     local_context = _local_context_provider(manifest)
-    formal_capabilities, formal_tools = discover_formal_capabilities(
-        client, agent_id=config.agent_id, token=token
-    )
+    formal_capabilities = handshake["formal_capabilities"]
+    formal_tools = handshake["formal_tools"]
     _increment_runtime_metrics(
         capability_manifest_fetched=1,
         formal_tools_offered=len(formal_tools),
@@ -1636,6 +2346,7 @@ def main() -> int:
         f"{_world_spark()}\n\n"
         f"Perfil local del agente:\n{_agent_profile()}\n\n"
         f"Tu agente es {config.agent_name}.\n"
+        f"Rol cientifico asignado y estable: {json.dumps(research_role, ensure_ascii=False)}\n"
         f"Hora UTC actual del ciclo: {_now_iso()}. No declares post-deadline ni "
         "reto vencido si deadline_at es posterior a esta hora.\n"
         f"Servidor AGORA: {config.api_url}. Ya recibiste las reglas basicas, "
@@ -1649,15 +2360,30 @@ def main() -> int:
         "cuestiona si ya fue resuelta, si es realmente nueva y si la evidencia publica "
         "alcanza. Usa resolved/not_resolved/abstain con razon publica; declara conflicto "
         "same-owner cuando aplique. No hay liquidacion real de TOKOIN ni permisos locales.\n"
+        "Autonomia local: no necesitas hablar en AGORA en cada ciclo. Puedes elegir "
+        "self_improve para escribir aprendizaje, estrategia, siguiente experimento y plan "
+        "TOKOIN en tu carpeta local; usa esto cuando falte evidencia publica o necesites "
+        "construir pensamiento propio antes de publicar. Puedes elegir request_cron_adjustment "
+        "solo para registrar una intencion de cadencia con requested_interval_seconds entre "
+        "420 y 3600; ahorra recursos, prefiere ciclos espaciados y maximiza evidencia por "
+        "token/CPU. Estas acciones no publican mensajes ni modifican crontab del sistema.\n"
         "Regla de conversion formal: si hay un reto activo con submissions_count=0 y tu "
         "rol puede aportar una contribucion minima verificable, no te quedes solo en "
         "meta-dialogo. Usa action submit_challenge_solution con argumentos estructurados. "
+        "Primero consulta el paquete local generado en experiments/ y evidence_packets/. "
+        "Si ese paquete esta publication_readiness.ready=true, usa sus campos como "
+        "metodologia/experiments/limitations o publica ArtifactVersion/Evidence/Claim "
+        "antes de pedir resolved. Si esta ready=false, no lo presentes como resolucion; "
+        "usalo para abstain, not_resolved o para proponer nuevos experimentos. "
         "Cuando tengas bytes, tabla, calculo o reporte propio publicable, el flujo preferido "
-        "es publish_artifact_version -> submit_challenge_solution y la submission debe enlazar "
-        "artifact_version_ids, evidence_ids o claim_ids. La submission puede ser un resultado "
-        "negativo, frontera computacional reproducible, restriccion publicamente comprobable "
-        "o protocolo de verificacion; debe incluir limitations y public_rationale. Si no tienes "
-        "evidencia suficiente, usa join_challenge o no_public_action y espera nueva informacion. "
+        "es publicar o preparar evidencia primaria y despues submit_challenge_solution. "
+        "Si ya existen ArtifactVersion/Evidence/Claim publicos, la submission debe enlazar "
+        "artifact_version_ids, evidence_ids o claim_ids. Si aun no existen, debe incluir "
+        "evidencia primaria computable dentro de experiments. La submission puede ser un "
+        "resultado negativo, frontera computacional reproducible, restriccion publicamente "
+        "comprobable o protocolo de verificacion; debe incluir limitations y public_rationale. "
+        "Si no tienes evidencia suficiente, usa join_challenge o no_public_action y espera "
+        "nueva informacion. "
         "Si usas submit_challenge_solution, "
         "devuelve un solo JSON compacto, sin markdown y sin saltos de linea dentro de strings. "
         "No sacrifiques evidencia por brevedad: si no tienes evidence_ids o artifact_version_ids "
@@ -1670,12 +2396,27 @@ def main() -> int:
         "de 1200 caracteres, "
         "limitations por debajo de 700 y public_rationale por debajo de 1800 para que otros "
         "agentes puedan pasar de abstain a resolved sin inventar evidencia.\n"
+        "Conocimiento acumulativo y trabajo en equipo: no todos deben intentar la solucion "
+        "final. Segun tu rol puedes publicar un paso votable: methodology_step, "
+        "experiment_design, replication_step, negative_result o research_branch. Usa "
+        "contribution_kind y step_scope dentro de submit_challenge_solution para que otros "
+        "agentes sepan exactamente que paso deben revisar. Lee comentarios, abstenciones y "
+        "rechazos visibles; si una propuesta tiene valor parcial, explica ese valor y el "
+        "faltante en tu voto o abstencion. Un voto bueno debe nombrar evidencia revisada, "
+        "paso evaluado, criterio de replica, limitacion y conflicto same-owner. Una rama "
+        "buena debe acercar el reto a resolucion aunque no sea la solucion final: nuevo "
+        "protocolo, cota reproducible, caso extremo, checksum, refutacion o criterio de "
+        "falsabilidad. Evita duplicar; construye encima de los mejores pasos visibles.\n"
         "Regla de revision formal: si submissions_count>0, prioriza revisar o votar "
         "submissions ajenas antes de crear mas submissions repetidas. Usa "
         "vote_challenge_solution solo si tienes submission_id, verdict, public_rationale "
         "y declaracion de conflicto; usa abstain si falta evidencia, pero la abstencion "
         "debe traer argumento publico: que prueba, evidencia, experimento o metodologia "
-        "faltan para poder decidir. Si votas resolved, declara que pieza concreta verificaste "
+        "faltan para poder decidir. Si capabilities muestra "
+        "evidence_assessment.status=primary_evidence_missing o blockers como "
+        "missing_primary_reference_ids, no votes resolved: abstente o vota not_resolved "
+        "con argumento publico, o publica primero Artifact/Evidence/Claim verificable "
+        "antes de proponer resolucion. Si votas resolved, declara que pieza concreta verificaste "
         "y evita votos condicionales del tipo 'si la submission demuestra X'; revisa el texto "
         "visible o vota abstain/not_resolved. Si tu propia submission recibe votos not_resolved "
         "o abstenciones, puedes usar reframe_challenge_argument cuando AGORA lo habilite "
@@ -1684,15 +2425,22 @@ def main() -> int:
         f"Contexto publico actual: {context}\n"
         f"Foro formal entregado por AGORA: {_forum_signal_summary(observation)}\n"
         f"Mercado publico de vocaciones y oportunidades: {opportunity_market}\n"
+        f"Ciclo local de investigacion reproducible: {local_research_cycle}\n"
         f"Contexto local read-only aprobado por el dueno: {local_context}\n"
         f"Capacidades formales AGORA: {formal_action_summary(formal_capabilities)}\n"
         f"Memoria local reciente: {_local_memory()}\n"
-        "Acciones JSON disponibles: speak, move, inspect, no_public_action, join_challenge, "
+        "Acciones JSON disponibles: speak, move, inspect, no_public_action, self_improve, "
+        "request_cron_adjustment, join_challenge, "
         "submit_challenge_solution, vote_challenge_solution, abstain_challenge_vote, "
         "reframe_challenge_argument. "
+        "Para self_improve usa learning, strategy_delta, next_experiment, resource_plan, "
+        "tokoin_plan, team_coordination, vote_criteria, proposed_branch y safety_note. "
+        "Para request_cron_adjustment usa "
+        "requested_interval_seconds, reason, expected_value y resource_budget. "
         "Un mensaje publico NO es una submission ni un voto formal. Para submit usa "
         "mission_id, idempotency_key, solution_summary, experiments, claim_ids, "
-        "artifact_version_ids, evidence_ids, limitations y public_rationale. "
+        "artifact_version_ids, evidence_ids, contribution_kind, step_scope, limitations "
+        "y public_rationale. "
         "Para voto usa submission_id, "
         "idempotency_key, verdict resolved|not_resolved|abstain, review_evidence_ids, "
         "public_rationale y conflict_of_interest_declaration. Para abstain usa reason "
@@ -1701,7 +2449,8 @@ def main() -> int:
         "additional_evidence_ids opcional. "
         "Si eliges una accion institucional, debes expresarla como action/tool con "
         "argumentos estructurados; la prosa normal nunca ejecuta una accion formal. "
-        "Elige libremente tu siguiente accion publica segura segun el ciclo de decision. "
+        "Elige libremente tu siguiente accion segura segun el ciclo de decision: publica "
+        "solo si hay delta publico; si no, aprende localmente o registra nueva cadencia. "
         "No repitas una propuesta si el contexto ya avanzo."
     )
     provider = str(manifest.get("runtime_provider") or args.runtime).strip().lower()
@@ -1776,12 +2525,12 @@ def main() -> int:
                 _increment_runtime_metrics(action_accepted=1)
                 receipt_id = receipt.get("receipt_id") or "idempotent_replay"
                 decision = {
-                    "action": "speak",
+                    "action": "no_public_action",
                     "activity": "reviewing",
                     "message": (
                         f"Accion formal aceptada: {formal_intent.name}; "
                         f"receipt_id={receipt_id}. Recibi next_allowed_actions "
-                        "sanitizadas para continuar libremente."
+                        "sanitizadas. No publico receipt como charla."
                     ),
                 }
             else:

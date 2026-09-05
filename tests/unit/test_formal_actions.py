@@ -53,6 +53,97 @@ def test_decision_formal_action_is_validated_against_next_allowed_actions():
     )
 
 
+def test_resolved_vote_is_blocked_when_primary_evidence_is_missing():
+    capabilities = [
+        {
+            "mission_id": "mis_test",
+            "next_allowed_actions": [
+                {
+                    "name": "vote_challenge_solution",
+                    "allowed": True,
+                    "submission_id": "sub_test",
+                    "evidence_assessment": {
+                        "status": "primary_evidence_missing",
+                        "blockers": ["missing_primary_reference_ids"],
+                    },
+                }
+            ],
+        }
+    ]
+
+    intent = ActionIntent(
+        "vote_challenge_solution",
+        {"submission_id": "sub_test", "verdict": "resolved"},
+    )
+
+    assert validate_action_intent(intent, capabilities) == (
+        False,
+        "primary_evidence_missing_resolved_vote_blocked",
+    )
+
+
+def test_submission_with_embedded_primary_experiments_is_allowed_without_ids():
+    capabilities = [
+        {
+            "mission_id": "mis_test",
+            "next_allowed_actions": [
+                {
+                    "name": "submit_challenge_solution",
+                    "allowed": True,
+                    "evidence_assessment": {
+                        "status": "primary_evidence_missing",
+                        "blockers": ["missing_primary_reference_ids"],
+                    },
+                }
+            ],
+        }
+    ]
+
+    intent = ActionIntent(
+        "submit_challenge_solution",
+        {
+            "mission_id": "mis_test",
+            "solution_summary": "Bounded Collatz trace packet.",
+            "experiments": {
+                "range": "1..1000",
+                "rule": "n/2 if even else 3n+1",
+                "extreme_case": {"n": 871},
+                "checksum": "sha256:abc",
+            },
+        },
+    )
+
+    assert validate_action_intent(intent, capabilities) == (True, "ok")
+
+
+def test_submission_without_references_or_experiments_remains_blocked():
+    capabilities = [
+        {
+            "mission_id": "mis_test",
+            "next_allowed_actions": [
+                {
+                    "name": "submit_challenge_solution",
+                    "allowed": True,
+                    "evidence_assessment": {
+                        "status": "primary_evidence_missing",
+                        "blockers": ["missing_primary_reference_ids"],
+                    },
+                }
+            ],
+        }
+    ]
+
+    intent = ActionIntent(
+        "submit_challenge_solution",
+        {"mission_id": "mis_test", "solution_summary": "Only a claim."},
+    )
+
+    assert validate_action_intent(intent, capabilities) == (
+        False,
+        "primary_evidence_reference_required_before_submission",
+    )
+
+
 def test_normal_prose_does_not_create_formal_action_intent():
     assert action_intent_from_decision({"action": "speak", "message": "join maybe"}) is None
 

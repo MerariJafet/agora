@@ -23,6 +23,25 @@ FORMAL_ACTION_NAMES = {
 }
 
 LEGACY_ACTION_ALIASES: dict[str, str] = {}
+PRIMARY_EVIDENCE_MISSING_STATUS = "primary_evidence_missing"
+PRIMARY_EVIDENCE_MISSING_BLOCKER = "missing_primary_reference_ids"
+PRIMARY_EXPERIMENT_MARKERS = {
+    "range",
+    "rule",
+    "inputs",
+    "outputs",
+    "expected_outputs",
+    "expected_hashes",
+    "checksum",
+    "hash",
+    "trace",
+    "extreme_case",
+    "base_case",
+    "induction_step",
+    "formal_step",
+    "replication_steps",
+    "verification_plan",
+}
 
 
 @dataclass(frozen=True)
@@ -62,6 +81,29 @@ def tools_from_capability_manifest(manifest: dict[str, Any]) -> list[dict[str, A
                             "submission_id": {"type": "string"},
                             "idempotency_key": {"type": "string", "minLength": 8},
                             "solution_summary": {"type": "string"},
+                            "contribution_kind": {
+                                "type": "string",
+                                "enum": [
+                                    "methodology_step",
+                                    "experiment_design",
+                                    "replication_step",
+                                    "negative_result",
+                                    "research_branch",
+                                    "final_solution_candidate",
+                                ],
+                                "description": (
+                                    "Scope of the contribution. Use incremental kinds "
+                                    "when the agent is advancing a step rather than "
+                                    "claiming a complete final solution."
+                                ),
+                            },
+                            "step_scope": {
+                                "type": "string",
+                                "description": (
+                                    "Concrete step, lemma, experiment, replication or "
+                                    "branch that reviewers should evaluate."
+                                ),
+                            },
                             "experiments": {
                                 "type": "object",
                                 "description": (
@@ -143,6 +185,7 @@ def formal_action_summary(capabilities: list[dict[str, Any]]) -> str:
             {
                 "action": row.get("name"),
                 "submission_id": row.get("submission_id"),
+                "status": (row.get("evidence_assessment") or {}).get("status"),
                 "blockers": (row.get("evidence_assessment") or {}).get("blockers"),
                 "recommended": row.get("recommended_verdict_when_blocked"),
             }
@@ -180,7 +223,7 @@ def discover_formal_capabilities(
         challenges = client.list_mission_challenges().get("mission_challenges", [])
     except Exception:  # noqa: BLE001 - discovery must not stop presence
         challenges = []
-    for challenge in challenges[:5]:
+    for challenge in challenges:
         mission_id = str(challenge.get("mission_id") or "")
         if not mission_id:
             continue
@@ -249,7 +292,35 @@ def validate_action_intent(
         ]
         if not allowed_rows:
             return False, "formal_action_submission_not_allowed"
+    for _capability, row in allowed_rows:
+        assessment = row.get("evidence_assessment") or {}
+        blockers = assessment.get("blockers") or []
+        primary_missing = (
+            assessment.get("status") == PRIMARY_EVIDENCE_MISSING_STATUS
+            or PRIMARY_EVIDENCE_MISSING_BLOCKER in blockers
+        )
+        if not primary_missing:
+            continue
+        if intent.name == "vote_challenge_solution":
+            verdict = str(intent.arguments.get("verdict") or "")
+            if verdict == "resolved":
+                return False, "primary_evidence_missing_resolved_vote_blocked"
+        if intent.name == "submit_challenge_solution":
+            if not _has_primary_evidence_reference(intent.arguments):
+                return False, "primary_evidence_reference_required_before_submission"
     return True, "ok"
+
+
+def _has_primary_evidence_reference(args: dict[str, Any]) -> bool:
+    if args.get("artifact_version_ids") or args.get("evidence_ids") or args.get("claim_ids"):
+        return True
+    experiments = args.get("experiments")
+    if not isinstance(experiments, dict) or not experiments:
+        return False
+    return any(
+        marker in experiments and experiments.get(marker) not in (None, "", [], {})
+        for marker in PRIMARY_EXPERIMENT_MARKERS
+    )
 
 
 def execute_action_intent(
@@ -392,7 +463,12 @@ def _challenge_methodology(
     methodology = args.get("methodology")
     if isinstance(methodology, dict):
         return methodology
+    contribution_kind = str(args.get("contribution_kind") or "research_branch")
+    step_scope = str(args.get("step_scope") or args.get("claim_scope") or "")[:1800]
     return {
+        "schema": "agora_incremental_science_methodology.v1",
+        "contribution_kind": contribution_kind,
+        "step_scope": step_scope,
         "hypothesis": (
             summary[:3800]
             or "La contribucion propone una frontera publica verificable para el reto activo."
@@ -413,6 +489,15 @@ def _challenge_methodology(
         "reproducibility": (
             "La revision debe repetirse con resumen publico, ids de evidencia cuando existan "
             "y limitaciones declaradas."
+        ),
+        "step_vote_guidance": (
+            "Evaluar explicitamente el paso declarado: metodo, experimento, replica, "
+            "resultado negativo, rama de investigacion o candidato final. El voto debe "
+            "nombrar evidencia visible y faltantes concretos."
+        ),
+        "accumulated_knowledge_policy": (
+            "Una contribucion incremental no reclama resolver todo el reto; agrega "
+            "conocimiento publico reutilizable y votable."
         ),
         "evidence_standard": str(args.get("evidence_standard") or "negative_result_with_bounds"),
         "limitations": limitations[:3800],
