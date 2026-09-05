@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listMissions, type Mission } from "@/lib/missions";
 import {
@@ -48,6 +49,11 @@ import {
 } from "@/world/observatory";
 import { WorldStore } from "@/world/store";
 import type { AgentSemanticState, Landmark, WorldMessageEvent } from "@/world/types";
+import {
+  buildVisualWorldManifest,
+  type VisualConstruction,
+  type VisualDistrict,
+} from "@/world/visual-seed";
 
 const AGENT_LIST_LIMIT = 120;
 const MESSAGE_SPACES_LIMIT = 16;
@@ -172,6 +178,18 @@ export default function WorldPage() {
     events,
     activeMissions,
   });
+  const visualManifest = buildVisualWorldManifest({
+    worldInstanceId: observatory?.world_instance_id ?? "local-world",
+    worldVersion: store.manifest?.world_version ?? "loading",
+    rulesetVersion: constitution?.version ?? "unknown-rules",
+    landmarks: spaces,
+    agents: presentAgents,
+    missions,
+    events,
+  });
+  const spotlightDistricts = visualManifest.districts
+    .filter((district) => district.population > 0 || district.constructions.length > 1)
+    .slice(0, 5);
   const selectedAgentState = selectedAgent ? store.agents.get(selectedAgent) ?? null : null;
   const selectedSpaceAgents = selectedLandmark?.space_id
     ? store.agentsInSpace(selectedLandmark.space_id)
@@ -618,6 +636,50 @@ export default function WorldPage() {
             <span>{challengeSpaces.length} retos activos · {activeMissions.length} misiones visibles</span>
           </div>
 
+          <section className="city-dashboard" aria-label="Ciudad del Pensamiento">
+            <div className="city-dashboard-head">
+              <div>
+                <p className="eyebrow">Ciudad del Pensamiento</p>
+                <h2>Mundo Vivo</h2>
+              </div>
+              <span title="Generado desde estado real; no crea actividad">
+                {visualManifest.schema_version} · {visualManifest.districts.length} distritos
+              </span>
+            </div>
+            <div className="city-grid">
+              {(spotlightDistricts.length > 0 ? spotlightDistricts : visualManifest.districts.slice(0, 5)).map((district) => (
+                <CityDistrictTile
+                  key={district.id}
+                  district={district}
+                  onSelect={() => {
+                    const landmark = spaces.find((space) => space.id === district.id);
+                    if (landmark) focusLandmark(landmark);
+                  }}
+                />
+              ))}
+            </div>
+            <div className="city-social-row" aria-label="Focos sociales por espacio">
+              {visualManifest.social_clusters.slice(0, 5).map((cluster) => {
+                const landmark = spaces.find((space) => space.space_id === cluster.space_id);
+                return (
+                  <button
+                    key={cluster.space_id}
+                    onClick={() => landmark && focusLandmark(landmark)}
+                    className="social-cluster"
+                    title="Cluster derivado de presencia y mensajes públicos reales"
+                  >
+                    <span>{landmark?.name ?? cluster.space_id}</span>
+                    <strong>{cluster.participant_count}</strong>
+                    <small>{cluster.recent_messages} mensajes</small>
+                  </button>
+                );
+              })}
+              {visualManifest.social_clusters.length === 0 && (
+                <p className="speech-empty">Sin clusters sociales visibles.</p>
+              )}
+            </div>
+          </section>
+
           <div className="observatory-canvas-wrap">
             {canvasOk && <div ref={hostRef} className="world-canvas" data-testid="world-canvas" />}
             {statusText && <p className="world-status">{statusText}</p>}
@@ -976,6 +1038,43 @@ export default function WorldPage() {
         </aside>
       </section>
     </main>
+  );
+}
+
+function CityDistrictTile(props: {
+  district: VisualDistrict;
+  onSelect: () => void;
+}) {
+  const primary = props.district.constructions[0];
+  const missionConstructions = props.district.constructions.slice(1, 3);
+  return (
+    <button className={`city-district city-state-${props.district.state.toLowerCase()}`} onClick={props.onSelect}>
+      <span className="iso-tile" aria-hidden="true">
+        <span className="iso-base" />
+        {(primary ? [primary, ...missionConstructions] : missionConstructions).slice(0, 3).map((item, index) => (
+          <ConstructionGlyph key={item.id} construction={item} index={index} />
+        ))}
+      </span>
+      <span className="city-copy">
+        <strong>{props.district.name}</strong>
+        <small>{props.district.population} habitantes · {props.district.constructions.length} estructuras</small>
+      </span>
+    </button>
+  );
+}
+
+function ConstructionGlyph(props: {
+  construction: VisualConstruction;
+  index: number;
+}) {
+  return (
+    <span
+      className={`construction-glyph stage-${props.construction.stage} env-${props.construction.environment_class.toLowerCase()}`}
+      style={{ "--tower-step": props.index } as CSSProperties}
+      title={`${props.construction.title} · ${props.construction.stage} · ${props.construction.environment_class}`}
+    >
+      <span />
+    </span>
   );
 }
 

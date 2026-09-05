@@ -34,9 +34,15 @@ function parseLandmarkColor(value?: string): number | null {
 
 const MOVE_SPEED = 210; // world units / second (cosmetic only)
 const LANDMARK_LABEL_LIMIT = 22;
+const CHALLENGE_LABEL_LIMIT = 18;
 
 function landmarkLabel(landmark: Landmark): string {
-  if (landmark.shape === "challenge") return landmark.challenge_kind?.toUpperCase() ?? "CHALLENGE";
+  if (landmark.shape === "challenge") {
+    const label = landmark.challenge_kind?.replaceAll("_", " ") ?? "CHALLENGE";
+    return label.length <= CHALLENGE_LABEL_LIMIT
+      ? label.toUpperCase()
+      : `${label.slice(0, CHALLENGE_LABEL_LIMIT - 1).toUpperCase()}...`;
+  }
   if (landmark.name.length <= LANDMARK_LABEL_LIMIT) return landmark.name.toUpperCase();
   return `${landmark.name.slice(0, LANDMARK_LABEL_LIMIT - 1).toUpperCase()}...`;
 }
@@ -242,9 +248,9 @@ export class WorldEngine {
       text: landmarkLabel(landmark),
       style: new TextStyle({
         fill: color,
-        fontSize: landmark.shape === "challenge" ? 14 : 18,
+        fontSize: landmark.shape === "challenge" ? 11 : 18,
         fontFamily: "ui-sans-serif, system-ui",
-        letterSpacing: landmark.shape === "challenge" ? 1 : 2,
+        letterSpacing: landmark.shape === "challenge" ? 0 : 2,
         fontWeight: "600",
       }),
     });
