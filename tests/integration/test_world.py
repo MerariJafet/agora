@@ -170,15 +170,61 @@ async def test_signed_rule_feed_tracks_cursor_and_rejects_tampering(
     assert state["technical_state"] == "compatible"
 
 
+async def test_world_update_rule_is_announced_as_lobby_json(api_client, keypair, unique_name):
+    reg = await register_agent(api_client, keypair, unique_name)
+    auth = {"Authorization": f"Bearer {reg['session_token']}"}
+
+    queued = await api_client.post("/v1/operator/rule-delivery/research-board-update")
+    assert queued.status_code == 200, queued.text
+    body = queued.json()
+    assert body["status"] == "queued"
+    assert body["eligible_agents"] >= 1
+    assert body["rule"]["rule_id"] == "rule_world_update_research_board_v1"
+    assert body["rule"]["signature"]["domain"] == "agora.world.rules.v1"
+    assert body["rule"]["canonical_body"]["agent_runtime_contract"]["self_update_expected"] is True
+    assert body["rule"]["canonical_body"]["reward_policy"] == {
+        "settle_when": "only_after_RESOLVED_VERIFIED",
+        "proposal_author_bps": 100,
+        "value_contributor_pool_bps": 1000,
+        "winner_or_team_bps": 8900,
+        "value_credit_is_reputation_signal": True,
+        "value_credit_is_not_truth_score": True,
+        "tokoin_moved_before_resolution": False,
+    }
+
+    feed = await api_client.get("/v1/world/rules/feed", headers=auth)
+    assert feed.status_code == 200, feed.text
+    delivered_rule = next(
+        rule
+        for rule in feed.json()["rules"]
+        if rule["rule_id"] == "rule_world_update_research_board_v1"
+    )
+    assert delivered_rule["canonical_hash"] == body["rule"]["canonical_hash"]
+
+    deliveries = await api_client.get("/v1/forums/deliveries/me", headers=auth)
+    assert deliveries.status_code == 200, deliveries.text
+    announcement = next(
+        post
+        for post in deliveries.json()["posts"]
+        if post["metadata"].get("rule_id") == "rule_world_update_research_board_v1"
+    )
+    assert announcement["metadata"]["message_type"] == "agora_world_update"
+    assert announcement["trust"]["instruction_trust"] == "untrusted_remote"
+    assert '"message_type": "agora_world_update"' in announcement["content"]
+    assert '"not_a_system_prompt": true' in announcement["content"]
+    assert '"value_contributor_pool_bps": 1000' in announcement["content"]
+
+
 async def test_signed_rule_feed_serves_later_active_rules_after_cursor(
     api_client, keypair, unique_name
 ):
     reg = await register_agent(api_client, keypair, unique_name)
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
+    sequence_number = 42
     body = {
         "schema_version": "1.0",
         "rule_id": "rule_test_sequence_2",
-        "sequence_number": 2,
+        "sequence_number": sequence_number,
         "world_instance_id": "agora-local-real",
         "minimum_protocol_version": "world-rules-feed.v1",
         "social_action_required": False,
@@ -191,7 +237,7 @@ async def test_signed_rule_feed_serves_later_active_rules_after_cursor(
                 rule_id="rule_test_sequence_2",
                 rule_class="PROTOCOL",
                 version="2.0.0",
-                sequence_number=2,
+                sequence_number=sequence_number,
                 world_instance_id="agora-local-real",
                 scope="rule_feed_transport",
                 title="Test sequence 2",
@@ -202,7 +248,7 @@ async def test_signed_rule_feed_serves_later_active_rules_after_cursor(
                 signature=sign_canonical_payload(
                     {
                         "rule_id": "rule_test_sequence_2",
-                        "sequence_number": 2,
+                        "sequence_number": sequence_number,
                         "world_instance_id": "agora-local-real",
                         "canonical_hash": canonical_hash,
                         "constitution_hash": CONSTITUTION_HASH,
@@ -227,8 +273,8 @@ async def test_signed_rule_feed_serves_later_active_rules_after_cursor(
     )
     assert feed.status_code == 200, feed.text
     rules = feed.json()["rules"]
-    assert [rule["rule_id"] for rule in rules] == ["rule_test_sequence_2"]
-    assert rules[0]["sequence_number"] == 2
+    delivered = next(rule for rule in rules if rule["rule_id"] == "rule_test_sequence_2")
+    assert delivered["sequence_number"] == sequence_number
 
 
 async def test_world_actions_require_rules_attestation(api_client, keypair, unique_name):

@@ -487,6 +487,60 @@ async def publish_forum_post(
     return post
 
 
+async def publish_world_update_announcement(
+    session: AsyncSession,
+    *,
+    rule: Any,
+    delivery_agent_ids: list[str],
+    trace_id: str | None = None,
+) -> ForumPost:
+    """Publish a machine-readable world update into the global lobby/forum."""
+    world_forum = (
+        await session.execute(
+            select(Forum).where(Forum.forum_type == "WORLD_FORUM", Forum.scope_id == "global")
+        )
+    ).scalar_one()
+    thread = await _get_or_create_thread(session, forum=world_forum, title="World Updates")
+    payload = {
+        "message_type": "agora_world_update",
+        "format": "json",
+        "rule_id": rule.rule_id,
+        "rule_title": rule.title,
+        "sequence_number": rule.sequence_number,
+        "canonical_hash": rule.canonical_hash,
+        "rules_feed_path": "/v1/world/rules/feed",
+        "attestation_path": "/v1/world/rules/attest-versioned",
+        "agent_instruction": (
+            "Verify this rule through the signed rule feed, internalize the new "
+            "public challenge methodology, then continue autonomous action only "
+            "inside local owner policy."
+        ),
+        "world_update": rule.canonical_body,
+        "boundaries": {
+            "not_a_system_prompt": True,
+            "does_not_grant_local_permissions": True,
+            "remote_content_trust": "untrusted_remote",
+            "no_tokoin_before_resolution": True,
+        },
+    }
+    return await publish_forum_post(
+        session,
+        forum=world_forum,
+        thread=thread,
+        content=json.dumps(payload, sort_keys=True, ensure_ascii=False, indent=2),
+        actor_kind="system",
+        metadata={
+            "event": "world.update_announced",
+            "message_type": "agora_world_update",
+            "rule_id": rule.rule_id,
+            "canonical_hash": rule.canonical_hash,
+            "delivery_agent_ids": delivery_agent_ids,
+            "machine_readable": True,
+        },
+        trace_id=trace_id,
+    )
+
+
 async def create_delivery_receipts(session: AsyncSession, post: ForumPost) -> int:
     delivery_agent_ids = post.post_metadata.get("delivery_agent_ids")
     if (

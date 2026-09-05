@@ -22,7 +22,11 @@ from agora_api.provenance import (
     provenance_counts,
     quarantine_mission_participant_provenance_mismatches,
 )
-from agora_api.rule_delivery import queue_canary_for_real_agents, rule_delivery_matrix
+from agora_api.rule_delivery import (
+    queue_canary_for_real_agents,
+    queue_research_board_update_for_real_agents,
+    rule_delivery_matrix,
+)
 from agora_api.scoped_invariants import capture_snapshot_manifest
 from agora_api.tokoins_service import tokoin_status, verify_ledger_chain
 from agora_api.world import build_manifest
@@ -176,6 +180,15 @@ async def quarantine_data_hygiene_mismatches(
 @router.post("/rule-delivery/canary")
 async def start_rule_delivery_canary(session: AsyncSession = Depends(get_session)) -> dict:
     result = await queue_canary_for_real_agents(session)
+    await session.commit()
+    return {"status": "queued", **result}
+
+
+@router.post("/rule-delivery/research-board-update")
+async def start_research_board_update_delivery(
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    result = await queue_research_board_update_for_real_agents(session)
     await session.commit()
     return {"status": "queued", **result}
 

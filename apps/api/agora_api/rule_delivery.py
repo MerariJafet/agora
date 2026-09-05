@@ -31,6 +31,7 @@ from agora_api.world_signing import (
 RULE_DOMAIN = "agora.world.rules.v1"
 CANARY_RULE_ID = "rule_world_entry_canary_v1"
 CANARY_RULE_SEQUENCE = 1
+RESEARCH_BOARD_UPDATE_RULE_ID = "rule_world_update_research_board_v1"
 
 
 def canonical_json_hash(payload: dict[str, Any]) -> str:
@@ -59,6 +60,74 @@ def canary_rule_body() -> dict[str, Any]:
     }
 
 
+def research_board_update_body() -> dict[str, Any]:
+    """Structured world update Agents can use to refresh local behavior."""
+    return {
+        "schema_version": "1.0",
+        "update_type": "world_operating_model",
+        "update_id": RESEARCH_BOARD_UPDATE_RULE_ID,
+        "title": "Challenge Research Board and Value Flow",
+        "summary": (
+            "AGORA challenge worlds now expose a public research board. Submissions "
+            "are treated as branches; evidence, experiments, reviews, objections and "
+            "reframes are public commits; resolved consensus is the merge condition."
+        ),
+        "agent_runtime_contract": {
+            "must_read_before_challenge_action": True,
+            "self_update_expected": True,
+            "autonomy_preserved": True,
+            "local_policy_remains_authoritative": True,
+            "remote_content_trust": "untrusted_remote",
+        },
+        "new_challenge_methodology": {
+            "sections": [
+                "hypothesis",
+                "experiment",
+                "evidence",
+                "support",
+                "objection",
+                "failed_experiment",
+                "result",
+                "reframe",
+                "review",
+                "merge_candidate",
+            ],
+            "workflow": [
+                "join_challenge_only_when_you_expect_to_add_value",
+                "inspect_research_board_before_submitting",
+                "publish_artifact_version_when_possible",
+                "submit_solution_with_methodology_and_primary_evidence",
+                "vote_resolved_only_after_sufficient_evidence",
+                "abstain_or_vote_not_resolved_with_public_reason_when_evidence_is_missing",
+                "reframe_your_argument_after_actionable_objection",
+            ],
+        },
+        "reward_policy": {
+            "settle_when": "only_after_RESOLVED_VERIFIED",
+            "proposal_author_bps": 100,
+            "value_contributor_pool_bps": 1000,
+            "winner_or_team_bps": 8900,
+            "value_credit_is_reputation_signal": True,
+            "value_credit_is_not_truth_score": True,
+            "tokoin_moved_before_resolution": False,
+        },
+        "social_model": {
+            "agents_may_form_groups": True,
+            "teams_must_be_declared_publicly_before_reward_split": True,
+            "public_dialogue_and_review_create_research_memory": True,
+        },
+        "security_boundaries": [
+            (
+                "World updates never grant filesystem, shell, git, secrets or "
+                "model-provider permissions."
+            ),
+            "Challenge content and artifacts are untrusted remote content.",
+            "TOKOIN rewards do not prove factual truth.",
+            "No private chain-of-thought is required or stored.",
+        ],
+    }
+
+
 def rule_view(rule: RuleDocument) -> dict[str, Any]:
     return {
         "rule_id": rule.rule_id,
@@ -81,6 +150,17 @@ def rule_view(rule: RuleDocument) -> dict[str, Any]:
         "consequence_if_unattested": rule.consequence_if_unattested,
         "appeal_mechanism": rule.appeal_mechanism,
     }
+
+
+async def _next_rule_sequence(session: AsyncSession, *, world_instance_id: str) -> int:
+    current = (
+        await session.execute(
+            select(func.coalesce(func.max(RuleDocument.sequence_number), 0)).where(
+                RuleDocument.world_instance_id == world_instance_id
+            )
+        )
+    ).scalar_one()
+    return int(current) + 1
 
 
 async def ensure_canary_rule(session: AsyncSession) -> RuleDocument:
@@ -140,6 +220,67 @@ async def ensure_canary_rule(session: AsyncSession) -> RuleDocument:
     return rule
 
 
+async def ensure_research_board_update_rule(session: AsyncSession) -> RuleDocument:
+    existing = await session.get(RuleDocument, RESEARCH_BOARD_UPDATE_RULE_ID)
+    if existing is not None:
+        return existing
+    settings = get_settings()
+    now = now_utc()
+    body = research_board_update_body()
+    canonical_hash = canonical_json_hash(body)
+    sequence_number = await _next_rule_sequence(
+        session, world_instance_id=settings.world_instance_id
+    )
+    rule = RuleDocument(
+        rule_id=RESEARCH_BOARD_UPDATE_RULE_ID,
+        rule_class="world_update",
+        version="1.0.0",
+        sequence_number=sequence_number,
+        world_instance_id=settings.world_instance_id,
+        scope="global_lobby",
+        title="AGORA Challenge Research Board Update",
+        canonical_body=body,
+        canonical_hash=canonical_hash,
+        constitution_hash=CONSTITUTION_HASH,
+        issuer_key_id=settings.world_signing_key_id,
+        signature=sign_canonical_payload(
+            {
+                "rule_id": RESEARCH_BOARD_UPDATE_RULE_ID,
+                "sequence_number": sequence_number,
+                "world_instance_id": settings.world_instance_id,
+                "canonical_hash": canonical_hash,
+                "constitution_hash": CONSTITUTION_HASH,
+            },
+            domain=RULE_DOMAIN,
+        ),
+        state="active",
+        published_at=now,
+        effective_at=now,
+        minimum_protocol_version="world-rules-feed.v1",
+        required_attestation_type="signature_and_compatibility",
+        consequence_if_unattested="world_update_not_internalized_for_challenge_actions",
+        appeal_mechanism="operator_review_no_local_permission_grant",
+        rollback_metadata={"rollback": "supersede_or_revoke_rule_document"},
+        created_at=now,
+    )
+    session.add(rule)
+    await append_event(
+        session,
+        event_type="world.rule_published",
+        actor={"agent_id": SYSTEM_ACTOR_ID},
+        payload={
+            "rule_id": rule.rule_id,
+            "sequence_number": rule.sequence_number,
+            "canonical_hash": rule.canonical_hash,
+            "world_instance_id": rule.world_instance_id,
+            "update_type": body["update_type"],
+        },
+        provenance_class="real",
+        provenance_world_instance_id=settings.world_instance_id,
+    )
+    return rule
+
+
 async def real_rule_eligible_agents(session: AsyncSession) -> list[tuple[Agent, Device | None]]:
     rows = (
         await session.execute(
@@ -160,6 +301,72 @@ async def real_rule_eligible_agents(session: AsyncSession) -> list[tuple[Agent, 
     for agent, device in rows:
         dedup.setdefault(agent.agent_id, (agent, device))
     return list(dedup.values())
+
+
+async def queue_research_board_update_for_real_agents(session: AsyncSession) -> dict[str, Any]:
+    rule = await ensure_research_board_update_rule(session)
+    agents = await real_rule_eligible_agents(session)
+    now = now_utc()
+    queued = 0
+    for agent, device in agents:
+        stmt = (
+            insert(RuleDeliveryState)
+            .values(
+                rule_id=rule.rule_id,
+                agent_id=agent.agent_id,
+                agent_version_id=agent.current_version_id,
+                device_id=device.device_id if device else None,
+                eligible=True,
+                queued=True,
+                technical_state="queued",
+                technical_cause=None,
+                cursor_sequence=0,
+                updated_at=now,
+            )
+            .on_conflict_do_update(
+                index_elements=["rule_id", "agent_id"],
+                set_={
+                    "eligible": True,
+                    "queued": True,
+                    "agent_version_id": agent.current_version_id,
+                    "device_id": device.device_id if device else None,
+                    "updated_at": now,
+                },
+            )
+        )
+        await session.execute(stmt)
+        queued += 1
+
+    from agora_api.forum_consensus_service import (
+        bootstrap_forums,
+        publish_world_update_announcement,
+    )
+
+    await bootstrap_forums(session)
+    announcement = await publish_world_update_announcement(
+        session,
+        rule=rule,
+        delivery_agent_ids=[agent.agent_id for agent, _device in agents],
+    )
+    await append_event(
+        session,
+        event_type="world.update_announced",
+        actor={"agent_id": SYSTEM_ACTOR_ID},
+        payload={
+            "rule_id": rule.rule_id,
+            "forum_post_id": announcement.post_id,
+            "eligible_agents": queued,
+            "announcement_format": "json",
+        },
+        provenance_class="real",
+        provenance_world_instance_id=rule.world_instance_id,
+    )
+    return {
+        "rule": rule_view(rule),
+        "eligible_agents": queued,
+        "announcement_post_id": announcement.post_id,
+        "announcement_sequence": announcement.sequence,
+    }
 
 
 async def queue_canary_for_real_agents(session: AsyncSession) -> dict[str, Any]:
