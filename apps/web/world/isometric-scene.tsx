@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { listMissions, type Mission } from "@/lib/missions";
+import { avatarStatusFor, AVATAR_LIMITS } from "@/world/avatar-contract";
 import {
   fetchManifest,
   fetchObservatoryActionability,
@@ -18,8 +20,10 @@ import {
   VISUAL_SCHEMA_VERSION,
   type ChallengeConstructionProjection,
   type IsoAgentProjection,
+  type IsoRoomSizing,
   type IsoStation,
 } from "@/world/isometric-layout";
+import { challengeHref, encodeFocus, parseFocus } from "@/world/interaction-contract";
 import type { AgentSemanticState, Landmark, WorldManifest, WorldMessageEvent } from "@/world/types";
 
 const FALLBACK_DISTRICT: Landmark = {
@@ -68,8 +72,8 @@ function stationClass(station: IsoStation["kind"]): string {
   return "portal";
 }
 
-function targetPercent(station: IsoStation): CSSProperties {
-  const point = isoToScreen(station.gridX, station.gridY, station.elevation ?? 0);
+function targetPercent(station: IsoStation, sizing: IsoRoomSizing): CSSProperties {
+  const point = isoToScreen(station.gridX, station.gridY, station.elevation ?? 0, sizing);
   return {
     "--x": `${Math.min(92, Math.max(8, point.x))}%`,
     "--y": `${Math.min(86, Math.max(12, point.y))}%`,
@@ -156,16 +160,23 @@ function RoomInspector({ agent, district, challenge }: {
         <>
           <p className="eyebrow">Agente seleccionado</p>
           <h2>{agent.agent.name}</h2>
+          <div className="iso-inspector-actions">
+            <Link className="iso-link" href={`/agents/${agent.agent.agent_id}`}>Pasaporte</Link>
+          </div>
           <dl>
             <div><dt>Espacio</dt><dd>{district.name}</dd></div>
             <div><dt>Actividad</dt><dd>{agent.agent.activity}</dd></div>
             <div><dt>Estacion</dt><dd>{agent.station}</dd></div>
             <div><dt>Avatar</dt><dd>{agent.agent.avatar.body} · {agent.agent.avatar.emblem}</dd></div>
+            <div><dt>Contrato</dt><dd>{avatarStatusFor(agent.agent).contractVersion}</dd></div>
+            <div><dt>Estado visual</dt><dd>{avatarStatusFor(agent.agent).status}</dd></div>
+            <div><dt>Celda</dt><dd>{agent.tileX},{agent.tileY}</dd></div>
             <div><dt>Origen visual</dt><dd>{VISUAL_SCHEMA_VERSION}</dd></div>
           </dl>
           <p className="iso-note">
-            Posicion visual proyectada: estable por agente/distrito. No es coordenada canonica
-            del servidor y no otorga permisos locales.
+            Posicion visual proyectada: estable por agente/distrito. Huella comun
+            {` ${AVATAR_LIMITS.cssFootprint.normalWidth}x${AVATAR_LIMITS.cssFootprint.normalHeight}px`};
+            no es coordenada canonica del servidor y no otorga permisos locales.
           </p>
         </>
       )}
@@ -178,7 +189,7 @@ function RoomInspector({ agent, district, challenge }: {
             <div><dt>Progreso</dt><dd>{Math.round(challenge.progress * 100)}%</dd></div>
             <div><dt>Ruta</dt><dd>/world/challenge/{challenge.id}</dd></div>
           </dl>
-          <Link className="iso-link" href={`/world/challenge/${challenge.id}`}>Entrar al reto</Link>
+          <Link className="iso-link" href={challengeHref(challenge.id)}>Entrar al reto</Link>
         </>
       )}
     </aside>
@@ -201,6 +212,9 @@ export function IsometricWorldScene({ targetId, mode }: {
   targetId?: string;
   mode: "district" | "challenge" | "replay";
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [manifest, setManifest] = useState<WorldManifest | null>(null);
   const [agents, setAgents] = useState<AgentSemanticState[]>([]);
   const [messages, setMessages] = useState<WorldMessageEvent[]>([]);
@@ -228,9 +242,20 @@ export function IsometricWorldScene({ targetId, mode }: {
     missions,
   }), [agents, district, messages, missions]);
 
-  const selectedAgent = projection.agents.find((agent) => agent.agent.agent_id === selectedAgentId) ?? null;
-  const selectedChallenge = projection.constructions.find((item) => item.id === selectedChallengeId) ?? null;
   const latestMessage = messages[0];
+  const focus = useMemo(() => parseFocus(searchParams.get("focus")), [searchParams]);
+  const effectiveSelectedAgentId = focus?.kind === "agent" ? focus.id : selectedAgentId;
+  const effectiveSelectedChallengeId = focus?.kind === "challenge" ? focus.id : selectedChallengeId;
+  const selectedAgent = projection.agents.find((agent) => agent.agent.agent_id === effectiveSelectedAgentId) ?? null;
+  const selectedChallenge = projection.constructions.find((item) => item.id === effectiveSelectedChallengeId) ?? null;
+
+  const replaceFocus = useCallback((nextFocus: ReturnType<typeof parseFocus>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextFocus) params.set("focus", encodeFocus(nextFocus));
+    else params.delete("focus");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -291,6 +316,18 @@ export function IsometricWorldScene({ targetId, mode }: {
     return () => socket.close();
   }, [district]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedAgentId(null);
+        setSelectedChallengeId(null);
+        replaceFocus(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [replaceFocus]);
+
   if (!manifest) return <LoadingRoom />;
 
   return (
@@ -333,6 +370,11 @@ export function IsometricWorldScene({ targetId, mode }: {
             "--camera-x": `${camera.x}px`,
             "--camera-y": `${camera.y}px`,
             "--zoom": zoom,
+            "--room-cols": projection.sizing.columns,
+            "--room-rows": projection.sizing.rows,
+            "--floor-w": `${projection.sizing.columns * 44}px`,
+            "--floor-h": `${projection.sizing.rows * 44}px`,
+            "--wall-east-h": `${projection.sizing.rows * 31}px`,
           } as CSSProperties}
         >
           <div className="iso-camera-controls" aria-label="Controles de camara">
@@ -348,8 +390,11 @@ export function IsometricWorldScene({ targetId, mode }: {
           </div>
           <div className="iso-room">
             <div className="iso-floor" aria-hidden="true">
-              {Array.from({ length: 12 * 12 }, (_, index) => (
-                <span key={index} className={(index + Math.floor(index / 12)) % 3 === 0 ? "accent" : ""} />
+              {Array.from({ length: projection.sizing.columns * projection.sizing.rows }, (_, index) => (
+                <span
+                  key={index}
+                  className={(index + Math.floor(index / projection.sizing.columns)) % 3 === 0 ? "accent" : ""}
+                />
               ))}
             </div>
             <div className="iso-wall wall-north" />
@@ -359,7 +404,7 @@ export function IsometricWorldScene({ targetId, mode }: {
               <div
                 key={station.kind}
                 className={`iso-station station-${stationClass(station.kind)}`}
-                style={targetPercent(station)}
+                style={targetPercent(station, projection.sizing)}
                 title={station.label}
               >
                 <span />
@@ -367,16 +412,25 @@ export function IsometricWorldScene({ targetId, mode }: {
               </div>
             ))}
             {projection.constructions.map((item) => (
-              <Construction key={item.id} item={item} onSelect={() => setSelectedChallengeId(item.id)} />
+              <Construction
+                key={item.id}
+                item={item}
+                onSelect={() => {
+                  setSelectedChallengeId(item.id);
+                  setSelectedAgentId(null);
+                  replaceFocus({ kind: "challenge", id: item.id });
+                }}
+              />
             ))}
             {projection.agents.map((item) => (
               <Avatar
                 key={item.agent.agent_id}
                 item={item}
-                selected={selectedAgentId === item.agent.agent_id}
+                selected={effectiveSelectedAgentId === item.agent.agent_id}
                 onSelect={() => {
                   setSelectedAgentId(item.agent.agent_id);
                   setSelectedChallengeId(null);
+                  replaceFocus({ kind: "agent", id: item.agent.agent_id });
                 }}
               />
             ))}

@@ -3,7 +3,9 @@ import { test } from "node:test";
 import {
   buildIsoRoomProjection,
   constructionStageForMission,
+  MAX_VISIBLE_BUBBLES,
   projectAgentsIntoRoom,
+  roomSizingForPopulation,
   stationForAgent,
 } from "./isometric-layout.ts";
 import { testAvatar, testManifest, TEST_PLAZA } from "./store.test-fixtures.ts";
@@ -97,4 +99,39 @@ test("room projection contains stations, full agent projections and challenge st
   assert.ok(projection.stations.some((station) => station.kind === "voting"));
   assert.equal(projection.agents[0]?.station, "deliberation");
   assert.equal(projection.constructions[0]?.stage, "work");
+});
+
+test("dense districts expand and assign one deterministic footprint per agent", () => {
+  const central = testManifest().landmarks[0]!;
+  const denseAgents = Array.from({ length: 35 }, (_, index) => agent(`agt_dense_${index}`, "discussing"));
+  const projection = buildIsoRoomProjection({
+    district: central,
+    agents: denseAgents,
+    messages: [],
+    missions: [],
+  });
+  assert.ok(projection.sizing.columns >= 24);
+  assert.ok(projection.sizing.rows >= 18);
+  const footprints = new Set(projection.agents.map((item) => `${item.tileX}:${item.tileY}`));
+  assert.equal(footprints.size, denseAgents.length);
+});
+
+test("visible speech bubbles stay bounded in crowded rooms", () => {
+  const central = testManifest().landmarks[0]!;
+  const denseAgents = Array.from({ length: 12 }, (_, index) => agent(`agt_bubble_${index}`, "idle"));
+  const messages = denseAgents.map((item, index): WorldMessageEvent => ({
+    message_id: `msg_${index}`,
+    space_id: TEST_PLAZA,
+    agent_id: item.agent_id,
+    agent_name: item.name,
+    content: `mensaje ${index}`,
+    created_at: `2026-09-05T00:00:${String(index).padStart(2, "0")}Z`,
+  }));
+  const projection = projectAgentsIntoRoom(denseAgents, central, messages);
+  assert.equal(projection.filter((item) => item.bubble).length, MAX_VISIBLE_BUBBLES);
+});
+
+test("room sizing keeps low occupancy for population growth", () => {
+  const sizing = roomSizingForPopulation(150);
+  assert.ok(150 / sizing.usableTiles <= sizing.targetOccupancyRatio);
 });

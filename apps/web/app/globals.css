@@ -975,6 +975,7 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
   gap: 0.55rem;
   align-items: center;
   padding: 0.52rem 0.6rem;
+  text-decoration: none;
 }
 .space-row:hover,
 .agent-row:hover,
@@ -1640,8 +1641,8 @@ body:has(.iso-world-shell) .shell > header {
   background: repeating-linear-gradient(90deg, #ffffff08 0 2px, transparent 2px 52px);
 }
 .iso-room {
-  --room-w: min(82vw, 1120px);
-  --room-h: min(76vh, 720px);
+  --room-w: min(88vw, 1320px);
+  --room-h: min(80vh, 820px);
   position: absolute;
   left: 50%;
   top: 50%;
@@ -1656,11 +1657,11 @@ body:has(.iso-world-shell) .shell > header {
   position: absolute;
   left: 50%;
   top: 54%;
-  width: 760px;
-  height: 760px;
+  width: min(var(--floor-w, 792px), 1180px);
+  height: min(var(--floor-h, 616px), 900px);
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  grid-template-rows: repeat(12, 1fr);
+  grid-template-columns: repeat(var(--room-cols, 18), 1fr);
+  grid-template-rows: repeat(var(--room-rows, 14), 1fr);
   transform: translate(-50%, -50%) rotateX(60deg) rotateZ(45deg);
   transform-style: preserve-3d;
   border: 2px solid #d8a845bb;
@@ -1684,7 +1685,7 @@ body:has(.iso-world-shell) .shell > header {
   position: absolute;
   left: 50%;
   top: 16%;
-  width: 760px;
+  width: min(var(--floor-w, 792px), 1180px);
   height: 86px;
   transform-origin: center bottom;
   background: linear-gradient(180deg, #26384d 0%, #111b28 100%);
@@ -1698,7 +1699,7 @@ body:has(.iso-world-shell) .shell > header {
   top: 48%;
   left: 79%;
   width: 86px;
-  height: 520px;
+  height: min(var(--wall-east-h, 431px), 680px);
   transform: translate(-50%, -50%) skewY(-45deg);
 }
 .iso-stair {
@@ -1729,8 +1730,8 @@ body:has(.iso-world-shell) .shell > header {
   gap: 0.2rem;
 }
 .iso-station > span {
-  width: 82px;
-  height: 42px;
+  width: 72px;
+  height: 36px;
   border: 1px solid #ffffff24;
   border-radius: 9px;
   transform: rotateX(58deg) rotateZ(45deg);
@@ -1738,7 +1739,7 @@ body:has(.iso-world-shell) .shell > header {
   box-shadow: 0 16px 24px #0008;
 }
 .iso-station strong {
-  max-width: 116px;
+  max-width: 104px;
   color: #cbd7e9;
   font-size: 0.62rem;
   text-align: center;
@@ -1750,8 +1751,8 @@ body:has(.iso-world-shell) .shell > header {
 .station-challenge > span { border-style: dashed; background: linear-gradient(135deg, #ff9f6e99 0%, #5c2d28 100%); }
 .station-conversation > span { background: linear-gradient(135deg, #74a7ff 0%, #1b355f 100%); }
 .iso-construction {
-  width: 156px;
-  min-height: 116px;
+  width: 138px;
+  min-height: 104px;
   border: 0;
   background: transparent;
   color: var(--agora-text);
@@ -1768,9 +1769,9 @@ body:has(.iso-world-shell) .shell > header {
 }
 .construction-core {
   position: absolute;
-  left: 58px;
+  left: 50px;
   bottom: 42px;
-  width: 54px;
+  width: 48px;
   height: calc(38px + var(--build-progress, 0) * 76px);
   border: 1px solid #ffffff2d;
   border-radius: 8px 8px 3px 3px;
@@ -1808,13 +1809,21 @@ body:has(.iso-world-shell) .shell > header {
   text-shadow: 0 2px 6px #000;
 }
 .iso-avatar {
-  width: 92px;
-  height: 138px;
+  width: 72px;
+  height: 112px;
   border: 0;
   background: transparent;
   cursor: pointer;
   color: var(--agora-text);
   animation: avatar-breathe 2.8s ease-in-out infinite;
+  border-radius: 12px;
+  outline-offset: 4px;
+}
+.iso-avatar:hover,
+.iso-avatar:focus-visible,
+.iso-construction:hover,
+.iso-construction:focus-visible {
+  filter: drop-shadow(0 0 12px #42d6bf66);
 }
 .motion-walk { animation: avatar-walk 1.2s ease-in-out infinite; }
 .motion-talk .avatar-head { animation: avatar-talk 0.8s ease-in-out infinite; }
@@ -1827,9 +1836,9 @@ body:has(.iso-world-shell) .shell > header {
 .avatar-selection {
   position: absolute;
   left: 50%;
-  bottom: 24px;
-  width: 58px;
-  height: 26px;
+  bottom: 20px;
+  width: 48px;
+  height: 22px;
   transform: translateX(-50%) rotateX(58deg) rotateZ(45deg);
   border-radius: 50%;
 }
@@ -1847,18 +1856,18 @@ body:has(.iso-world-shell) .shell > header {
 .avatar-body {
   position: absolute;
   left: 50%;
-  bottom: 26px;
-  width: 54px;
-  height: 92px;
+  bottom: 24px;
+  width: 48px;
+  height: 72px;
   transform: translateX(-50%);
 }
 .avatar-head {
   position: absolute;
-  left: 10px;
+  left: 9px;
   top: 0;
-  width: 34px;
-  height: 31px;
-  border-radius: 14px 14px 10px 10px;
+  width: 30px;
+  height: 27px;
+  border-radius: 13px 13px 9px 9px;
   background: color-mix(in srgb, var(--avatar-tint) 84%, white 16%);
   border: 1px solid #ffffff55;
   box-shadow: inset 0 1px 0 #ffffff99;
@@ -1866,22 +1875,22 @@ body:has(.iso-world-shell) .shell > header {
 .avatar-visor {
   position: absolute;
   left: 7px;
-  top: 11px;
-  width: 20px;
-  height: 8px;
+  top: 10px;
+  width: 17px;
+  height: 7px;
   border-radius: 999px;
   background: #061017;
   box-shadow: inset 0 0 8px #74a7ff;
 }
-.visor-mono { width: 14px; left: 10px; }
-.visor-wide { width: 25px; left: 5px; }
+.visor-mono { width: 12px; left: 9px; }
+.visor-wide { width: 22px; left: 4px; }
 .visor-hex { border-radius: 3px; }
 .avatar-torso {
   position: absolute;
-  left: 8px;
-  top: 30px;
-  width: 38px;
-  height: 44px;
+  left: 7px;
+  top: 26px;
+  width: 34px;
+  height: 34px;
   border-radius: 13px 13px 10px 10px;
   background: linear-gradient(180deg, var(--avatar-tint) 0%, #1b4051 100%);
   border: 1px solid #ffffff4a;
@@ -1892,28 +1901,28 @@ body:has(.iso-world-shell) .shell > header {
 .avatar-arms {
   position: absolute;
   left: 0;
-  top: 40px;
-  width: 54px;
-  height: 24px;
-  border-left: 8px solid color-mix(in srgb, var(--avatar-tint) 72%, white 10%);
-  border-right: 8px solid color-mix(in srgb, var(--avatar-tint) 72%, black 16%);
+  top: 35px;
+  width: 48px;
+  height: 20px;
+  border-left: 7px solid color-mix(in srgb, var(--avatar-tint) 72%, white 10%);
+  border-right: 7px solid color-mix(in srgb, var(--avatar-tint) 72%, black 16%);
   border-radius: 12px;
 }
 .avatar-legs {
   position: absolute;
-  left: 13px;
-  top: 72px;
-  width: 30px;
-  height: 21px;
-  border-left: 10px solid #24394d;
-  border-right: 10px solid #24394d;
+  left: 12px;
+  top: 58px;
+  width: 25px;
+  height: 15px;
+  border-left: 8px solid #24394d;
+  border-right: 8px solid #24394d;
 }
 .avatar-emblem {
   position: absolute;
-  left: 21px;
-  top: 45px;
-  width: 12px;
-  height: 12px;
+  left: 18px;
+  top: 37px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: var(--agora-accent);
   box-shadow: 0 0 10px #e0b85faa;
@@ -1925,7 +1934,7 @@ body:has(.iso-world-shell) .shell > header {
   position: absolute;
   left: 50%;
   bottom: 0;
-  width: 120px;
+  width: 104px;
   transform: translateX(-50%);
   color: #dfeaff;
   font-size: 0.66rem;
@@ -1940,11 +1949,18 @@ body:has(.iso-world-shell) .shell > header {
 .iso-avatar.selected .avatar-name {
   opacity: 1;
 }
+.isometric-stage img,
+.iso-avatar img {
+  max-width: 56px;
+  max-height: 72px;
+  object-fit: contain;
+  pointer-events: none;
+}
 .avatar-bubble {
   position: absolute;
   left: 50%;
-  bottom: 116px;
-  width: min(230px, 28vw);
+  bottom: 94px;
+  width: min(192px, 24vw);
   transform: translateX(-50%);
   border: 1px solid #42d6bf66;
   border-radius: 14px 14px 14px 4px;
@@ -2068,6 +2084,11 @@ body:has(.iso-world-shell) .shell > header {
 .iso-inspector h2 {
   margin: 0;
   font-size: 1.1rem;
+}
+.iso-inspector-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 .iso-inspector dl {
   display: grid;

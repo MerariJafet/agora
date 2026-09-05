@@ -1,4 +1,4 @@
-import { use } from "react";
+import { Suspense, use } from "react";
 import { IsometricWorldScene } from "@/world/isometric-scene";
 
 export default function DistrictWorldPage({
@@ -7,5 +7,9 @@ export default function DistrictWorldPage({
   params: Promise<{ districtId: string }>;
 }) {
   const { districtId } = use(params);
-  return <IsometricWorldScene mode="district" targetId={districtId} />;
+  return (
+    <Suspense fallback={null}>
+      <IsometricWorldScene mode="district" targetId={districtId} />
+    </Suspense>
+  );
 }

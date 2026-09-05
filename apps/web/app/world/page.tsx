@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listMissions, type Mission } from "@/lib/missions";
 import {
@@ -47,6 +48,7 @@ import {
   type ObservatoryEvent,
 } from "@/world/observatory";
 import { WorldStore } from "@/world/store";
+import { agentDistrictHref, challengeHref, districtHref } from "@/world/interaction-contract";
 import type { AgentSemanticState, Landmark, WorldMessageEvent } from "@/world/types";
 
 const AGENT_LIST_LIMIT = 120;
@@ -95,6 +97,7 @@ function formatAceros(aceros: number | null | undefined): string {
 }
 
 export default function WorldPage() {
+  const router = useRouter();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<WorldEngine | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
@@ -472,6 +475,11 @@ export default function WorldPage() {
     setSelectedEvent(null);
     setChallengeState(null);
     engineRef.current?.focusLandmark(landmark.id);
+    if (landmark.shape === "challenge" || landmark.mission_id) {
+      router.push(challengeHref(landmark.mission_id ?? landmark.id));
+    } else if (landmark.space_id) {
+      router.push(districtHref(landmark));
+    }
   };
 
   const focusAgent = (agent: AgentSemanticState) => {
@@ -479,6 +487,7 @@ export default function WorldPage() {
     setSelectedLandmark(null);
     setSelectedEvent(null);
     engineRef.current?.focusAgent(agent.agent_id);
+    router.push(agentDistrictHref(agent, spaces));
   };
   const metricDefinitions = observatory?.metric_definitions ?? {};
 
@@ -534,9 +543,13 @@ export default function WorldPage() {
                 const count = population.get(landmark.space_id ?? "") ?? 0;
                 return (
                   <li key={landmark.id}>
-                    <button
+                    <Link
+                      href={landmark.shape === "challenge" || landmark.mission_id
+                        ? challengeHref(landmark.mission_id ?? landmark.id)
+                        : districtHref(landmark)}
                       className={`space-row ${selectedLandmark?.id === landmark.id ? "selected" : ""}`}
                       onClick={() => focusLandmark(landmark)}
+                      aria-label={`Entrar a ${landmark.name}`}
                     >
                       <span className={`space-state state-${landmark.state.toLowerCase()}`} />
                       <span className="row-main">
@@ -544,7 +557,7 @@ export default function WorldPage() {
                         <small>{landmark.state}</small>
                       </span>
                       <span className="row-count">{count}</span>
-                    </button>
+                    </Link>
                   </li>
                 );
               })}
@@ -563,16 +576,18 @@ export default function WorldPage() {
                 const place = spaces.find((space) => space.space_id === agent.space_id);
                 return (
                   <li key={agent.agent_id}>
-                    <button
+                    <Link
+                      href={agentDistrictHref(agent, spaces)}
                       className={`agent-row ${selectedAgent === agent.agent_id ? "selected" : ""}`}
                       onClick={() => focusAgent(agent)}
+                      aria-label={`Abrir ${agent.name} en su distrito`}
                     >
                       <span className="agent-swatch" style={{ background: agentColor(agent.agent_id) }} />
                       <span className="row-main">
                         <strong>{agent.name}</strong>
                         <small>{agent.activity} · {place?.name ?? "unknown"}</small>
                       </span>
-                    </button>
+                    </Link>
                   </li>
                 );
               })}

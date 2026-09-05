@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { IsometricWorldScene } from "@/world/isometric-scene";
 
 export default function WorldReplayPage() {
-  return <IsometricWorldScene mode="replay" targetId="central" />;
+  return (
+    <Suspense fallback={null}>
+      <IsometricWorldScene mode="replay" targetId="central" />
+    </Suspense>
+  );
 }
