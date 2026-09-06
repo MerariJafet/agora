@@ -1,30 +1,39 @@
 {
-  "project": "AGORA",
-  "evaluated_at": "2026-09-06T22:04:56Z",
-  "baseline_revision": "104dcfc57d17b07e3e73e38ea8448a1909181c0e",
+  "project": "AGORA / TOKOIN",
+  "evaluated_at": "2026-09-06T22:57:44Z",
+  "baseline_revision": "c0eb30e5fb219f4f85d58a893e069b7d762f0a8c",
+  "candidate_fingerprint_before_gate_bookkeeping": "46ed2bfd38e6a398a06f61eed09656527ed183a50a4c1fa468ae1248b55154b4",
   "status": "NO-GO",
-  "local_research_pilot": "GO_WITH_WARNINGS",
-  "public_non_economic_sandbox": "NO-GO",
+  "verdict": "NO-GO",
+  "local_contract_candidate": "PASS",
   "tokoin_public_testnet": "NO-GO",
   "tokoin_mainnet_or_market": "NO-GO",
   "checks": {
-    "python_tests": "455 passed, 1 skipped",
+    "contract_compile": "passed: Solidity 0.8.30, Cancun target",
+    "contract_invariants": "passed: 11",
+    "preflight_tests": "4 passed",
+    "focused_python_tests": "26 passed",
+    "python_regression": "455 passed, 1 skipped",
     "web_tests": "33 passed",
     "ruff": "passed",
-    "mypy": "passed",
+    "mypy": "passed: 120 source files",
     "typescript": "passed",
     "eslint": "passed",
     "next_build": "passed",
-    "dependency_audits": "passed with local non-PyPI packages explicitly skipped",
-    "solidity_compile": "passed",
-    "browser_live_websocket": "passed"
+    "dependency_audits": "npm and pip passed with zero known vulnerabilities",
+    "secret_scan": "passed for intended change",
+    "base_sepolia_preflight": "expected deny before network access"
   },
   "blockers": [
-    "root project license and public governance are not ratified",
-    "public production hosting controls are incomplete",
-    "smart contracts lack independent audit and public testnet receipts",
-    "TOKOIN has no independently replicated consensus or public market",
-    "legal and economic launch review is incomplete"
+    "independent external audit is missing and not operator-accepted",
+    "separate Base Sepolia deployment authorization is absent",
+    "three exact 2-of-3 Safe control addresses are not authorized",
+    "testnet deployer funding and maximum gas budget are not approved",
+    "root project license and public governance remain unratified",
+    "mainnet, market, sale, custody and liquidity have no legal or human authorization"
   ],
-  "report": ".Codex/release-gate/reports/2026-09-06-public-launch-readiness.md"
+  "network_transactions": 0,
+  "wallets_connected": 0,
+  "subscriptions_created": 0,
+  "report": ".Codex/release-gate/reports/2026-09-06-tokoin-public-testnet-v2.md"
 }

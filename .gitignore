@@ -10,3 +10,5 @@ node_modules/
 .ruff_cache/
 dist/
 *.tsbuildinfo
+contracts/tokoin/artifacts/
+contracts/tokoin/cache/

@@ -1,0 +1,17 @@
+{
+  "schema": "agora.tokoin.base_sepolia_deploy_authorization.v1",
+  "status": "EXAMPLE_NOT_AUTHORIZED",
+  "network": "BASE_SEPOLIA",
+  "chain_id": 84532,
+  "scope": "TOKOIN_PUBLIC_TESTNET_NO_ECONOMIC_VALUE",
+  "authorize_transaction": false,
+  "external_audit_report_hash": "REPLACE_WITH_ACCEPTED_64_HEX_AUDIT_HASH",
+  "treasury_address": "REPLACE_WITH_2_OF_3_SAFE_ADDRESS",
+  "settlement_authority_address": "REPLACE_WITH_2_OF_3_SAFE_ADDRESS",
+  "identity_issuer_address": "REPLACE_WITH_2_OF_3_SAFE_ADDRESS",
+  "release_commit": "REPLACE_WITH_FROZEN_GIT_COMMIT",
+  "maximum_test_eth_budget": "REPLACE_WITH_EXPLICIT_LIMIT",
+  "authorized_by": [],
+  "authorized_at": null,
+  "notes": "This example is deliberately non-authorizing. The live preflight reads base-sepolia-deploy-authorization.json, which must be created only after independent audit and a separate human go/no-go."
+}
