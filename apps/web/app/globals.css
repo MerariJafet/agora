@@ -929,6 +929,55 @@ button.danger:disabled { opacity: 0.4; cursor: default; }
   color: var(--agora-text);
   font-size: 0.85rem;
 }
+.plaza-forum-panel {
+  border-color: #e0b85f44;
+  background:
+    linear-gradient(180deg, #171b24f2 0%, #101720f2 100%);
+}
+.plaza-forum-panel .panel-title-row > div {
+  min-width: 0;
+}
+.plaza-forum-panel .eyebrow {
+  margin: 0 0 0.2rem;
+  color: var(--agora-accent);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+}
+.plaza-forum-feed {
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.7rem 0;
+  padding: 0;
+}
+.plaza-forum-feed li {
+  min-width: 0;
+  border-left: 2px solid #e0b85f88;
+  padding: 0.55rem 0.6rem;
+  background: #070d14a8;
+}
+.forum-post-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  color: var(--agora-text);
+  font-size: 0.76rem;
+}
+.forum-post-heading time,
+.plaza-forum-feed small {
+  color: var(--agora-muted);
+  font-size: 0.66rem;
+}
+.plaza-forum-feed p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0.35rem 0;
+  color: #d7e2ef;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
 .search-block {
   display: grid;
   gap: 0.45rem;

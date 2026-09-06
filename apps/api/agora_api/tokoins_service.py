@@ -276,6 +276,26 @@ async def tokoin_status(session: AsyncSession) -> dict[str, Any]:
     wallets = (
         await session.execute(select(func.count(TokoinWallet.wallet_id)))
     ).scalar_one()
+    wallet_provenance_rows = (
+        await session.execute(
+            select(
+                RecordProvenance.provenance_class,
+                func.count(TokoinWallet.wallet_id),
+            )
+            .select_from(TokoinWallet)
+            .join(
+                RecordProvenance,
+                (RecordProvenance.record_table == "tokoin_wallets")
+                & (RecordProvenance.record_id == TokoinWallet.wallet_id),
+                isouter=True,
+            )
+            .group_by(RecordProvenance.provenance_class)
+        )
+    ).all()
+    wallets_by_provenance = {
+        str(provenance_class or "unclassified"): int(count)
+        for provenance_class, count in wallet_provenance_rows
+    }
     circulating = (
         await session.execute(
             select(func.coalesce(func.sum(TokoinWallet.balance), 0)).where(
@@ -298,6 +318,9 @@ async def tokoin_status(session: AsyncSession) -> dict[str, Any]:
         ),
         "treasury_balance_aceros": treasury.balance if treasury else None,
         "wallet_count": int(wallets),
+        "real_wallet_count": wallets_by_provenance.get("real", 0),
+        "wallet_count_by_provenance": wallets_by_provenance,
+        "wallet_count_semantics": "all_historical_rows_separate_from_real_adoption",
         "genesis_hash": supply.genesis_hash,
         "treasury_wallet_id": supply.treasury_wallet_id,
         "monetary_policy": "fixed_supply_100000000_aceros_per_tokoin_no_minting_api",

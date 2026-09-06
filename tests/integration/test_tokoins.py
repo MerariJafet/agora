@@ -71,6 +71,11 @@ async def test_public_tokoin_balances_are_aggregate_only(api_client):
         "circulating_supply_aceros"
     ]
     assert balances["wallet_count"] == status["wallet_count"]
+    assert status["wallet_count"] == sum(status["wallet_count_by_provenance"].values())
+    assert status["real_wallet_count"] == status["wallet_count_by_provenance"].get("real", 0)
+    assert status["wallet_count_semantics"] == (
+        "all_historical_rows_separate_from_real_adoption"
+    )
     assert balances["blockchain"] == status["blockchain"]
 
 

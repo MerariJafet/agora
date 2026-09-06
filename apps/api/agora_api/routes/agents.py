@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agora_api.agent_identity import agent_identity_credential
 from agora_api.authz import CurrentDevice
 from agora_api.boundary import validate_boundary
 from agora_api.db import get_session
@@ -109,6 +110,14 @@ async def list_agent_events(agent_id: str, session: AsyncSession = Depends(get_s
 @router.get("/{agent_id}/lineage")
 async def get_lineage(agent_id: str, session: AsyncSession = Depends(get_session)) -> dict:
     return await lineage(session, agent_id)
+
+
+@router.get("/{agent_id}/identity-credential")
+async def get_identity_credential(
+    agent_id: str, session: AsyncSession = Depends(get_session)
+) -> dict:
+    """Return the signed public AgentGenesis credential and optional SBT mirror metadata."""
+    return await agent_identity_credential(session, agent_id)
 
 
 @router.post("/{agent_id}/devices/authorize")

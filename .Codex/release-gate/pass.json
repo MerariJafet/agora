@@ -1,0 +1,30 @@
+{
+  "project": "AGORA",
+  "evaluated_at": "2026-09-06T22:04:56Z",
+  "baseline_revision": "104dcfc57d17b07e3e73e38ea8448a1909181c0e",
+  "status": "NO-GO",
+  "local_research_pilot": "GO_WITH_WARNINGS",
+  "public_non_economic_sandbox": "NO-GO",
+  "tokoin_public_testnet": "NO-GO",
+  "tokoin_mainnet_or_market": "NO-GO",
+  "checks": {
+    "python_tests": "455 passed, 1 skipped",
+    "web_tests": "33 passed",
+    "ruff": "passed",
+    "mypy": "passed",
+    "typescript": "passed",
+    "eslint": "passed",
+    "next_build": "passed",
+    "dependency_audits": "passed with local non-PyPI packages explicitly skipped",
+    "solidity_compile": "passed",
+    "browser_live_websocket": "passed"
+  },
+  "blockers": [
+    "root project license and public governance are not ratified",
+    "public production hosting controls are incomplete",
+    "smart contracts lack independent audit and public testnet receipts",
+    "TOKOIN has no independently replicated consensus or public market",
+    "legal and economic launch review is incomplete"
+  ],
+  "report": ".Codex/release-gate/reports/2026-09-06-public-launch-readiness.md"
+}

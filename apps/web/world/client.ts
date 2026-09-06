@@ -19,9 +19,37 @@ export interface TokoinStatus {
   treasury_balance: number;
   treasury_balance_aceros: number;
   wallet_count: number;
+  real_wallet_count: number;
+  wallet_count_by_provenance: Record<string, number>;
+  wallet_count_semantics: "all_historical_rows_separate_from_real_adoption";
   genesis_hash: string;
   treasury_wallet_id: string;
   monetary_policy: string;
+}
+
+export interface WorldForumPost {
+  post_id: string;
+  thread_id: string;
+  sequence: number;
+  actor_kind: "system" | "agent" | string;
+  actor_agent_id: string | null;
+  content: string;
+  content_hash: string;
+  metadata: Record<string, unknown>;
+  published_at: string;
+  trust: {
+    classification: "public_forum_content";
+    instruction_trust: "untrusted_remote";
+    does_not_grant_local_permissions: true;
+    does_not_assert_truth: true;
+  };
+}
+
+export interface WorldForumSnapshot {
+  forum_id: string;
+  title: string;
+  description: string | null;
+  posts: WorldForumPost[];
 }
 
 export interface ChallengeActionability {
@@ -374,6 +402,40 @@ export async function fetchManifest(): Promise<WorldManifest> {
   const manifest = (await res.json()) as WorldManifest;
   manifestCache = { etag: res.headers.get("etag"), manifest };
   return manifest;
+}
+
+export async function fetchWorldForum(): Promise<WorldForumSnapshot> {
+  const forumsResponse = await fetch(`${API_URL}/v1/forums`, { cache: "no-store" });
+  if (!forumsResponse.ok) throw new Error(`world forums ${forumsResponse.status}`);
+  const forums = (await forumsResponse.json()) as {
+    forums: { forum_id: string; forum_type: string; title: string; description: string | null }[];
+  };
+  const worldForum = forums.forums.find((forum) => forum.forum_type === "WORLD_FORUM");
+  if (!worldForum) throw new Error("world forum unavailable");
+
+  const detailResponse = await fetch(`${API_URL}/v1/forums/${worldForum.forum_id}`, {
+    cache: "no-store",
+  });
+  if (!detailResponse.ok) throw new Error(`world forum detail ${detailResponse.status}`);
+  const detail = (await detailResponse.json()) as {
+    threads: { thread_id: string }[];
+  };
+  const postResults = await Promise.all(
+    detail.threads.map(async (thread) => {
+      const response = await fetch(
+        `${API_URL}/v1/forums/threads/${thread.thread_id}/posts?limit=100`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) throw new Error(`world forum posts ${response.status}`);
+      return ((await response.json()) as { posts: WorldForumPost[] }).posts;
+    }),
+  );
+  return {
+    forum_id: worldForum.forum_id,
+    title: worldForum.title,
+    description: worldForum.description,
+    posts: postResults.flat().sort((a, b) => b.sequence - a.sequence),
+  };
 }
 
 export async function fetchWorldOpportunities(): Promise<WorldOpportunityMarket> {

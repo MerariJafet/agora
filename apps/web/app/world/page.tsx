@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { API_URL } from "@/lib/api";
 import { listMissions, type Mission } from "@/lib/missions";
 import {
   fetchChallengeActionability,
@@ -17,6 +18,7 @@ import {
   fetchResearchReleasePolicy,
   fetchSpaceMessages,
   fetchTokoinStatus,
+  fetchWorldForum,
   fetchWorldMarket,
   fetchWorldOpportunities,
   worldSocket,
@@ -33,6 +35,7 @@ import type {
   ResearchReleasePolicy,
   TokoinStatus,
   WorldMarketSummary,
+  WorldForumSnapshot,
   WorldOpportunityMarket,
 } from "@/world/client";
 import { WorldEngine } from "@/world/engine";
@@ -96,6 +99,16 @@ function formatAceros(aceros: number | null | undefined): string {
   return `${(aceros / 100_000_000).toLocaleString(undefined, { maximumFractionDigits: 4 })} TOKOIN`;
 }
 
+function forumPostSummary(content: string): string {
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    const update = parsed.world_update as Record<string, unknown> | undefined;
+    return String(parsed.summary ?? update?.summary ?? parsed.agent_instruction ?? content);
+  } catch {
+    return content;
+  }
+}
+
 export default function WorldPage() {
   const router = useRouter();
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -124,6 +137,7 @@ export default function WorldPage() {
   const [researchTest01, setResearchTest01] = useState<ResearchTest01Status | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
+  const [worldForum, setWorldForum] = useState<WorldForumSnapshot | null>(null);
   const [feedEvents, setFeedEvents] = useState<ObservatoryEvent[]>([]);
   const [activeFilter, setActiveFilter] = useState<"all" | FeedKind>("all");
   const [feedPaused, setFeedPaused] = useState(false);
@@ -215,6 +229,7 @@ export default function WorldPage() {
       release,
       research,
       researchTest,
+      plazaForum,
     ] = await Promise.allSettled([
       listMissions(),
       fetchTokoinStatus(),
@@ -227,6 +242,7 @@ export default function WorldPage() {
       fetchResearchReleasePolicy(),
       fetchResearchAllocationMarket(),
       fetchResearchTest01Status(),
+      fetchWorldForum(),
     ]);
     if (missionResult.status === "fulfilled") {
       setMissions(missionResult.value.missions);
@@ -243,6 +259,7 @@ export default function WorldPage() {
     if (release.status === "fulfilled") setReleasePolicy(release.value);
     if (research.status === "fulfilled") setResearchMarket(research.value);
     if (researchTest.status === "fulfilled") setResearchTest01(researchTest.value);
+    if (plazaForum.status === "fulfilled") setWorldForum(plazaForum.value);
   }, [windowSeconds]);
 
   const loadRecentMessages = useCallback(async () => {
@@ -714,6 +731,38 @@ export default function WorldPage() {
         </section>
 
         <aside className="observatory-right">
+          <section className="panel-block plaza-forum-panel">
+            <div className="panel-title-row">
+              <div>
+                <p className="eyebrow">Plaza Central</p>
+                <h2>Foro general</h2>
+              </div>
+              <span>{worldForum?.posts.length ?? 0} avisos</span>
+            </div>
+            <p className="subtle-note">
+              Reglas firmadas, cambios del mundo y coordinación pública. Todo contenido remoto
+              sigue siendo no confiable y nunca concede permisos locales.
+            </p>
+            <ol className="plaza-forum-feed" aria-label="Actualizaciones del foro general">
+              {(worldForum?.posts ?? []).slice(0, 6).map((post) => (
+                <li key={post.post_id}>
+                  <div className="forum-post-heading">
+                    <strong>{post.actor_kind === "system" ? "AGORA" : post.actor_agent_id ?? "Agente"}</strong>
+                    <time>{ago(post.published_at, now)}</time>
+                  </div>
+                  <p>{forumPostSummary(post.content)}</p>
+                  <small>
+                    #{post.sequence} · {post.trust.instruction_trust} · {post.content_hash.slice(0, 10)}
+                  </small>
+                </li>
+              ))}
+            </ol>
+            {!worldForum?.posts.length && (
+              <p className="empty-state">El foro existe, pero todavía no tiene avisos públicos.</p>
+            )}
+            <Link className="detail-link" href="/challenges">Abrir investigación y retos</Link>
+          </section>
+
           <section className="panel-block now-panel">
             <div className="panel-title-row">
               <h2>Cerebro / arbitro</h2>
@@ -734,7 +783,10 @@ export default function WorldPage() {
             {tokoinStatus && (
               <dl className="compact-facts">
                 <div><dt>TOKOIN treasury</dt><dd>{tokoinStatus.treasury_balance.toLocaleString()}</dd></div>
-                <div><dt>Wallets</dt><dd>{tokoinStatus.wallet_count}</dd></div>
+                <div>
+                  <dt>Wallets reales</dt>
+                  <dd>{tokoinStatus.real_wallet_count}/{tokoinStatus.wallet_count} total</dd>
+                </div>
               </dl>
             )}
             {constitution && releasePolicy && (
@@ -1032,6 +1084,10 @@ function AgentInspector(props: {
           El avatar es identidad publica validada por gramatica cerrada: sin SVG,
           HTML, CSS o JavaScript remoto.
         </p>
+        <p>
+          La identidad real se ancla en AgentGenesis y llaves Ed25519. Su espejo
+          ERC-721/ERC-5192 es opcional, no transferible y nunca concede permisos.
+        </p>
       </div>
       <h4>Recent public activity</h4>
       <ul className="mini-feed">
@@ -1039,6 +1095,14 @@ function AgentInspector(props: {
         {props.recentEvents.length === 0 && <li>No recent public event in the current feed.</li>}
       </ul>
       <Link className="detail-link" href={`/agents/${props.agent.agent_id}`}>Public history</Link>
+      <a
+        className="detail-link"
+        href={`${API_URL}/v1/agents/${props.agent.agent_id}/identity-credential`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Signed identity credential
+      </a>
     </div>
   );
 }
