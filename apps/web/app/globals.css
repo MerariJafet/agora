@@ -297,6 +297,129 @@ body:has(.observatory-shell) .shell > header {
   .world-canvas { transition: none !important; }
 }
 
+/* ---- Research Protocol: human scientific accountability ---- */
+.research-protocol-shell {
+  min-height: 100vh;
+  padding: clamp(1rem, 2vw, 2rem);
+  background: #080d12;
+}
+.research-protocol-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  align-items: end;
+  max-width: 1480px;
+  margin: 0 auto 1rem;
+}
+.research-protocol-header h1 {
+  margin: 0;
+  max-width: 920px;
+  font-size: clamp(1.6rem, 3vw, 2.6rem);
+  letter-spacing: 0;
+}
+.research-protocol-header p:not(.eyebrow) {
+  max-width: 840px;
+  margin: 0.55rem 0 0;
+  color: var(--agora-muted);
+}
+.research-protocol-header nav { display: flex; gap: 0.5rem; }
+.research-protocol-header nav a,
+.research-protocol-link {
+  display: inline-flex;
+  border: 1px solid #ffffff20;
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  background: #121b25;
+  font-size: 0.78rem;
+}
+.research-protocol-link { margin: 0.35rem 0 0.75rem; color: var(--agora-teal); }
+.research-truth-banner {
+  max-width: 1480px;
+  margin: 0 auto 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-left: 3px solid var(--agora-accent);
+  background: #e0b85f12;
+  padding: 0.8rem 1rem;
+  font-size: 0.82rem;
+}
+.research-truth-banner span { color: var(--agora-muted); }
+.research-kpis {
+  max-width: 1480px;
+  margin: 0 auto 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-block: 1px solid #ffffff15;
+}
+.research-kpis article { padding: 0.75rem 1rem; border-right: 1px solid #ffffff12; }
+.research-kpis span { display: block; color: var(--agora-muted); font-size: 0.68rem; text-transform: uppercase; }
+.research-kpis strong { display: block; margin-top: 0.2rem; font-size: 0.9rem; overflow-wrap: anywhere; }
+.research-layout {
+  max-width: 1480px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 0.8rem;
+}
+.genealogy-panel,
+.research-review-rail > section {
+  border: 1px solid #ffffff15;
+  background: #0e151e;
+}
+.genealogy-panel > header { display: flex; justify-content: space-between; padding: 1rem; border-bottom: 1px solid #ffffff12; }
+.genealogy-panel h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0; }
+.genealogy-panel code,
+.candidate-record code,
+.review-record code { color: #83a6bd; font-size: 0.68rem; }
+.genealogy-track { padding: 0.4rem 1rem 1rem; }
+.genealogy-node {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid #ffffff0d;
+}
+.genealogy-node::before { content: ""; position: absolute; left: 21px; top: 46px; bottom: -12px; width: 1px; background: #42d6bf44; }
+.genealogy-node:last-child::before { display: none; }
+.genealogy-index { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid #42d6bf66; background: #10241f; color: var(--agora-teal); font: 0.72rem ui-monospace, monospace; }
+.genealogy-node h3 { margin: 0.2rem 0; font-size: 0.92rem; letter-spacing: 0; }
+.genealogy-node p { margin: 0; color: var(--agora-muted); font-size: 0.74rem; }
+.genealogy-node footer { display: flex; gap: 0.8rem; margin-top: 0.45rem; }
+.node-type { color: var(--agora-accent); font-size: 0.65rem; text-transform: uppercase; }
+.node-refuted .genealogy-index { border-color: var(--agora-danger); color: var(--agora-danger); background: #2a1118; }
+.research-review-rail { display: grid; align-content: start; gap: 0.8rem; }
+.research-review-rail > section { padding: 1rem; }
+.candidate-record,
+.review-record { display: grid; gap: 0.25rem; padding: 0.7rem 0; border-bottom: 1px solid #ffffff0d; }
+.candidate-record span,
+.review-record span { color: var(--agora-muted); font-size: 0.74rem; }
+.reward-total { display: block; margin: 0.4rem 0 0.8rem; font-size: 1.3rem; }
+.reward-pools { display: grid; gap: 0.45rem; margin: 0; }
+.reward-pools div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; }
+.reward-pools dt { color: var(--agora-muted); font-size: 0.7rem; }
+.reward-pools dd { margin: 0; font: 0.72rem ui-monospace, monospace; }
+
+.institution-portal { max-width: 1120px; }
+.institution-review-form { display: grid; gap: 16px; max-width: 860px; }
+.institution-context { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.institution-context div, .institution-signature-step { border: 1px solid var(--agora-border); background: var(--agora-surface); padding: 14px; }
+.institution-context span, .institution-review-form label { display: grid; gap: 7px; color: var(--agora-muted); font-size: .78rem; text-transform: uppercase; }
+.institution-context strong, .institution-context code { color: var(--agora-text); overflow-wrap: anywhere; }
+.institution-review-form textarea { min-height: 92px; resize: vertical; }
+.institution-review-form textarea, .institution-review-form select, .institution-signature-step input { width: 100%; border: 1px solid var(--agora-border); background: #090f17; color: var(--agora-text); padding: 10px; font: inherit; }
+.institution-signature-step { display: grid; gap: 12px; }
+.institution-signature-step code { overflow-wrap: anywhere; color: var(--agora-accent); }
+.institution-signature-step pre { max-height: 300px; overflow: auto; white-space: pre-wrap; }
+@media (max-width: 760px) { .institution-context { grid-template-columns: 1fr; } }
+@media (max-width: 880px) {
+  .research-protocol-header,
+  .research-truth-banner { align-items: start; flex-direction: column; }
+  .research-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .research-layout { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 760px) {
   .world-command {
     position: static;

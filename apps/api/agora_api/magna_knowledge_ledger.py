@@ -45,7 +45,15 @@ SECRETS_RE = (
     "chain_of_thought",
     "cot",
 )
-GRAPH_RELATIONS = {"was_derived_from", "used", "was_generated_by", "supersedes", "depends_on"}
+GRAPH_RELATIONS = {
+    "was_derived_from",
+    "used",
+    "uses",
+    "was_generated_by",
+    "supersedes",
+    "depends_on",
+    "parent_of",
+}
 
 
 class KnowledgeLedgerViolation(AgoraError):

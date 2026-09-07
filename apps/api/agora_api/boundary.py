@@ -60,5 +60,9 @@ def validate_register_request(payload: Any) -> None:
     validate_boundary("registration.schema.json", "/$defs/RegisterRequest", payload)
 
 
+def validate_research_protocol_request(definition: str, payload: Any) -> None:
+    validate_boundary("research-protocol.schema.json", f"/$defs/{definition}", payload)
+
+
 def validate_event_envelope(payload: Any) -> None:
     validate_boundary("event-envelope.schema.json", None, payload)

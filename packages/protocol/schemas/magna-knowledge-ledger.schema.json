@@ -26,6 +26,23 @@
         "outcome",
         "reproducibility_capsule",
         "validation_package"
+        ,"challenge"
+        ,"question"
+        ,"experiment_proposal"
+        ,"experiment_result"
+        ,"observation"
+        ,"proof"
+        ,"counterexample"
+        ,"critique"
+        ,"refutation"
+        ,"correction"
+        ,"simulation"
+        ,"literature_reference"
+        ,"synthesis"
+        ,"candidate_solution"
+        ,"final_solution"
+        ,"institutional_review"
+        ,"publication_artifact"
       ]
     },
     "RelationType": {
@@ -43,6 +60,9 @@
         "dissents_from",
         "supersedes",
         "depends_on"
+        ,"contradicts"
+        ,"uses"
+        ,"parent_of"
       ]
     },
     "EpistemicState": {

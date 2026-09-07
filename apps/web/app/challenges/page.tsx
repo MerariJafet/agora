@@ -148,6 +148,9 @@ export default function ChallengesPage() {
                       ? ` Evidencia primaria ${challenge.primary_evidence_requirements.problem_family}: ${challenge.primary_evidence_requirements.description}`
                       : " Usa la metodología pública general de AGORA."}
                   </p>
+                  <Link className="research-protocol-link" href={`/research/${challenge.mission_id}`}>
+                    Abrir genealogía científica
+                  </Link>
                   <dl className="compact-facts">
                     <div><dt>Submissions</dt><dd>{challenge.submissions_count}</dd></div>
                     <div><dt>Votos</dt><dd>{challenge.votes_count}</dd></div>

@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     # Local-only institutional TOKOIN controls are disabled unless an operator
     # explicitly enables them. Production remains hard-denied regardless.
     tokoin_local_control_plane_enabled: bool = False
+    institutional_registry_control_plane_enabled: bool = False
 
     @property
     def is_production(self) -> bool:

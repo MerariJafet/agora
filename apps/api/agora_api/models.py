@@ -1596,6 +1596,172 @@ class MissionChallengeVote(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+# Research Protocol v1. These projections extend the existing immutable
+# knowledge ledger; they do not duplicate its object/edge graph.
+class ResearchCandidateSnapshot(Base):
+    __tablename__ = "research_candidate_snapshots"
+
+    candidate_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    challenge_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("missions.mission_id"), nullable=False
+    )
+    submission_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("mission_challenge_submissions.submission_id"), nullable=False
+    )
+    candidate_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    final_solution_object_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("magna_knowledge_objects.object_id"), nullable=False
+    )
+    manuscript_artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    knowledge_root_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    consensus_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    protocol_version: Mapped[str] = mapped_column(String(24), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_by_agent_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("challenge_id", "candidate_version", name="uq_research_candidate_version"),
+        UniqueConstraint(
+            "challenge_id", "idempotency_key", name="uq_research_candidate_idempotency"
+        ),
+        Index("ix_research_candidate_challenge", "challenge_id", "state"),
+    )
+
+
+class ResearchInstitution(Base):
+    __tablename__ = "research_institutions"
+
+    institution_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    legal_entity_id: Mapped[str] = mapped_column(String(160), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    domain: Mapped[str] = mapped_column(String(253), nullable=False)
+    jurisdiction: Mapped[str] = mapped_column(String(80), nullable=False)
+    representative_owner_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("users.user_id"), nullable=False, unique=True
+    )
+    signing_public_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    credential_reference: Mapped[str] = mapped_column(String(500), nullable=False)
+    credential_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    payout_address: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    conflict_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="PENDING")
+    verified_by_owner_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_research_institution_state", "state"),)
+
+
+class InstitutionalReview(Base):
+    __tablename__ = "institutional_reviews"
+
+    review_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    institution_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_institutions.institution_id"), nullable=False
+    )
+    candidate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_candidate_snapshots.candidate_id"), nullable=False
+    )
+    verdict: Mapped[str] = mapped_column(String(40), nullable=False)
+    methodology_review: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_review: Mapped[str] = mapped_column(Text, nullable=False)
+    paper_review: Mapped[str] = mapped_column(Text, nullable=False)
+    experiment_review: Mapped[str] = mapped_column(Text, nullable=False)
+    conflict_declaration: Mapped[str] = mapped_column(Text, nullable=False)
+    signed_payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    signature: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("institution_id", "candidate_id", name="uq_institution_candidate_review"),
+        Index("ix_institutional_reviews_candidate", "candidate_id", "verdict"),
+    )
+
+
+class ResearchContributionScore(Base):
+    __tablename__ = "research_contribution_scores"
+
+    score_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    challenge_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    candidate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_candidate_snapshots.candidate_id"), nullable=False
+    )
+    object_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("magna_knowledge_objects.object_id"), nullable=False
+    )
+    author_agent_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    algorithm_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    dimensions: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    weighted_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    explanation: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "candidate_id",
+            "object_id",
+            "algorithm_version",
+            name="uq_research_score_candidate_object_algo",
+        ),
+        Index("ix_research_scores_challenge", "challenge_id", "weighted_score"),
+    )
+
+
+class ResearchRewardCalculation(Base):
+    __tablename__ = "research_reward_calculations"
+
+    reward_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    challenge_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    candidate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_candidate_snapshots.candidate_id"), nullable=False
+    )
+    algorithm_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    total_aceros: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    allocation: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    genealogy_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    explanation: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("candidate_id", "algorithm_version", name="uq_research_reward_candidate"),
+        Index("ix_research_rewards_challenge", "challenge_id", "state"),
+    )
+
+
+class ResearchPublicationPackage(Base):
+    __tablename__ = "research_publication_packages"
+
+    package_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    challenge_id: Mapped[str] = mapped_column(String(30), nullable=False)
+    candidate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_candidate_snapshots.candidate_id"), nullable=False
+    )
+    manuscript_artifact_version_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    responsible_institution_ids: Mapped[list] = mapped_column(JSONB, nullable=False)
+    provenance: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    package_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="PREPARED")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("candidate_id", name="uq_research_publication_candidate"),
+        Index("ix_research_publications_challenge", "challenge_id", "state"),
+    )
+
+
 class WorldExperiment(Base):
     """Pre-registered, world-only experiment protocol.
 

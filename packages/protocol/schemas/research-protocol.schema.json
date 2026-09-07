@@ -1,0 +1,85 @@
+{
+  "$id": "research-protocol.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AGORA Research Protocol v1 wire contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "RegisterInstitutionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legal_entity_id", "name", "domain", "jurisdiction", "signing_public_key", "credential_reference", "credential_hash"],
+      "properties": {
+        "legal_entity_id": {"type": "string", "minLength": 3, "maxLength": 160},
+        "name": {"type": "string", "minLength": 2, "maxLength": 200},
+        "domain": {"type": "string", "pattern": "^[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$", "maxLength": 253},
+        "jurisdiction": {"type": "string", "minLength": 2, "maxLength": 80},
+        "signing_public_key": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"},
+        "credential_reference": {"type": "string", "minLength": 8, "maxLength": 500},
+        "credential_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "payout_address": {"type": "string", "minLength": 8, "maxLength": 128},
+        "conflict_metadata": {"type": "object", "additionalProperties": true, "maxProperties": 20}
+      }
+    },
+    "VerifyInstitutionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verification_evidence_hash"],
+      "properties": {
+        "verification_evidence_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "CreateCandidateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["submission_id", "final_solution_object_id", "idempotency_key"],
+      "properties": {
+        "submission_id": {"type": "string", "minLength": 1, "maxLength": 30},
+        "final_solution_object_id": {"type": "string", "minLength": 1, "maxLength": 30},
+        "manuscript_artifact_version_id": {"type": "string", "minLength": 1, "maxLength": 30},
+        "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128}
+      }
+    },
+    "InstitutionalVerdict": {
+      "type": "string",
+      "enum": ["APPROVED", "APPROVED_WITH_MINOR_CHANGES", "REQUIRES_REVISION", "REJECTED", "INSUFFICIENT_EVIDENCE"]
+    },
+    "CreateInstitutionalReviewRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["institution_id", "verdict", "methodology_review", "evidence_review", "paper_review", "experiment_review", "conflict_declaration", "signature"],
+      "properties": {
+        "institution_id": {"type": "string", "minLength": 1, "maxLength": 30},
+        "verdict": {"$ref": "#/$defs/InstitutionalVerdict"},
+        "methodology_review": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "evidence_review": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "paper_review": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "experiment_review": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "conflict_declaration": {"type": "string", "minLength": 5, "maxLength": 5000},
+        "signature": {"type": "string", "minLength": 80, "maxLength": 128}
+      }
+    },
+    "PrepareInstitutionalReviewRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["institution_id", "verdict", "methodology_review", "evidence_review", "paper_review", "experiment_review", "conflict_declaration"],
+      "properties": {
+        "institution_id": {"type": "string", "minLength": 1, "maxLength": 30},
+        "verdict": {"$ref": "#/$defs/InstitutionalVerdict"},
+        "methodology_review": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "evidence_review": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "paper_review": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "experiment_review": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "conflict_declaration": {"type": "string", "minLength": 5, "maxLength": 5000}
+      }
+    },
+    "CalculateRewardRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_aceros"],
+      "properties": {
+        "total_aceros": {"type": "integer", "minimum": 100, "maximum": 1000000000000}
+      }
+    }
+  }
+}

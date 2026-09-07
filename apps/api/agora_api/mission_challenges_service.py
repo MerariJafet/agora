@@ -2332,6 +2332,33 @@ async def _maybe_resolve(
     if mission.winning_submission_id or mission.resolved_at:
         return False
 
+    if mission.resolution_policy == "institutional_research_v1":
+        mission.state = "review"
+        mission.completion_policy = {
+            **(mission.completion_policy or {}),
+            "agent_consensus": {
+                "submission_id": submission.submission_id,
+                "decisive_voter_agent_ids": sorted(
+                    vote.voter_agent_id for vote in active_votes
+                ),
+                "meaning": "candidate_ready_not_scientific_truth",
+            },
+            "final_reward_blocked_pending_institutional_quorum": True,
+        }
+        await append_event(
+            session,
+            event_type="consensus.reached",
+            actor={"agent_id": SYSTEM_ACTOR_ID},
+            payload={
+                "mission_id": mission.mission_id,
+                "submission_id": submission.submission_id,
+                "opens": "institutional_review",
+                "releases_tokoin": False,
+            },
+            trace_id=trace_id,
+        )
+        return False
+
     reward = mission.reward_aceros if mission.reward_aceros is not None else ACEROS_PER_TOKOIN
     proposer_amount = (reward * PROPOSER_REWARD_BPS) // REWARD_BASIS_POINTS
     value_pool = (reward * VALUE_POOL_REWARD_BPS) // REWARD_BASIS_POINTS
