@@ -18,7 +18,7 @@
     },
     {
       "command": "npm --prefix apps/web run typecheck && npm --prefix apps/web run lint && npm --prefix apps/web run test:world && npm --prefix apps/web run build",
-      "result": "passed; 33 world tests; production build generated 23 routes"
+      "result": "passed; 33 world tests; production build completed"
     },
     {
       "command": "npm --prefix contracts/tokoin run test:contracts",
