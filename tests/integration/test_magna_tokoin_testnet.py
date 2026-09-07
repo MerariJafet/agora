@@ -13,6 +13,12 @@ def _auth(reg: dict) -> dict:
     return {"Authorization": f"Bearer {reg['session_token']}"}
 
 
+async def _operator_headers(api_client, label: str = "tokoin-operator") -> dict[str, str]:
+    login = await api_client.post("/v1/auth/dev/login", json={"username": label})
+    assert login.status_code == 200, login.text
+    return {"X-CSRF-Token": login.json()["csrf_token"]}
+
+
 def _controller(label: str) -> str:
     return hashlib.sha256(f"controller:{label}".encode()).hexdigest()
 
@@ -70,7 +76,10 @@ async def _accepted_receipt(api_client, reg: dict, unique_name: str, challenge_i
 
 
 async def test_local_devnet_manifest_has_fixed_supply_and_no_public_deployment(api_client):
-    response = await api_client.post("/v1/tokoin-testnet/deployment/local-devnet")
+    response = await api_client.post(
+        "/v1/tokoin-testnet/deployment/local-devnet",
+        headers=await _operator_headers(api_client),
+    )
     assert response.status_code == 201, response.text
     manifest = response.json()
     assert manifest["chain_id"] == 31337
@@ -138,22 +147,28 @@ async def test_agent_wallet_binding_is_receive_only_zero_balance_and_self_scoped
 
 
 async def test_reservation_is_idempotent_and_one_tokoin_only(api_client, unique_name):
+    operator = await _operator_headers(api_client, f"operator-{unique_name}")
     payload = {
         "world_instance_id": "magna-local",
         "challenge_id": f"challenge-{unique_name}",
         "candidate_id": "candidate-a",
         "idempotency_key": f"{unique_name}-reservation-idem",
     }
-    first = await api_client.post("/v1/tokoin-testnet/reservations", json=payload)
+    first = await api_client.post(
+        "/v1/tokoin-testnet/reservations", json=payload, headers=operator
+    )
     assert first.status_code == 201, first.text
     assert first.json()["state"] == "RESERVATION_REQUESTED"
     assert first.json()["amount_atomic"] == "100000000"
-    second = await api_client.post("/v1/tokoin-testnet/reservations", json=payload)
+    second = await api_client.post(
+        "/v1/tokoin-testnet/reservations", json=payload, headers=operator
+    )
     assert second.status_code == 201
     assert second.json()["reservation_id"] == first.json()["reservation_id"]
     conflict = await api_client.post(
         "/v1/tokoin-testnet/reservations",
         json=payload | {"candidate_id": "candidate-b", "idempotency_key": f"{unique_name}-other"},
+        headers=operator,
     )
     assert conflict.status_code == 409
 
@@ -161,6 +176,7 @@ async def test_reservation_is_idempotent_and_one_tokoin_only(api_client, unique_
 async def test_settlement_requires_reserved_valid_resolution_receipt_and_respects_caps(
     api_client, unique_name
 ):
+    operator = await _operator_headers(api_client, f"operator-{unique_name}")
     agent = await _agent(api_client, unique_name, "settlement")
     binding_response = await api_client.post(
         "/v1/tokoin-testnet/wallet-bindings",
@@ -182,6 +198,7 @@ async def test_settlement_requires_reserved_valid_resolution_receipt_and_respect
                 "candidate_id": agent["agent_id"],
                 "idempotency_key": f"{unique_name}-settlement-reservation",
             },
+            headers=operator,
         )
     ).json()
     early = await api_client.post(
@@ -191,11 +208,13 @@ async def test_settlement_requires_reserved_valid_resolution_receipt_and_respect
             "resolution_receipt_id": "krr_00000000000000000000000000",
             "allocations": [],
         },
+        headers=operator,
     )
     assert early.status_code in {404, 409, 422}
 
     confirmed = await api_client.post(
-        f"/v1/tokoin-testnet/reservations/{reservation['reservation_id']}/confirm-local"
+        f"/v1/tokoin-testnet/reservations/{reservation['reservation_id']}/confirm-local",
+        headers=operator,
     )
     assert confirmed.status_code == 201
     assert confirmed.json()["state"] == "RESERVED"
@@ -215,6 +234,7 @@ async def test_settlement_requires_reserved_valid_resolution_receipt_and_respect
                 }
             ],
         },
+        headers=operator,
     )
     assert over_cap.status_code == 422
 
@@ -231,12 +251,16 @@ async def test_settlement_requires_reserved_valid_resolution_receipt_and_respect
             }
         ],
     }
-    plan_response = await api_client.post("/v1/tokoin-testnet/settlement-plans", json=plan_payload)
+    plan_response = await api_client.post(
+        "/v1/tokoin-testnet/settlement-plans", json=plan_payload, headers=operator
+    )
     assert plan_response.status_code == 201, plan_response.text
     plan = plan_response.json()
     assert plan["state"] == "ALLOCATED"
     assert plan["unused_return_atomic"] == "99000000"
     assert plan["real_value_moved"] is False
-    again = await api_client.post("/v1/tokoin-testnet/settlement-plans", json=plan_payload)
+    again = await api_client.post(
+        "/v1/tokoin-testnet/settlement-plans", json=plan_payload, headers=operator
+    )
     assert again.status_code == 201
     assert again.json()["settlement_plan_id"] == plan["settlement_plan_id"]

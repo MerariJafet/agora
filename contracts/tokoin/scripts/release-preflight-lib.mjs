@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { validateCandidateBundle } from "./candidate-bundle-lib.mjs";
+
 export const BASE_SEPOLIA_CHAIN_ID = 84532;
 export const DEPLOY_ACK = "DEPLOY TOKOIN TO BASE SEPOLIA TESTNET WITHOUT ECONOMIC VALUE";
 
@@ -23,10 +25,20 @@ export function evaluatePublicTestnetReadiness({
     repoRoot,
     "audit/tokoin-testnet/release-candidate/base-sepolia-deploy-authorization.json",
   ),
+  candidateBundlePath = path.join(
+    repoRoot,
+    "audit/tokoin-testnet/release-candidate/contract-release-bundle-v1.json",
+  ),
 } = {}) {
   const audit = readJson(auditPath);
   const authorization = readJson(authorizationPath);
+  const candidateBundle = readJson(candidateBundlePath);
   const blockers = [];
+
+  if (!validateCandidateBundle(candidateBundle)) blockers.push("candidate_bundle_invalid");
+  if (audit.contract_release_bundle_hash !== candidateBundle.bundle_sha256) {
+    blockers.push("audit_candidate_bundle_hash_mismatch");
+  }
 
   if (audit.status !== "COMPLETE_PASSED") blockers.push("external_audit_not_complete");
   if (audit.accepted_by_operator !== true) blockers.push("external_audit_not_accepted");
@@ -46,6 +58,31 @@ export function evaluatePublicTestnetReadiness({
   }
   if (authorization.external_audit_report_hash !== audit.report_hash) {
     blockers.push("authorization_audit_hash_mismatch");
+  }
+  if (authorization.contract_release_bundle_hash !== candidateBundle.bundle_sha256) {
+    blockers.push("authorization_candidate_bundle_hash_mismatch");
+  }
+  if (!/^[0-9a-f]{40}$/i.test(String(env.TOKOIN_RELEASE_COMMIT ?? ""))) {
+    blockers.push("release_commit_missing_or_invalid");
+  }
+  if (authorization.release_commit !== env.TOKOIN_RELEASE_COMMIT) {
+    blockers.push("authorized_release_commit_mismatch");
+  }
+  if (!/^[1-9][0-9]*$/.test(String(env.TOKOIN_MAX_TEST_ETH_BUDGET_WEI ?? ""))) {
+    blockers.push("test_eth_budget_missing_or_invalid");
+  }
+  if (authorization.maximum_test_eth_budget_wei !== env.TOKOIN_MAX_TEST_ETH_BUDGET_WEI) {
+    blockers.push("authorized_test_eth_budget_mismatch");
+  }
+  if (
+    !Array.isArray(authorization.authorized_by)
+    || new Set(authorization.authorized_by).size < 2
+    || authorization.authorized_by.some((item) => typeof item !== "string" || !item.trim())
+  ) {
+    blockers.push("independent_authorizers_missing");
+  }
+  if (Number.isNaN(Date.parse(String(authorization.authorized_at ?? "")))) {
+    blockers.push("authorization_timestamp_invalid");
   }
   if (env.AGORA_TOKOIN_DEPLOY_ACK !== DEPLOY_ACK) blockers.push("deploy_ack_missing");
   if (!/^0x[0-9a-fA-F]{40}$/.test(String(env.TOKOIN_GENESIS_TREASURY_ADDRESS ?? ""))) {
@@ -75,6 +112,12 @@ export function evaluatePublicTestnetReadiness({
   if (authorization.identity_issuer_address !== env.AGORA_IDENTITY_ISSUER_ADDRESS) {
     blockers.push("authorized_identity_issuer_mismatch");
   }
+  const controlAddresses = [
+    env.TOKOIN_GENESIS_TREASURY_ADDRESS,
+    env.TOKOIN_SETTLEMENT_AUTHORITY_ADDRESS,
+    env.AGORA_IDENTITY_ISSUER_ADDRESS,
+  ].map((value) => String(value ?? "").toLowerCase());
+  if (new Set(controlAddresses).size !== 3) blockers.push("control_role_concentration_rejected");
 
   return {
     ready: blockers.length === 0,

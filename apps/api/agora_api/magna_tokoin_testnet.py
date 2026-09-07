@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.boundary import validate_boundary
+from agora_api.config import get_settings
 from agora_api.errors import Conflict, NotFound, OwnerAuthorityRequired, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import (
@@ -56,6 +57,26 @@ RATIFIED_FOUNDER_BUNDLE_PATH = (
     / "ratifications"
     / "founder-ratification-bundle-ratified-2026-08-29.json"
 )
+EXTERNAL_AUDIT_REFERENCE_PATH = (
+    REPO_ROOT / "audit" / "tokoin-testnet" / "external" / "audit-report-reference.json"
+)
+CONTRACT_RELEASE_BUNDLE_PATH = (
+    REPO_ROOT
+    / "audit"
+    / "tokoin-testnet"
+    / "release-candidate"
+    / "contract-release-bundle-v1.json"
+)
+BASE_SEPOLIA_AUTHORIZATION_PATH = (
+    REPO_ROOT
+    / "audit"
+    / "tokoin-testnet"
+    / "release-candidate"
+    / "base-sepolia-deploy-authorization.json"
+)
+BASE_SEPOLIA_RECEIPT_PATH = (
+    REPO_ROOT / "deployments" / "tokoin-testnet" / "base-sepolia-receipt.json"
+)
 ROLE_CAPS = {
     "proposer": 1_000_000,
     "contributors": 59_000_000,
@@ -63,6 +84,12 @@ ROLE_CAPS = {
     "review_and_adjudication": 10_000_000,
     "data_tools_infrastructure": 5_000_000,
 }
+
+
+def require_local_control_plane() -> None:
+    """Fail closed if simulated economic mutations reach production."""
+    if get_settings().is_production:
+        raise Conflict("Local TOKOIN control-plane mutations are disabled in production.")
 
 OFFCHAIN_COMPONENTS = {
     "GenesisTreasury": (
@@ -150,6 +177,86 @@ def canonical_hash(payload: dict[str, Any], *, domain: str) -> str:
         {"domain": domain, "payload": payload}, sort_keys=True, separators=(",", ":")
     ).encode()
     return hashlib.sha256(raw).hexdigest()
+
+
+def _load_json_object(path: Path) -> dict[str, Any] | None:
+    try:
+        value = json.loads(path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def public_testnet_readiness_view() -> dict[str, Any]:
+    """Read-only, file-backed truth about the public EVM candidate."""
+    audit = _load_json_object(EXTERNAL_AUDIT_REFERENCE_PATH) or {}
+    bundle = _load_json_object(CONTRACT_RELEASE_BUNDLE_PATH) or {}
+    authorization = _load_json_object(BASE_SEPOLIA_AUTHORIZATION_PATH)
+    deployment = _load_json_object(BASE_SEPOLIA_RECEIPT_PATH)
+
+    bundle_hash = bundle.get("bundle_sha256")
+    bundle_payload = {key: value for key, value in bundle.items() if key != "bundle_sha256"}
+    calculated_bundle_hash = hashlib.sha256(
+        json.dumps(bundle_payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    bundle_valid = (
+        bundle.get("schema") == "agora.tokoin.contract_release_bundle.v1"
+        and isinstance(bundle_hash, str)
+        and len(bundle_hash) == 64
+        and bundle_hash == calculated_bundle_hash
+    )
+    audit_complete = (
+        audit.get("status") == "COMPLETE_PASSED"
+        and audit.get("accepted_by_operator") is True
+        and audit.get("critical_findings") == 0
+        and audit.get("high_findings") == 0
+        and bundle_valid
+        and audit.get("contract_release_bundle_hash") == bundle_hash
+        and isinstance(audit.get("report_hash"), str)
+        and len(audit["report_hash"]) == 64
+    )
+    deployed = (
+        deployment is not None
+        and deployment.get("schema") == "agora.tokoin.base_sepolia_deployment_receipt.v1"
+        and deployment.get("network") == "BASE_SEPOLIA"
+        and deployment.get("chain_id") == BASE_SEPOLIA_CHAIN_ID
+    )
+    blockers = []
+    if not bundle_valid:
+        blockers.append("contract_release_bundle_missing_or_invalid")
+    if not audit_complete:
+        blockers.append("independent_external_audit_incomplete")
+    if authorization is None:
+        blockers.append("base_sepolia_authorization_absent")
+
+    result = {
+        "schema": "agora.tokoin.public_testnet_readiness.v1",
+        "stage": (
+            "DEPLOYED_TESTNET" if deployed else "AUDIT_CANDIDATE" if bundle_valid else "SOURCE_ONLY"
+        ),
+        "candidate_bundle": {
+            "present": bool(bundle),
+            "integrity_valid": bundle_valid,
+            "bundle_sha256": bundle_hash if bundle_valid else None,
+            "contracts": sorted((bundle.get("contracts") or {}).keys()) if bundle_valid else [],
+        },
+        "independent_audit": {
+            "complete": audit_complete,
+            "status": audit.get("status", "MISSING"),
+            "accepted_by_operator": audit.get("accepted_by_operator") is True,
+        },
+        "deployment_authorization_present": authorization is not None,
+        "base_sepolia_deployed": deployed,
+        "mainnet_authorized": False,
+        "market_ready": False,
+        "predeployment_blockers": blockers,
+        "next_human_gate": (
+            "Independent audit of the exact bundle, then 2-of-3 Safe addresses and "
+            "a hash-bound Base Sepolia authorization."
+        ),
+    }
+    validate_boundary("tokoin-public-readiness.schema.json", None, result)
+    return result
 
 
 def _ratification_short_id(ratification_id: str) -> str:
@@ -401,6 +508,7 @@ async def get_local_manifest(session: AsyncSession) -> TokoinDeploymentManifest 
 
 
 async def create_or_get_local_manifest(session: AsyncSession) -> TokoinDeploymentManifest:
+    require_local_control_plane()
     existing = await get_local_manifest(session)
     if existing is not None:
         return existing
@@ -591,6 +699,7 @@ def wallet_binding_view(row: TokoinWalletBinding) -> dict[str, Any]:
 
 
 async def request_reservation(session: AsyncSession, payload: dict[str, Any]) -> TokoinReservation:
+    require_local_control_plane()
     validate_boundary("tokoins.schema.json", "/$defs/ReservationRequest", payload)
     manifest = await create_or_get_local_manifest(session)
     existing = (
@@ -646,6 +755,7 @@ async def request_reservation(session: AsyncSession, payload: dict[str, Any]) ->
 async def confirm_local_reservation(
     session: AsyncSession, reservation_id: str
 ) -> TokoinReservation:
+    require_local_control_plane()
     row = await session.get(TokoinReservation, reservation_id)
     if row is None:
         raise NotFound("TOKOIN reservation not found.")
@@ -717,6 +827,7 @@ def _validate_allocations(allocations: list[dict[str, Any]]) -> tuple[int, int]:
 async def create_settlement_plan(
     session: AsyncSession, payload: dict[str, Any]
 ) -> TokoinSettlementPlan:
+    require_local_control_plane()
     validate_boundary("tokoins.schema.json", "/$defs/SettlementPlanRequest", payload)
     reservation = await session.get(TokoinReservation, payload["reservation_id"])
     if reservation is None:
@@ -834,6 +945,7 @@ def settlement_plan_view(row: TokoinSettlementPlan) -> dict[str, Any]:
 async def anchor_knowledge_root(
     session: AsyncSession, payload: dict[str, Any]
 ) -> TokoinKnowledgeRootAnchor:
+    require_local_control_plane()
     validate_boundary("tokoins.schema.json", "/$defs/KnowledgeRootAnchorRequest", payload)
     batch = await session.get(MagnaMerkleBatch, payload["merkle_batch_id"])
     if batch is None:

@@ -33,6 +33,11 @@ The treasury, research-settlement authority and identity issuer are explicitly
 authorized addresses and each must attest `SAFE_2_OF_3` control. The testnet
 preflight binds those exact addresses to the accepted independent-audit hash.
 
+Reward leaves are additionally bound to Base Sepolia's chain ID and the exact
+rewards-contract address. This prevents cross-chain and cross-deployment proof
+reuse. The deterministic candidate bundle records source, build-input, ABI and
+bytecode hashes; its hash is the external-audit subject.
+
 ## Existing local rewards
 
 Current AGORA balances are historical entries in the internal append-only
@@ -54,9 +59,10 @@ The repository refuses deployment unless all of these are true:
 - an independent audit is `COMPLETE_PASSED`, accepted by the operator, has a
   64-character report hash and has zero critical/high findings;
 - a deliberately absent authorization file names Base Sepolia, chain `84532`,
-  the accepted audit hash and the exact three control addresses;
+  the accepted audit hash, exact contract-bundle hash, frozen commit, test-ETH
+  budget and the exact three control addresses;
 - the operator supplies the exact acknowledgement string;
-- all three addresses are declared as 2-of-3 Safe controls;
+- all three distinct addresses are declared as 2-of-3 Safe controls;
 - Hardhat connects to chain `84532`;
 - no prior deployment receipt exists.
 
@@ -76,6 +82,8 @@ funding, identity minting, market creation or mainnet transaction.
    hashes, signer addresses, audit hash, expected network and maximum gas budget.
 6. Fund a dedicated deployer with test ETH only and execute a witnessed dry run.
 7. Verify source and publish addresses, bytecode, receipts and configuration.
+   Run the repository's read-only `verify:base-sepolia` command against the
+   immutable deployment receipt.
 8. Run token-transfer, payout, identity and indexer reconciliation canaries.
 9. Complete a separate legal classification before any economic promotion,
    sale, liquidity pool, exchange application, custody or mainnet proposal.
@@ -97,3 +105,6 @@ funding, identity minting, market creation or mainnet transaction.
 The contract candidate is reproducibly testable locally. Public Base Sepolia
 deployment remains `NO-GO` until the independent audit and exact multisig-backed
 authorization exist. Mainnet and market launch remain a separate `NO-GO`.
+
+`GET /v1/tokoin-testnet/public-readiness` and the TOKOIN explorer expose this
+state without conflating the internal ledger with the undeployed ERC-20.

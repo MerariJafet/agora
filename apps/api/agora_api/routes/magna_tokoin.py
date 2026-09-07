@@ -20,6 +20,7 @@ from agora_api.magna_tokoin_testnet import (
     knowledge_root_view,
     manifest_preview_view,
     manifest_view,
+    public_testnet_readiness_view,
     ratification_bundle_view,
     release_manifest_draft_view,
     reservation_view,
@@ -35,6 +36,7 @@ from agora_api.models import (
     TokoinSettlementPlan,
     TokoinWalletBinding,
 )
+from agora_api.owners import MutatingOwner
 from agora_api.ratelimit import enforce_rate_limit
 
 router = APIRouter(prefix="/v1/tokoin-testnet", tags=["magna-tokoin-testnet"])
@@ -64,11 +66,18 @@ async def status(session: AsyncSession = Depends(get_session)) -> dict:
             select(TokoinSettlementPlan).where(TokoinSettlementPlan.state == "ALLOCATED")
         )
     ).scalars().all()
+    public_readiness = public_testnet_readiness_view()
     return {
-        "status": "PARTIAL_AWAITING_RATIFICATION",
+        "status": (
+            "PUBLIC_TESTNET_DEPLOYED"
+            if public_readiness["base_sepolia_deployed"]
+            else "BLOCKED_EXTERNAL_AUDIT"
+        ),
         "maximum_authorized_network": "LOCAL_DEVNET",
         "human_ratifications_complete": ratifications_complete,
-        "external_independent_audit_complete": False,
+        "external_independent_audit_complete": public_readiness["independent_audit"][
+            "complete"
+        ],
         "legacy_balances_migrated": False,
         "real_value_moved": False,
         "mainnet_transactions": 0,
@@ -85,10 +94,14 @@ async def status(session: AsyncSession = Depends(get_session)) -> dict:
             "required_decisions": 8,
             "pending_decisions": 0 if ratifications_complete else 8,
         },
-        "blocked_next_step": (
-            "Sprint 05 may begin only after independent audit and final release gate closure."
-        ),
+        "public_testnet": public_readiness,
+        "blocked_next_step": public_readiness["next_human_gate"],
     }
+
+
+@router.get("/public-readiness")
+async def get_public_readiness() -> dict:
+    return public_testnet_readiness_view()
 
 
 @router.get("/scope-matrix")
@@ -107,7 +120,9 @@ async def get_release_manifest() -> dict:
 
 
 @router.post("/deployment/local-devnet", status_code=201)
-async def post_local_deployment(session: AsyncSession = Depends(get_session)) -> dict:
+async def post_local_deployment(
+    owner: MutatingOwner, session: AsyncSession = Depends(get_session)
+) -> dict:
     manifest = await create_or_get_local_manifest(session)
     await session.commit()
     return manifest_view(manifest)
@@ -160,7 +175,11 @@ async def list_wallet_bindings(session: AsyncSession = Depends(get_session)) -> 
 
 
 @router.post("/reservations", status_code=201)
-async def post_reservation(request: Request, session: AsyncSession = Depends(get_session)) -> dict:
+async def post_reservation(
+    request: Request,
+    owner: MutatingOwner,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
     from agora_api.magna_tokoin_testnet import request_reservation
 
     row = await request_reservation(session, await request.json())
@@ -170,7 +189,9 @@ async def post_reservation(request: Request, session: AsyncSession = Depends(get
 
 @router.post("/reservations/{reservation_id}/confirm-local", status_code=201)
 async def post_confirm_reservation(
-    reservation_id: str, session: AsyncSession = Depends(get_session)
+    reservation_id: str,
+    owner: MutatingOwner,
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     row = await confirm_local_reservation(session, reservation_id)
     await session.commit()
@@ -189,7 +210,9 @@ async def get_reservation(
 
 @router.post("/settlement-plans", status_code=201)
 async def post_settlement_plan(
-    request: Request, session: AsyncSession = Depends(get_session)
+    request: Request,
+    owner: MutatingOwner,
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     row = await create_settlement_plan(session, await request.json())
     await session.commit()
@@ -208,7 +231,9 @@ async def get_settlement_plan(
 
 @router.post("/knowledge-roots", status_code=201)
 async def post_knowledge_root(
-    request: Request, session: AsyncSession = Depends(get_session)
+    request: Request,
+    owner: MutatingOwner,
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     row = await anchor_knowledge_root(session, await request.json())
     await session.commit()

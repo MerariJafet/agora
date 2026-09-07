@@ -3,6 +3,7 @@
   "status": "MISSING_REQUIRED_GATE",
   "report_uri": null,
   "report_hash": null,
+  "contract_release_bundle_hash": null,
   "accepted_by_operator": false,
   "notes": "Founder ratification is present, but Sprint 04.1 cannot mark TOKOIN COMPLETE or proceed to Sprint 05/public testnet without this gate."
 }

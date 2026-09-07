@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   getTokoinChainExport,
+  getTokoinPublicReadiness,
   getTokoinStatus,
   type TokoinChainExport,
+  type TokoinPublicReadiness,
   type TokoinStatus,
 } from "@/lib/tokoins";
 
@@ -25,19 +27,22 @@ function shortHash(value: string | null | undefined): string {
 export default function TokoinsPage() {
   const [status, setStatus] = useState<TokoinStatus | null>(null);
   const [chain, setChain] = useState<TokoinChainExport | null>(null);
+  const [publicReadiness, setPublicReadiness] = useState<TokoinPublicReadiness | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const [currentStatus, currentChain] = await Promise.all([
+        const [currentStatus, currentChain, currentPublicReadiness] = await Promise.all([
           getTokoinStatus(),
           getTokoinChainExport(250),
+          getTokoinPublicReadiness().catch(() => null),
         ]);
         if (!cancelled) {
           setStatus(currentStatus);
           setChain(currentChain);
+          setPublicReadiness(currentPublicReadiness);
           setError(null);
         }
       } catch (err) {
@@ -107,6 +112,24 @@ export default function TokoinsPage() {
           <p className="subtle-note">
             Verificación externa: <code>scripts/verify-tokoin-chain.py http://127.0.0.1:8700/v1/tokoins/blockchain/export</code>
           </p>
+        </article>
+
+        <article className="paper-card">
+          <h3>Candidato público EVM</h3>
+          <dl className="compact-facts">
+            <div><dt>Etapa</dt><dd>{publicReadiness?.stage ?? "verificando"}</dd></div>
+            <div><dt>Bundle reproducible</dt><dd>{publicReadiness?.candidate_bundle.integrity_valid ? "válido" : "no verificado"}</dd></div>
+            <div><dt>Auditoría externa</dt><dd>{publicReadiness?.independent_audit.complete ? "aceptada" : "pendiente"}</dd></div>
+            <div><dt>Base Sepolia</dt><dd>{publicReadiness?.base_sepolia_deployed ? "desplegado" : "no desplegado"}</dd></div>
+            <div><dt>Mainnet / mercado</dt><dd>{publicReadiness?.market_ready ? "habilitado" : "no autorizado"}</dd></div>
+          </dl>
+          <p className="subtle-note">
+            El ledger interno y el candidato ERC-20 son sistemas distintos. Un bundle válido
+            permite auditar el mismo bytecode; no prueba despliegue, descentralización ni valor.
+          </p>
+          {publicReadiness?.candidate_bundle.bundle_sha256 && (
+            <code>{shortHash(publicReadiness.candidate_bundle.bundle_sha256)}</code>
+          )}
         </article>
       </section>
 

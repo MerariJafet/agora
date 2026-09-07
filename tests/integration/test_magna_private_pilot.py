@@ -27,6 +27,12 @@ def _auth(reg: dict) -> dict:
     return {"Authorization": f"Bearer {reg['session_token']}"}
 
 
+async def _operator_headers(api_client, label: str) -> dict[str, str]:
+    login = await api_client.post("/v1/auth/dev/login", json={"username": label})
+    assert login.status_code == 200, login.text
+    return {"X-CSRF-Token": login.json()["csrf_token"]}
+
+
 def _controller(label: str) -> str:
     return hashlib.sha256(f"controller:{label}".encode()).hexdigest()
 
@@ -128,12 +134,17 @@ async def test_private_pilot_status_get_is_read_only(api_client):
 
 
 async def test_founder_ratifications_ingest_once(api_client):
-    first = await api_client.post("/v1/tokoin-private-pilot/ratifications/ingest")
+    operator = await _operator_headers(api_client, "pilot-ratification-operator")
+    first = await api_client.post(
+        "/v1/tokoin-private-pilot/ratifications/ingest", headers=operator
+    )
     assert first.status_code == 201, first.text
     assert first.json()["status"] == "RATIFIED_8_OF_8"
     assert first.json()["imported"] == 8
 
-    second = await api_client.post("/v1/tokoin-private-pilot/ratifications/ingest")
+    second = await api_client.post(
+        "/v1/tokoin-private-pilot/ratifications/ingest", headers=operator
+    )
     assert second.status_code == 201, second.text
     assert second.json()["imported"] == 8
 
@@ -168,6 +179,7 @@ def test_private_pilot_mutations_fail_closed_in_production(monkeypatch):
 
 
 async def test_private_pilot_e2e_settlement_and_migration_snapshot(api_client, unique_name):
+    operator = await _operator_headers(api_client, f"pilot-{unique_name}")
     agents = [
         await _agent(api_client, unique_name, "proposer"),
         await _agent(api_client, unique_name, "contributors"),
@@ -189,10 +201,12 @@ async def test_private_pilot_e2e_settlement_and_migration_snapshot(api_client, u
                 "candidate_id": agents[0]["agent_id"],
                 "idempotency_key": f"{unique_name}-reservation",
             },
+            headers=operator,
         )
     ).json()
     confirmed = await api_client.post(
-        f"/v1/tokoin-testnet/reservations/{reservation['reservation_id']}/confirm-local"
+        f"/v1/tokoin-testnet/reservations/{reservation['reservation_id']}/confirm-local",
+        headers=operator,
     )
     assert confirmed.status_code == 201, confirmed.text
     receipt = await _accepted_receipt(api_client, agents[0], unique_name, challenge_id)
@@ -239,13 +253,15 @@ async def test_private_pilot_e2e_settlement_and_migration_snapshot(api_client, u
                 },
             ],
         },
+        headers=operator,
     )
     assert plan_response.status_code == 201, plan_response.text
     plan = plan_response.json()
     assert plan["total_atomic"] == "100000000"
     reconciliation = await api_client.post(
         f"/v1/tokoin-private-pilot/settlements/{plan['settlement_plan_id']}"
-        "/authorize-and-reconcile"
+        "/authorize-and-reconcile",
+        headers=operator,
     )
     assert reconciliation.status_code == 201, reconciliation.text
     body = reconciliation.json()
@@ -257,12 +273,15 @@ async def test_private_pilot_e2e_settlement_and_migration_snapshot(api_client, u
 
     duplicate = await api_client.post(
         f"/v1/tokoin-private-pilot/settlements/{plan['settlement_plan_id']}"
-        "/authorize-and-reconcile"
+        "/authorize-and-reconcile",
+        headers=operator,
     )
     assert duplicate.status_code == 201
     assert duplicate.json()["tx_hash"] == body["tx_hash"]
 
-    snapshot = await api_client.post("/v1/tokoin-private-pilot/migration-snapshots/test-only")
+    snapshot = await api_client.post(
+        "/v1/tokoin-private-pilot/migration-snapshots/test-only", headers=operator
+    )
     assert snapshot.status_code == 201, snapshot.text
     assert snapshot.json()["public_claim_enabled"] is False
     assert snapshot.json()["supply_conserved"] is True

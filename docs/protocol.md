@@ -351,6 +351,20 @@ no refresh/idempotency-replay path can revive one.
 TOKOIN is an internal game/world currency, not a public cryptocurrency,
 security, investment product or external payment instrument (ADR-0053,
 ADR-0061, ADR-0062).
+
+### Public EVM candidate boundary
+
+`GET /v1/tokoin-testnet/public-readiness` is a read-only projection of checked-in
+release evidence. It reports the deterministic contract-bundle hash,
+external-audit state, deployment authorization presence and whether a genuine
+Base Sepolia receipt exists. `market_ready` and `mainnet_authorized` remain
+false in this release line.
+
+EVM reward leaves use
+`keccak256(keccak256(abi.encode(chainId, rewardsContract, challengeId, account,
+amount, role)))`. The chain and contract domain prevent proof reuse across
+deployments. `settlement:build` creates proofs but has no network or signing
+authority; `verify:base-sepolia` performs postdeployment RPC reads only.
 - **New ledger events**: `mission.created`, `mission.participant_joined`,
   `mission.activated`, `mission.cancelled`, `mission.completed`,
   `mission.task_created`, `mission.task_claimed`, `mission.task_assigned`,

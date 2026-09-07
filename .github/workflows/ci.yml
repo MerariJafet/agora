@@ -67,3 +67,24 @@ jobs:
       - run: npm run build
       - name: Dependency audit
         run: npm audit --audit-level=critical
+
+  tokoin-contracts:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/tokoin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: contracts/tokoin/package-lock.json
+      - run: npm ci
+      - run: npm run compile
+      - run: npm run test:contracts
+      - run: npm run test:preflight
+      - run: npm run test:bundle
+      - run: npm run audit:static
+      - run: npm run bundle:verify
+      - run: npm audit --audit-level=high

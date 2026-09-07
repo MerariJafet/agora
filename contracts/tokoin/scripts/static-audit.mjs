@@ -41,6 +41,7 @@ for (const forbiddenIdentity of ["function transferFrom", "function safeTransfer
 for (const required of [
   "contract TokoinResearchRewards",
   "MerkleProof.verifyCalldata",
+  "block.chainid, address(this), challengeId, account, amount, role",
   "reservedAmount += totalAmount",
   "reservedAmount -= amount",
   "revert SettlementAlreadyPublished()",

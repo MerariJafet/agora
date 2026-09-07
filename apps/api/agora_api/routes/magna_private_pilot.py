@@ -14,6 +14,7 @@ from agora_api.magna_private_pilot import (
     private_pilot_status,
     require_private_pilot_environment,
 )
+from agora_api.owners import MutatingOwner
 
 router = APIRouter(prefix="/v1/tokoin-private-pilot", tags=["magna-private-pilot"])
 
@@ -34,7 +35,9 @@ async def get_genesis_100_readiness() -> dict:
 
 
 @router.post("/ratifications/ingest", status_code=201)
-async def post_ratification_ingestion(session: AsyncSession = Depends(get_session)) -> dict:
+async def post_ratification_ingestion(
+    owner: MutatingOwner, session: AsyncSession = Depends(get_session)
+) -> dict:
     require_private_pilot_environment()
     result = await ingest_founder_ratification_receipts(session)
     await session.commit()
@@ -48,7 +51,9 @@ async def get_genesis_100_simulation() -> dict:
 
 @router.post("/settlements/{settlement_plan_id}/authorize-and-reconcile", status_code=201)
 async def post_authorize_and_reconcile_settlement(
-    settlement_plan_id: str, session: AsyncSession = Depends(get_session)
+    settlement_plan_id: str,
+    owner: MutatingOwner,
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     require_private_pilot_environment()
     result = await authorize_and_reconcile_settlement(session, settlement_plan_id)
@@ -58,6 +63,7 @@ async def post_authorize_and_reconcile_settlement(
 
 @router.post("/migration-snapshots/test-only", status_code=201)
 async def post_test_only_migration_snapshot(
+    owner: MutatingOwner,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     require_private_pilot_environment()

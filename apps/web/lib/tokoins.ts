@@ -94,10 +94,36 @@ export interface TokoinChainExport {
   trust_boundary: string;
 }
 
+export interface TokoinPublicReadiness {
+  schema: "agora.tokoin.public_testnet_readiness.v1";
+  stage: "SOURCE_ONLY" | "AUDIT_CANDIDATE" | "DEPLOYED_TESTNET";
+  candidate_bundle: {
+    present: boolean;
+    integrity_valid: boolean;
+    bundle_sha256: string | null;
+    contracts: string[];
+  };
+  independent_audit: {
+    complete: boolean;
+    status: string;
+    accepted_by_operator: boolean;
+  };
+  deployment_authorization_present: boolean;
+  base_sepolia_deployed: boolean;
+  mainnet_authorized: false;
+  market_ready: false;
+  predeployment_blockers: string[];
+  next_human_gate: string;
+}
+
 export function getTokoinStatus(): Promise<TokoinStatus> {
   return getJson("/v1/tokoins/status");
 }
 
 export function getTokoinChainExport(limitEntries = 200): Promise<TokoinChainExport> {
   return getJson(`/v1/tokoins/blockchain/export?limit_entries=${limitEntries}`);
+}
+
+export function getTokoinPublicReadiness(): Promise<TokoinPublicReadiness> {
+  return getJson("/v1/tokoin-testnet/public-readiness");
 }

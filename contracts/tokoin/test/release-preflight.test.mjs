@@ -4,14 +4,20 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { DEPLOY_ACK, evaluatePublicTestnetReadiness } from "../scripts/release-preflight-lib.mjs";
+import { buildCandidateBundle } from "../scripts/candidate-bundle-lib.mjs";
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agora-tokoin-preflight-"));
   const auditPath = path.join(root, "audit.json");
   const authorizationPath = path.join(root, "authorization.json");
+  const candidateBundlePath = path.join(root, "candidate.json");
+  const contractRoot = path.resolve(import.meta.dirname, "..");
+  const candidate = buildCandidateBundle(contractRoot);
+  fs.writeFileSync(candidateBundlePath, JSON.stringify(candidate));
   fs.writeFileSync(auditPath, JSON.stringify({
     status: "COMPLETE_PASSED",
     report_hash: "a".repeat(64),
+    contract_release_bundle_hash: candidate.bundle_sha256,
     accepted_by_operator: true,
     critical_findings: 0,
     high_findings: 0,
@@ -24,6 +30,8 @@ function fixture() {
     TOKOIN_TREASURY_CONTROL: "SAFE_2_OF_3",
     TOKOIN_SETTLEMENT_CONTROL: "SAFE_2_OF_3",
     AGORA_IDENTITY_ISSUER_CONTROL: "SAFE_2_OF_3",
+    TOKOIN_RELEASE_COMMIT: "d".repeat(40),
+    TOKOIN_MAX_TEST_ETH_BUDGET_WEI: "10000000000000000",
   };
   fs.writeFileSync(authorizationPath, JSON.stringify({
     network: "BASE_SEPOLIA",
@@ -31,11 +39,16 @@ function fixture() {
     authorize_transaction: true,
     scope: "TOKOIN_PUBLIC_TESTNET_NO_ECONOMIC_VALUE",
     external_audit_report_hash: "a".repeat(64),
+    contract_release_bundle_hash: candidate.bundle_sha256,
     treasury_address: env.TOKOIN_GENESIS_TREASURY_ADDRESS,
     settlement_authority_address: env.TOKOIN_SETTLEMENT_AUTHORITY_ADDRESS,
     identity_issuer_address: env.AGORA_IDENTITY_ISSUER_ADDRESS,
+    release_commit: env.TOKOIN_RELEASE_COMMIT,
+    maximum_test_eth_budget_wei: env.TOKOIN_MAX_TEST_ETH_BUDGET_WEI,
+    authorized_by: ["founder", "security-reviewer"],
+    authorized_at: "2026-09-06T20:00:00Z",
   }));
-  return { auditPath, authorizationPath, env };
+  return { auditPath, authorizationPath, candidateBundlePath, env };
 }
 
 test("complete audit, narrow authorization and multisig declaration pass", () => {
@@ -47,6 +60,7 @@ test("missing audit and authorization fail closed", () => {
   const result = evaluatePublicTestnetReadiness({
     auditPath: path.join(root, "missing-audit.json"),
     authorizationPath: path.join(root, "missing-authorization.json"),
+    candidateBundlePath: path.join(root, "missing-candidate.json"),
     env: {},
   });
   assert.equal(result.ready, false);
@@ -87,4 +101,25 @@ test("authorization cannot substitute audited control addresses", () => {
   const result = evaluatePublicTestnetReadiness(input);
   assert.equal(result.ready, false);
   assert.ok(result.blockers.includes("authorized_settlement_authority_mismatch"));
+});
+
+test("audit and authorization must bind the exact candidate bundle", () => {
+  const input = fixture();
+  const audit = JSON.parse(fs.readFileSync(input.auditPath, "utf8"));
+  audit.contract_release_bundle_hash = "f".repeat(64);
+  fs.writeFileSync(input.auditPath, JSON.stringify(audit));
+  const result = evaluatePublicTestnetReadiness(input);
+  assert.equal(result.ready, false);
+  assert.ok(result.blockers.includes("audit_candidate_bundle_hash_mismatch"));
+});
+
+test("control roles must use three distinct multisig addresses", () => {
+  const input = fixture();
+  const authorization = JSON.parse(fs.readFileSync(input.authorizationPath, "utf8"));
+  input.env.AGORA_IDENTITY_ISSUER_ADDRESS = input.env.TOKOIN_SETTLEMENT_AUTHORITY_ADDRESS;
+  authorization.identity_issuer_address = input.env.AGORA_IDENTITY_ISSUER_ADDRESS;
+  fs.writeFileSync(input.authorizationPath, JSON.stringify(authorization));
+  const result = evaluatePublicTestnetReadiness(input);
+  assert.equal(result.ready, false);
+  assert.ok(result.blockers.includes("control_role_concentration_rejected"));
 });

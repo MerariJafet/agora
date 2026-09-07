@@ -1,19 +1,21 @@
 {
   "project": "AGORA / TOKOIN",
-  "evaluated_at": "2026-09-06T22:57:44Z",
-  "baseline_revision": "c0eb30e5fb219f4f85d58a893e069b7d762f0a8c",
-  "candidate_fingerprint_before_gate_bookkeeping": "46ed2bfd38e6a398a06f61eed09656527ed183a50a4c1fa468ae1248b55154b4",
+  "evaluated_at": "2026-09-07T00:50:48Z",
+  "baseline_revision": "1bbf4ac065c279ce8957b8585ebccbd57207a870",
+  "candidate_fingerprint_before_gate_bookkeeping": "e2df4ba9efacbe2bce0ff2e5f4fc081b8b2f002144e3cb5bc0694f4938be8ec2",
+  "contract_release_bundle_hash": "f283883379dffaa6cbe8b6498957b40a54f6283735e3c8f0b90395c836d165a5",
   "status": "NO-GO",
   "verdict": "NO-GO",
-  "local_contract_candidate": "PASS",
+  "local_hardened_candidate": "PASS",
   "tokoin_public_testnet": "NO-GO",
   "tokoin_mainnet_or_market": "NO-GO",
   "checks": {
     "contract_compile": "passed: Solidity 0.8.30, Cancun target",
-    "contract_invariants": "passed: 11",
-    "preflight_tests": "4 passed",
-    "focused_python_tests": "26 passed",
-    "python_regression": "455 passed, 1 skipped",
+    "contract_invariants": "passed: 13",
+    "preflight_tests": "6 passed",
+    "bundle_tool_tests": "8 passed",
+    "focused_python_tests": "31 passed",
+    "python_regression": "467 passed, 1 skipped",
     "web_tests": "33 passed",
     "ruff": "passed",
     "mypy": "passed: 120 source files",
@@ -22,18 +24,20 @@
     "next_build": "passed",
     "dependency_audits": "npm and pip passed with zero known vulnerabilities",
     "secret_scan": "passed for intended change",
+    "browser_check": "passed with staged API compatibility",
     "base_sepolia_preflight": "expected deny before network access"
   },
   "blockers": [
-    "independent external audit is missing and not operator-accepted",
-    "separate Base Sepolia deployment authorization is absent",
+    "independent audit of the exact contract bundle is missing",
+    "hash-bound Base Sepolia deployment authorization is absent",
     "three exact 2-of-3 Safe control addresses are not authorized",
     "testnet deployer funding and maximum gas budget are not approved",
-    "root project license and public governance remain unratified",
-    "mainnet, market, sale, custody and liquidity have no legal or human authorization"
+    "there is no public testnet or independent operator history",
+    "license, legal classification, mainnet, distribution and market activity remain unratified"
   ],
   "network_transactions": 0,
   "wallets_connected": 0,
-  "subscriptions_created": 0,
-  "report": ".Codex/release-gate/reports/2026-09-06-tokoin-public-testnet-v2.md"
+  "keys_generated": 0,
+  "funds_moved": 0,
+  "report": ".Codex/release-gate/reports/2026-09-07-tokoin-readiness-hardening.md"
 }

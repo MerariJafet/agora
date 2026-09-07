@@ -47,6 +47,20 @@ contract TokoinResearchRewards {
         uint256 amount
     );
 
+    /// @notice Canonical leaf for this exact chain and contract deployment.
+    /// @dev Domain separation prevents a valid allocation from being replayed
+    /// on another TOKOIN deployment that accidentally publishes the same root.
+    function claimLeaf(
+        bytes32 challengeId,
+        address account,
+        uint256 amount,
+        bytes32 role
+    ) public view returns (bytes32) {
+        return keccak256(bytes.concat(keccak256(abi.encode(
+            block.chainid, address(this), challengeId, account, amount, role
+        ))));
+    }
+
     constructor(IERC20 tokoin_, address settlementAuthority_) {
         if (address(tokoin_) == address(0) || settlementAuthority_ == address(0)) {
             revert ZeroAddress();
@@ -89,13 +103,10 @@ contract TokoinResearchRewards {
     ) external {
         if (account == address(0)) revert ZeroAddress();
         Settlement storage settlement = settlements[challengeId];
-        bytes32 claimId = keccak256(abi.encode(challengeId, account, amount, role));
+        bytes32 claimId = claimLeaf(challengeId, account, amount, role);
         if (claims[claimId]) revert AlreadyClaimed();
 
-        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(
-            challengeId, account, amount, role
-        ))));
-        if (!MerkleProof.verifyCalldata(proof, settlement.payoutRoot, leaf)) {
+        if (!MerkleProof.verifyCalldata(proof, settlement.payoutRoot, claimId)) {
             revert InvalidProof();
         }
         if (settlement.claimedAmount + amount > settlement.totalAmount) {

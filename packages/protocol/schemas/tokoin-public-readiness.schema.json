@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agora.dev/schemas/tokoin-public-readiness.schema.json",
+  "title": "TOKOIN public testnet readiness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "stage",
+    "candidate_bundle",
+    "independent_audit",
+    "deployment_authorization_present",
+    "base_sepolia_deployed",
+    "mainnet_authorized",
+    "market_ready",
+    "predeployment_blockers",
+    "next_human_gate"
+  ],
+  "properties": {
+    "schema": { "const": "agora.tokoin.public_testnet_readiness.v1" },
+    "stage": { "enum": ["SOURCE_ONLY", "AUDIT_CANDIDATE", "DEPLOYED_TESTNET"] },
+    "candidate_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["present", "integrity_valid", "bundle_sha256", "contracts"],
+      "properties": {
+        "present": { "type": "boolean" },
+        "integrity_valid": { "type": "boolean" },
+        "bundle_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "contracts": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "independent_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["complete", "status", "accepted_by_operator"],
+      "properties": {
+        "complete": { "type": "boolean" },
+        "status": { "type": "string" },
+        "accepted_by_operator": { "type": "boolean" }
+      }
+    },
+    "deployment_authorization_present": { "type": "boolean" },
+    "base_sepolia_deployed": { "type": "boolean" },
+    "mainnet_authorized": { "const": false },
+    "market_ready": { "const": false },
+    "predeployment_blockers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "next_human_gate": { "type": "string" }
+  }
+}

@@ -7,8 +7,13 @@
   "scripts": {
     "audit:static": "node scripts/static-audit.mjs",
     "compile": "hardhat compile --build-profile production",
-    "test:contracts": "hardhat run scripts/contract-tests.mjs --network hardhatOp",
+    "test:contracts": "hardhat run scripts/contract-tests.mjs --build-profile production --network hardhatOp",
     "test:preflight": "node --test test/release-preflight.test.mjs",
+    "test:bundle": "node --test test/candidate-bundle.test.mjs test/deployment-verifier.test.mjs test/settlement-bundle.test.mjs",
+    "bundle:build": "node scripts/build-candidate-bundle.mjs",
+    "bundle:verify": "node scripts/verify-candidate-bundle.mjs",
+    "settlement:build": "node scripts/build-settlement-bundle.mjs",
+    "verify:base-sepolia": "node scripts/verify-base-sepolia.mjs",
     "preflight:base-sepolia": "node scripts/release-preflight.mjs",
     "deploy:base-sepolia": "npm run preflight:base-sepolia && hardhat run scripts/deploy-base-sepolia.mjs --build-profile production --network baseSepolia"
   },

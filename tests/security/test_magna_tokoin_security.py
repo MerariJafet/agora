@@ -7,8 +7,10 @@ import pytest
 from agora_api.boundary import validate_boundary
 from agora_api.db import session_factory
 from agora_api.magna_tokoin_testnet import (
+    public_testnet_readiness_view,
     ratification_bundle_view,
     release_manifest_draft_view,
+    require_local_control_plane,
     scope_matrix_view,
 )
 from sqlalchemy import text
@@ -37,6 +39,9 @@ def test_tokoin_fixed_supply_contract_has_no_mint_burn_proxy_owner_surface():
 
 
 async def test_tokoin_settlement_rejects_float_and_scientific_amounts(api_client):
+    login = await api_client.post(
+        "/v1/auth/dev/login", json={"username": "tokoin-security-operator"}
+    )
     response = await api_client.post(
         "/v1/tokoin-testnet/settlement-plans",
         json={
@@ -52,8 +57,51 @@ async def test_tokoin_settlement_rejects_float_and_scientific_amounts(api_client
                 }
             ],
         },
+        headers={"X-CSRF-Token": login.json()["csrf_token"]},
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/tokoin-testnet/deployment/local-devnet",
+        "/v1/tokoin-testnet/reservations",
+        "/v1/tokoin-testnet/reservations/rsv_missing/confirm-local",
+        "/v1/tokoin-testnet/settlement-plans",
+        "/v1/tokoin-testnet/knowledge-roots",
+        "/v1/tokoin-private-pilot/ratifications/ingest",
+        "/v1/tokoin-private-pilot/settlements/tsp_missing/authorize-and-reconcile",
+        "/v1/tokoin-private-pilot/migration-snapshots/test-only",
+    ],
+)
+async def test_tokoin_control_plane_mutations_require_owner_csrf(api_client, path):
+    response = await api_client.post(path)
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "auth_required"
+
+
+async def test_tokoin_control_plane_rejects_missing_csrf(api_client):
+    login = await api_client.post(
+        "/v1/auth/dev/login", json={"username": "tokoin-csrf-operator"}
+    )
+    assert login.status_code == 200
+    response = await api_client.post("/v1/tokoin-testnet/deployment/local-devnet")
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "csrf_rejected"
+
+
+def test_tokoin_local_control_plane_fails_closed_in_production(monkeypatch):
+    from agora_api.config import get_settings
+    from agora_api.errors import Conflict
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("AGORA_ENV", "production")
+    try:
+        with pytest.raises(Conflict):
+            require_local_control_plane()
+    finally:
+        get_settings.cache_clear()
 
 
 async def test_tokoin_status_never_reports_complete_without_external_audit(api_client):
@@ -64,13 +112,16 @@ async def test_tokoin_status_never_reports_complete_without_external_audit(api_c
             )
         ).scalar_one()
     status = (await api_client.get("/v1/tokoin-testnet/status")).json()
-    assert status["status"] == "PARTIAL_AWAITING_RATIFICATION"
+    assert status["status"] == "BLOCKED_EXTERNAL_AUDIT"
     assert status["maximum_authorized_network"] == "LOCAL_DEVNET"
     assert status["human_ratifications_complete"] is True
     assert status["external_independent_audit_complete"] is False
     assert status["real_value_moved"] is False
     assert status["mainnet_transactions"] == 0
     assert status["ratification_gate"]["pending_decisions"] == 0
+    assert status["public_testnet"]["candidate_bundle"]["integrity_valid"] is True
+    assert status["public_testnet"]["base_sepolia_deployed"] is False
+    assert status["public_testnet"]["market_ready"] is False
     async with session_factory()() as session:
         after = (
             await session.execute(
@@ -78,6 +129,42 @@ async def test_tokoin_status_never_reports_complete_without_external_audit(api_c
             )
         ).scalar_one()
     assert after == before
+
+
+def test_public_testnet_readiness_is_truthful_and_hash_bound(monkeypatch, tmp_path):
+    current = public_testnet_readiness_view()
+    assert current["stage"] == "AUDIT_CANDIDATE"
+    assert current["candidate_bundle"]["integrity_valid"] is True
+    assert "independent_external_audit_incomplete" in current["predeployment_blockers"]
+
+    tampered = tmp_path / "bundle.json"
+    bundle = tokoin._load_json_object(tokoin.CONTRACT_RELEASE_BUNDLE_PATH)
+    assert bundle is not None
+    bundle["target"]["mainnet_authorized"] = True
+    tampered.write_text(__import__("json").dumps(bundle))
+    monkeypatch.setattr(tokoin, "CONTRACT_RELEASE_BUNDLE_PATH", tampered)
+    assert public_testnet_readiness_view()["candidate_bundle"]["integrity_valid"] is False
+
+
+def test_public_readiness_rejects_audit_for_a_different_candidate(monkeypatch, tmp_path):
+    audit_path = tmp_path / "audit.json"
+    audit_path.write_text(
+        __import__("json").dumps(
+            {
+                "status": "COMPLETE_PASSED",
+                "accepted_by_operator": True,
+                "critical_findings": 0,
+                "high_findings": 0,
+                "report_hash": "a" * 64,
+                "contract_release_bundle_hash": "b" * 64,
+            }
+        )
+    )
+    monkeypatch.setattr(tokoin, "EXTERNAL_AUDIT_REFERENCE_PATH", audit_path)
+    result = public_testnet_readiness_view()
+    assert result["candidate_bundle"]["integrity_valid"] is True
+    assert result["independent_audit"]["complete"] is False
+    assert "independent_external_audit_incomplete" in result["predeployment_blockers"]
 
 
 async def test_tokoin_status_does_not_claim_offchain_components_as_contracts(api_client):

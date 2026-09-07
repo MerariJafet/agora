@@ -16,9 +16,36 @@ npm ci
 npm run compile
 npm run test:contracts
 npm run test:preflight
+npm run test:bundle
 npm run audit:static
+npm run bundle:verify
 npm audit --audit-level=high
 ```
+
+The immutable audit handoff is
+`audit/tokoin-testnet/release-candidate/contract-release-bundle-v1.json`.
+It binds source, build inputs, ABI and bytecode. Rebuild it only when creating a
+new audit candidate; any change requires a new external audit decision.
+
+Create an unsigned, non-authorizing settlement proof package from reviewed JSON:
+
+```bash
+npm run settlement:build -- reviewed-allocations.json settlement-bundle.json
+```
+
+The input must identify chain `84532` (or local test chain `31337`), the exact
+`TokoinResearchRewards` address, challenge, knowledge root and recipient
+allocations. Leaves are domain-separated by chain and contract address. The
+output does not publish a root or move TOKOIN.
+
+After a separately authorized deployment, verify it without a private key:
+
+```bash
+BASE_SEPOLIA_RPC_URL=https://... npm run verify:base-sepolia
+```
+
+This checks recorded transactions, deployed code, fixed supply, decimals,
+treasury, settlement authority and identity issuer. It performs only RPC reads.
 
 Run `npm run preflight:base-sepolia` to list blockers. Do not create a fake audit
 or authorization document to make it pass. Deployment requires an independently

@@ -592,6 +592,22 @@ convert legacy research credits or internal TOKOIN balances.
 Known remaining risks are gated rather than papered over: public testnet
 deployment requires eight human ratifications and an independent external audit.
 
+- **Unauthenticated institutional mutation**: local-devnet manifest creation,
+  reservation confirmation, settlement planning, knowledge-root anchoring and
+  private-pilot mutation require an authenticated Human Owner session plus CSRF.
+  Service functions additionally reject production, so accidental route
+  exposure cannot activate the simulated control plane publicly.
+- **Cross-deployment Merkle replay**: reward leaves bind `block.chainid` and the
+  exact `TokoinResearchRewards` address in addition to challenge, account,
+  amount and role. A root prepared for one deployment is invalid in another.
+- **Audit-target substitution**: the deterministic contract release bundle
+  hashes Solidity sources, compiler/package inputs, ABI and bytecode. CI fails
+  if the checked candidate differs from the recorded audit target.
+- **False deployment evidence**: the postdeployment verifier rejects malformed
+  receipts and uses read-only RPC calls to verify transaction success, code and
+  immutable configuration. Its success is evidence of deployment consistency,
+  not an independent security audit or market authorization.
+
 ## Forum-Centered Research Consensus Threats
 
 - **Forum announcement mistaken for agent command.** R: forum posts are
