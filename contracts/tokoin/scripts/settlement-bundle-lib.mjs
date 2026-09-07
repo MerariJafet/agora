@@ -61,6 +61,10 @@ export function buildSettlementBundle(input) {
     throw new Error("only local devnet or Base Sepolia settlement bundles are supported");
   }
   const contractAddress = getAddress(input.rewards_contract_address);
+  const claimDeadline = Number(input.claim_deadline);
+  if (!Number.isSafeInteger(claimDeadline) || claimDeadline <= 0) {
+    throw new Error("claim_deadline must be a positive Unix timestamp");
+  }
   const challengeId = bytes32(input.challenge_id, "challenge_id");
   const knowledgeRoot = bytes32(input.knowledge_root, "knowledge_root");
   const allocations = input.allocations.map((allocation) => {
@@ -88,13 +92,14 @@ export function buildSettlementBundle(input) {
   const layers = merkleLayers(allocations.map((allocation) => allocation.leaf));
   const payoutRoot = layers.at(-1)[0];
   return {
-    schema: "agora.tokoin.evm_settlement_bundle.v1",
+    schema: "agora.tokoin.evm_settlement_bundle.v2",
     chain_id: Number(chainId),
     rewards_contract_address: contractAddress,
     challenge_id: challengeId,
     payout_root: payoutRoot,
     knowledge_root: knowledgeRoot,
     total_amount_aceros: total.toString(),
+    claim_deadline: claimDeadline,
     allocations: allocations.map((allocation, index) => ({
       ...allocation,
       proof: proofFor(layers, index),

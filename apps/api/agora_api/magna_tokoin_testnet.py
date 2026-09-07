@@ -60,6 +60,13 @@ RATIFIED_FOUNDER_BUNDLE_PATH = (
 EXTERNAL_AUDIT_REFERENCE_PATH = (
     REPO_ROOT / "audit" / "tokoin-testnet" / "external" / "audit-report-reference.json"
 )
+AUDITOR_INDEPENDENCE_PATH = (
+    REPO_ROOT
+    / "audit"
+    / "tokoin-testnet"
+    / "external"
+    / "auditor-independence-disclosure.json"
+)
 CONTRACT_RELEASE_BUNDLE_PATH = (
     REPO_ROOT
     / "audit"
@@ -88,8 +95,16 @@ ROLE_CAPS = {
 
 def require_local_control_plane() -> None:
     """Fail closed if simulated economic mutations reach production."""
-    if get_settings().is_production:
-        raise Conflict("Local TOKOIN control-plane mutations are disabled in production.")
+    settings = get_settings()
+    if settings.is_production or not settings.tokoin_local_control_plane_enabled:
+        raise Conflict("Local TOKOIN control-plane mutations are not explicitly enabled.")
+
+
+def _require_reservation_operator(row: TokoinReservation, owner_id: str) -> None:
+    if row.requested_by_owner_id != owner_id:
+        raise OwnerAuthorityRequired(
+            "Only the Owner who initiated this TOKOIN reservation may advance it."
+        )
 
 OFFCHAIN_COMPONENTS = {
     "GenesisTreasury": (
@@ -190,6 +205,7 @@ def _load_json_object(path: Path) -> dict[str, Any] | None:
 def public_testnet_readiness_view() -> dict[str, Any]:
     """Read-only, file-backed truth about the public EVM candidate."""
     audit = _load_json_object(EXTERNAL_AUDIT_REFERENCE_PATH) or {}
+    independence = _load_json_object(AUDITOR_INDEPENDENCE_PATH) or {}
     bundle = _load_json_object(CONTRACT_RELEASE_BUNDLE_PATH) or {}
     authorization = _load_json_object(BASE_SEPOLIA_AUTHORIZATION_PATH)
     deployment = _load_json_object(BASE_SEPOLIA_RECEIPT_PATH)
@@ -205,6 +221,14 @@ def public_testnet_readiness_view() -> dict[str, Any]:
         and len(bundle_hash) == 64
         and bundle_hash == calculated_bundle_hash
     )
+    independence_complete = (
+        independence.get("status") == "INDEPENDENT_CONFIRMED"
+        and independence.get("accepted_by_operator") is True
+        and isinstance(independence.get("auditor"), str)
+        and bool(independence["auditor"].strip())
+        and isinstance(independence.get("relationship_disclosure"), str)
+        and bool(independence["relationship_disclosure"].strip())
+    )
     audit_complete = (
         audit.get("status") == "COMPLETE_PASSED"
         and audit.get("accepted_by_operator") is True
@@ -214,6 +238,7 @@ def public_testnet_readiness_view() -> dict[str, Any]:
         and audit.get("contract_release_bundle_hash") == bundle_hash
         and isinstance(audit.get("report_hash"), str)
         and len(audit["report_hash"]) == 64
+        and independence_complete
     )
     deployed = (
         deployment is not None
@@ -226,6 +251,8 @@ def public_testnet_readiness_view() -> dict[str, Any]:
         blockers.append("contract_release_bundle_missing_or_invalid")
     if not audit_complete:
         blockers.append("independent_external_audit_incomplete")
+    if not independence_complete:
+        blockers.append("auditor_independence_not_confirmed")
     if authorization is None:
         blockers.append("base_sepolia_authorization_absent")
 
@@ -698,7 +725,9 @@ def wallet_binding_view(row: TokoinWalletBinding) -> dict[str, Any]:
     }
 
 
-async def request_reservation(session: AsyncSession, payload: dict[str, Any]) -> TokoinReservation:
+async def request_reservation(
+    session: AsyncSession, payload: dict[str, Any], *, owner_id: str
+) -> TokoinReservation:
     require_local_control_plane()
     validate_boundary("tokoins.schema.json", "/$defs/ReservationRequest", payload)
     manifest = await create_or_get_local_manifest(session)
@@ -710,6 +739,7 @@ async def request_reservation(session: AsyncSession, payload: dict[str, Any]) ->
         )
     ).scalar_one_or_none()
     if existing is not None:
+        _require_reservation_operator(existing, owner_id)
         return existing
     by_challenge = (
         await session.execute(
@@ -728,6 +758,7 @@ async def request_reservation(session: AsyncSession, payload: dict[str, Any]) ->
         world_instance_id=payload["world_instance_id"],
         challenge_id=payload["challenge_id"],
         candidate_id=payload["candidate_id"],
+        requested_by_owner_id=owner_id,
         settlement_backend=SETTLEMENT_BACKEND,
         chain_id=LOCAL_CHAIN_ID,
         escrow_address=manifest.challenge_escrow_address,
@@ -753,12 +784,13 @@ async def request_reservation(session: AsyncSession, payload: dict[str, Any]) ->
 
 
 async def confirm_local_reservation(
-    session: AsyncSession, reservation_id: str
+    session: AsyncSession, reservation_id: str, *, owner_id: str
 ) -> TokoinReservation:
     require_local_control_plane()
     row = await session.get(TokoinReservation, reservation_id)
     if row is None:
         raise NotFound("TOKOIN reservation not found.")
+    _require_reservation_operator(row, owner_id)
     if row.state in {"RESERVED", "RELEASED_ACTIVE"}:
         return row
     if row.state not in {"RESERVATION_REQUESTED", "ONCHAIN_PENDING", "FINALITY_CONFIRMED"}:
@@ -825,13 +857,14 @@ def _validate_allocations(allocations: list[dict[str, Any]]) -> tuple[int, int]:
 
 
 async def create_settlement_plan(
-    session: AsyncSession, payload: dict[str, Any]
+    session: AsyncSession, payload: dict[str, Any], *, owner_id: str
 ) -> TokoinSettlementPlan:
     require_local_control_plane()
     validate_boundary("tokoins.schema.json", "/$defs/SettlementPlanRequest", payload)
     reservation = await session.get(TokoinReservation, payload["reservation_id"])
     if reservation is None:
         raise NotFound("TOKOIN reservation not found.")
+    _require_reservation_operator(reservation, owner_id)
     receipt = await session.get(MagnaResolutionReceipt, payload["resolution_receipt_id"])
     if receipt is None:
         raise NotFound("ResolutionReceipt not found.")

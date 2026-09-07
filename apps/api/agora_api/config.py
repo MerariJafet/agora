@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     research_scheduler_interval_seconds: int = 1800
     research_scheduler_startup_tick: bool = True
 
+    # Local-only institutional TOKOIN controls are disabled unless an operator
+    # explicitly enables them. Production remains hard-denied regardless.
+    tokoin_local_control_plane_enabled: bool = False
+
     @property
     def is_production(self) -> bool:
         return self.env == "production"

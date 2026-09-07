@@ -24,6 +24,7 @@ contract AgoraAgentIdentity is ERC721, IERC5192 {
     error IssuerOnly();
     error IdentityAlreadyMinted();
     error Soulbound();
+    error IdentityAlreadyRevoked();
 
     event IdentityRevoked(uint256 indexed tokenId, bytes32 indexed reasonHash);
 
@@ -48,6 +49,7 @@ contract AgoraAgentIdentity is ERC721, IERC5192 {
     function revoke(uint256 tokenId, bytes32 reasonHash) external {
         if (msg.sender != issuer) revert IssuerOnly();
         _requireOwned(tokenId);
+        if (revoked[tokenId]) revert IdentityAlreadyRevoked();
         revoked[tokenId] = true;
         emit IdentityRevoked(tokenId, reasonHash);
     }

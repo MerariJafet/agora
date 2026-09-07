@@ -34,9 +34,15 @@ npm run settlement:build -- reviewed-allocations.json settlement-bundle.json
 ```
 
 The input must identify chain `84532` (or local test chain `31337`), the exact
-`TokoinResearchRewards` address, challenge, knowledge root and recipient
-allocations. Leaves are domain-separated by chain and contract address. The
-output does not publish a root or move TOKOIN.
+`TokoinResearchRewards` address, challenge, knowledge root, Unix
+`claim_deadline` and recipient allocations. The on-chain deadline must be 1 to
+365 days after publication. Leaves are domain-separated by chain and contract
+address. The output does not publish a root or move TOKOIN.
+
+Institutional local-devnet API mutations are disabled by default. A local
+operator must set `AGORA_TOKOIN_LOCAL_CONTROL_PLANE_ENABLED=true`; production
+rejects them regardless. Mutations also require an authenticated Owner, CSRF,
+rate limiting and reservation-operator binding.
 
 After a separately authorized deployment, verify it without a private key:
 
@@ -49,5 +55,6 @@ treasury, settlement authority and identity issuer. It performs only RPC reads.
 
 Run `npm run preflight:base-sepolia` to list blockers. Do not create a fake audit
 or authorization document to make it pass. Deployment requires an independently
-accepted audit and a separately signed authorization for the exact contract
-release, audit hash, network and multisig addresses.
+accepted human audit and a separately signed authorization for the exact
+contract release, audit hash, network and multisig addresses. Internal
+model-assisted review is useful evidence but does not satisfy this gate.

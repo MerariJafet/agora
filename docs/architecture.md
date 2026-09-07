@@ -626,6 +626,13 @@ challenge reservations, settlement plans, claimable allocations and knowledge
 root anchors in PostgreSQL. This plane is additive and does not convert legacy
 balances or treat PostgreSQL as the authoritative EVM balance.
 
+The institutional mutation surface is disabled unless a local operator sets an
+explicit enable flag; production rejects it unconditionally. Owner sessions,
+CSRF, rate limits and reservation-operator binding form independent checks. The
+EVM reward contract keeps roots immutable while adding bounded claim deadlines,
+permissionless expired-reserve release and a claim-only pause controlled by the
+settlement-authority Safe. It has no administrative withdrawal path.
+
 The maximum authorized network is currently `LOCAL_DEVNET` (`chain_id=31337`).
 Base Sepolia remains gated by human ratification and independent audit; mainnet
 and unknown chain IDs are hard-blocked.

@@ -82,6 +82,9 @@ export function buildCandidateBundle(root) {
       "hardhat.config.js": hashFile(root, "hardhat.config.js"),
       "package-lock.json": hashFile(root, "package-lock.json"),
       "package.json": hashFile(root, "package.json"),
+      "scripts/build-candidate-bundle.mjs": hashFile(root, "scripts/build-candidate-bundle.mjs"),
+      "scripts/candidate-bundle-lib.mjs": hashFile(root, "scripts/candidate-bundle-lib.mjs"),
+      "scripts/static-audit.mjs": hashFile(root, "scripts/static-audit.mjs"),
     },
     contracts,
     trust_boundaries: [
@@ -89,6 +92,8 @@ export function buildCandidateBundle(root) {
       "an external audit is required before deployment",
       "treasury, settlement authority and identity issuer must be authorized 2-of-3 Safe addresses",
       "research adjudication selects reward recipients but does not prove factual truth",
+      "settlements expire and release only unclaimed reservations; roots stay immutable",
+      "claim pause and preclaim cancellation are controlled by the settlement Safe",
     ],
   };
   return { ...payload, bundle_sha256: sha256(canonicalJson(payload)) };

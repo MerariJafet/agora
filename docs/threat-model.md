@@ -592,6 +592,18 @@ convert legacy research credits or internal TOKOIN balances.
 Known remaining risks are gated rather than papered over: public testnet
 deployment requires eight human ratifications and an independent external audit.
 
+- **Permanent reservation lock**: each on-chain settlement has a bounded claim
+  deadline. After expiry, anyone may release only the unclaimed reservation;
+  the tokens remain in the contract and cannot be redirected by that call.
+- **Emergency authority abuse**: the immutable settlement-authority Safe can
+  pause claims, but cannot replace roots, mint or withdraw. Pre-claim
+  cancellation preserves the original record and requires a successor challenge
+  identifier for correction.
+- **Ambient local control-plane authorization**: economic mutations require an
+  explicit local enable flag in addition to Owner authentication, CSRF and rate
+  limiting. Production is hard-denied. Reservations record the initiating Owner
+  and reject advancement by a different Owner.
+
 - **Unauthenticated institutional mutation**: local-devnet manifest creation,
   reservation confirmation, settlement planning, knowledge-root anchoring and
   private-pilot mutation require an authenticated Human Owner session plus CSRF.

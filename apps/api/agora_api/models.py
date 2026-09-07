@@ -2919,6 +2919,9 @@ class TokoinReservation(Base):
     world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
     challenge_id: Mapped[str] = mapped_column(String(80), nullable=False)
     candidate_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    requested_by_owner_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("users.user_id"), nullable=True
+    )
     settlement_backend: Mapped[str] = mapped_column(String(40), nullable=False)
     chain_id: Mapped[int] = mapped_column(Integer, nullable=False)
     escrow_address: Mapped[str] = mapped_column(String(42), nullable=False)
@@ -2939,6 +2942,7 @@ class TokoinReservation(Base):
             "world_instance_id", "challenge_id", name="uq_tokoin_reservation_challenge"
         ),
         Index("ix_tokoin_reservations_state", "state"),
+        Index("ix_tokoin_reservations_owner", "requested_by_owner_id"),
     )
 
 

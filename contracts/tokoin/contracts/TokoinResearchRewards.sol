@@ -17,11 +17,18 @@ contract TokoinResearchRewards {
         bytes32 knowledgeRoot;
         uint256 totalAmount;
         uint256 claimedAmount;
+        uint256 releasedAmount;
+        uint64 claimDeadline;
+        bool cancelled;
     }
+
+    uint64 public constant MIN_CLAIM_WINDOW = 1 days;
+    uint64 public constant MAX_CLAIM_WINDOW = 365 days;
 
     IERC20 public immutable tokoin;
     address public immutable settlementAuthority;
     uint256 public reservedAmount;
+    bool public claimsPaused;
 
     mapping(bytes32 challengeId => Settlement settlement) public settlements;
     mapping(bytes32 claimId => bool claimed) public claims;
@@ -33,12 +40,20 @@ contract TokoinResearchRewards {
     error SettlementExceedsBalance();
     error InvalidProof();
     error AlreadyClaimed();
+    error ZeroAmount();
+    error InvalidClaimDeadline();
+    error ClaimsPaused();
+    error SettlementExpired();
+    error SettlementNotExpired();
+    error SettlementInactive();
+    error SettlementHasClaims();
 
     event SettlementPublished(
         bytes32 indexed challengeId,
         bytes32 indexed payoutRoot,
         bytes32 indexed knowledgeRoot,
-        uint256 totalAmount
+        uint256 totalAmount,
+        uint64 claimDeadline
     );
     event RewardClaimed(
         bytes32 indexed challengeId,
@@ -46,6 +61,9 @@ contract TokoinResearchRewards {
         bytes32 indexed role,
         uint256 amount
     );
+    event ClaimsPauseChanged(bool paused);
+    event SettlementCancelled(bytes32 indexed challengeId, uint256 releasedAmount);
+    event ExpiredSettlementReleased(bytes32 indexed challengeId, uint256 releasedAmount);
 
     /// @notice Canonical leaf for this exact chain and contract deployment.
     /// @dev Domain separation prevents a valid allocation from being replayed
@@ -73,10 +91,15 @@ contract TokoinResearchRewards {
         bytes32 challengeId,
         bytes32 payoutRoot,
         bytes32 knowledgeRoot,
-        uint256 totalAmount
+        uint256 totalAmount,
+        uint64 claimDeadline
     ) external {
         if (msg.sender != settlementAuthority) revert AuthorityOnly();
         if (payoutRoot == bytes32(0) || knowledgeRoot == bytes32(0)) revert EmptyRoot();
+        if (
+            claimDeadline < block.timestamp + MIN_CLAIM_WINDOW
+                || claimDeadline > block.timestamp + MAX_CLAIM_WINDOW
+        ) revert InvalidClaimDeadline();
         if (settlements[challengeId].payoutRoot != bytes32(0)) {
             revert SettlementAlreadyPublished();
         }
@@ -88,10 +111,51 @@ contract TokoinResearchRewards {
             payoutRoot: payoutRoot,
             knowledgeRoot: knowledgeRoot,
             totalAmount: totalAmount,
-            claimedAmount: 0
+            claimedAmount: 0,
+            releasedAmount: 0,
+            claimDeadline: claimDeadline,
+            cancelled: false
         });
         reservedAmount += totalAmount;
-        emit SettlementPublished(challengeId, payoutRoot, knowledgeRoot, totalAmount);
+        emit SettlementPublished(challengeId, payoutRoot, knowledgeRoot, totalAmount, claimDeadline);
+    }
+
+    /// @notice Pauses claims during incident response without changing roots or balances.
+    function setClaimsPaused(bool paused) external {
+        if (msg.sender != settlementAuthority) revert AuthorityOnly();
+        claimsPaused = paused;
+        emit ClaimsPauseChanged(paused);
+    }
+
+    /// @notice Cancels an incorrect settlement only before any allocation was claimed.
+    /// @dev The immutable record remains. A corrected settlement must use a successor challenge ID.
+    function cancelSettlement(bytes32 challengeId) external {
+        if (msg.sender != settlementAuthority) revert AuthorityOnly();
+        Settlement storage settlement = settlements[challengeId];
+        if (settlement.payoutRoot == bytes32(0) || settlement.cancelled) {
+            revert SettlementInactive();
+        }
+        if (settlement.claimedAmount != 0) revert SettlementHasClaims();
+        uint256 remaining = settlement.totalAmount - settlement.releasedAmount;
+        settlement.releasedAmount += remaining;
+        settlement.cancelled = true;
+        reservedAmount -= remaining;
+        emit SettlementCancelled(challengeId, remaining);
+    }
+
+    /// @notice Releases an expired settlement's unclaimed reservation for future settlements.
+    /// @dev Tokens remain in this contract; this function cannot withdraw or redirect them.
+    function releaseExpiredSettlement(bytes32 challengeId) external {
+        Settlement storage settlement = settlements[challengeId];
+        if (settlement.payoutRoot == bytes32(0) || settlement.cancelled) {
+            revert SettlementInactive();
+        }
+        if (block.timestamp <= settlement.claimDeadline) revert SettlementNotExpired();
+        uint256 remaining = settlement.totalAmount - settlement.claimedAmount - settlement.releasedAmount;
+        if (remaining == 0) revert SettlementInactive();
+        settlement.releasedAmount += remaining;
+        reservedAmount -= remaining;
+        emit ExpiredSettlementReleased(challengeId, remaining);
     }
 
     function claim(
@@ -101,8 +165,14 @@ contract TokoinResearchRewards {
         bytes32 role,
         bytes32[] calldata proof
     ) external {
+        if (claimsPaused) revert ClaimsPaused();
         if (account == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
         Settlement storage settlement = settlements[challengeId];
+        if (settlement.payoutRoot == bytes32(0) || settlement.cancelled) {
+            revert SettlementInactive();
+        }
+        if (block.timestamp > settlement.claimDeadline) revert SettlementExpired();
         bytes32 claimId = claimLeaf(challengeId, account, amount, role);
         if (claims[claimId]) revert AlreadyClaimed();
 

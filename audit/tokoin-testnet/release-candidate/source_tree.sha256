@@ -1,4 +1,10 @@
-6072c6fb4f4e38eb000415b25c8ed94cf1752766b8113355ccec728fc07dcac8  source-tree-excluding-audit/tokoin-testnet/release-candidate/source_tree.sha256
+8a4541269ff4a59050d48e3f6a0e7fc221e3ee67b56d1389fe7702a48da3e104  tokoin-audit-scope
 
 Method:
-find . -path './.git' -prune -o -path './.venv' -prune -o -path './node_modules' -prune -o -path './apps/web/.next' -prune -o -path './audit/tokoin-testnet/release-candidate/source_tree.sha256' -prune -o -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum
+sha256sum of the four Solidity sources, hardhat.config.js, package-lock.json,
+package.json, build-candidate-bundle.mjs, candidate-bundle-lib.mjs and
+static-audit.mjs, in that fixed order; then sha256sum of the resulting manifest.
+
+The canonical per-file hashes, ABI hashes and bytecode hashes are recorded in
+contract-release-bundle-v1.json. Unrelated repository files are intentionally
+outside this contract audit scope.

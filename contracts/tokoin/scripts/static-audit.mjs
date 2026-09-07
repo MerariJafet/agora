@@ -45,6 +45,10 @@ for (const required of [
   "reservedAmount += totalAmount",
   "reservedAmount -= amount",
   "revert SettlementAlreadyPublished()",
+  "revert ZeroAmount()",
+  "function releaseExpiredSettlement",
+  "function cancelSettlement",
+  "function setClaimsPaused",
 ]) {
   if (!rewards.includes(required)) failures.push(`reward contract missing: ${required}`);
 }

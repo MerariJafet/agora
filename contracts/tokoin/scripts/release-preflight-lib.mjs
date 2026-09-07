@@ -21,6 +21,10 @@ function readJson(filePath) {
 export function evaluatePublicTestnetReadiness({
   env = process.env,
   auditPath = path.join(repoRoot, "audit/tokoin-testnet/external/audit-report-reference.json"),
+  independencePath = path.join(
+    repoRoot,
+    "audit/tokoin-testnet/external/auditor-independence-disclosure.json",
+  ),
   authorizationPath = path.join(
     repoRoot,
     "audit/tokoin-testnet/release-candidate/base-sepolia-deploy-authorization.json",
@@ -31,6 +35,7 @@ export function evaluatePublicTestnetReadiness({
   ),
 } = {}) {
   const audit = readJson(auditPath);
+  const independence = readJson(independencePath);
   const authorization = readJson(authorizationPath);
   const candidateBundle = readJson(candidateBundlePath);
   const blockers = [];
@@ -47,6 +52,16 @@ export function evaluatePublicTestnetReadiness({
   }
   if (Number(audit.critical_findings ?? -1) !== 0) blockers.push("critical_findings_not_zero");
   if (Number(audit.high_findings ?? -1) !== 0) blockers.push("high_findings_not_zero");
+  if (
+    independence.status !== "INDEPENDENT_CONFIRMED"
+    || independence.accepted_by_operator !== true
+    || typeof independence.auditor !== "string"
+    || !independence.auditor.trim()
+    || typeof independence.relationship_disclosure !== "string"
+    || !independence.relationship_disclosure.trim()
+  ) {
+    blockers.push("auditor_independence_not_confirmed");
+  }
 
   if (authorization.network !== "BASE_SEPOLIA") blockers.push("network_not_authorized");
   if (Number(authorization.chain_id) !== BASE_SEPOLIA_CHAIN_ID) {

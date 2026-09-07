@@ -1,24 +1,13 @@
 {
-  "schema": "agora.magna.tokoin.sbom.v1",
-  "status": "LOCAL_RELEASE_GATE_DRAFT",
+  "schema": "agora.magna.tokoin.sbom.v2",
+  "status": "UNDEPLOYED_AUDIT_CANDIDATE",
   "components": [
-    {
-      "name": "TokoinFixedSupply",
-      "type": "solidity_contract_source",
-      "path": "contracts/tokoin/contracts/TokoinFixedSupply.sol",
-      "solidity": "0.8.30",
-      "openzeppelin": "5.6.1"
-    },
-    {
-      "name": "TOKOIN local-devnet control plane",
-      "type": "fastapi_module",
-      "path": "apps/api/agora_api/magna_tokoin_testnet.py"
-    },
-    {
-      "name": "TOKOIN release gate schemas",
-      "type": "json_schema_2020_12",
-      "path": "packages/protocol/schemas/magna-tokoin-*.schema.json"
-    }
+    { "name": "TokoinFixedSupply", "type": "solidity_contract_source", "path": "contracts/tokoin/contracts/TokoinFixedSupply.sol", "solidity": "0.8.30", "openzeppelin": "5.6.1" },
+    { "name": "TokoinResearchRewards", "type": "solidity_contract_source", "path": "contracts/tokoin/contracts/TokoinResearchRewards.sol", "solidity": "0.8.30", "openzeppelin": "5.6.1" },
+    { "name": "AgoraAgentIdentity", "type": "solidity_contract_source", "path": "contracts/tokoin/contracts/AgoraAgentIdentity.sol", "solidity": "0.8.30", "openzeppelin": "5.6.1" },
+    { "name": "TOKOIN local-devnet control plane", "type": "fastapi_module", "path": "apps/api/agora_api/magna_tokoin_testnet.py" },
+    { "name": "TOKOIN control-plane Owner binding", "type": "postgresql_migration", "path": "apps/api/alembic/versions/0031_tokoin_control_plane_owner.py" },
+    { "name": "TOKOIN release gate schemas", "type": "json_schema_2020_12", "path": "packages/protocol/schemas/tokoins.schema.json" }
   ],
   "external_services": [],
   "paid_services": []

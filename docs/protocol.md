@@ -679,6 +679,14 @@ deployment manifest rehearsal, wallet binding, challenge reservation,
 settlement-plan allocation and knowledge-root anchoring. Amounts are decimal
 strings in ACEROS, never floats.
 
+Institutional mutation is opt-in on local development and is always disabled in
+production. A reservation is bound to its initiating Owner. Settlement bundle
+v2 adds `claim_deadline`; on-chain publication accepts deadlines from 1 through
+365 days, rejects zero claims, supports a claim-only emergency pause, permits
+pre-claim cancellation and lets any caller release an expired unclaimed
+reservation. None of these operations can change fixed supply or replace a
+published payout root.
+
 The public status is intentionally `PARTIAL_AWAITING_RATIFICATION` until human
 ratification and independent external audit exist. `ResolutionReceipt` remains
 an epistemic gate only; it does not itself move value.

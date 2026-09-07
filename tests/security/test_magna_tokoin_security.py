@@ -97,11 +97,38 @@ def test_tokoin_local_control_plane_fails_closed_in_production(monkeypatch):
 
     get_settings.cache_clear()
     monkeypatch.setenv("AGORA_ENV", "production")
+    monkeypatch.setenv("AGORA_TOKOIN_LOCAL_CONTROL_PLANE_ENABLED", "true")
     try:
         with pytest.raises(Conflict):
             require_local_control_plane()
     finally:
         get_settings.cache_clear()
+
+
+def test_tokoin_local_control_plane_requires_explicit_enablement(monkeypatch):
+    from agora_api.config import get_settings
+    from agora_api.errors import Conflict
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("AGORA_ENV", "development")
+    monkeypatch.setenv("AGORA_TOKOIN_LOCAL_CONTROL_PLANE_ENABLED", "false")
+    try:
+        with pytest.raises(Conflict):
+            require_local_control_plane()
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_tokoin_deployment_guard_rejects_unknown_fields(api_client):
+    login = await api_client.post(
+        "/v1/auth/dev/login", json={"username": "tokoin-guard-boundary"}
+    )
+    response = await api_client.post(
+        "/v1/tokoin-testnet/deployment/guard",
+        json={"chain_id": 31337, "mainnet_authorized": True},
+        headers={"X-CSRF-Token": login.json()["csrf_token"]},
+    )
+    assert response.status_code == 422
 
 
 async def test_tokoin_status_never_reports_complete_without_external_audit(api_client):
@@ -165,6 +192,40 @@ def test_public_readiness_rejects_audit_for_a_different_candidate(monkeypatch, t
     assert result["candidate_bundle"]["integrity_valid"] is True
     assert result["independent_audit"]["complete"] is False
     assert "independent_external_audit_incomplete" in result["predeployment_blockers"]
+
+
+def test_public_readiness_requires_independence_disclosure(monkeypatch, tmp_path):
+    bundle = tokoin._load_json_object(tokoin.CONTRACT_RELEASE_BUNDLE_PATH)
+    assert bundle is not None
+    audit_path = tmp_path / "audit.json"
+    audit_path.write_text(
+        __import__("json").dumps(
+            {
+                "status": "COMPLETE_PASSED",
+                "accepted_by_operator": True,
+                "critical_findings": 0,
+                "high_findings": 0,
+                "report_hash": "a" * 64,
+                "contract_release_bundle_hash": bundle["bundle_sha256"],
+            }
+        )
+    )
+    independence_path = tmp_path / "independence.json"
+    independence_path.write_text(
+        __import__("json").dumps(
+            {
+                "status": "NOT_ENGAGED",
+                "auditor": None,
+                "relationship_disclosure": None,
+                "accepted_by_operator": False,
+            }
+        )
+    )
+    monkeypatch.setattr(tokoin, "EXTERNAL_AUDIT_REFERENCE_PATH", audit_path)
+    monkeypatch.setattr(tokoin, "AUDITOR_INDEPENDENCE_PATH", independence_path)
+    result = public_testnet_readiness_view()
+    assert result["independent_audit"]["complete"] is False
+    assert "auditor_independence_not_confirmed" in result["predeployment_blockers"]
 
 
 async def test_tokoin_status_does_not_claim_offchain_components_as_contracts(api_client):

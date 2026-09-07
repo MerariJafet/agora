@@ -9,6 +9,7 @@ import { buildCandidateBundle } from "../scripts/candidate-bundle-lib.mjs";
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agora-tokoin-preflight-"));
   const auditPath = path.join(root, "audit.json");
+  const independencePath = path.join(root, "independence.json");
   const authorizationPath = path.join(root, "authorization.json");
   const candidateBundlePath = path.join(root, "candidate.json");
   const contractRoot = path.resolve(import.meta.dirname, "..");
@@ -21,6 +22,12 @@ function fixture() {
     accepted_by_operator: true,
     critical_findings: 0,
     high_findings: 0,
+  }));
+  fs.writeFileSync(independencePath, JSON.stringify({
+    status: "INDEPENDENT_CONFIRMED",
+    auditor: "Independent Security Reviewer",
+    relationship_disclosure: "No financial or development relationship with the candidate.",
+    accepted_by_operator: true,
   }));
   const env = {
     AGORA_TOKOIN_DEPLOY_ACK: DEPLOY_ACK,
@@ -48,7 +55,7 @@ function fixture() {
     authorized_by: ["founder", "security-reviewer"],
     authorized_at: "2026-09-06T20:00:00Z",
   }));
-  return { auditPath, authorizationPath, candidateBundlePath, env };
+  return { auditPath, independencePath, authorizationPath, candidateBundlePath, env };
 }
 
 test("complete audit, narrow authorization and multisig declaration pass", () => {
@@ -59,12 +66,14 @@ test("missing audit and authorization fail closed", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agora-tokoin-missing-"));
   const result = evaluatePublicTestnetReadiness({
     auditPath: path.join(root, "missing-audit.json"),
+    independencePath: path.join(root, "missing-independence.json"),
     authorizationPath: path.join(root, "missing-authorization.json"),
     candidateBundlePath: path.join(root, "missing-candidate.json"),
     env: {},
   });
   assert.equal(result.ready, false);
   assert.ok(result.blockers.includes("external_audit_not_complete"));
+  assert.ok(result.blockers.includes("auditor_independence_not_confirmed"));
   assert.ok(result.blockers.includes("transaction_not_authorized"));
   assert.ok(result.blockers.includes("deploy_ack_missing"));
 });

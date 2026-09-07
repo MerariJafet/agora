@@ -1,42 +1,43 @@
 {
-  "schema": "agora.magna.tokoin.test_report.v1",
-  "status": "VALIDATED_LOCAL_ISOLATED",
-  "recorded_at": "2026-08-29T09:30:53Z",
+  "schema": "agora.magna.tokoin.test_report.v2",
+  "status": "VALIDATED_INTERNAL_UNDEPLOYED",
+  "recorded_at": "2026-09-07T04:19:41Z",
+  "candidate_bundle_sha256": "3043f6345d00e3ff3da777f9094283789f6af661f4af8453869fbf8e8f8fc4db",
   "commands": [
     {
-      "command": "./scripts/run-isolated-tests.sh tests/integration/test_magna_tokoin_testnet.py tests/security/test_magna_tokoin_security.py -q",
-      "result": "17 passed in 1.19s"
+      "command": "scripts/run-isolated-tests.sh -q",
+      "result": "471 passed, 1 skipped in 158.94s"
     },
     {
-      "command": "./scripts/run-isolated-tests.sh -q",
-      "result": "410 passed, 1 skipped in 151.96s"
+      "command": ".venv/bin/ruff check .",
+      "result": "All checks passed"
     },
     {
-      "command": ".venv/bin/ruff check apps/api/agora_api/magna_tokoin_testnet.py apps/api/agora_api/routes/magna_tokoin.py tests/security/test_magna_tokoin_security.py",
-      "result": "All checks passed!"
+      "command": ".venv/bin/mypy apps/api/agora_api bridge/agora_bridge",
+      "result": "Success: no issues found in 120 source files"
     },
     {
-      "command": ".venv/bin/mypy apps/api/agora_api/magna_tokoin_testnet.py apps/api/agora_api/routes/magna_tokoin.py",
-      "result": "Success: no issues found in 2 source files"
+      "command": "npm --prefix apps/web run typecheck && npm --prefix apps/web run lint && npm --prefix apps/web run test:world && npm --prefix apps/web run build",
+      "result": "passed; 33 world tests; production build generated 23 routes"
     },
     {
-      "command": "npm --prefix apps/web run typecheck",
-      "result": "tsc --noEmit passed"
+      "command": "npm --prefix contracts/tokoin run test:contracts",
+      "result": "21 contract invariants; 1024-leaf claim gas 107843 with 10 proof nodes"
     },
     {
-      "command": "npm --prefix apps/web run lint",
-      "result": "eslint . passed"
+      "command": "npm --prefix contracts/tokoin run test:preflight && npm --prefix contracts/tokoin run test:bundle && npm --prefix contracts/tokoin run audit:static && npm --prefix contracts/tokoin run bundle:verify",
+      "result": "6 preflight tests, 9 bundle/property tests, static audit and bundle verification passed"
     },
     {
-      "command": "npm --prefix contracts/tokoin run audit:static",
-      "result": "{\"ok\":true,\"contract\":\"TokoinFixedSupply\",\"openzeppelin\":\"5.6.1\",\"solc\":\"0.8.30\"}"
+      "command": ".venv/bin/pip-audit -r requirements.txt && npm audit --audit-level=high (web and contracts)",
+      "result": "No known vulnerabilities; both npm audits found 0 vulnerabilities"
     }
   ],
-  "unsupported_commands": [
-    {
-      "command": "npm --prefix apps/web run test",
-      "reason": "apps/web has no test script"
-    }
-  ],
-  "result": "local_release_gate_validated_and_ratified_but_external_audit_missing"
+  "external_gates": {
+    "independent_human_audit": "MISSING",
+    "auditor_independence_disclosure": "NOT_ENGAGED",
+    "base_sepolia_authorization": "ABSENT",
+    "deployment_performed": false
+  },
+  "result": "internally_validated_new_candidate_blocked_on_external_human_gates"
 }

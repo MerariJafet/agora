@@ -123,15 +123,22 @@ async def get_release_manifest() -> dict:
 async def post_local_deployment(
     owner: MutatingOwner, session: AsyncSession = Depends(get_session)
 ) -> dict:
+    await enforce_rate_limit("tokoin_control_plane", owner.user_id)
     manifest = await create_or_get_local_manifest(session)
     await session.commit()
     return manifest_view(manifest)
 
 
 @router.post("/deployment/guard")
-async def post_deployment_guard(request: Request) -> dict:
+async def post_deployment_guard(request: Request, owner: MutatingOwner) -> dict:
+    from agora_api.boundary import validate_boundary
+    from agora_api.magna_tokoin_testnet import require_local_control_plane
+
+    require_local_control_plane()
+    await enforce_rate_limit("tokoin_control_plane", owner.user_id)
     body = await request.json()
-    chain_id = int(body.get("chain_id", -1))
+    validate_boundary("tokoins.schema.json", "/$defs/DeploymentGuardRequest", body)
+    chain_id = body["chain_id"]
     assert_allowed_chain(chain_id, require_ratification=True)
     return {"allowed": True, "chain_id": chain_id}
 
@@ -182,7 +189,10 @@ async def post_reservation(
 ) -> dict:
     from agora_api.magna_tokoin_testnet import request_reservation
 
-    row = await request_reservation(session, await request.json())
+    await enforce_rate_limit("tokoin_control_plane", owner.user_id)
+    row = await request_reservation(
+        session, await request.json(), owner_id=owner.user_id
+    )
     await session.commit()
     return reservation_view(row)
 
@@ -193,7 +203,10 @@ async def post_confirm_reservation(
     owner: MutatingOwner,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    row = await confirm_local_reservation(session, reservation_id)
+    await enforce_rate_limit("tokoin_control_plane", owner.user_id)
+    row = await confirm_local_reservation(
+        session, reservation_id, owner_id=owner.user_id
+    )
     await session.commit()
     return reservation_view(row)
 
@@ -214,7 +227,10 @@ async def post_settlement_plan(
     owner: MutatingOwner,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    row = await create_settlement_plan(session, await request.json())
+    await enforce_rate_limit("tokoin_control_plane", owner.user_id)
+    row = await create_settlement_plan(
+        session, await request.json(), owner_id=owner.user_id
+    )
     await session.commit()
     return settlement_plan_view(row)
 
@@ -235,6 +251,7 @@ async def post_knowledge_root(
     owner: MutatingOwner,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
+    await enforce_rate_limit("tokoin_control_plane", owner.user_id)
     row = await anchor_knowledge_root(session, await request.json())
     await session.commit()
     return knowledge_root_view(row)

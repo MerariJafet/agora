@@ -97,10 +97,38 @@ async def test_local_devnet_manifest_has_fixed_supply_and_no_public_deployment(a
 async def test_deployment_guard_blocks_mainnet_unknown_and_unratified_base_sepolia(
     api_client, chain_id: int
 ):
+    operator = await _operator_headers(api_client, f"guard-{chain_id}")
     response = await api_client.post(
-        "/v1/tokoin-testnet/deployment/guard", json={"chain_id": chain_id}
+        "/v1/tokoin-testnet/deployment/guard",
+        json={"chain_id": chain_id},
+        headers=operator,
     )
     assert response.status_code in {403, 422}
+
+
+async def test_reservation_operator_binding_blocks_cross_owner_advancement(
+    api_client, unique_name
+):
+    first_owner = await _operator_headers(api_client, f"first-{unique_name}")
+    reservation = await api_client.post(
+        "/v1/tokoin-testnet/reservations",
+        json={
+            "world_instance_id": "magna-local",
+            "challenge_id": f"challenge-owner-{unique_name}",
+            "candidate_id": "candidate-a",
+            "idempotency_key": f"{unique_name}-owner-binding",
+        },
+        headers=first_owner,
+    )
+    assert reservation.status_code == 201, reservation.text
+
+    second_owner = await _operator_headers(api_client, f"second-{unique_name}")
+    denied = await api_client.post(
+        f"/v1/tokoin-testnet/reservations/{reservation.json()['reservation_id']}/confirm-local",
+        headers=second_owner,
+    )
+    assert denied.status_code == 403
+    assert denied.json()["error"]["code"] == "owner_authority_required"
 
 
 async def test_agent_wallet_binding_is_receive_only_zero_balance_and_self_scoped(
