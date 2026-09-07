@@ -1,0 +1,329 @@
+================================================================================
+CLAUDE INTERNAL AUDIT EVIDENCE LOG
+TOKOIN Contract Release Candidate v1
+Date: 2026-09-06
+Commit: 001e202aee63b991d22ead591580584c6341f0c0
+================================================================================
+
+PHASE 1: INTEGRITY VERIFICATION
+================================================================================
+
+--- 1.1 Commit Verification ---
+
+Command: git rev-parse HEAD
+Output:  001e202aee63b991d22ead591580584c6341f0c0
+
+Command: git log --oneline -5
+Output:
+  001e202 fix: harden TOKOIN release candidate
+  1bbf4ac feat: prepare TOKOIN public testnet candidate
+  c0eb30e feat: harden AGORA public launch foundations
+  104dcfc Add living world social density layer
+  0862298 Improve living world V3 interaction UX
+
+Result: HEAD matches target commit 001e202. CONFIRMED.
+
+--- 1.2 Bundle SHA-256 Verification ---
+
+Method: The bundle uses a self-referential hash scheme.
+  bundle_sha256 = SHA-256(canonicalJson(payload_excluding_bundle_sha256))
+
+Command: npm run bundle:verify
+Output:  {"ok":true,"bundle_sha256":"f283883379dffaa6cbe8b6498957b40a54f6283735e3c8f0b90395c836d165a5"}
+
+Manual verification via Node.js:
+  Expected: f283883379dffaa6cbe8b6498957b40a54f6283735e3c8f0b90395c836d165a5
+  Computed: f283883379dffaa6cbe8b6498957b40a54f6283735e3c8f0b90395c836d165a5
+  Result: MATCH
+
+--- 1.3 Source File Hashes ---
+
+Command: sha256sum contracts/TokoinFixedSupply.sol contracts/TokoinResearchRewards.sol contracts/AgoraAgentIdentity.sol contracts/TokoinControlPlane.sol
+
+Output:
+  ce47ac22580f802789640e9e42ffd48129d76901ff1e2e203f699d6bd7aaa241  contracts/TokoinFixedSupply.sol
+  0864d3e0d8534d2271992d49bb068bdda3b5a6f130c85de8139ebf68c3bf9b80  contracts/TokoinResearchRewards.sol
+  3cf5b8ec6b2853354dc04d03b461af54447d2328754066a7b9f598df6d48a160  contracts/AgoraAgentIdentity.sol
+  26fb5e3143990d698f43762075edb93db78f26e58599e9c775e56dd630f00f7d  contracts/TokoinControlPlane.sol
+
+Bundle values:
+  contracts/TokoinFixedSupply.sol:      ce47ac22580f802789640e9e42ffd48129d76901ff1e2e203f699d6bd7aaa241
+  contracts/TokoinResearchRewards.sol:  0864d3e0d8534d2271992d49bb068bdda3b5a6f130c85de8139ebf68c3bf9b80
+  contracts/AgoraAgentIdentity.sol:     3cf5b8ec6b2853354dc04d03b461af54447d2328754066a7b9f598df6d48a160
+  contracts/TokoinControlPlane.sol:     26fb5e3143990d698f43762075edb93db78f26e58599e9c775e56dd630f00f7d
+
+Result: All 4 source files MATCH.
+
+--- 1.4 Reproducible Compilation ---
+
+Command: npm ci
+Output:  added 73 packages, and audited 74 packages in 1s. found 0 vulnerabilities
+
+Command: npx hardhat clean && npm run compile
+Output:  Compiled 4 Solidity files with solc 0.8.30 (evm target: cancun)
+
+--- 1.5 ABI and Bytecode Verification (post-clean-compile) ---
+
+Manual Node.js verification script:
+  TokoinFixedSupply:
+    ABI:      MATCH
+    Creation: MATCH
+    Deployed: MATCH
+  TokoinResearchRewards:
+    ABI:      MATCH
+    Creation: MATCH
+    Deployed: MATCH
+  AgoraAgentIdentity:
+    ABI:      MATCH
+    Creation: MATCH
+    Deployed: MATCH
+
+--- 1.6 Git Status ---
+
+Command: git status --short
+Output:
+   M ../../bridge/agora_bridge/local_research_context_template.py
+   M ../../bridge/agora_bridge/local_runtime_driver.py
+
+Note: Modified files are outside the audited contract scope.
+      Contract sources and build inputs are clean.
+
+================================================================================
+
+PHASE 3: AUTOMATED TESTS
+================================================================================
+
+--- 3.1 Contract Integration Tests ---
+
+Command: npm run test:contracts
+Execution: hardhat run scripts/contract-tests.mjs --build-profile production --network hardhatOp
+
+Output:
+  {"ok":true,"network":"hardhatOp","invariants":[
+    "fixed_supply",
+    "eight_decimals",
+    "authority_only_settlement",
+    "immutable_challenge_root",
+    "invalid_proof_rejected",
+    "claim_replay_rejected",
+    "claim_cross_deployment_replay_rejected",
+    "multi_leaf_settlement_bundle_compatible",
+    "settlement_overcommit_rejected",
+    "reward_transfer_does_not_mint",
+    "agent_identity_unique",
+    "agent_identity_non_transferable",
+    "agent_identity_revocable_without_erasure"
+  ]}
+
+Result: 13 invariants PASSED.
+
+--- 3.2 Preflight Tests ---
+
+Command: npm run test:preflight
+Execution: node --test test/release-preflight.test.mjs
+
+Output:
+  TAP version 13
+  ok 1 - complete audit, narrow authorization and multisig declaration pass
+  ok 2 - missing audit and authorization fail closed
+  ok 3 - mainnet or a single-key treasury cannot pass
+  ok 4 - authorization cannot substitute audited control addresses
+  ok 5 - audit and authorization must bind the exact candidate bundle
+  ok 6 - control roles must use three distinct multisig addresses
+  # tests 6, pass 6, fail 0
+
+Result: 6/6 PASSED.
+
+--- 3.3 Bundle Tests ---
+
+Command: npm run test:bundle
+Execution: node --test test/candidate-bundle.test.mjs test/deployment-verifier.test.mjs test/settlement-bundle.test.mjs
+
+Output:
+  TAP version 13
+  ok 1 - candidate bundle binds source, build inputs, ABI and bytecode
+  ok 2 - candidate bundle detects metadata tampering
+  ok 3 - canonical JSON is independent of object insertion order
+  ok 4 - accepts a narrow Base Sepolia no-value receipt
+  ok 5 - rejects mainnet scope, missing transactions and invalid addresses
+  ok 6 - builds deterministic OpenZeppelin-compatible proofs
+  ok 7 - rejects over-allocation and unsupported chains
+  ok 8 - rejects duplicate claims
+  # tests 8, pass 8, fail 0
+
+Result: 8/8 PASSED.
+
+--- 3.4 Static Audit ---
+
+Command: npm run audit:static
+Execution: node scripts/static-audit.mjs
+
+Output:
+  {"ok":true,"contracts":["TokoinFixedSupply","AgoraAgentIdentity","TokoinResearchRewards"],"identity_standard":"ERC-721 + ERC-5192 locked mirror","openzeppelin":"5.6.1","solc":"0.8.30"}
+
+Forbidden patterns checked (none found):
+  ERC20Burnable, Pausable, ERC20Permit, ERC20Votes, Ownable,
+  UUPSUpgradeable, TransparentUpgradeableProxy, delegatecall,
+  function mint, function burn
+
+Result: PASSED.
+
+--- 3.5 Bundle Verify ---
+
+Command: npm run bundle:verify
+Execution: node scripts/verify-candidate-bundle.mjs
+
+Output:
+  {"ok":true,"bundle_sha256":"f283883379dffaa6cbe8b6498957b40a54f6283735e3c8f0b90395c836d165a5"}
+
+Result: PASSED. Bundle integrity verified against fresh compilation.
+
+--- 3.6 npm Audit ---
+
+Command: npm audit --audit-level=high
+
+Output:
+  found 0 vulnerabilities
+
+Result: PASSED.
+
+================================================================================
+
+PHASE 2: MANUAL CODE REVIEW EVIDENCE
+================================================================================
+
+--- TokoinFixedSupply.sol (27 lines) ---
+
+Line 10: uint8 private constant TOKOIN_DECIMALS = 8;
+  -> Fixed at compile time. No setter. CONFIRMED.
+
+Line 11: uint256 public constant TOTAL_SUPPLY_ACEROS = 100000000000000;
+  -> 100T aceros = 1M TOKOIN. No setter. CONFIRMED.
+
+Line 12: address public immutable genesisTreasury;
+  -> Set once in constructor. Immutable. CONFIRMED.
+
+Line 16-22: constructor mints entire supply to genesisTreasury.
+  -> No post-constructor mint path exists. CONFIRMED.
+
+Lines 24-26: decimals() returns TOKOIN_DECIMALS (8).
+  -> Pure function, no state dependency. CONFIRMED.
+
+No additional functions beyond ERC-20 standard.
+
+--- TokoinResearchRewards.sol (122 lines) ---
+
+Line 22: IERC20 public immutable tokoin;
+Line 23: address public immutable settlementAuthority;
+  -> Both set once in constructor. No setters. CONFIRMED.
+
+Line 59-62: claimLeaf() includes block.chainid, address(this), challengeId, account, amount, role.
+  -> Double keccak256 (OZ standard leaf). Domain separation CONFIRMED.
+
+Line 78: if (msg.sender != settlementAuthority) revert AuthorityOnly();
+  -> Authority-only enforcement. CONFIRMED.
+
+Line 80-82: if (settlements[challengeId].payoutRoot != bytes32(0)) revert SettlementAlreadyPublished();
+  -> Settlement immutability. CONFIRMED.
+
+Line 83-86: Balance validation before reservation.
+  -> Checks reservedAmount vs balance, prevents over-commitment. CONFIRMED.
+
+Line 93: reservedAmount += totalAmount;
+  -> Reservation tracking. CONFIRMED.
+
+Line 107: if (claims[claimId]) revert AlreadyClaimed();
+  -> Double-claim prevention. CONFIRMED.
+
+Line 109-111: MerkleProof.verifyCalldata(proof, settlement.payoutRoot, claimId)
+  -> OpenZeppelin MerkleProof validation. CONFIRMED.
+
+Lines 116-119: State changes (claims, claimedAmount, reservedAmount) BEFORE safeTransfer.
+  -> CEI pattern. No reentrancy. CONFIRMED.
+
+--- AgoraAgentIdentity.sol (80 lines) ---
+
+Line 19: address public immutable issuer;
+  -> Set once. No setter. CONFIRMED.
+
+Line 39: if (msg.sender != issuer) revert IssuerOnly();
+  -> Issuer-only minting. CONFIRMED.
+
+Line 40-41: identityMinted[agentIdentityHash] check.
+  -> Uniqueness enforcement. CONFIRMED.
+
+Line 42: tokenId = uint256(agentIdentityHash);
+  -> Deterministic ID. CONFIRMED.
+
+Line 44: _safeMint(to, tokenId);
+  -> Uses safeMint (ERC-721 receiver check). CONFIRMED.
+
+Lines 60-66: approve and setApprovalForAll both revert Soulbound.
+  -> Transfer approval blocked. CONFIRMED.
+
+Lines 68-75: _update override.
+  -> if (_ownerOf(tokenId) != address(0)) revert Soulbound();
+  -> Only allows initial mint (from address(0)). All transfers blocked. CONFIRMED.
+
+Lines 77-79: supportsInterface includes IERC5192.
+  -> ERC-5192 compliance. CONFIRMED.
+
+================================================================================
+
+PHASE 4: CONTROL PLANE EVIDENCE
+================================================================================
+
+--- Authentication ---
+
+File: apps/api/agora_api/authz.py
+  - resolve_device_session() uses SHA-256 hashed tokens
+  - TTL-based expiration check
+  - Revocation enforcement (immediate)
+  - No development bypass tokens
+Method: Code review (MANUAL)
+
+--- CSRF ---
+
+File: apps/api/agora_api/routes/owners.py
+  - Per-session CSRF tokens
+  - X-CSRF-Token header validation
+  - Constant-time comparison
+Method: Code review (MANUAL)
+
+--- Production Guard ---
+
+File: apps/api/agora_api/magna_tokoin_testnet.py lines 89-92
+  def require_local_control_plane() -> None:
+      if get_settings().is_production:
+          raise Conflict("Local TOKOIN control-plane mutations are disabled in production.")
+  -> Applied to: request_reservation, confirm_local_reservation,
+     create_settlement_plan, anchor_knowledge_root
+Method: Code review (MANUAL)
+
+--- Security Headers ---
+
+File: apps/api/agora_api/middleware.py
+  X-Content-Type-Options: nosniff     PRESENT
+  X-Frame-Options: DENY               PRESENT
+  Referrer-Policy: no-referrer         PRESENT
+  Cache-Control: no-store              PRESENT
+  Strict-Transport-Security:           ABSENT (assumed at load balancer)
+Method: Code review (MANUAL)
+
+================================================================================
+
+POST-AUDIT INTEGRITY VERIFICATION
+================================================================================
+
+The auditor (Claude Opus 4.6) did not modify any files in the audited candidate.
+Only new files were created in audit/tokoin-testnet/external/:
+  - CLAUDE_INTERNAL_AUDIT_REPORT.md (NEW)
+  - claude-internal-audit-results.json (NEW)
+  - claude-internal-audit-evidence.txt (NEW, this file)
+
+No files in contracts/tokoin/ were modified.
+No files in audit/tokoin-testnet/release-candidate/ were modified.
+
+================================================================================
+END OF EVIDENCE LOG
+================================================================================

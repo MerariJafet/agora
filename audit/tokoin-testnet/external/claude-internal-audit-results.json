@@ -1,0 +1,195 @@
+{
+  "schema": "agora.magna.tokoin.claude_internal_audit.v1",
+  "auditor_type": "AI_INTERNAL_TECHNICAL_REVIEW",
+  "auditor_model": "claude-opus-4-6",
+  "independent_external_audit": false,
+  "date": "2026-09-06",
+  "commit": "001e202aee63b991d22ead591580584c6341f0c0",
+  "bundle_sha256": "f283883379dffaa6cbe8b6498957b40a54f6283735e3c8f0b90395c836d165a5",
+  "target": {
+    "network": "BASE_SEPOLIA",
+    "chain_id": 84532,
+    "economic_value": false,
+    "mainnet_authorized": false
+  },
+  "methodology": [
+    "PHASE_1_INTEGRITY: Commit verification, bundle SHA-256, source hash comparison, reproducible compilation, ABI/bytecode match",
+    "PHASE_2_CONTRACT_AUDIT: Manual line-by-line review of all 4 contracts for supply, access control, reentrancy, replay, overflow, upgradeability, events, DoS, domain separation",
+    "PHASE_3_TESTING: npm ci, compile, test:contracts, test:preflight, test:bundle, audit:static, bundle:verify, npm audit",
+    "PHASE_4_CONTROL_PLANE: Authentication, CSRF, authorization, rate limiting, idempotency, schema validation, secret exposure, settlement integrity",
+    "PHASE_5_THREAT_MODEL: 15 threat scenarios evaluated including authority compromise, bundle substitution, replay, Sybil, censorship, key loss, forks, centralization"
+  ],
+  "commands_executed": [
+    "git rev-parse HEAD",
+    "git log --oneline -5",
+    "git status --short",
+    "sha256sum contracts/TokoinFixedSupply.sol contracts/TokoinResearchRewards.sol contracts/AgoraAgentIdentity.sol contracts/TokoinControlPlane.sol",
+    "npm ci",
+    "npx hardhat clean",
+    "npm run compile",
+    "npm run test:contracts",
+    "npm run test:preflight",
+    "npm run test:bundle",
+    "npm run audit:static",
+    "npm run bundle:verify",
+    "npm audit --audit-level=high",
+    "node --input-type=module (ABI/bytecode hash verification script)"
+  ],
+  "findings_by_severity": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 3,
+    "LOW": 5,
+    "INFORMATIONAL": 2
+  },
+  "findings": [
+    {
+      "id": "F-01",
+      "severity": "MEDIUM",
+      "component": "TokoinResearchRewards.sol:72-95,97-121",
+      "title": "Unclaimed settlement funds locked permanently",
+      "description": "No mechanism to expire, cancel, or recover funds from partially or fully unclaimed settlements. reservedAmount stays inflated.",
+      "impact": "Permanent loss of testnet TOKOIN, reduced effective balance for future settlements.",
+      "status": "CONFIRMED",
+      "recommendation": "Add time-bounded recovery mechanism callable by settlement authority."
+    },
+    {
+      "id": "F-02",
+      "severity": "LOW",
+      "component": "TokoinResearchRewards.sol:97-121",
+      "title": "Zero-amount claim not rejected at contract level",
+      "description": "claim() does not require amount > 0. Protected at application layer by buildSettlementBundle().",
+      "impact": "No economic impact. Wastes gas. Emits misleading events.",
+      "status": "CONFIRMED",
+      "recommendation": "Add require(amount > 0) for defense in depth."
+    },
+    {
+      "id": "F-03",
+      "severity": "MEDIUM",
+      "component": "TokoinResearchRewards.sol:72-95",
+      "title": "No emergency pause or root correction mechanism",
+      "description": "Once a settlement root is published, it cannot be corrected, paused, or invalidated.",
+      "impact": "Incorrect root allows incorrect claims with no on-chain mechanism to halt.",
+      "status": "CONFIRMED",
+      "recommendation": "For testnet, acceptable given multisig. For mainnet, add time-locked pause."
+    },
+    {
+      "id": "F-04",
+      "severity": "INFORMATIONAL",
+      "component": "AgoraAgentIdentity.sol:48-53",
+      "title": "Duplicate revocation emits redundant events",
+      "description": "revoke() can be called multiple times on same token, emitting IdentityRevoked each time.",
+      "impact": "No security impact. May confuse event indexers.",
+      "status": "CONFIRMED",
+      "recommendation": "Add already-revoked guard or accept as intentional."
+    },
+    {
+      "id": "F-05",
+      "severity": "LOW",
+      "component": "TokoinResearchRewards.sol:97-121",
+      "title": "Permissionless claim allows third-party forcing",
+      "description": "Any address can call claim() with valid proof. Tokens go to correct account but recipient cannot opt out.",
+      "impact": "Recipient receives tokens without consent. Standard Merkle airdrop pattern.",
+      "status": "CONFIRMED",
+      "recommendation": "For testnet, accept as-is. Standard pattern."
+    },
+    {
+      "id": "F-06",
+      "severity": "LOW",
+      "component": "TokoinResearchRewards.sol:69",
+      "title": "Settlement authority single point of trust",
+      "description": "settlementAuthority is immutable. Cannot be rotated or transferred. Mitigated by SAFE_2_OF_3.",
+      "impact": "Key compromise requires redeployment. Key loss prevents new settlements.",
+      "status": "CONFIRMED",
+      "recommendation": "Acceptable for testnet. Document recovery procedure."
+    },
+    {
+      "id": "F-07",
+      "severity": "INFORMATIONAL",
+      "component": "AgoraAgentIdentity.sol",
+      "title": "No tokenURI implementation",
+      "description": "Inherits default ERC721 tokenURI returning empty string. No metadata for NFT explorers.",
+      "impact": "Cosmetic. No security impact.",
+      "status": "CONFIRMED",
+      "recommendation": "Implement _baseURI() if metadata display desired."
+    },
+    {
+      "id": "F-08",
+      "severity": "MEDIUM",
+      "component": "apps/api/agora_api/magna_tokoin_testnet.py,routes/magna_tokoin.py",
+      "title": "Off-chain control plane authorization gaps",
+      "description": "Settlement allocations not verified as owned by API caller. Rate limiting absent on settlement/reservation endpoints.",
+      "impact": "Authenticated user could create allocations referencing arbitrary agents. Mitigated by require_local_control_plane().",
+      "status": "SUSPECTED",
+      "recommendation": "Add agent-ownership validation and rate limiting."
+    },
+    {
+      "id": "F-09",
+      "severity": "LOW",
+      "component": "apps/api/agora_api/magna_tokoin_testnet.py:89-92",
+      "title": "Production guard single point of failure",
+      "description": "require_local_control_plane() is the sole guard against production mutations.",
+      "impact": "Configuration error could enable mutations in production.",
+      "status": "CONFIRMED",
+      "recommendation": "Add defense-in-depth with secondary environment checks."
+    },
+    {
+      "id": "F-10",
+      "severity": "LOW",
+      "component": "AgoraAgentIdentity.sol:19",
+      "title": "Issuer cannot be rotated",
+      "description": "issuer is immutable. Same pattern as settlement authority.",
+      "impact": "Key loss prevents new identity minting. Key compromise allows arbitrary minting (soulbound limits damage).",
+      "status": "CONFIRMED",
+      "recommendation": "Mitigated by SAFE_2_OF_3. Acceptable for testnet."
+    }
+  ],
+  "tests_passed": [
+    "npm run test:contracts (13 invariants)",
+    "npm run test:preflight (6/6)",
+    "npm run test:bundle (8/8)",
+    "npm run audit:static (3 contracts, no forbidden patterns)",
+    "npm run bundle:verify (bundle_sha256 match)",
+    "npm audit --audit-level=high (0 vulnerabilities)"
+  ],
+  "tests_failed": [],
+  "invariants_verified": [
+    "fixed_supply",
+    "eight_decimals",
+    "authority_only_settlement",
+    "immutable_challenge_root",
+    "invalid_proof_rejected",
+    "claim_replay_rejected",
+    "claim_cross_deployment_replay_rejected",
+    "multi_leaf_settlement_bundle_compatible",
+    "settlement_overcommit_rejected",
+    "reward_transfer_does_not_mint",
+    "agent_identity_unique",
+    "agent_identity_non_transferable",
+    "agent_identity_revocable_without_erasure"
+  ],
+  "integrity_verification": {
+    "commit_match": true,
+    "bundle_sha256_match": true,
+    "source_hashes_match": true,
+    "abi_match": true,
+    "creation_bytecode_match": true,
+    "deployed_bytecode_match": true,
+    "compilation_reproducible": true,
+    "npm_vulnerabilities": 0
+  },
+  "limitations": [
+    "AI-generated review, not independent human audit",
+    "No formal verification performed",
+    "No fuzz testing conducted",
+    "No live network testing (hardhatOp simulator only)",
+    "No gas profiling performed",
+    "API control plane analysis was code review only, not runtime tested",
+    "Cannot verify runtime behavior of external dependencies (OZ, Hardhat, solc)",
+    "No access to Safe multisig configuration or signer identities",
+    "Does not constitute legal, financial, or regulatory advice",
+    "F-08 status is SUSPECTED (code review without runtime reproduction)"
+  ],
+  "recommendation": "READY_FOR_HUMAN_EXTERNAL_AUDIT",
+  "report_sha256": "1868b206571f0df7ca10d0e6b43ad786b23151a2e56469856313ffd7230225a7"
+}
