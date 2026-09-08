@@ -43,6 +43,58 @@ export interface ResearchProtocolView {
     content_hash: string;
     created_at: string;
   }>;
+  institutional_validator_layer?: {
+    actor_type: "INSTITUTIONAL_VALIDATOR";
+    pilot_is_synthetic: true;
+    pilot_can_satisfy_human_validation: false;
+    pilot_can_release_tokoin: false;
+    panels: Array<{
+      candidate_id: string;
+      candidate_state: string;
+      blind_review: true;
+      minimum_validators: 2;
+      all_committed: boolean;
+      all_revealed: boolean;
+      status: string;
+      synthetic_test_only: true;
+      human_validation_satisfied: false;
+      tokoin_settlement_eligible: false;
+      pilot_credit_per_completed_review_aceros: number;
+      pilot_credit_is_non_settleable: true;
+      tracks: Array<{
+        assignment_id: string;
+        candidate_id: string;
+        state: string;
+        committed: boolean;
+        commitment_hash: string | null;
+        revealed: boolean;
+        validator: {
+          validator_id: string;
+          actor_id: string;
+          display_name: string;
+          institution_name: string;
+          brain_provider: "codex" | "claude";
+          review_role: "REPRODUCTION_METHODOLOGY" | "FALSIFICATION_EVIDENCE";
+          scientific_domains: string[];
+          badge: "TEST INSTITUTIONAL VALIDATOR";
+          disclaimer: string;
+          reputation_score: number;
+          active_status: boolean;
+          can_satisfy_human_validation: false;
+          can_release_tokoin: false;
+        };
+        review?: {
+          review_id: string;
+          verdict: string;
+          confidence: number;
+          reproduction_status: string;
+          summary: string;
+          review_hash: string;
+          synthetic_test_review: true;
+        };
+      }>;
+    }>;
+  };
   rewards: Array<{
     reward_id: string;
     candidate_id: string;

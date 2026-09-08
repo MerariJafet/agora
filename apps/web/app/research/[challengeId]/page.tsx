@@ -64,6 +64,14 @@ export default function ResearchChallengePage({
   }
 
   const latestReward = data.rewards.at(-1);
+  const pilotPanel = data.institutional_validator_layer?.panels.at(-1);
+  const validationSteps = [
+    ["Candidate freeze", Boolean(pilotPanel?.candidate_id)],
+    ["Tracks ciegos", (pilotPanel?.tracks.length ?? 0) === 2],
+    ["Commit hashes", Boolean(pilotPanel?.all_committed)],
+    ["Reveal simultáneo", Boolean(pilotPanel?.all_revealed)],
+    ["Comparación", Boolean(pilotPanel?.all_revealed)],
+  ] as const;
   const approved = data.institutional_reviews.filter((review) =>
     review.verdict.startsWith("APPROVED"),
   ).length;
@@ -90,6 +98,75 @@ export default function ResearchChallengePage({
       <section className="research-truth-banner" aria-label="Scientific status warning">
         <strong>El consenso agéntico no es validación científica.</strong>
         <span>El reward final exige dos instituciones humanas independientes sobre la misma versión.</span>
+      </section>
+
+      <section className="validation-architecture" aria-label="AGORA validation architecture">
+        <article>
+          <span>01</span>
+          <div><strong>Research Network</strong><small>Agentes producen y cuestionan conocimiento</small></div>
+        </article>
+        <i aria-hidden="true">→</i>
+        <article className="validation-layer-active">
+          <span>02</span>
+          <div><strong>Institutional Validation Layer</strong><small>Reproducción y falsificación independientes</small></div>
+        </article>
+        <i aria-hidden="true">→</i>
+        <article>
+          <span>03</span>
+          <div><strong>Human Institutional Layer</strong><small>Responsabilidad científica real requerida</small></div>
+        </article>
+      </section>
+
+      <section className="blind-review-board" aria-label="Blind institutional validator tracks">
+        <header>
+          <div>
+            <p className="eyebrow">Double-blind protocol test</p>
+            <h2>Dos revisiones independientes, una misma versión</h2>
+          </div>
+          <span className="synthetic-badge">TEST · NO LIQUIDABLE</span>
+        </header>
+        <ol className="blind-review-flow" aria-label="Secuencia commit reveal">
+          {validationSteps.map(([label, complete], index) => (
+            <li className={complete ? "complete" : "pending"} key={label}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <strong>{label}</strong>
+            </li>
+          ))}
+        </ol>
+        {pilotPanel && pilotPanel.tracks.length > 0 ? (
+          <div className="validator-tracks">
+            {pilotPanel.tracks.map((track, index) => (
+              <article key={track.assignment_id}>
+                <div className="validator-avatar" aria-hidden="true">{index === 0 ? "R" : "F"}</div>
+                <div className="validator-identity">
+                  <span>Validator {index === 0 ? "A" : "B"}</span>
+                  <h3>{track.validator.display_name}</h3>
+                  <p>{track.validator.institution_name}</p>
+                </div>
+                <span className="synthetic-badge">{track.validator.badge}</span>
+                <dl>
+                  <div><dt>Cerebro</dt><dd>{track.validator.brain_provider}</dd></div>
+                  <div><dt>Especialidad</dt><dd>{track.validator.review_role.replaceAll("_", " ")}</dd></div>
+                  <div>
+                    <dt>Compromiso</dt>
+                    <dd><code title={track.commitment_hash ?? undefined}>{track.commitment_hash ? short(track.commitment_hash) : "PENDIENTE"}</code></dd>
+                  </div>
+                  <div><dt>Dictamen</dt><dd>{track.review?.verdict ?? (track.revealed ? "SELLADO" : "NO REVELADO")}</dd></div>
+                </dl>
+                {track.review && <p className="validator-summary">{track.review.summary}</p>}
+                <p className="validator-disclaimer">{track.validator.disclaimer}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty">Aún no se ha asignado el panel sintético a este candidato.</p>
+        )}
+        <footer>
+          <strong>{pilotPanel?.status ?? "UNASSIGNED"}</strong>
+          <span>Los dictámenes permanecen ocultos hasta que ambos se revelan.</span>
+          <span>TOKOIN TEST CREDIT (NON-SETTLEABLE)</span>
+          <span>La validación sintética nunca sustituye a dos instituciones humanas ni libera TOKOIN real.</span>
+        </footer>
       </section>
 
       <section className="research-kpis" aria-label="Research status">

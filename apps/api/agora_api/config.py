@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     # explicitly enables them. Production remains hard-denied regardless.
     tokoin_local_control_plane_enabled: bool = False
     institutional_registry_control_plane_enabled: bool = False
+    institutional_validator_pilot_enabled: bool = False
 
     @property
     def is_production(self) -> bool:

@@ -13,6 +13,7 @@ from datetime import datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -1683,6 +1684,124 @@ class InstitutionalReview(Base):
         UniqueConstraint("institution_id", "candidate_id", name="uq_institution_candidate_review"),
         Index("ix_institutional_reviews_candidate", "candidate_id", "verdict"),
     )
+
+
+class InstitutionalValidator(Base):
+    """Synthetic pilot reviewer, separate from research agents and human institutions."""
+
+    __tablename__ = "institutional_validators"
+
+    validator_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    actor_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False, unique=True
+    )
+    validator_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    institution_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    institution_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    legal_entity_id: Mapped[str] = mapped_column(String(160), nullable=False, unique=True)
+    domain: Mapped[str] = mapped_column(String(253), nullable=False, unique=True)
+    jurisdiction: Mapped[str] = mapped_column(String(80), nullable=False)
+    institution_mode: Mapped[str] = mapped_column(String(32), nullable=False)
+    accreditation_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    public_label: Mapped[str] = mapped_column(String(200), nullable=False)
+    brain_provider: Mapped[str] = mapped_column(String(16), nullable=False)
+    review_role: Mapped[str] = mapped_column(String(48), nullable=False)
+    synthetic_or_human: Mapped[str] = mapped_column(String(16), nullable=False)
+    world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    public_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    capabilities: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    scientific_domains: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    review_history: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    reputation_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    active_status: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    disclaimer: Mapped[str] = mapped_column(Text, nullable=False)
+    representative_owner_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("users.user_id"), nullable=True
+    )
+    verified_by_owner_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("users.user_id"), nullable=True
+    )
+    verification_evidence_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "validator_type = 'INSTITUTIONAL_VALIDATOR_TEST' "
+            "AND synthetic_or_human = 'synthetic' "
+            "AND institution_mode = 'simulated_test' "
+            "AND jurisdiction = 'TEST' "
+            "AND accreditation_status = 'NOT_REAL'",
+            name="ck_pilot_validator_is_synthetic",
+        ),
+        CheckConstraint(
+            "brain_provider IN ('codex','claude')",
+            name="ck_pilot_validator_brain_provider",
+        ),
+        CheckConstraint(
+            "review_role IN ('REPRODUCTION_METHODOLOGY','FALSIFICATION_EVIDENCE')",
+            name="ck_pilot_validator_review_role",
+        ),
+        Index("ix_institutional_validators_active", "active_status", "validator_type"),
+    )
+
+
+class ValidatorAssignment(Base):
+    __tablename__ = "validator_assignments"
+
+    assignment_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    validator_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("institutional_validators.validator_id"), nullable=False
+    )
+    candidate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_candidate_snapshots.candidate_id"), nullable=False
+    )
+    state: Mapped[str] = mapped_column(String(40), nullable=False, default="ASSIGNED")
+    conflict_declaration: Mapped[str | None] = mapped_column(Text, nullable=True)
+    commitment_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    commitment_signature: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    committed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revealed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("validator_id", "candidate_id", name="uq_validator_candidate_assignment"),
+        Index("ix_validator_assignments_candidate", "candidate_id", "state"),
+    )
+
+
+class ValidatorReview(Base):
+    __tablename__ = "validator_reviews"
+
+    review_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    assignment_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("validator_assignments.assignment_id"), nullable=False, unique=True
+    )
+    validator_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("institutional_validators.validator_id"), nullable=False
+    )
+    candidate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_candidate_snapshots.candidate_id"), nullable=False
+    )
+    verdict: Mapped[str] = mapped_column(String(40), nullable=False)
+    confidence: Mapped[int] = mapped_column(Integer, nullable=False)
+    reproduction_status: Mapped[str] = mapped_column(String(64), nullable=False)
+    dimensions: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    methodology_findings: Mapped[str] = mapped_column(Text, nullable=False)
+    reproduction_findings: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_findings: Mapped[str] = mapped_column(Text, nullable=False)
+    critical_issues: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    minor_issues: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    requested_changes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    executed_tests: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    artifacts_reviewed: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    review_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    genealogy_node_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_validator_reviews_candidate", "candidate_id", "verdict"),)
 
 
 class ResearchContributionScore(Base):

@@ -53,6 +53,7 @@ GRAPH_RELATIONS = {
     "supersedes",
     "depends_on",
     "parent_of",
+    "requests_revision_of",
 }
 
 

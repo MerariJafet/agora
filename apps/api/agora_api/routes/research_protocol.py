@@ -1,4 +1,4 @@
-"""Research Protocol API: agent genealogy plus human institutional validation."""
+"""Research Protocol API: agent genealogy plus human and synthetic test validation."""
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
@@ -7,7 +7,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from agora_api.authz import CurrentDevice
 from agora_api.boundary import validate_research_protocol_request
 from agora_api.db import get_session
-from agora_api.models import Agent, ResearchCandidateSnapshot, ResearchInstitution
+from agora_api.institutional_validator_service import (
+    activate_pilot_validator,
+    assign_pilot_validators,
+    assignment_package,
+    register_pilot_validator,
+    validator_view,
+)
+from agora_api.institutional_validator_service import (
+    commit_review as commit_pilot_review,
+)
+from agora_api.institutional_validator_service import (
+    declare_conflict as declare_pilot_conflict,
+)
+from agora_api.institutional_validator_service import (
+    my_assignments as my_pilot_assignments,
+)
+from agora_api.institutional_validator_service import (
+    panel_view as pilot_panel_view,
+)
+from agora_api.institutional_validator_service import (
+    reveal_review as reveal_pilot_review,
+)
+from agora_api.models import (
+    Agent,
+    InstitutionalValidator,
+    ResearchCandidateSnapshot,
+    ResearchInstitution,
+)
 from agora_api.owners import CurrentOwner, MutatingOwner
 from agora_api.realtime import gateway
 from agora_api.research_protocol_service import (
@@ -111,6 +138,181 @@ async def list_institutions(session: AsyncSession = Depends(get_session)) -> dic
         ).scalars()
     )
     return {"institutions": [institution_view(row) for row in rows]}
+
+
+@router.get("/institutional-validators")
+async def list_pilot_validators(session: AsyncSession = Depends(get_session)) -> dict:
+    rows = list(
+        (
+            await session.execute(
+                select(InstitutionalValidator).order_by(InstitutionalValidator.display_name)
+            )
+        ).scalars()
+    )
+    return {
+        "layer": "Institutional Validation Layer",
+        "synthetic_test_only": True,
+        "validators": [validator_view(row) for row in rows],
+    }
+
+
+@router.post("/institutional-validators", status_code=201)
+async def post_pilot_validator(
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    validate_research_protocol_request("RegisterPilotValidatorRequest", body)
+    row = await register_pilot_validator(
+        session,
+        device=device,
+        payload=body,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    return validator_view(row)
+
+
+@router.post("/institutional-validators/{validator_id}/activate")
+async def post_activate_pilot_validator(
+    validator_id: str,
+    request: Request,
+    owner: MutatingOwner,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    validate_research_protocol_request("ActivatePilotValidatorRequest", body)
+    row = await activate_pilot_validator(
+        session,
+        validator_id=validator_id,
+        verifier=owner,
+        verification_evidence_hash=body["verification_evidence_hash"],
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    return validator_view(row)
+
+
+@router.get("/institutional-validators/me")
+async def get_my_pilot_assignments(
+    device: CurrentDevice, session: AsyncSession = Depends(get_session)
+) -> dict:
+    return await my_pilot_assignments(session, device)
+
+
+@router.post("/candidates/{candidate_id}/pilot-panel", status_code=201)
+async def post_pilot_panel(
+    candidate_id: str,
+    request: Request,
+    _owner: MutatingOwner,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    validate_research_protocol_request("AssignPilotValidatorsRequest", body)
+    await assign_pilot_validators(
+        session,
+        candidate_id=candidate_id,
+        validator_ids=body["validator_ids"],
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    return await pilot_panel_view(session, candidate_id)
+
+
+@router.get("/candidates/{candidate_id}/pilot-panel")
+async def get_pilot_panel(candidate_id: str, session: AsyncSession = Depends(get_session)) -> dict:
+    return await pilot_panel_view(session, candidate_id)
+
+
+@router.post("/pilot-assignments/{assignment_id}/conflict")
+async def post_pilot_conflict(
+    assignment_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    validate_research_protocol_request("DeclarePilotConflictRequest", body)
+    row = await declare_pilot_conflict(
+        session,
+        assignment_id=assignment_id,
+        device=device,
+        declaration=body["conflict_declaration"],
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    return {"assignment_id": row.assignment_id, "state": row.state}
+
+
+@router.get("/pilot-assignments/{assignment_id}/package")
+async def get_pilot_assignment_package(
+    assignment_id: str,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    return await assignment_package(session, assignment_id=assignment_id, device=device)
+
+
+@router.post("/pilot-assignments/{assignment_id}/commit")
+async def post_pilot_commit(
+    assignment_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    validate_research_protocol_request("CommitPilotReviewRequest", body)
+    row = await commit_pilot_review(
+        session,
+        assignment_id=assignment_id,
+        device=device,
+        payload=body,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    return {
+        "assignment_id": row.assignment_id,
+        "state": row.state,
+        "commitment_hash": row.commitment_hash,
+        "draft_disclosed": False,
+    }
+
+
+@router.post("/pilot-assignments/{assignment_id}/reveal", status_code=201)
+async def post_pilot_reveal(
+    assignment_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    validate_research_protocol_request("RevealPilotReviewRequest", body)
+    review = await reveal_pilot_review(
+        session,
+        assignment_id=assignment_id,
+        device=device,
+        payload=body,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    panel = await pilot_panel_view(session, review.candidate_id)
+    candidate = await session.get(ResearchCandidateSnapshot, review.candidate_id)
+    assert candidate is not None
+    await _publish_research(
+        candidate.challenge_id,
+        "pilot_panel_revealed" if panel["all_revealed"] else "pilot_reveal_received",
+        candidate_id=review.candidate_id,
+        all_revealed=panel["all_revealed"],
+        status=panel["status"] if panel["all_revealed"] else "SEALED",
+        synthetic_test_only=True,
+    )
+    return {
+        "review_id": review.review_id,
+        "review_hash": review.review_hash,
+        "panel_status": panel["status"],
+        "verdicts_visible": panel["all_revealed"],
+    }
 
 
 @router.post("/institutions", status_code=201)

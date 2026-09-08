@@ -43,6 +43,12 @@
         ,"final_solution"
         ,"institutional_review"
         ,"publication_artifact"
+        ,"review_finding"
+        ,"reproduction_attempt"
+        ,"reproduction_result"
+        ,"validator_objection"
+        ,"validator_requested_revision"
+        ,"validator_approval"
       ]
     },
     "RelationType": {
@@ -63,6 +69,10 @@
         ,"contradicts"
         ,"uses"
         ,"parent_of"
+        ,"reproduces"
+        ,"fails_to_reproduce"
+        ,"requests_revision_of"
+        ,"approves_version"
       ]
     },
     "EpistemicState": {

@@ -80,6 +80,109 @@
       "properties": {
         "total_aceros": {"type": "integer", "minimum": 100, "maximum": 1000000000000}
       }
+    },
+    "RegisterPilotValidatorRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_name", "institution_name", "institution_type", "legal_entity_id", "domain", "jurisdiction", "institution_mode", "accreditation_status", "public_label", "brain_provider", "review_role", "scientific_domains"],
+      "properties": {
+        "display_name": {"type": "string", "minLength": 3, "maxLength": 120},
+        "institution_name": {"type": "string", "minLength": 3, "maxLength": 200},
+        "institution_type": {"type": "string", "enum": ["synthetic_university_lab", "synthetic_research_institute"]},
+        "legal_entity_id": {"type": "string", "pattern": "^TEST-LEGAL-[A-Z0-9-]+$", "maxLength": 160},
+        "domain": {"type": "string", "pattern": "^[A-Za-z0-9.-]+\\.example\\.org$", "maxLength": 253},
+        "jurisdiction": {"const": "TEST"},
+        "institution_mode": {"const": "simulated_test"},
+        "accreditation_status": {"const": "NOT_REAL"},
+        "public_label": {"const": "Institución simulada para pruebas de AGORA"},
+        "brain_provider": {"type": "string", "enum": ["codex", "claude"]},
+        "review_role": {"type": "string", "enum": ["REPRODUCTION_METHODOLOGY", "FALSIFICATION_EVIDENCE"]},
+        "scientific_domains": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 2, "maxLength": 80},
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true
+        }
+      }
+    },
+    "AssignPilotValidatorsRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validator_ids"],
+      "properties": {
+        "validator_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 30},
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true
+        }
+      }
+    },
+    "ActivatePilotValidatorRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verification_evidence_hash"],
+      "properties": {
+        "verification_evidence_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "CommitPilotReviewRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitment_hash", "commitment_signature", "conflict_declaration"],
+      "properties": {
+        "commitment_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "commitment_signature": {"type": "string", "minLength": 80, "maxLength": 128},
+        "conflict_declaration": {"type": "string", "minLength": 5, "maxLength": 5000}
+      }
+    },
+    "DeclarePilotConflictRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conflict_declaration"],
+      "properties": {
+        "conflict_declaration": {"type": "string", "minLength": 10, "maxLength": 5000}
+      }
+    },
+    "PilotReviewDimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_validity", "methodology", "evidence", "reproducibility", "falsifiability", "statistics", "code_integrity", "data_integrity", "literature_alignment", "claim_scope"],
+      "properties": {
+        "question_validity": {"type": "integer", "minimum": 1, "maximum": 5},
+        "methodology": {"type": "integer", "minimum": 1, "maximum": 5},
+        "evidence": {"type": "integer", "minimum": 1, "maximum": 5},
+        "reproducibility": {"type": "integer", "minimum": 1, "maximum": 5},
+        "falsifiability": {"type": "integer", "minimum": 1, "maximum": 5},
+        "statistics": {"type": "integer", "minimum": 1, "maximum": 5},
+        "code_integrity": {"type": "integer", "minimum": 1, "maximum": 5},
+        "data_integrity": {"type": "integer", "minimum": 1, "maximum": 5},
+        "literature_alignment": {"type": "integer", "minimum": 1, "maximum": 5},
+        "claim_scope": {"type": "integer", "minimum": 1, "maximum": 5}
+      }
+    },
+    "RevealPilotReviewRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitment_nonce", "verdict", "confidence", "reproduction_status", "dimensions", "summary", "methodology_findings", "reproduction_findings", "evidence_findings", "critical_issues", "minor_issues", "requested_changes", "executed_tests", "artifacts_reviewed"],
+      "properties": {
+        "commitment_nonce": {"type": "string", "pattern": "^[A-Za-z0-9_-]{16,128}$"},
+        "verdict": {"$ref": "#/$defs/InstitutionalVerdict"},
+        "confidence": {"type": "integer", "minimum": 0, "maximum": 100},
+        "reproduction_status": {"type": "string", "enum": ["REPRODUCED", "PARTIALLY_REPRODUCED", "FAILED_TO_REPRODUCE", "NOT_REPRODUCIBLE_FROM_PROVIDED_ARTIFACTS", "NOT_REPRODUCED_DUE_TO_TOOL_LIMITATION", "NOT_APPLICABLE"]},
+        "dimensions": {"$ref": "#/$defs/PilotReviewDimensions"},
+        "summary": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "methodology_findings": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "reproduction_findings": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "evidence_findings": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "critical_issues": {"type": "array", "items": {"type": "string", "maxLength": 2000}, "maxItems": 50},
+        "minor_issues": {"type": "array", "items": {"type": "string", "maxLength": 2000}, "maxItems": 50},
+        "requested_changes": {"type": "array", "items": {"type": "string", "maxLength": 2000}, "maxItems": 50},
+        "executed_tests": {"type": "array", "items": {"type": "string", "maxLength": 2000}, "minItems": 1, "maxItems": 100},
+        "artifacts_reviewed": {"type": "array", "items": {"type": "string", "maxLength": 200}, "maxItems": 100}
+      }
     }
   }
 }

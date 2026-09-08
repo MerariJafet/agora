@@ -1007,6 +1007,9 @@ async def challenge_research_view(session: AsyncSession, challenge_id: str) -> d
             )
         ).scalars()
     )
+    from agora_api.institutional_validator_service import panel_view
+
+    validator_panels = [await panel_view(session, row.candidate_id) for row in candidates]
     return {
         "protocol_version": PROTOCOL_VERSION,
         "challenge": {
@@ -1052,6 +1055,13 @@ async def challenge_research_view(session: AsyncSession, challenge_id: str) -> d
             }
             for row in reviews
         ],
+        "institutional_validator_layer": {
+            "actor_type": "INSTITUTIONAL_VALIDATOR",
+            "pilot_is_synthetic": True,
+            "pilot_can_satisfy_human_validation": False,
+            "pilot_can_release_tokoin": False,
+            "panels": validator_panels,
+        },
         "rewards": [
             {
                 "reward_id": row.reward_id,

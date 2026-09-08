@@ -117,6 +117,9 @@ PREFIXES = (
     "rsc",
     "rrc",
     "rpp",
+    "ivl",
+    "iva",
+    "ivr",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
@@ -127,7 +130,7 @@ _ID_RE = re.compile(
     r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
     r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd"
     r"|tdp|twb|tsa|tsp|tca|tkr|tpr|tdt|ppe|tms"
-    r"|frm|fth|fpo|fdr|rrd|rvv|rcs|ins|irv|rsc|rrc|rpp)"
+    r"|frm|fth|fpo|fdr|rrd|rvv|rcs|ins|irv|rsc|rrc|rpp|ivl|iva|ivr)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -571,3 +574,15 @@ def new_research_reward_id() -> str:
 
 def new_research_publication_package_id() -> str:
     return new_id("rpp")
+
+
+def new_institutional_validator_id() -> str:
+    return new_id("ivl")
+
+
+def new_validator_assignment_id() -> str:
+    return new_id("iva")
+
+
+def new_validator_review_id() -> str:
+    return new_id("ivr")

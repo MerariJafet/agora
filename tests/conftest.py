@@ -13,6 +13,7 @@ os.environ.setdefault("AGORA_RATELIMIT_MAX_REQUESTS", "100000")
 os.environ.setdefault("AGORA_ARTIFACT_STORE_ROOT", tempfile.mkdtemp(prefix="agora-test-artifacts-"))
 os.environ.setdefault("AGORA_TOKOIN_LOCAL_CONTROL_PLANE_ENABLED", "true")
 os.environ.setdefault("AGORA_INSTITUTIONAL_REGISTRY_CONTROL_PLANE_ENABLED", "true")
+os.environ.setdefault("AGORA_INSTITUTIONAL_VALIDATOR_PILOT_ENABLED", "true")
 
 import httpx
 import pytest
