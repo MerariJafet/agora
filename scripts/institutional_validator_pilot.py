@@ -21,7 +21,7 @@ import sys
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from jsonschema import Draft202012Validator
@@ -376,16 +376,17 @@ def register_validators(api_url: str) -> dict[str, Any]:
     )
     try:
         for spec in VALIDATORS:
-            home = Path(spec["home"])
+            home = Path(cast(str | os.PathLike[str], spec["home"]))
             bridge_home = home / "identity"
-            config = ensure_agent(bridge_home, spec["agent_name"], api_url)
+            agent_name = cast(str, spec["agent_name"])
+            config = ensure_agent(bridge_home, agent_name, api_url)
             _, token = agent_session(bridge_home, api_url)
             attest_world(api_url, token)
             runtime_path = home / "state" / "runtime.json"
             runtime = read_json(runtime_path, {})
             if not runtime.get("representative_owner_id"):
                 representative, csrf, representative_id = owner_login(
-                    api_url, spec["representative"]
+                    api_url, cast(str, spec["representative"])
                 )
                 try:
                     claim = checked(
@@ -397,7 +398,7 @@ def register_validators(api_url: str) -> dict[str, Any]:
                         201,
                     )
                     with bridge_environment(bridge_home, api_url):
-                        identity = IdentityManager(spec["agent_name"])
+                        identity = IdentityManager(agent_name)
                         connection = ConnectionClient(load_config())
                         signature = identity.sign(
                             connection.build_claim_message(
@@ -895,116 +896,7 @@ def normalize_model_review(review: dict[str, Any]) -> dict[str, Any]:
                 normalized[field] = " ".join(value)
         if not list(Draft202012Validator(MODEL_REVIEW_SCHEMA).iter_errors(normalized)):
             return normalized
-    institutional_findings = review.get("findings")
-    institutional_scores = review.get("scores")
-    if isinstance(institutional_findings, dict) and isinstance(
-        institutional_scores, dict
-    ):
-        dimensions = {
-            name: institutional_scores.get(name) for name in DIMENSION_NAMES
-        }
-        if all(
-            isinstance(value, int) and 1 <= value <= 5
-            for value in dimensions.values()
-        ):
-            reproduction = str(
-                institutional_findings.get("reproducibility", "")
-            ).strip()
-            evidence = str(
-                institutional_findings.get("evidence_quality", "")
-            ).strip()
-            scope = str(
-                institutional_findings.get("scope_assessment", "")
-            ).strip()
-            limitations = str(
-                institutional_findings.get("limitations_acknowledged", "")
-            ).strip()
-            tests = institutional_findings.get("falsification_attempts", [])
-            artifacts = institutional_findings.get("artifacts_reviewed", [])
-            if (
-                reproduction
-                and evidence
-                and scope
-                and isinstance(tests, list)
-                and tests
-                and all(isinstance(item, str) for item in tests)
-                and isinstance(artifacts, list)
-                and all(isinstance(item, str) for item in artifacts)
-            ):
-                reproduction_status = (
-                    "REPRODUCED"
-                    if "full reproduction" in reproduction.lower()
-                    or "matches claim" in reproduction.lower()
-                    else "PARTIALLY_REPRODUCED"
-                )
-                return {
-                    "verdict": review.get("verdict"),
-                    "confidence": round(
-                        sum(dimensions.values()) * 20 / len(dimensions)
-                    ),
-                    "reproduction_status": reproduction_status,
-                    "dimensions": dimensions,
-                    "summary": str(review.get("summary", "")).strip(),
-                    "methodology_findings": f"{scope} {limitations}".strip(),
-                    "reproduction_findings": reproduction,
-                    "evidence_findings": evidence,
-                    "critical_issues": [],
-                    "minor_issues": [],
-                    "requested_changes": [],
-                    "executed_tests": tests,
-                    "artifacts_reviewed": artifacts,
-                }
-    required_extended = {
-        "verdict",
-        "findings",
-        "evidence_summary",
-        "limitations",
-        "artifacts_reviewed",
-        "scores",
-    }
-    if not required_extended <= review.keys() or not isinstance(review["scores"], dict):
-        return review
-    scores = review["scores"]
-    dimensions = {
-        "question_validity": scores.get("question_validity"),
-        "methodology": scores.get("methodology"),
-        "evidence": scores.get("evidence_quality"),
-        "reproducibility": scores.get("reproducibility"),
-        "falsifiability": scores.get("falsifiability"),
-        "statistics": scores.get("statistical_rigor"),
-        "code_integrity": scores.get("code_integrity"),
-        "data_integrity": scores.get("data_integrity"),
-        "literature_alignment": scores.get("literature_alignment"),
-        "claim_scope": scores.get("claim_scope"),
-    }
-    if any(not isinstance(value, int) or not 1 <= value <= 5 for value in dimensions.values()):
-        return review
-    reproduction_score = dimensions["reproducibility"]
-    reproduction_status = (
-        "REPRODUCED"
-        if reproduction_score == 5
-        else "PARTIALLY_REPRODUCED"
-        if reproduction_score >= 3
-        else "FAILED_TO_REPRODUCE"
-    )
-    findings = str(review["findings"])
-    evidence = str(review["evidence_summary"])
-    limitations = str(review["limitations"])
-    return {
-        "verdict": review["verdict"],
-        "confidence": round(sum(dimensions.values()) * 20 / len(dimensions)),
-        "reproduction_status": reproduction_status,
-        "dimensions": dimensions,
-        "summary": f"{findings} Limitations: {limitations}",
-        "methodology_findings": findings,
-        "reproduction_findings": evidence,
-        "evidence_findings": evidence,
-        "critical_issues": [],
-        "minor_issues": [],
-        "requested_changes": [],
-        "executed_tests": [evidence],
-        "artifacts_reviewed": review["artifacts_reviewed"],
-    }
+    return review
 
 
 def invoke_brain(spec: dict[str, Any], prompt: str, schema_path: Path) -> dict[str, Any]:
@@ -1211,11 +1103,50 @@ def reveal_prepared(prepared: dict[str, Any], api_url: str) -> dict[str, Any]:
     )
 
 
+def persist_completed_panel(state: dict[str, Any], panel: dict[str, Any]) -> None:
+    if not panel["all_committed"] or not panel["all_revealed"]:
+        raise RuntimeError("Cannot persist an incomplete institutional panel")
+    if panel["human_validation_satisfied"] or panel["tokoin_settlement_eligible"]:
+        raise RuntimeError("Synthetic result crossed a protected production boundary")
+    for spec in VALIDATORS:
+        home = Path(cast(str | os.PathLike[str], spec["home"]))
+        write_json(home / "state" / "last-public-panel.json", panel)
+    state.update(
+        {
+            "panel_status": panel["status"],
+            "all_committed": True,
+            "all_revealed": True,
+            "human_validation_satisfied": False,
+            "tokoin_settlement_eligible": False,
+            "commitment_hashes": [track["commitment_hash"] for track in panel["tracks"]],
+            "review_hashes": [track["review"]["review_hash"] for track in panel["tracks"]],
+            "updated_at": now_iso(),
+        }
+    )
+    write_json(PILOT_STATE, state, private=True)
+
+
 def run_dual_review(api_url: str) -> dict[str, Any]:
     state = read_json(PILOT_STATE)
     if not state or not state.get("candidate_id"):
         raise RuntimeError("Bootstrap and assign a candidate before running reviews")
     candidate_id = state["candidate_id"]
+    initial = checked(
+        httpx.get(
+            f"{api_url}/v1/research-protocol/candidates/{candidate_id}/pilot-panel",
+            timeout=30,
+        ),
+        200,
+    )
+    if initial["all_revealed"]:
+        persist_completed_panel(state, initial)
+        return {
+            "commits": [],
+            "first_reveal": None,
+            "second_reveal": None,
+            "panel": initial,
+            "resumed_completed": True,
+        }
     prepared = [prepare_review(spec, api_url, candidate_id) for spec in VALIDATORS]
     commits = [commit_prepared(item, api_url) for item in prepared]
     sealed = checked(
@@ -1225,7 +1156,16 @@ def run_dual_review(api_url: str) -> dict[str, Any]:
         ),
         200,
     )
-    if not sealed["all_committed"] or sealed["all_revealed"]:
+    if sealed["all_revealed"]:
+        persist_completed_panel(state, sealed)
+        return {
+            "commits": commits,
+            "first_reveal": None,
+            "second_reveal": None,
+            "panel": sealed,
+            "resumed_completed": True,
+        }
+    if not sealed["all_committed"]:
         raise RuntimeError("Panel did not enter the expected committed/sealed state")
     if any("review" in track for track in sealed["tracks"]):
         raise RuntimeError("A blind review was disclosed before simultaneous reveal")
@@ -1242,23 +1182,7 @@ def run_dual_review(api_url: str) -> dict[str, Any]:
         ),
         200,
     )
-    if panel["human_validation_satisfied"] or panel["tokoin_settlement_eligible"]:
-        raise RuntimeError("Synthetic result crossed a protected production boundary")
-    for spec in VALIDATORS:
-        write_json(Path(spec["home"]) / "state" / "last-public-panel.json", panel)
-    state.update(
-        {
-            "panel_status": panel["status"],
-            "all_committed": panel["all_committed"],
-            "all_revealed": panel["all_revealed"],
-            "human_validation_satisfied": False,
-            "tokoin_settlement_eligible": False,
-            "commitment_hashes": [item["commitment_hash"] for item in prepared],
-            "review_hashes": [track["review"]["review_hash"] for track in panel["tracks"]],
-            "updated_at": now_iso(),
-        }
-    )
-    write_json(PILOT_STATE, state, private=True)
+    persist_completed_panel(state, panel)
     return {"commits": commits, "first_reveal": first, "second_reveal": second, "panel": panel}
 
 

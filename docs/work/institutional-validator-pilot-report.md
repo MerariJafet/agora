@@ -50,10 +50,14 @@ audited.
 ## Live-local validation (2026-09-07)
 
 Two synthetic profiles were registered and independently activated. A frozen
-deterministic candidate was assigned to both blind tracks. Codex CLI completed
-and stored its private sealed review. Claude CLI reports a signed-in account in
-`claude auth status`, but the real inference request returns an OAuth-revoked
-401. The controller correctly stops before either commitment or reveal. The
-panel therefore remains `BLIND_REVIEW_IN_PROGRESS`; human validation and TOKOIN
-settlement remain false. Run `claude auth login` to obtain a fresh credential,
-then rerun `review` to resume without regenerating the Codex draft.
+deterministic candidate was assigned to both blind tracks. Codex and Claude each
+produced a private review from the candidate package and independent
+reproduction evidence. Both commitments were signed before either verdict
+became visible; the final review hashes match their commitment hashes.
+
+The live panel reached `AGORA_PROTOCOL_VALIDATED_TEST` with two `APPROVED`
+synthetic verdicts and five genealogy nodes (candidate, two reviews and two
+reproduction results). It remains explicitly non-human:
+`human_validation_satisfied=false`, `tokoin_settlement_eligible=false`, and no
+TOKOIN ledger entry was created. Re-running `review` returns the completed panel
+without duplicating reviews or payments.
