@@ -808,10 +808,22 @@ def reviewer_prompt(home: Path, package: dict[str, Any], evidence: dict[str, Any
 You are running one blind synthetic institutional review. Use only the candidate
 package and your own reproduction evidence below. You have no peer draft. Do
 not seek one and do not invoke tools. Return only a JSON object matching the
-provided schema. Findings must be concise, auditable, and based on observed
-evidence. `artifacts_reviewed` must include the candidate package and your own
-reproduction JSON. The result can validate only this test protocol, never human
-institutional validation or real TOKOIN settlement.
+provided schema. The top-level keys must be exactly:
+`verdict`, `confidence`, `reproduction_status`, `dimensions`, `summary`,
+`methodology_findings`, `reproduction_findings`, `evidence_findings`,
+`critical_issues`, `minor_issues`, `requested_changes`, `executed_tests`, and
+`artifacts_reviewed`. Do not emit identity, candidate, badge, protocol,
+timestamp, rationale, generic `findings`, `scores`, or conflict fields at the
+top level. Use `dimensions`, not `scores`, and use the exact dimension names in
+the supplied schema. `confidence` must be an integer from 0 through 100 (for
+example, use `95`, never `0.95`). `reproduction_status` must be exactly one of
+`REPRODUCED`, `PARTIALLY_REPRODUCED`, `FAILED_TO_REPRODUCE`,
+`NOT_REPRODUCIBLE_FROM_PROVIDED_ARTIFACTS`,
+`NOT_REPRODUCED_DUE_TO_TOOL_LIMITATION`, or `NOT_APPLICABLE`; do not create new
+labels. Findings must be concise, auditable, and based on observed evidence.
+`artifacts_reviewed` must include the candidate package and your own
+reproduction JSON. The result can validate only this test protocol, never
+human institutional validation or real TOKOIN settlement.
 
 CANDIDATE PACKAGE:
 {json.dumps(package, indent=2, ensure_ascii=False, sort_keys=True)}
@@ -828,10 +840,171 @@ def parse_claude_result(stdout: str) -> dict[str, Any]:
         return candidate
     result = envelope.get("result")
     if isinstance(result, str):
-        return json.loads(result)
+        raw = result.strip()
+        if raw.startswith("```"):
+            raw = raw.removeprefix("```json").removeprefix("```")
+            raw = raw.removesuffix("```").strip()
+        if not raw.startswith("{"):
+            start = raw.find("{")
+            end = raw.rfind("}")
+            raw = raw[start : end + 1] if start >= 0 and end > start else raw
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                "Claude returned success without structured review JSON: "
+                f"{result[:500]!r}"
+            ) from exc
+        if isinstance(parsed, dict):
+            return parsed
     if isinstance(result, dict):
         return result
     raise RuntimeError("Claude did not return structured review JSON")
+
+
+def normalize_model_review(review: dict[str, Any]) -> dict[str, Any]:
+    """Map Claude's documented extended review shape to AGORA's wire schema."""
+    if not list(Draft202012Validator(MODEL_REVIEW_SCHEMA).iter_errors(review)):
+        return review
+    schema_like_keys = set(MODEL_REVIEW_SCHEMA["required"])
+    if schema_like_keys <= review.keys() and isinstance(review.get("dimensions"), dict):
+        normalized = dict(review)
+        dimensions = dict(review["dimensions"])
+        if "evidence" not in dimensions and "evidence_quality" in dimensions:
+            dimensions["evidence"] = dimensions.pop("evidence_quality")
+        if "statistics" not in dimensions and "statistical_rigor" in dimensions:
+            dimensions["statistics"] = dimensions.pop("statistical_rigor")
+        normalized["dimensions"] = dimensions
+        reproduction_aliases = {
+            "FULL_INDEPENDENT_REPRODUCTION": "REPRODUCED",
+            "FULLY_REPRODUCED": "REPRODUCED",
+            "PARTIAL_INDEPENDENT_REPRODUCTION": "PARTIALLY_REPRODUCED",
+            "PARTIALLY_REPRODUCED": "PARTIALLY_REPRODUCED",
+        }
+        normalized["reproduction_status"] = reproduction_aliases.get(
+            str(review.get("reproduction_status", "")),
+            review.get("reproduction_status"),
+        )
+        for field in (
+            "methodology_findings",
+            "reproduction_findings",
+            "evidence_findings",
+        ):
+            value = normalized.get(field)
+            if isinstance(value, list) and all(isinstance(item, str) for item in value):
+                normalized[field] = " ".join(value)
+        if not list(Draft202012Validator(MODEL_REVIEW_SCHEMA).iter_errors(normalized)):
+            return normalized
+    institutional_findings = review.get("findings")
+    institutional_scores = review.get("scores")
+    if isinstance(institutional_findings, dict) and isinstance(
+        institutional_scores, dict
+    ):
+        dimensions = {
+            name: institutional_scores.get(name) for name in DIMENSION_NAMES
+        }
+        if all(
+            isinstance(value, int) and 1 <= value <= 5
+            for value in dimensions.values()
+        ):
+            reproduction = str(
+                institutional_findings.get("reproducibility", "")
+            ).strip()
+            evidence = str(
+                institutional_findings.get("evidence_quality", "")
+            ).strip()
+            scope = str(
+                institutional_findings.get("scope_assessment", "")
+            ).strip()
+            limitations = str(
+                institutional_findings.get("limitations_acknowledged", "")
+            ).strip()
+            tests = institutional_findings.get("falsification_attempts", [])
+            artifacts = institutional_findings.get("artifacts_reviewed", [])
+            if (
+                reproduction
+                and evidence
+                and scope
+                and isinstance(tests, list)
+                and tests
+                and all(isinstance(item, str) for item in tests)
+                and isinstance(artifacts, list)
+                and all(isinstance(item, str) for item in artifacts)
+            ):
+                reproduction_status = (
+                    "REPRODUCED"
+                    if "full reproduction" in reproduction.lower()
+                    or "matches claim" in reproduction.lower()
+                    else "PARTIALLY_REPRODUCED"
+                )
+                return {
+                    "verdict": review.get("verdict"),
+                    "confidence": round(
+                        sum(dimensions.values()) * 20 / len(dimensions)
+                    ),
+                    "reproduction_status": reproduction_status,
+                    "dimensions": dimensions,
+                    "summary": str(review.get("summary", "")).strip(),
+                    "methodology_findings": f"{scope} {limitations}".strip(),
+                    "reproduction_findings": reproduction,
+                    "evidence_findings": evidence,
+                    "critical_issues": [],
+                    "minor_issues": [],
+                    "requested_changes": [],
+                    "executed_tests": tests,
+                    "artifacts_reviewed": artifacts,
+                }
+    required_extended = {
+        "verdict",
+        "findings",
+        "evidence_summary",
+        "limitations",
+        "artifacts_reviewed",
+        "scores",
+    }
+    if not required_extended <= review.keys() or not isinstance(review["scores"], dict):
+        return review
+    scores = review["scores"]
+    dimensions = {
+        "question_validity": scores.get("question_validity"),
+        "methodology": scores.get("methodology"),
+        "evidence": scores.get("evidence_quality"),
+        "reproducibility": scores.get("reproducibility"),
+        "falsifiability": scores.get("falsifiability"),
+        "statistics": scores.get("statistical_rigor"),
+        "code_integrity": scores.get("code_integrity"),
+        "data_integrity": scores.get("data_integrity"),
+        "literature_alignment": scores.get("literature_alignment"),
+        "claim_scope": scores.get("claim_scope"),
+    }
+    if any(not isinstance(value, int) or not 1 <= value <= 5 for value in dimensions.values()):
+        return review
+    reproduction_score = dimensions["reproducibility"]
+    reproduction_status = (
+        "REPRODUCED"
+        if reproduction_score == 5
+        else "PARTIALLY_REPRODUCED"
+        if reproduction_score >= 3
+        else "FAILED_TO_REPRODUCE"
+    )
+    findings = str(review["findings"])
+    evidence = str(review["evidence_summary"])
+    limitations = str(review["limitations"])
+    return {
+        "verdict": review["verdict"],
+        "confidence": round(sum(dimensions.values()) * 20 / len(dimensions)),
+        "reproduction_status": reproduction_status,
+        "dimensions": dimensions,
+        "summary": f"{findings} Limitations: {limitations}",
+        "methodology_findings": findings,
+        "reproduction_findings": evidence,
+        "evidence_findings": evidence,
+        "critical_issues": [],
+        "minor_issues": [],
+        "requested_changes": [],
+        "executed_tests": [evidence],
+        "artifacts_reviewed": review["artifacts_reviewed"],
+    }
 
 
 def invoke_brain(spec: dict[str, Any], prompt: str, schema_path: Path) -> dict[str, Any]:
@@ -900,7 +1073,9 @@ def invoke_brain(spec: dict[str, Any], prompt: str, schema_path: Path) -> dict[s
         if result.returncode:
             detail = (result.stderr or result.stdout)[-4000:]
             raise RuntimeError(f"Claude review failed: {detail}")
+        write_json(home / "logs" / "claude-result-envelope.json", json.loads(result.stdout))
         review = parse_claude_result(result.stdout)
+    review = normalize_model_review(review)
     Draft202012Validator(MODEL_REVIEW_SCHEMA).validate(review)
     return review
 
@@ -940,6 +1115,27 @@ def prepare_review(spec: dict[str, Any], api_url: str, candidate_id: str) -> dic
         Draft202012Validator(MODEL_REVIEW_SCHEMA).validate(
             {key: value for key, value in review.items() if key != "commitment_nonce"}
         )
+    elif (
+        spec["brain_provider"] == "claude"
+        and (home / "logs" / "claude-result-envelope.json").exists()
+    ):
+        envelope_path = home / "logs" / "claude-result-envelope.json"
+        review = normalize_model_review(parse_claude_result(envelope_path.read_text()))
+        errors = list(Draft202012Validator(MODEL_REVIEW_SCHEMA).iter_errors(review))
+        if errors:
+            review = invoke_brain(spec, reviewer_prompt(home, package, evidence), schema_path)
+        else:
+            write_json(
+                home / "logs" / "claude-normalization-receipt.json",
+                {
+                    "adapter": "claude-extended-review-to-agora-wire-v1",
+                    "source_sha256": hashlib.sha256(envelope_path.read_bytes()).hexdigest(),
+                    "verdict_preserved": review["verdict"],
+                    "normalized_at": now_iso(),
+                },
+            )
+        review["commitment_nonce"] = secrets.token_urlsafe(24)
+        write_json(draft_path, review, private=True)
     else:
         review = invoke_brain(spec, reviewer_prompt(home, package, evidence), schema_path)
         review["commitment_nonce"] = secrets.token_urlsafe(24)
