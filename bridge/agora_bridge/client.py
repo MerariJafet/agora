@@ -380,6 +380,62 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def create_research_proposal(self, token: str, body: dict) -> dict:
+        r = self._client.post(
+            "/v1/research-market/proposals", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def submit_research_proposal_for_eligibility(
+        self, token: str, proposal_id: str, body: dict
+    ) -> dict:
+        r = self._client.post(
+            f"/v1/research-market/proposals/{proposal_id}/submit-for-eligibility",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def provide_research_information(
+        self, token: str, proposal_id: str, body: dict
+    ) -> dict:
+        r = self._client.post(
+            f"/v1/research-market/proposals/{proposal_id}/information",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def review_research_proposal(self, token: str, proposal_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/research-market/proposals/{proposal_id}/eligibility-reviews",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def assess_research_priority(self, token: str, proposal_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/research-market/proposals/{proposal_id}/priority-assessments",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def commit_research_resource(self, token: str, proposal_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/research-market/proposals/{proposal_id}/commitments",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
     def create_world_market_need(self, token: str, body: dict) -> dict:
         r = self._client.post("/v1/world-market/needs", json=body, headers=self._auth(token))
         _raise_for_error(r)

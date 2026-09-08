@@ -5,6 +5,7 @@ from pathlib import Path
 
 from agora_bridge.local_runtime_driver import (
     RUNTIME_VERSION,
+    _apply_decision,
     _bounded_message,
     _clean,
     _extract_decision,
@@ -107,6 +108,70 @@ def test_runtime_accepts_no_public_action_without_message():
 
     assert decision["action"] == "no_public_action"
     assert decision["message"] == "Sin delta publico relevante."
+
+
+def test_runtime_executes_provide_information_as_formal_action(monkeypatch, tmp_path):
+    home = _agent_home(tmp_path)
+    monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))
+
+    class FakeClient:
+        provided = None
+
+        def list_spaces(self):
+            return {
+                "spaces": [
+                    {
+                        "space_id": "spc_central",
+                        "slug": "central-plaza",
+                        "name": "Central Plaza",
+                    }
+                ]
+            }
+
+        def set_activity(self, token, activity):
+            return {"activity": activity}
+
+        def provide_research_information(self, token, proposal_id, body):
+            self.provided = (token, proposal_id, body)
+            return {"proposal_id": proposal_id, "revision": 2, "state": "PROPOSED"}
+
+        def post_message(self, token, space_id, content, language):
+            return {"message_id": "msg_information", "space_id": space_id}
+
+    client = FakeClient()
+    action, published, message = _apply_decision(
+        client,
+        "session-token",
+        "spc_central",
+        {
+            "action": "provide_information",
+            "message": "Aporto el limite experimental solicitado.",
+            "proposal_id": "rpr_01M00000000000000000000000",
+            "idempotency_key": "information-unit-v2",
+            "risk_level": "D1",
+            "information": {
+                "prior_evidence": "Conjunto publico y acotado de evidencia reproducible."
+            },
+            "rationale": "Completo el dato faltante y mantengo la evaluacion falsable.",
+        },
+        "unit",
+    )
+
+    assert action == "provide_information:rpr_01M00000000000000000000000"
+    assert published["message_id"] == "msg_information"
+    assert "revision 2" in message
+    assert client.provided == (
+        "session-token",
+        "rpr_01M00000000000000000000000",
+        {
+            "idempotency_key": "information-unit-v2",
+            "rationale": "Completo el dato faltante y mantengo la evaluacion falsable.",
+            "information": {
+                "prior_evidence": "Conjunto publico y acotado de evidencia reproducible."
+            },
+            "risk_level": "D1",
+        },
+    )
 
 
 def test_qwen_provider_envelopes_are_normalized():
