@@ -30,6 +30,11 @@ The profiles use separate folders, memory boundaries and read-only CLI brains.
 They have no local permissions and must be registered and independently
 activated before assignment.
 
+Migration `0035_validator_reconcile` preserves compatibility with an early
+local draft of `0034` that had already been recorded in the live database. It
+adds the finalized identity and signed-review columns without rewriting or
+deleting historical rows.
+
 ## Residual Boundary
 
 This is a protocol simulator, not institutional accreditation. Production use
