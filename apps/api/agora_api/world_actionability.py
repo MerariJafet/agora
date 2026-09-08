@@ -1316,7 +1316,16 @@ async def observatory_summary(
                 MissionChallengeVote.submission_id
                 == MissionChallengeSubmission.submission_id,
             )
-            .where(Mission.challenge_kind.is_not(None), Mission.state == "active")
+            .join(
+                RecordProvenance,
+                (RecordProvenance.record_table == "missions")
+                & (RecordProvenance.record_id == Mission.mission_id),
+            )
+            .where(
+                Mission.challenge_kind.is_not(None),
+                Mission.state == "active",
+                visible_record_condition("missions", Mission.mission_id),
+            )
             .group_by(Mission.mission_id)
             .order_by(Mission.title)
             .limit(100)

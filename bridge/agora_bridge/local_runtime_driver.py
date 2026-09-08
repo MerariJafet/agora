@@ -44,6 +44,7 @@ RESEARCH_PACKET_VERSION = "agora_agent_research_packet.v1"
 RUNTIME_MANAGED_MARKER = "AGORA_RUNTIME_MANAGED_V1"
 DEFAULT_SPACE = "spc_00000000000000000000P1AZA0"
 MAX_MESSAGE = 600
+MAX_CLI_PROMPT_CHARS = 60_000
 AUTO_MOVE_COOLDOWN_SECONDS = 180
 PING_PONG_HISTORY = 8
 BASE = Path("/home/merari-acero/.agora-agents")
@@ -188,6 +189,47 @@ def _raw_model_text(text: str) -> str:
     return text.strip()[:5000]
 
 
+def _bounded_cli_prompt(prompt: str) -> str:
+    """Keep one CLI argument below Linux's per-argument size ceiling.
+
+    The stable rules live at the beginning of the prompt and the freshest
+    world/capability context lives at the end, so retain both sides.
+    """
+    if len(prompt) <= MAX_CLI_PROMPT_CHARS:
+        return prompt
+    head = 20_000
+    marker = (
+        "\n\n[Contexto recortado por AGORA: se conservaron reglas base y el estado "
+        "publico mas reciente.]\n\n"
+    )
+    return prompt[:head] + marker + prompt[-(MAX_CLI_PROMPT_CHARS - head - len(marker)) :]
+
+
+def _decision_only_prompt(prompt: str) -> str:
+    return _bounded_cli_prompt(
+        prompt
+        + "\nNo uses herramientas, comandos, navegador, red ni lectura de archivos en esta "
+        "decision. Todo el contexto permitido y firmado ya esta incluido. Devuelve solo "
+        "el objeto JSON. La clave de accion debe llamarse literalmente action, no accion, "
+        "y su valor debe ser exactamente una de las Acciones JSON disponibles."
+    )
+
+
+def _decision_schema() -> str:
+    return json.dumps(
+        {
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+                "action": {"type": "string", "enum": sorted(PUBLIC_ACTIONS)},
+                "message": {"type": "string"},
+            },
+            "additionalProperties": True,
+        },
+        separators=(",", ":"),
+    )
+
+
 def _is_useless_model_text(text: str) -> bool:
     return not text.strip() or not re.search(r"[0-9A-Za-zÀ-ÿ]", text)
 
@@ -225,6 +267,9 @@ def _is_provider_failure_text(text: str) -> bool:
         "cli unavailable",
         "codex cli unavailable",
         "agy cli unavailable",
+        "jetski: no output produced",
+        "tool required the",
+        "headless mode cannot prompt",
         "claude cli unavailable",
         "openrouter rechazo",
         "openrouter no produjo",
@@ -2523,23 +2568,29 @@ def ollama_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str
 
 def codex_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]:
     _ = tools
+    manifest = _agent_manifest()
+    configured_model = str(
+        os.environ.get("AGORA_CODEX_MODEL") or manifest.get("codex_model") or ""
+    ).strip()
+    model = configured_model or "gpt-5.6-luna"
+    command = [
+        "codex",
+        "-a",
+        "never",
+        "exec",
+        "--ephemeral",
+        "--sandbox",
+        "read-only",
+        "-m",
+        model,
+        "-C",
+        "/home/merari-acero/agora",
+    ]
     try:
         with tempfile.NamedTemporaryFile("r+", delete=True) as output:
+            command.extend(["--output-last-message", output.name])
             result = subprocess.run(
-                [
-                    "codex",
-                    "-a",
-                    "never",
-                    "exec",
-                    "--ephemeral",
-                    "--sandbox",
-                    "read-only",
-                    "-C",
-                    "/home/merari-acero/agora",
-                    "--output-last-message",
-                    output.name,
-                    prompt,
-                ],
+                [*command, _decision_only_prompt(prompt)],
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -2551,6 +2602,8 @@ def codex_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]
         return "Codex CLI timed out before producing a bounded decision.", "codex-cli:read-only"
     except OSError as exc:
         return f"Codex CLI unavailable: {type(exc).__name__}.", "codex-cli:read-only"
+    if result.returncode != 0:
+        return f"Codex CLI unavailable: exit {result.returncode}.", "codex-cli:read-only"
     if final:
         return _raw_model_text(final), "codex-cli:read-only"
     return (
@@ -2561,9 +2614,22 @@ def codex_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]
 
 def antigravity_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str, str]:
     _ = tools
+    schema = _decision_schema()
+    bounded_prompt = _decision_only_prompt(prompt)
     try:
         result = subprocess.run(
-            ["agy", "--sandbox", "--print-timeout", "2m", f"--print={prompt}"],
+            [
+                "agy",
+                "--sandbox",
+                "--disable-slash-commands",
+                "--print-timeout",
+                "2m",
+                "--json-schema",
+                schema,
+                "--output-format",
+                "json",
+                f"--print={bounded_prompt}",
+            ],
             capture_output=True,
             text=True,
             timeout=150,
@@ -2573,9 +2639,23 @@ def antigravity_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str
         return "AGY CLI timed out before producing a bounded decision.", "agy-cli:sandbox"
     except OSError as exc:
         return f"AGY CLI unavailable: {type(exc).__name__}.", "agy-cli:sandbox"
-    text = _raw_model_text((result.stdout or "") + "\n" + (result.stderr or ""))
-    if not text:
-        text = "AGY CLI fue invocado como cerebro local, pero no produjo salida capturable."
+    raw = (result.stdout or "").strip()
+    try:
+        envelope = json.loads(raw)
+    except json.JSONDecodeError:
+        envelope = None
+    if isinstance(envelope, dict) and isinstance(envelope.get("structured_output"), dict):
+        text = json.dumps(envelope["structured_output"], ensure_ascii=False)
+    else:
+        # Provider diagnostics belong in the daemon log, never in the public
+        # social plane. Invalid or incomplete output therefore fails silent.
+        text = json.dumps(
+            {
+                "action": "no_public_action",
+                "message": "Sin delta publico verificable.",
+            },
+            ensure_ascii=False,
+        )
     return text, "agy-cli:sandbox"
 
 

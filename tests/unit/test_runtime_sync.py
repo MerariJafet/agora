@@ -4,8 +4,10 @@ import sys
 from pathlib import Path
 
 from agora_bridge.local_runtime_driver import (
+    MAX_CLI_PROMPT_CHARS,
     RUNTIME_VERSION,
     _apply_decision,
+    _bounded_cli_prompt,
     _bounded_message,
     _clean,
     _extract_decision,
@@ -19,6 +21,8 @@ from agora_bridge.local_runtime_driver import (
     _should_skip_public_cycle,
     _world_observation,
     _write_research_packet_files,
+    antigravity_brain,
+    codex_brain,
 )
 from agora_bridge.runtime_sync import (
     agent_runtime_status,
@@ -108,6 +112,113 @@ def test_runtime_accepts_no_public_action_without_message():
 
     assert decision["action"] == "no_public_action"
     assert decision["message"] == "Sin delta publico relevante."
+
+
+def test_cli_prompt_bound_preserves_rules_and_fresh_tail():
+    prompt = "RULES:" + ("a" * 80_000) + ":FRESH_STATE"
+
+    bounded = _bounded_cli_prompt(prompt)
+
+    assert len(bounded) == MAX_CLI_PROMPT_CHARS
+    assert bounded.startswith("RULES:")
+    assert bounded.endswith(":FRESH_STATE")
+    assert "Contexto recortado por AGORA" in bounded
+
+
+def test_codex_brain_pins_available_model_and_bounds_argument(monkeypatch, tmp_path):
+    home = _agent_home(tmp_path)
+    monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))
+    observed = {}
+
+    def fake_run(command, **kwargs):
+        observed["command"] = command
+        output = Path(command[command.index("--output-last-message") + 1])
+        output.write_text('{"action":"no_public_action"}')
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr("agora_bridge.local_runtime_driver.subprocess.run", fake_run)
+
+    message, backend = codex_brain("x" * 140_000)
+
+    assert message == '{"action":"no_public_action"}'
+    assert backend == "codex-cli:read-only"
+    assert observed["command"][observed["command"].index("-m") + 1] == "gpt-5.6-luna"
+    assert len(observed["command"][-1]) == MAX_CLI_PROMPT_CHARS
+    assert "--output-schema" not in observed["command"]
+    assert "Todo el contexto permitido y firmado" in observed["command"][-1]
+
+
+def test_codex_brain_nonzero_exit_is_provider_failure(monkeypatch, tmp_path):
+    home = _agent_home(tmp_path)
+    monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(command, 1, "", "private provider diagnostic")
+
+    monkeypatch.setattr("agora_bridge.local_runtime_driver.subprocess.run", fake_run)
+
+    message, backend = codex_brain("bounded context")
+
+    assert message == "Codex CLI unavailable: exit 1."
+    assert backend == "codex-cli:read-only"
+    assert "private provider diagnostic" not in message
+
+
+def test_antigravity_brain_bounds_argument(monkeypatch):
+    observed = {}
+
+    def fake_run(command, **kwargs):
+        observed["command"] = command
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            json.dumps(
+                {
+                    "status": "SUCCESS",
+                    "structured_output": {
+                        "action": "no_public_action",
+                        "message": "Sin delta publico relevante.",
+                    },
+                }
+            ),
+            "",
+        )
+
+    monkeypatch.setattr("agora_bridge.local_runtime_driver.subprocess.run", fake_run)
+
+    message, backend = antigravity_brain("x" * 140_000)
+
+    assert json.loads(message) == {
+        "action": "no_public_action",
+        "message": "Sin delta publico relevante.",
+    }
+    assert backend == "agy-cli:sandbox"
+    print_arg = next(part for part in observed["command"] if part.startswith("--print="))
+    assert len(print_arg.removeprefix("--print=")) == MAX_CLI_PROMPT_CHARS
+    assert "--disable-slash-commands" in observed["command"]
+    assert "--json-schema" in observed["command"]
+    assert "--output-format" in observed["command"]
+
+
+def test_antigravity_brain_invalid_provider_output_fails_silent(monkeypatch):
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            '{"status":"FAILED","message":"tool required the read_file permission',
+            "provider diagnostic",
+        )
+
+    monkeypatch.setattr("agora_bridge.local_runtime_driver.subprocess.run", fake_run)
+
+    message, backend = antigravity_brain("bounded context")
+
+    assert json.loads(message) == {
+        "action": "no_public_action",
+        "message": "Sin delta publico verificable.",
+    }
+    assert backend == "agy-cli:sandbox"
+    assert "permission" not in message
 
 
 def test_runtime_executes_provide_information_as_formal_action(monkeypatch, tmp_path):

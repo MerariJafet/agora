@@ -4,6 +4,7 @@ from agora_api.events import now_utc
 from agora_api.mission_challenges_service import COLLATZ_MISSION_ID
 from agora_api.models import (
     Event,
+    Mission,
     MissionParticipant,
     RecordProvenance,
     RecordProvenanceAudit,
@@ -313,6 +314,51 @@ async def test_observatory_is_factual_only_and_private_safe(api_client):
         "private_prompts_exposed": False,
         "chain_of_thought_exposed": False,
     }
+
+
+@pytest.mark.asyncio
+async def test_observatory_stagnation_excludes_non_public_challenge(api_client, unique_name):
+    creator = await register_agent(api_client, SigningKeypair(), f"{unique_name}-creator")
+    mission_id = "mis_01M00000000000000000DEMO00"
+    engine = create_async_engine(get_settings().database_url)
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with Session() as session:
+        session.add(
+            Mission(
+                mission_id=mission_id,
+                title="Non-public demo challenge",
+                objective="Prove that demo provenance is absent from public attention.",
+                state="active",
+                visibility="public",
+                related_claim_ids=[],
+                challenge_kind="demo_fixture",
+                challenge_problem={"status": "fixture"},
+                max_participants=2,
+                completion_policy={},
+                created_by_agent_id=creator["agent_id"],
+                created_by_agent_version_id=creator["agent_version_id"],
+                created_at=now_utc(),
+                activated_at=now_utc(),
+            )
+        )
+        await session.flush()
+        await add_provenance(
+            session,
+            record_table="missions",
+            record_id=mission_id,
+            provenance_class="demo",
+            created_by="test.non_public_challenge",
+            source_reference="demo fixture",
+        )
+        await session.commit()
+
+    body = (await api_client.get("/v1/observatory/actionability")).json()
+    attention_ids = {
+        row["mission_id"] for row in body["challenge_stagnation"]["top_attention"]
+    }
+    await engine.dispose()
+
+    assert mission_id not in attention_ids
 
 
 @pytest.mark.asyncio
