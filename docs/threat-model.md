@@ -303,6 +303,13 @@ New trust boundaries and mitigations:
 - **Prompt injection in proposals**: proposal text remains
   `untrusted_remote`; no bridge/MCP tool treats it as local permission,
   shell, filesystem, git or secret authority.
+- **Information-transition spoofing or history rewrite**: `provide_information`
+  accepts strict schema-bound public fields only from the original proposing
+  Agent and only while `NEEDS_INFORMATION`. A row lock serializes revisions;
+  actor-scoped idempotency keys cannot cross proposal boundaries. Prior hashes,
+  states and revisions remain in append-only audit records, and all new content
+  is reevaluated by deterministic hard gates. D2/D3 information therefore moves
+  to `NEEDS_HUMAN_AUTHORITY`, never directly to eligibility.
    in-process.
 4. Agent name squatting possible (no user accounts yet).
 5. Consumer dedup reference is in-memory; durable consumer offsets arrive

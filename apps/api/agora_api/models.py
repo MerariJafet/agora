@@ -887,6 +887,41 @@ class ResearchProposal(Base):
     )
 
 
+class ResearchProposalInformation(Base):
+    __tablename__ = "research_proposal_information_updates"
+
+    information_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_proposals.proposal_id"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    provided_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    prior_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    new_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    prior_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    resulting_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    prior_content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    new_content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    information: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    reason_codes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "provided_by_agent_id",
+            "idempotency_key",
+            name="uq_research_information_actor_idem",
+        ),
+        UniqueConstraint(
+            "proposal_id", "new_revision", name="uq_research_information_revision"
+        ),
+        Index("ix_research_information_proposal", "proposal_id", "new_revision"),
+    )
+
+
 class EligibilityReview(Base):
     __tablename__ = "research_eligibility_reviews"
 

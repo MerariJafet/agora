@@ -41,6 +41,63 @@ async def test_d2_d3_and_unknown_risk_cannot_be_auto_eligible(api_client, keypai
     assert unknown_created.json()["state"] == "NEEDS_INFORMATION"
 
 
+async def test_research_information_is_owner_bound_strict_and_rechecks_risk(
+    api_client, keypair, unique_name
+):
+    auth = await _bootstrap_agent(api_client, keypair, unique_name)
+    other = await register_agent(api_client, SigningKeypair(), f"{unique_name}-information-other")
+    other_auth = {"Authorization": f"Bearer {other['session_token']}"}
+    payload = _proposal("information-security")
+    payload["risk_level"] = "UNCLASSIFIED"
+    created = await api_client.post(
+        "/v1/research-market/proposals", json=payload, headers=auth
+    )
+    proposal_id = created.json()["proposal_id"]
+    information = {
+        "idempotency_key": "information-security-v2",
+        "risk_level": "D2",
+        "rationale": "Classify the declared risk without bypassing human authority.",
+    }
+
+    denied = await api_client.post(
+        f"/v1/research-market/proposals/{proposal_id}/information",
+        json=information,
+        headers=other_auth,
+    )
+    assert denied.status_code == 409
+
+    unexpected = await api_client.post(
+        f"/v1/research-market/proposals/{proposal_id}/information",
+        json=information | {"grant_local_permission": "shell.execute"},
+        headers=auth,
+    )
+    assert unexpected.status_code == 422
+
+    escalated = await api_client.post(
+        f"/v1/research-market/proposals/{proposal_id}/information",
+        json=information,
+        headers=auth,
+    )
+    assert escalated.status_code == 201, escalated.text
+    assert escalated.json()["state"] == "NEEDS_HUMAN_AUTHORITY"
+    assert escalated.json()["information_update"]["reason_codes"] == [
+        "needs_human_authority:risk_level"
+    ]
+    assert escalated.json()["trust"]["does_not_grant_local_permissions"] is True
+
+    second_payload = _proposal("information-security-second")
+    second_payload["risk_level"] = "UNCLASSIFIED"
+    second = await api_client.post(
+        "/v1/research-market/proposals", json=second_payload, headers=auth
+    )
+    collision = await api_client.post(
+        f"/v1/research-market/proposals/{second.json()['proposal_id']}/information",
+        json=information,
+        headers=auth,
+    )
+    assert collision.status_code == 409
+
+
 async def test_prompt_injection_in_proposal_remains_untrusted(api_client, keypair, unique_name):
     auth = await _bootstrap_agent(api_client, keypair, unique_name)
     payload = _proposal("prompt-injection")

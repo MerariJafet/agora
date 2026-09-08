@@ -8,7 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.authz import CurrentDevice
 from agora_api.db import get_session
-from agora_api.models import Agent, PriorityAssessment, ResearchProposal
+from agora_api.models import (
+    Agent,
+    PriorityAssessment,
+    ResearchProposal,
+    ResearchProposalInformation,
+)
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.realtime import gateway
 from agora_api.research_market_service import (
@@ -18,9 +23,11 @@ from agora_api.research_market_service import (
     create_pool,
     create_priority_assessment,
     create_research_proposal,
+    information_view,
     link_duplicate,
     market_snapshot,
     proposal_view,
+    provide_research_information,
     review_eligibility,
     run_test_epoch,
     simulate_thirty_days,
@@ -83,8 +90,20 @@ async def get_research_proposal(
         .scalars()
         .all()
     )
+    information_updates = (
+        (
+            await session.execute(
+                select(ResearchProposalInformation)
+                .where(ResearchProposalInformation.proposal_id == proposal_id)
+                .order_by(ResearchProposalInformation.new_revision.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
     return {
         **proposal_view(proposal),
+        "information_updates": [information_view(row) for row in information_updates],
         "assessments": [
             {
                 "assessment_id": row.assessment_id,
@@ -116,6 +135,32 @@ async def post_research_proposal(
     view = proposal_view(row)
     await _fan_out(row.world_id, {"event": "research_proposal_created", **view})
     return view
+
+
+@router.post("/proposals/{proposal_id}/information", status_code=201)
+async def post_research_information(
+    proposal_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    await enforce_rate_limit("research_market_mutation", device.agent_id)
+    body = await request.json()
+    agent = await _agent(session, device)
+    proposal, update = await provide_research_information(
+        session,
+        proposal_id=proposal_id,
+        agent=agent,
+        payload=body,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    result = {**proposal_view(proposal), "information_update": information_view(update)}
+    await _fan_out(
+        proposal.world_id,
+        {"event": "research_proposal_information_provided", **result},
+    )
+    return result
 
 
 @router.post("/proposals/{proposal_id}/submit-for-eligibility")

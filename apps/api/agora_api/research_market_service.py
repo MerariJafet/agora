@@ -26,6 +26,7 @@ from agora_api.ids import (
     new_priority_assessment_id,
     new_research_appeal_id,
     new_research_proposal_id,
+    new_research_proposal_information_id,
     new_research_reservation_id,
 )
 from agora_api.magna_constitution import (
@@ -46,6 +47,7 @@ from agora_api.models import (
     ResearchCreditReservation,
     ResearchDuplicateLink,
     ResearchProposal,
+    ResearchProposalInformation,
     ResearchReleaseEpoch,
 )
 from agora_api.provenance import SYSTEM_ACTOR_ID, add_provenance, world_instance_for_class
@@ -223,6 +225,30 @@ def proposal_view(row: ResearchProposal) -> dict[str, Any]:
     }
 
 
+def information_view(row: ResearchProposalInformation) -> dict[str, Any]:
+    return {
+        "information_id": row.information_id,
+        "proposal_id": row.proposal_id,
+        "provided_by_agent_id": row.provided_by_agent_id,
+        "prior_revision": row.prior_revision,
+        "new_revision": row.new_revision,
+        "prior_state": row.prior_state,
+        "resulting_state": row.resulting_state,
+        "prior_content_hash": row.prior_content_hash,
+        "new_content_hash": row.new_content_hash,
+        "information": row.information,
+        "rationale": row.rationale,
+        "reason_codes": row.reason_codes,
+        "created_at": iso(row.created_at),
+        "trust": {
+            "classification": "public_world_context",
+            "instruction_trust": "untrusted_remote",
+            "does_not_grant_local_permissions": True,
+            "does_not_assert_truth": True,
+        },
+    }
+
+
 def next_allowed_actions(state: str) -> list[str]:
     return {
         "PROPOSED": ["submit_for_eligibility", "withdraw", "appeal"],
@@ -335,6 +361,119 @@ async def submit_for_eligibility(
             trace_id,
         )
     return row
+
+
+async def provide_research_information(
+    session: AsyncSession,
+    *,
+    proposal_id: str,
+    agent: Agent,
+    payload: dict[str, Any],
+    trace_id: str | None,
+) -> tuple[ResearchProposal, ResearchProposalInformation]:
+    validate_boundary(
+        "research-market.schema.json", "/$defs/ProvideResearchInformationRequest", payload
+    )
+    proposal = (
+        await session.execute(
+            select(ResearchProposal)
+            .where(ResearchProposal.proposal_id == proposal_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if proposal is None:
+        raise NotFound("Research proposal not found.")
+    if proposal.created_by_agent_id != agent.agent_id:
+        raise Conflict("Only the proposing agent may provide additional information.")
+    existing = (
+        await session.execute(
+            select(ResearchProposalInformation).where(
+                ResearchProposalInformation.provided_by_agent_id == agent.agent_id,
+                ResearchProposalInformation.idempotency_key == payload["idempotency_key"],
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        if existing.proposal_id != proposal.proposal_id:
+            raise Conflict("Idempotency key already used for another proposal.")
+        return proposal, existing
+    if proposal.state != "NEEDS_INFORMATION":
+        raise Conflict("Additional information is accepted only in NEEDS_INFORMATION state.")
+    await require_market_rules(session, proposal.world_id)
+
+    information = dict(payload.get("information") or {})
+    revised_body = dict(proposal.proposal_body) | information
+    validate_boundary("research-market.schema.json", "/$defs/ProposalBody", revised_body)
+    revised_risk = payload.get("risk_level", proposal.risk_level)
+    decision, reasons = deterministic_gate_decision(
+        {"risk_level": revised_risk, "proposal": revised_body}
+    )
+    resulting_state = "PROPOSED" if decision == "PASS" else decision
+    new_revision = proposal.revision + 1
+    new_hash = canonical_hash(
+        {
+            "world_id": proposal.world_id,
+            "title": proposal.title,
+            "beneficial_controller_id": proposal.beneficial_controller_id,
+            "risk_level": revised_risk,
+            "proposal": revised_body,
+            "revision": new_revision,
+        }
+    )
+    ts = now_utc()
+    update = ResearchProposalInformation(
+        information_id=new_research_proposal_information_id(),
+        proposal_id=proposal.proposal_id,
+        idempotency_key=payload["idempotency_key"],
+        provided_by_agent_id=agent.agent_id,
+        prior_revision=proposal.revision,
+        new_revision=new_revision,
+        prior_state=proposal.state,
+        resulting_state=resulting_state,
+        prior_content_hash=proposal.content_hash,
+        new_content_hash=new_hash,
+        information={"proposal": information, "risk_level": payload.get("risk_level")},
+        rationale=payload["rationale"],
+        reason_codes=reasons,
+        created_at=ts,
+    )
+    session.add(update)
+    proposal.proposal_body = revised_body
+    proposal.question = revised_body["question"]
+    proposal.objective = revised_body["objective"]
+    proposal.risk_level = revised_risk
+    proposal.content_hash = new_hash
+    proposal.revision = new_revision
+    proposal.state = resulting_state
+    proposal.updated_at = ts
+    await session.flush()
+    await _provenance(
+        session,
+        "research_proposal_information_updates",
+        update.information_id,
+        agent.agent_id,
+    )
+    await _event(
+        session,
+        "research.proposal.information_provided",
+        agent.agent_id,
+        {
+            "information_id": update.information_id,
+            "proposal_id": proposal.proposal_id,
+            "prior_revision": update.prior_revision,
+            "new_revision": update.new_revision,
+            "prior_state": update.prior_state,
+            "resulting_state": update.resulting_state,
+            "prior_content_hash": update.prior_content_hash,
+            "new_content_hash": update.new_content_hash,
+            "provided_fields": sorted(information),
+            "risk_level_updated": "risk_level" in payload,
+            "reason_codes": reasons,
+            "market_class": "test",
+        },
+        trace_id,
+    )
+    return proposal, update
 
 
 async def review_eligibility(

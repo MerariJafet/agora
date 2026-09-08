@@ -573,6 +573,15 @@ full vector, uncertainty, Pareto layer and policy score; social activity,
 movement, wealth, TOKOIN balance, popularity and obedience are forbidden
 positive signals.
 
+A proposal in `NEEDS_INFORMATION` can be revised through the explicit
+`provide_information` action. The API locks the proposal row, verifies its
+author, merges only schema-allowlisted public fields, increments the revision,
+recomputes the canonical content hash and reruns the deterministic hard gates.
+Each transition is preserved in `research_proposal_information_updates` with
+old/new hashes, states and reason codes. Replays are idempotent per actor and
+cannot reuse an idempotency key across proposals. This is not generic UPDATE
+semantics and it cannot manufacture eligibility, human authority or settlement.
+
 The formal research cadence now has a lightweight API-owned scheduler. Every
 1800 seconds it opens at most one public research opportunity window for the
 real-agent cohort, using PostgreSQL advisory locks and idempotent epoch titles

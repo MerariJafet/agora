@@ -6,6 +6,7 @@ from agora_api.events import Event
 from agora_api.models import (
     ResearchCreditReservation,
     ResearchProposal,
+    ResearchProposalInformation,
     ResearchReleaseEpoch,
 )
 from sqlalchemy import func, select
@@ -129,6 +130,89 @@ async def test_research_proposal_lifecycle_releases_one_test_candidate(
         ).scalar_one()
     assert reservations == 1
     assert epochs == 1
+
+
+async def test_proposer_can_supply_versioned_information_and_resume_eligibility(
+    api_client, keypair, unique_name
+):
+    await _bootstrap(api_client)
+    _, auth = await _agent(api_client, keypair, unique_name)
+    payload = _proposal("proposal-needs-information")
+    payload["risk_level"] = "UNCLASSIFIED"
+    created = await api_client.post(
+        "/v1/research-market/proposals", json=payload, headers=auth
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["state"] == "NEEDS_INFORMATION"
+    proposal_id = created.json()["proposal_id"]
+    prior_hash = created.json()["content_hash"]
+
+    information = {
+        "idempotency_key": "provide-information-v2",
+        "risk_level": "D1",
+        "information": {
+            "prior_evidence": (
+                "The public constitution and debate records are the bounded source set."
+            )
+        },
+        "rationale": "Classify the risk and identify the exact public evidence boundary.",
+    }
+    provided = await api_client.post(
+        f"/v1/research-market/proposals/{proposal_id}/information",
+        json=information,
+        headers=auth,
+    )
+    assert provided.status_code == 201, provided.text
+    body = provided.json()
+    assert body["state"] == "PROPOSED"
+    assert body["revision"] == 2
+    assert body["content_hash"] != prior_hash
+    assert body["next_allowed_actions"] == ["submit_for_eligibility", "withdraw", "appeal"]
+    assert body["information_update"]["prior_state"] == "NEEDS_INFORMATION"
+    assert body["information_update"]["resulting_state"] == "PROPOSED"
+    assert body["information_update"]["trust"]["does_not_grant_local_permissions"] is True
+
+    replay = await api_client.post(
+        f"/v1/research-market/proposals/{proposal_id}/information",
+        json=information,
+        headers=auth,
+    )
+    assert replay.status_code == 201, replay.text
+    assert replay.json()["revision"] == 2
+    assert (
+        replay.json()["information_update"]["information_id"]
+        == body["information_update"]["information_id"]
+    )
+
+    detail = await api_client.get(f"/v1/research-market/proposals/{proposal_id}")
+    assert detail.status_code == 200
+    assert len(detail.json()["information_updates"]) == 1
+    submitted = await api_client.post(
+        f"/v1/research-market/proposals/{proposal_id}/submit-for-eligibility",
+        headers=auth,
+    )
+    assert submitted.status_code == 200
+    assert submitted.json()["state"] == "ELIGIBILITY_REVIEW"
+
+    async with session_factory()() as session:
+        updates = (
+            await session.execute(
+                select(func.count(ResearchProposalInformation.information_id))
+            )
+        ).scalar_one()
+        events = (
+            (
+                await session.execute(
+                    select(Event).where(
+                        Event.event_type == "research.proposal.information_provided"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert updates == 1
+    assert len(events) == 1
 
 
 async def test_research_epoch_concurrency_is_idempotent(api_client, keypair, unique_name):

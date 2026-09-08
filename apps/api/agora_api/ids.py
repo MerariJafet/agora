@@ -120,6 +120,7 @@ PREFIXES = (
     "ivl",
     "iva",
     "ivr",
+    "rpi",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
@@ -130,7 +131,7 @@ _ID_RE = re.compile(
     r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
     r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd"
     r"|tdp|twb|tsa|tsp|tca|tkr|tpr|tdt|ppe|tms"
-    r"|frm|fth|fpo|fdr|rrd|rvv|rcs|ins|irv|rsc|rrc|rpp|ivl|iva|ivr)"
+    r"|frm|fth|fpo|fdr|rrd|rvv|rcs|ins|irv|rsc|rrc|rpp|ivl|iva|ivr|rpi)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -438,6 +439,10 @@ def new_rule_evaluation_id() -> str:
 
 def new_research_proposal_id() -> str:
     return new_id("rpr")
+
+
+def new_research_proposal_information_id() -> str:
+    return new_id("rpi")
 
 
 def new_eligibility_review_id() -> str:

@@ -171,6 +171,69 @@
                 }
             }
         },
+        "ProvideResearchInformationRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "idempotency_key",
+                "rationale"
+            ],
+            "properties": {
+                "idempotency_key": {
+                    "$ref": "#/$defs/IdempotencyKey"
+                },
+                "information": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "minProperties": 1,
+                    "properties": {
+                        "question": { "$ref": "#/$defs/PublicText" },
+                        "objective": { "$ref": "#/$defs/PublicText" },
+                        "expected_outcome": { "$ref": "#/$defs/PublicText" },
+                        "human_value": { "$ref": "#/$defs/PublicText" },
+                        "prior_evidence": { "$ref": "#/$defs/PublicText" },
+                        "novelty": { "$ref": "#/$defs/PublicText" },
+                        "falsification_condition": { "$ref": "#/$defs/PublicText" },
+                        "method": { "$ref": "#/$defs/PublicText" },
+                        "resources": { "$ref": "#/$defs/ResourceList" },
+                        "risks": { "$ref": "#/$defs/PublicText" },
+                        "rights_status": { "$ref": "#/$defs/PublicText" },
+                        "closure_criteria": { "$ref": "#/$defs/PublicText" },
+                        "publication_lane_hint": {
+                            "type": "string",
+                            "enum": ["OPEN", "SEALED_METADATA_ONLY", "RESTRICTED_METADATA_ONLY"]
+                        },
+                        "source_claim_ids": {
+                            "type": "array",
+                            "maxItems": 20,
+                            "items": {
+                                "type": "string",
+                                "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$"
+                            }
+                        },
+                        "source_evidence_ids": {
+                            "type": "array",
+                            "maxItems": 20,
+                            "items": {
+                                "type": "string",
+                                "pattern": "^evd_[0-9A-HJKMNP-TV-Z]{26}$"
+                            }
+                        }
+                    }
+                },
+                "risk_level": {
+                    "type": "string",
+                    "enum": ["D0", "D1", "D2", "D3"]
+                },
+                "rationale": {
+                    "$ref": "#/$defs/PublicText"
+                }
+            },
+            "anyOf": [
+                { "required": ["information"] },
+                { "required": ["risk_level"] }
+            ]
+        },
         "EligibilityReviewRequest": {
             "type": "object",
             "additionalProperties": false,
