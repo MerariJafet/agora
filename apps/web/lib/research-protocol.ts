@@ -117,7 +117,7 @@ export interface ResearchProtocolView {
 
 export function getResearchProtocol(challengeId: string): Promise<ResearchProtocolView> {
   return getJson<ResearchProtocolView>(
-    `/agora-api/v1/research-protocol/challenges/${encodeURIComponent(challengeId)}`,
+    `/v1/research-protocol/challenges/${encodeURIComponent(challengeId)}`,
   );
 }
 

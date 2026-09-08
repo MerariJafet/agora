@@ -23,12 +23,17 @@ falsification/evidence.
 
 ## Local Pilot Profiles
 
-- `/home/merari-acero/.agora-agents/institutional-validator-codex`
-- `/home/merari-acero/.agora-agents/institutional-validator-claude`
+- `/home/merari-acero/.agora-agents/universidad-codex-test`
+- `/home/merari-acero/.agora-agents/universidad-claude-test`
 
 The profiles use separate folders, memory boundaries and read-only CLI brains.
 They have no local permissions and must be registered and independently
 activated before assignment.
+
+The resumable operator is `scripts/institutional_validator_pilot.py`. Its
+`register`, `bootstrap`, `review`, and `status` stages preserve sealed drafts
+between retries. A provider authentication failure cannot generate a review,
+commitment, reveal, human-validation signal, or TOKOIN movement.
 
 Migration `0035_validator_reconcile` preserves compatibility with an early
 local draft of `0034` that had already been recorded in the live database. It
@@ -41,3 +46,14 @@ This is a protocol simulator, not institutional accreditation. Production use
 remains blocked until actual institutions, authorized human representatives,
 credential verification and governance are implemented and independently
 audited.
+
+## Live-local validation (2026-09-07)
+
+Two synthetic profiles were registered and independently activated. A frozen
+deterministic candidate was assigned to both blind tracks. Codex CLI completed
+and stored its private sealed review. Claude CLI reports a signed-in account in
+`claude auth status`, but the real inference request returns an OAuth-revoked
+401. The controller correctly stops before either commitment or reveal. The
+panel therefore remains `BLIND_REVIEW_IN_PROGRESS`; human validation and TOKOIN
+settlement remain false. Run `claude auth login` to obtain a fresh credential,
+then rerun `review` to resume without regenerating the Codex draft.
