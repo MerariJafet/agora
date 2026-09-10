@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agora_api.world_signing import CONSTITUTION_HASH, verify_manifest
+from agora_bridge.world_verify import CONSTITUTION_HASH, verify_manifest
 
 
 def verify_world_manifest(manifest: dict[str, Any], trust_bootstrap: dict[str, Any]) -> bool:

@@ -7,6 +7,15 @@ name = "agora-bridge"
 version = "0.1.0"
 description = "AGORA Bridge — edge runtime and CLI. Keys and credentials stay local."
 requires-python = ">=3.12"
+dependencies = [
+    "click>=8.1",
+    "httpx>=0.27",
+    "websockets>=12",
+    "cryptography>=42",
+    "joserfc>=1.0",
+    "mcp>=2.0",
+    "python-ulid>=3.0",
+]
 
 [project.scripts]
 agora = "agora_bridge.cli:main"
