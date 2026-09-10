@@ -41,6 +41,8 @@ export default function AgentInspector({
   const [ownsIt, setOwnsIt] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [wallet, setWallet] = useState<Record<string, unknown> | null>(null);
+  const [present, setPresent] = useState<{ agent_id: string; name: string }[]>([]);
 
   const reload = useCallback(() => {
     fetch(`${API_URL}/v1/agents/${agentId}`, { cache: "no-store" })
@@ -65,6 +67,24 @@ export default function AgentInspector({
       .then((r) => (r.ok ? r.json() : null))
       .then(setWorldState)
       .catch(() => setWorldState(null));
+    fetch(`${API_URL}/v1/agents/${agentId}/wallet`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setWallet)
+      .catch(() => setWallet(null));
+    fetch(`${API_URL}/v1/world/population`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((pop) => {
+        if (!pop?.spaces) return;
+        const seen = new Map<string, string>();
+        for (const space of Object.values(
+          pop.spaces as Record<string, { agents: { agent_id: string; name: string }[] }>,
+        )) {
+          for (const a of space.agents ?? []) seen.set(a.agent_id, a.name);
+        }
+        seen.delete(agentId);
+        setPresent([...seen].map(([agent_id, name]) => ({ agent_id, name })).slice(0, 12));
+      })
+      .catch(() => setPresent([]));
     whoAmI()
       .then((s) => {
         setSession(s);
@@ -99,8 +119,21 @@ export default function AgentInspector({
       {!agent && !error && <p className="empty">Inspecting…</p>}
       {agent && (
         <>
+          {ownsIt && (
+            <p
+              className="badge ok"
+              style={{ display: "inline-block", padding: "0.3rem 0.7rem", marginBottom: "0.5rem" }}
+              data-testid="own-gladiator-banner"
+            >
+              ⚔ TU GLADIADOR — este es su dashboard
+            </p>
+          )}
           <h2>{agent.name}</h2>
-          <p className="sub">Agent Inspector — public identity, card and device state.</p>
+          <p className="sub">
+            {ownsIt
+              ? "Historial de guerra, tesoro y estado público de tu gladiador."
+              : "Agent Inspector — public identity, card and device state."}
+          </p>
           <dl>
             <dt>agent id</dt>
             <dd>{agent.agent_id}</dd>
@@ -116,6 +149,15 @@ export default function AgentInspector({
               >
                 {cardSignature}
               </span>
+            </dd>
+            <dt>TOKOIN</dt>
+            <dd data-testid="wallet-balances">
+              {wallet
+                ? Object.entries(wallet)
+                    .filter(([k, v]) => typeof v === "number" || /balance|locked|total/i.test(k))
+                    .map(([k, v]) => `${k}: ${String(v)}`)
+                    .join(" · ") || "wallet sin datos"
+                : "sin wallet pública"}
             </dd>
             <dt>current space</dt>
             <dd>{worldState?.current_space_id ?? agent.current_space_id ?? "offline / none"}</dd>
@@ -174,6 +216,63 @@ export default function AgentInspector({
               Revocation requires the agent&apos;s owner (or the device key itself
               via <code>agora revoke</code>).
             </p>
+          )}
+
+          <h3 style={{ marginTop: "1.5rem", fontSize: "0.95rem" }}>
+            Desglose del gladiador
+          </h3>
+          {(() => {
+            const axes: [string, RegExp][] = [
+              ["Voz (mensajes)", /message/i],
+              ["Exploración (espacios)", /space|enter|leave|transition|presence/i],
+              ["Rigor (claims/evidencia)", /claim|evidence|review/i],
+              ["Mediación (debates)", /debate|position/i],
+              ["Forja (misiones/artefactos)", /mission|artifact|task/i],
+              ["Arena (retos)", /challenge|arena|submission/i],
+            ];
+            const counts = axes.map(
+              ([label, rx]) =>
+                [label, events.filter((e) => rx.test(e.event_type)).length] as const,
+            );
+            const max = Math.max(1, ...counts.map(([, n]) => n));
+            return (
+              <div data-testid="gladiator-breakdown">
+                {counts.map(([label, n]) => (
+                  <div key={label} style={{ margin: "0.25rem 0", fontSize: "0.8rem" }}>
+                    <span style={{ display: "inline-block", width: "14rem" }}>{label}</span>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        height: "0.6rem",
+                        width: `${(n / max) * 12}rem`,
+                        minWidth: n > 0 ? "0.3rem" : "0",
+                        background: "var(--accent, #d4a545)",
+                        verticalAlign: "middle",
+                      }}
+                    />
+                    <span style={{ marginLeft: "0.4rem" }}>{n}</span>
+                  </div>
+                ))}
+                <p className="sub" style={{ marginTop: "0.3rem" }}>
+                  Conteo sobre los últimos eventos públicos del agente.
+                </p>
+              </div>
+            );
+          })()}
+
+          <h3 style={{ marginTop: "1.5rem", fontSize: "0.95rem" }}>
+            Gladiadores presentes ahora
+          </h3>
+          {present.length === 0 ? (
+            <p className="sub">nadie más en línea en este momento</p>
+          ) : (
+            <ul className="events" data-testid="present-gladiators">
+              {present.map((p) => (
+                <li key={p.agent_id}>
+                  <Link href={`/agents/${p.agent_id}`}>{p.name}</Link>
+                </li>
+              ))}
+            </ul>
           )}
 
           <h3 style={{ marginTop: "1.5rem", fontSize: "0.95rem" }}>Public events</h3>
