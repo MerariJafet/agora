@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { validateDeploymentReceipt } from "../scripts/deployment-verifier-lib.mjs";
+import { validateDeploymentReceipt, verifyControlGovernance } from "../scripts/deployment-verifier-lib.mjs";
 
 const valid = {
   schema: "agora.tokoin.base_sepolia_deployment_receipt.v1",
@@ -48,4 +48,45 @@ test("rejects mainnet scope, missing transactions and invalid addresses", () => 
   assert.ok(result.errors.includes("receipt_scope_invalid"));
   assert.ok(result.errors.includes("TokoinFixedSupply_address_invalid"));
   assert.ok(result.errors.includes("TokoinResearchRewards_transaction_invalid"));
+});
+
+const controls = [valid.treasury_address, valid.settlement_authority_address, valid.identity_issuer_address];
+function governanceFixture({ chain = "0x14a34", code = "0x1234", threshold = 2n, owners = controls } = {}) {
+  return {
+    provider: {
+      send: async (method) => { assert.equal(method, "eth_chainId"); return chain; },
+      getBlockNumber: async () => 123,
+      getCode: async (_address, blockTag) => { assert.equal(blockTag, 123); return code; },
+    },
+    options: { contractFactory: () => ({
+      getThreshold: async ({ blockTag }) => { assert.equal(blockTag, 123); return threshold; },
+      getOwners: async ({ blockTag }) => { assert.equal(blockTag, 123); return owners; },
+    }) },
+  };
+}
+test("reads governance for all three roles at one block", async () => {
+  const { provider, options } = governanceFixture();
+  const evidence = await verifyControlGovernance(provider, controls, options);
+  assert.equal(evidence.length, 3);
+  assert.equal(evidence[2].threshold, 2);
+  assert.equal(evidence[2].block_number, 123);
+});
+for (const [name, override, reason] of [
+  ["wrong RPC chain", { chain: "0x2105" }, /unexpected RPC chain/],
+  ["EOA", { code: "0x" }, /no deployed code/],
+  ["one-of-three", { threshold: 1n }, /threshold must be two/],
+  ["two-of-four", { owners: [...controls, valid.contracts.TokoinFixedSupply] }, /three owners/],
+  ["duplicate owners", { owners: [controls[0], controls[0], controls[1]] }, /distinct/],
+  ["zero owner", { owners: [controls[0], controls[1], `0x${"00".repeat(20)}`] }, /cannot be zero/],
+]) {
+  test(`rejects ${name}`, async () => {
+    const { provider, options } = governanceFixture(override);
+    await assert.rejects(verifyControlGovernance(provider, controls, options), reason);
+  });
+}
+test("rejects concentrated controls and unavailable RPC", async () => {
+  const { provider, options } = governanceFixture();
+  await assert.rejects(verifyControlGovernance(provider, [controls[0], controls[0], controls[1]], options), /distinct/);
+  provider.send = async () => { throw new Error("RPC offline"); };
+  await assert.rejects(verifyControlGovernance(provider, controls, options), /RPC offline/);
 });

@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { Contract, JsonRpcProvider } from "ethers";
 
-import { validateDeploymentReceipt } from "./deployment-verifier-lib.mjs";
+import { validateDeploymentReceipt, verifyControlGovernance } from "./deployment-verifier-lib.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const receiptPath = path.resolve(root, "../../deployments/tokoin-testnet/base-sepolia-receipt.json");
@@ -14,7 +14,9 @@ assert.deepEqual(validateDeploymentReceipt(receipt), { valid: true, errors: [] }
 const rpcUrl = process.env.BASE_SEPOLIA_RPC_URL;
 if (!rpcUrl) throw new Error("BASE_SEPOLIA_RPC_URL is required for read-only verification");
 const provider = new JsonRpcProvider(rpcUrl, 84532, { staticNetwork: true });
-assert.equal(Number((await provider.getNetwork()).chainId), 84532);
+const controlGovernance = await verifyControlGovernance(provider, [
+  receipt.treasury_address, receipt.settlement_authority_address, receipt.identity_issuer_address,
+]);
 
 function artifact(contractName) {
   return JSON.parse(fs.readFileSync(
@@ -57,4 +59,5 @@ console.log(JSON.stringify({
   chain_id: 84532,
   contracts: receipt.contracts,
   read_only: true,
+  control_governance: controlGovernance,
 }));

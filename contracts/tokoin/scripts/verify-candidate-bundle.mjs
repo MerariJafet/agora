@@ -5,10 +5,10 @@ import path from "node:path";
 import { buildCandidateBundle, validateCandidateBundle } from "./candidate-bundle-lib.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
-const bundlePath = path.resolve(
-  root,
-  "../../audit/tokoin-testnet/release-candidate/contract-release-bundle-v1.json",
-);
+assert.ok(process.argv.length <= 3, "expected at most one candidate bundle path");
+const bundlePath = process.argv[2]
+  ? path.resolve(process.cwd(), process.argv[2])
+  : path.resolve(root, "../../audit/tokoin-testnet/release-candidate/contract-release-bundle-v1.json");
 const recorded = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
 const current = buildCandidateBundle(root);
 assert.equal(validateCandidateBundle(recorded), true, "recorded bundle hash is invalid");

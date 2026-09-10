@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { DEPLOY_ACK, evaluatePublicTestnetReadiness } from "../scripts/release-preflight-lib.mjs";
-import { buildCandidateBundle } from "../scripts/candidate-bundle-lib.mjs";
+import { buildCandidateBundle, canonicalJson, sha256 } from "../scripts/candidate-bundle-lib.mjs";
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agora-tokoin-preflight-"));
@@ -131,4 +131,21 @@ test("control roles must use three distinct multisig addresses", () => {
   const result = evaluatePublicTestnetReadiness(input);
   assert.equal(result.ready, false);
   assert.ok(result.blockers.includes("control_role_concentration_rejected"));
+});
+
+test("even a self-consistent authorized bundle must match current source", () => {
+  const input = fixture();
+  const candidate = JSON.parse(fs.readFileSync(input.candidateBundlePath, "utf8"));
+  candidate.build_inputs["scripts/deploy-base-sepolia.mjs"] = "f".repeat(64);
+  const { bundle_sha256, ...payload } = candidate;
+  candidate.bundle_sha256 = sha256(canonicalJson(payload));
+  fs.writeFileSync(input.candidateBundlePath, JSON.stringify(candidate));
+  for (const file of [input.auditPath, input.authorizationPath]) {
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    data.contract_release_bundle_hash = candidate.bundle_sha256;
+    fs.writeFileSync(file, JSON.stringify(data));
+  }
+  const result = evaluatePublicTestnetReadiness(input);
+  assert.equal(result.ready, false);
+  assert.ok(result.blockers.includes("candidate_bundle_source_mismatch"));
 });

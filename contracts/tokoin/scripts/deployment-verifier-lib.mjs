@@ -1,4 +1,6 @@
-import { getAddress } from "ethers";
+import assert from "node:assert/strict";
+
+import { Contract, ZeroAddress, getAddress } from "ethers";
 
 const REQUIRED_CONTRACTS = [
   "TokoinFixedSupply",
@@ -45,4 +47,33 @@ export function validateDeploymentReceipt(receipt) {
     }
   }
   return { valid: errors.length === 0, errors };
+}
+
+// Interface checks establish observable governance, not Safe implementation provenance.
+export async function verifyControlGovernance(provider, addresses, {
+  contractFactory = (address) => new Contract(address, [
+    "function getThreshold() view returns (uint256)",
+    "function getOwners() view returns (address[])",
+  ], provider),
+} = {}) {
+  // Query the RPC directly: staticNetwork can otherwise merely echo its configured chain.
+  assert.equal(BigInt(await provider.send("eth_chainId", [])), 84532n, "unexpected RPC chain");
+  const controls = addresses.map((address) => getAddress(address));
+  assert.equal(new Set(controls).size, 3, "three distinct control addresses required");
+  assert.equal(controls.length, 3, "three control roles required");
+  const evidence = [];
+  const blockTag = await provider.getBlockNumber();
+  for (const address of controls) {
+    assert.notEqual(address, ZeroAddress, "zero control address");
+    assert.notEqual(await provider.getCode(address, blockTag), "0x", "control has no deployed code");
+    const control = contractFactory(address);
+    const threshold = await control.getThreshold({ blockTag });
+    const owners = (await control.getOwners({ blockTag })).map((owner) => getAddress(owner));
+    assert.equal(threshold, 2n, "control threshold must be two");
+    assert.equal(owners.length, 3, "control must have three owners");
+    assert.equal(new Set(owners).size, 3, "control owners must be distinct");
+    assert.ok(!owners.includes(ZeroAddress), "control owner cannot be zero");
+    evidence.push({ address, threshold: 2, owners, block_number: blockTag });
+  }
+  return evidence;
 }

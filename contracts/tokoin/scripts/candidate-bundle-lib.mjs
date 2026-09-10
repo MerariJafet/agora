@@ -85,6 +85,14 @@ export function buildCandidateBundle(root) {
       "scripts/build-candidate-bundle.mjs": hashFile(root, "scripts/build-candidate-bundle.mjs"),
       "scripts/candidate-bundle-lib.mjs": hashFile(root, "scripts/candidate-bundle-lib.mjs"),
       "scripts/static-audit.mjs": hashFile(root, "scripts/static-audit.mjs"),
+      ...Object.fromEntries([
+        "scripts/deploy-base-sepolia.mjs",
+        "scripts/deployment-verifier-lib.mjs",
+        "scripts/verify-base-sepolia.mjs",
+        "scripts/release-preflight-lib.mjs",
+        "scripts/release-preflight.mjs",
+        "scripts/verify-candidate-bundle.mjs",
+      ].map((file) => [file, hashFile(root, file)])),
     },
     contracts,
     trust_boundaries: [
