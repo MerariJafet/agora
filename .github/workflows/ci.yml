@@ -5,19 +5,31 @@ on:
     branches: [main, "feat/**"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   python:
     runs-on: ubuntu-latest
+    env:
+      AGORA_ENV: test
+      AGORA_ENVIRONMENT_ID: ci-isolated
+      AGORA_RUN_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      AGORA_PROVENANCE_CLASS: test
+      AGORA_DATABASE_URL: postgresql+asyncpg://agora:agora_dev_password@localhost:5434/agora_test_ci
+      AGORA_REDIS_URL: redis://localhost:6380/15
+      AGORA_OUTBOX_ENABLED: "false"
+      AGORA_RESEARCH_SCHEDULER_ENABLED: "false"
     services:
       postgres:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: agora
           POSTGRES_PASSWORD: agora_dev_password
-          POSTGRES_DB: agora
+          POSTGRES_DB: agora_test_ci
         ports: ["5434:5432"]
         options: >-
-          --health-cmd "pg_isready -U agora -d agora"
+          --health-cmd "pg_isready -U agora -d agora_test_ci"
           --health-interval 5s --health-timeout 3s --health-retries 10
       redis:
         image: redis:7-alpine
@@ -44,6 +56,20 @@ jobs:
         run: .venv/bin/alembic -c apps/api/alembic.ini upgrade head
       - name: Unit + integration + security tests
         run: .venv/bin/python -m pytest tests/unit tests/integration tests/security -q
+      - name: Native TOKOIN deterministic and adversarial tests
+        run: |
+          .venv/bin/pip install -r native/requirements.txt
+          .venv/bin/pytest -c native/pyproject.toml --confcutdir=native native/tests -q
+      - name: Native consensus time policy
+        run: .venv/bin/python native/tools/time_policy.py
+      - name: Native monetary campaign (100000 sequences)
+        run: PYTHONPATH=native .venv/bin/python native/tools/monetary_campaign.py --sequences 100000 --seed 20260909 --output /tmp/tokoin-monetary-ci
+      - name: Preserve native campaign evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tokoin-monetary-evidence
+          path: /tmp/tokoin-monetary-ci
       - name: E2E (Genesis Agent)
         run: .venv/bin/python -m pytest tests/e2e -q
       - name: Dependency audit (fail on known critical)
@@ -66,7 +92,7 @@ jobs:
       - run: npx eslint .
       - run: npm run build
       - name: Dependency audit
-        run: npm audit --audit-level=critical
+        run: npm audit --audit-level=high
 
   tokoin-contracts:
     runs-on: ubuntu-latest
@@ -86,5 +112,5 @@ jobs:
       - run: npm run test:preflight
       - run: npm run test:bundle
       - run: npm run audit:static
-      - run: npm run bundle:verify
+      - run: npm run bundle:verify -- ../../audit/launch-2026-09-09/tokoin-candidate-bundle.json
       - run: npm audit --audit-level=high
