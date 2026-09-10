@@ -374,7 +374,7 @@ export default function WorldPage() {
             created_at: timestamp,
           };
           store.applyMessage(message);
-          const space = spaces.find((landmark) => landmark.space_id === message.space_id);
+          const space = store.manifest?.landmarks.find((landmark) => landmark.space_id === message.space_id);
           pushEvents([messageToEvent(message, space?.name)]);
         } else if (type === "mission") {
           pushEvents([{
@@ -441,7 +441,7 @@ export default function WorldPage() {
       engineRef.current = null;
       socketRef.current = null;
     };
-  }, [loadReadOnlySurfaces, pushEvents, refreshSnapshot, spaces, store]);
+  }, [loadReadOnlySurfaces, pushEvents, refreshSnapshot, store]);
 
   useEffect(() => {
     if (!bootstrapped) return;

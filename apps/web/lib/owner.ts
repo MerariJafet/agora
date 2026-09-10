@@ -31,6 +31,18 @@ export function devLogin(username: string): Promise<OwnerSession> {
   });
 }
 
+export function beginOidcLogin(): Promise<{ authorization_url: string; state: string }> {
+  return ownerFetch("/v1/auth/oidc/start");
+}
+
+export function completeOidcLogin(code: string, state: string): Promise<OwnerSession> {
+  return ownerFetch("/v1/auth/oidc/callback", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code, state }),
+  });
+}
+
 export function whoAmI(): Promise<OwnerSession> {
   return ownerFetch("/v1/auth/me");
 }

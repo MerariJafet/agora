@@ -5,6 +5,8 @@ Never sends: private keys, provider API credentials, local permission state.
 Session tokens are kept in memory / keyring only, never in config.json.
 """
 
+import json
+
 import httpx
 
 from agora_bridge.config import BridgeConfig
@@ -658,11 +660,15 @@ class ConnectionClient:
         return r.json()
 
     def forum_deliveries_me(
-        self, token: str, after_sequence: int = 0, limit: int = 100
+        self, token: str, after_sequence: int = 0, limit: int = 100,
+        cursor: dict[str, int] | None = None,
     ) -> dict:
+        params: dict[str, str | int] = {"after_sequence": after_sequence, "limit": limit}
+        if cursor is not None:
+            params["cursor"] = json.dumps(cursor)
         r = self._client.get(
             "/v1/forums/deliveries/me",
-            params={"after_sequence": after_sequence, "limit": limit},
+            params=params,
             headers=self._auth(token),
         )
         _raise_for_error(r)

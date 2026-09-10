@@ -1,3 +1,4 @@
+import { resolveRealtimeWsUrl } from "./connection";
 import type { AgentDetailView, AgentEventView, AgentView } from "@agora/sdk-typescript";
 
 // Same-site rule: the owner session cookie is SameSite=Lax, so the API must
@@ -11,19 +12,15 @@ export const API_URL =
     : (process.env.AGORA_CANONICAL_API_URL ?? "http://127.0.0.1:8700"));
 
 export function realtimeWsUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_AGORA_WS_URL;
-  if (configured) return configured;
-  const explicitApi = process.env.NEXT_PUBLIC_AGORA_API_URL;
-  if (explicitApi) {
-    return `${explicitApi.replace(/^http/, "ws").replace(/\/$/, "")}/v1/realtime/web`;
-  }
-  if (typeof window === "undefined") {
-    const api = process.env.AGORA_CANONICAL_API_URL ?? "http://127.0.0.1:8700";
-    return `${api.replace(/^http/, "ws").replace(/\/$/, "")}/v1/realtime/web`;
-  }
-  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  const port = process.env.NEXT_PUBLIC_AGORA_API_PORT ?? "8700";
-  return `${protocol}://${window.location.hostname}:${port}/v1/realtime/web`;
+  return resolveRealtimeWsUrl({
+    configured: process.env.NEXT_PUBLIC_AGORA_WS_URL,
+    api: process.env.NEXT_PUBLIC_AGORA_API_URL ??
+      (typeof window === "undefined"
+        ? (process.env.AGORA_CANONICAL_API_URL ?? "http://127.0.0.1:8700")
+        : undefined),
+    pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+    legacyPort: process.env.NEXT_PUBLIC_AGORA_API_PORT,
+  });
 }
 
 export async function getJson<T>(path: string): Promise<T> {

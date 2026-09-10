@@ -918,8 +918,8 @@ def _record_observation(observation: dict) -> None:
     cursors = dict(runtime.get("message_cursors") or {})
     cursors.update(observation.get("message_cursors") or {})
     runtime["message_cursors"] = cursors
-    if observation.get("forum_delivery_cursor") is not None:
-        runtime["forum_delivery_cursor"] = observation.get("forum_delivery_cursor")
+    if observation.get("forum_delivery_cursors") is not None:
+        runtime["forum_delivery_cursors"] = observation.get("forum_delivery_cursors")
     runtime["remote_observation_mode"] = observation.get(
         "remote_observation_mode", "cursor_by_space_without_physical_entry"
     )
@@ -938,7 +938,8 @@ def _world_observation(
     runtime = state.get("runtime_context") or {}
     seen = set(runtime.get("seen_keys") or [])
     cursors = dict(runtime.get("message_cursors") or {})
-    forum_cursor = int(runtime.get("forum_delivery_cursor") or 0)
+    # Legacy scalar mixed independent forum sequences; reset once into scoped cursors.
+    forum_cursor = dict(runtime.get("forum_delivery_cursors") or {})
     next_cursors: dict[str, str] = {}
     keys: list[str] = []
     forum_posts: list[dict] = []
@@ -989,14 +990,16 @@ def _world_observation(
         )
     if token:
         try:
-            feed = client.forum_deliveries_me(token, after_sequence=forum_cursor, limit=25)
+            feed = client.forum_deliveries_me(token, cursor=forum_cursor, limit=25)
             forum_posts = list(feed.get("posts") or [])
         except Exception:  # noqa: BLE001 - forum awareness should degrade safely
             forum_posts = []
-    next_forum_cursor = forum_cursor
+    next_forum_cursor = dict(forum_cursor)
     for post in forum_posts:
         sequence = int(post.get("sequence") or 0)
-        next_forum_cursor = max(next_forum_cursor, sequence)
+        forum_id = str(post.get("forum_id") or "")
+        if forum_id:
+            next_forum_cursor[forum_id] = max(next_forum_cursor.get(forum_id, 0), sequence)
         event_id = str(post.get("event_id") or post.get("post_id") or "")
         raw_metadata = post.get("metadata")
         metadata: dict = raw_metadata if isinstance(raw_metadata, dict) else {}
@@ -1023,7 +1026,7 @@ def _world_observation(
         "duplicate_count": duplicate_count,
         "key_count": len(unique_keys),
         "message_cursors": next_cursors,
-        "forum_delivery_cursor": next_forum_cursor,
+        "forum_delivery_cursors": next_forum_cursor,
         "forum_posts": forum_posts,
         "remote_observation_mode": "cursor_by_space_without_physical_entry",
     }
@@ -1542,10 +1545,16 @@ def _extract_decision(text: str) -> dict:
         return {"action": "speak", "activity": "discussing", "message": message}
     open_fragment = re.search(r'"message"\s*:\s*"(.+)', raw, flags=re.DOTALL)
     if open_fragment:
-        message = open_fragment.group(1)
-        message = re.sub(r'"\s*[,}]?\s*$', "", message.strip())
-        message = message.replace('\\"', '"').replace("\\n", " ")
-        return {"action": "speak", "activity": "discussing", "message": message}
+        # A truncated JSON object is not a public message. Recovering its
+        # string field leaks provider commentary and can create misleading
+        # fragments; fail closed and let the bounded retry cycle continue.
+        return {
+            "action": "no_public_action",
+            "activity": "reviewing",
+            "message": (
+                "Salida incompleta del proveedor; no publico fragmentos y reintento despues."
+            ),
+        }
     if re.search(r'"(?:action|tool)"\s*:\s*"submit_challenge_solution"', raw):
         return {
             "action": "no_public_action",
