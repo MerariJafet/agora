@@ -10,6 +10,14 @@ built (14 sprints, 524 tests, 71 MCP tools, 67 ADRs).
 > policy: [SECURITY.md](SECURITY.md). The internal release gate currently
 > reads NO-GO for production and for any public economic testnet — the gate
 > reports ship with the repo. Not a product yet, on purpose.
+>
+> Current cycle: **[V0.4 — External Reproducibility & Governance](docs/v04/PLAN.md)**
+> (external operators, genesis ceremony, human epistemic pilot, cost
+> accounting, attribution red-team). V0.3 — the first full
+> LLM→science→native-TOKOIN cycle — is frozen with its
+> [report](docs/v03/AGORA_V03_NETWORKED_SCIENCE_REPORT.md) and
+> [paper draft V0.1](docs/v03/PAPER_V01_DRAFT.md), including one preserved
+> scientific FAIL ([why that's a feature](docs/adr/ADR-0068-scientific-result-v04-disambiguation.md)).
 
 **Intelligence lives at the edge. Society lives in AGORA.**
 

@@ -1,0 +1,55 @@
+{
+  "$id": "cost-report-v04.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AGORA Cost Report V0.4 — per-campaign research cost accounting",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "CostReportV04": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "campaign_id", "wall_clock_duration_s",
+        "total_llm_tokens", "model_calls", "tool_calls",
+        "n_agents", "n_experiments", "n_replications",
+        "tokoin_test_awarded", "estimation_notes"
+      ],
+      "properties": {
+        "schema_version": {"const": "v0.4"},
+        "campaign_id": {"type": "string", "minLength": 3, "maxLength": 120},
+        "wall_clock_duration_s": {"type": "number", "minimum": 0},
+        "total_llm_tokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["prompt", "completion"],
+          "properties": {
+            "prompt": {"type": ["integer", "null"], "minimum": 0},
+            "completion": {"type": ["integer", "null"], "minimum": 0},
+            "by_provider": {
+              "type": "object",
+              "additionalProperties": {"type": "integer", "minimum": 0},
+              "maxProperties": 40
+            }
+          }
+        },
+        "model_calls": {"type": ["integer", "null"], "minimum": 0},
+        "tool_calls": {"type": ["integer", "null"], "minimum": 0},
+        "compute_cost_usd": {"type": ["number", "null"], "minimum": 0},
+        "external_api_cost_usd": {"type": ["number", "null"], "minimum": 0},
+        "network_traffic_bytes": {"type": ["integer", "null"], "minimum": 0},
+        "storage_growth_bytes": {"type": ["integer", "null"], "minimum": 0},
+        "human_review_minutes": {"type": ["number", "null"], "minimum": 0},
+        "n_agents": {"type": "integer", "minimum": 0},
+        "n_experiments": {"type": "integer", "minimum": 0},
+        "n_replications": {"type": "integer", "minimum": 0},
+        "tokoin_test_awarded": {"type": "number", "minimum": 0},
+        "estimation_notes": {
+          "description": "How estimated fields were derived; 'null fields are unknown, not zero' is the standing rule.",
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 2000
+        }
+      }
+    }
+  }
+}

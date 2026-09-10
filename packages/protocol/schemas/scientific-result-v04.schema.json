@@ -1,0 +1,111 @@
+{
+  "$id": "scientific-result-v04.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AGORA Scientific Result V0.4 — disambiguated structured result",
+  "description": "Replaces the V0.3 structured result whose single 'claimed_count' field conflated a rejected assertion with a computed result (LLM-SCI-005, strict FAIL, preserved). V0.4 separates every semantic role: what the hypothesis asserted, what the reviewer computed, what the oracle expected, and what the protocol accepted. No field may ever carry two meanings.",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "TypedValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": {
+          "description": "The value itself. Null is only legal when the enclosing role is explicitly absent (e.g. no assertion was made).",
+          "type": ["number", "string", "boolean", "null"]
+        },
+        "unit": {
+          "description": "Unit or domain label; 'dimensionless' and 'count' are valid units. Never omitted.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "encoding": {
+          "description": "Optional machine encoding hint (e.g. 'integer', 'decimal-string', 'iso8601').",
+          "type": "string",
+          "maxLength": 32
+        }
+      }
+    },
+    "ScientificResultV04": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "scenario_id",
+        "run_id",
+        "reviewer_identity",
+        "reported_value",
+        "computed_value",
+        "expected_value",
+        "comparison_operator",
+        "tolerance",
+        "evaluation_method",
+        "verdict",
+        "verdict_rationale_hash"
+      ],
+      "properties": {
+        "schema_version": {"const": "v0.4"},
+        "scenario_id": {"type": "string", "minLength": 3, "maxLength": 120},
+        "run_id": {"type": "string", "minLength": 3, "maxLength": 120},
+        "reviewer_identity": {
+          "description": "Agent or human reviewer id (agt_/hum_ prefixed ULID).",
+          "type": "string",
+          "pattern": "^(agt|hum)_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "reported_value": {
+          "description": "EXACTLY what the hypothesis/submission under review asserted. Copied verbatim from the submission; never edited by the reviewer. This is the field that absorbs the old ambiguous use of claimed_count for 'the rejected assertion'.",
+          "$ref": "#/$defs/TypedValue"
+        },
+        "computed_value": {
+          "description": "What the REVIEWER's own computation/experiment produced. Independent of the submission. This is the field that absorbs the old ambiguous use of claimed_count for 'the computed result'.",
+          "$ref": "#/$defs/TypedValue"
+        },
+        "expected_value": {
+          "description": "The frozen oracle/ground-truth value when the scenario has one; role must be absent-by-null (with unit 'none') for open scenarios.",
+          "$ref": "#/$defs/TypedValue"
+        },
+        "accepted_value": {
+          "description": "The value the protocol settles on after resolution, if any. Optional: only resolution writes it, never a reviewer.",
+          "$ref": "#/$defs/TypedValue"
+        },
+        "comparison_operator": {
+          "description": "How computed_value was compared against expected_value (or reported_value for consistency checks).",
+          "type": "string",
+          "enum": ["eq", "neq", "lt", "lte", "gt", "gte", "within_tolerance", "set_equal", "not_applicable"]
+        },
+        "tolerance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": {"type": "string", "enum": ["absolute", "relative", "exact", "not_applicable"]},
+            "value": {"type": ["number", "null"]}
+          }
+        },
+        "evaluation_method": {
+          "description": "Frozen, citable method identifier (script hash, protocol section, or registered procedure id) used to produce computed_value.",
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 300
+        },
+        "verdict": {
+          "description": "Reviewer verdict. INCONCLUSIVE is a first-class, payable outcome; REJECT is payable when the review meets protocol requirements (V0.3 review-economics rule).",
+          "type": "string",
+          "enum": ["APPROVE", "REJECT", "INCONCLUSIVE"]
+        },
+        "verdict_rationale_hash": {
+          "description": "SHA-256 of the public rationale artifact backing the verdict.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "provenance_event_id": {
+          "description": "Optional evt_ ULID linking to the ledger event that carried this result.",
+          "type": "string",
+          "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+        }
+      }
+    }
+  }
+}

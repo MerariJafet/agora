@@ -1,0 +1,152 @@
+{
+  "schema": "AGORA_RELEASE_MANIFEST_V03",
+  "release": "NETWORKED_SCIENTIFIC_REALITY",
+  "mode": "TEST_NON_RECOGNIZABLE",
+  "created_at_utc": "2026-09-10T04:52:11.517407+00:00",
+  "source_commit": "5bb0a27f74ad6a79567463156f16d5a599120088",
+  "source_ref": "refs/agora/candidates/networked-science-v03-source",
+  "baseline_commit": "aa21f2e6fac27362da1017ca5800a1ded1bdb7bf",
+  "source_worktree_verified": true,
+  "checkout_head_intentionally_unchanged": "717bf39627502e96a4c9e2a21a7f9a34cb6d4c63",
+  "protocol_specs": [
+    "docs/v03/TOKOIN_SCIENCE_PROTOCOL_V03.md",
+    "docs/v03/REVIEW_ECONOMICS_ADR.md"
+  ],
+  "engine": {
+    "version": "0.38.26",
+    "sha256": "6edb2aa0f223e71758a48cf3d13d9d7ffd26f3357585bebe54311ba71f11ac3f"
+  },
+  "gates": {
+    "V03_GATE_A": {
+      "status": "PASS",
+      "scope": "Recorded real API/LLM scientific lifecycle settled through four native validators; public artifact and application replay."
+    },
+    "V03_GATE_B": {
+      "status": "PASS",
+      "scope": "Eight real model actors, five scenarios, archived actual false claim transparently introduced. Scientific accuracy FAIL is preserved separately."
+    },
+    "V03_GATE_C": {
+      "status": "PASS_WITH_OPERATIONAL_LIMITS",
+      "scope": "TIME-007/008 characterized in separate kernels. Lagging nodes may stop; correction and restart recover. Legacy monetary fixture; not full scientific bridge in VM."
+    },
+    "V03_GATE_D": {
+      "status": "PASS",
+      "scope": "Frozen source/specification, generated datasets/figures, explicit limitations. Candidate, not published preprint."
+    }
+  },
+  "decisions": {
+    "paper_v01_public_preprint_candidate": "GO",
+    "external_operator_rehearsal_preparation": "GO",
+    "external_operator_rehearsal_executed": false,
+    "closed_external_testnet": "NO_GO",
+    "mainnet": "NO_GO",
+    "public_economic_launch": "NO_GO"
+  },
+  "external_operator_count": 0,
+  "real_institutions_validated": 0,
+  "human_independent_audit": false,
+  "operator_contact_performed": false,
+  "deployment_performed": false,
+  "native_tokens_recognizable_for_mainnet": false,
+  "metrics": {
+    "agents": 8,
+    "provider_families": 2,
+    "cases": 5,
+    "calculator_replays": 56,
+    "submitted_transactions": 121,
+    "locked_units": 180000000,
+    "available_units": 0,
+    "reward_records": 6,
+    "independent_application_replays": 4,
+    "replay_height": 216,
+    "state_root": "c5784a187e2255ad4dd11d6c3f6ee5671f73c47de7ee5474ae7f42d0545db952",
+    "clock_profiles": 7,
+    "same_height_time_observations": 104,
+    "tests": {
+      "Native": {
+        "passed": 182,
+        "failed": 0,
+        "skipped": 0
+      },
+      "API unit/integration": {
+        "passed": 455,
+        "failed": 0,
+        "skipped": 1
+      },
+      "E2E/security": {
+        "passed": 191,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "scientific_accuracy_limit": "LLM-SCI-005 strict FAIL: claimed_count conflates rejected assertion with computed result; public conclusions and evaluation unchanged.",
+  "files": [
+    {
+      "path": "audit/v03/EVIDENCE_INDEX.json",
+      "bytes": 183507,
+      "sha256": "09d0a2e4cdb1f1b46c0b7f1889fec4ed95f82d3ebab930106065374a9ed78eff"
+    },
+    {
+      "path": "audit/v03/FINAL_METRICS.json",
+      "bytes": 689,
+      "sha256": "0ccdbfdcf5d071ee982ce98d0d646aedf6416a80ceace62711f1def620ef4432"
+    },
+    {
+      "path": "audit/v03/SOURCE_MANIFEST.json",
+      "bytes": 2985,
+      "sha256": "14d38d44f628db3205d63954957f945f67e6207a374bd5f20bfc0a0c33cb564a"
+    },
+    {
+      "path": "audit/v03/operator-bundle/installation-results-002.json",
+      "bytes": 4775,
+      "sha256": "525e3b142358a7c5e3a351630d8c84ef7ad63fe062f206e375a2091b5dd1089c"
+    },
+    {
+      "path": "audit/v03/paper/final-001/PAPER_EVIDENCE_INDEX.json",
+      "bytes": 356240,
+      "sha256": "e7d8b83acfd4bcfd32b59d2198d7c7c269d0bfc22d8443f6d59ce3d310cab7f5"
+    },
+    {
+      "path": "docs/v03/AGORA_V03_NETWORKED_SCIENCE_REPORT.md",
+      "bytes": 9558,
+      "sha256": "d47f45a6fd2105690586ea9c72e17c698eb39024aa2006dd9dc1724351a9ec1e"
+    },
+    {
+      "path": "docs/v03/AUTONOMOUS_AGENT_EXPERIMENTS.md",
+      "bytes": 10071,
+      "sha256": "24f9b9664bf5ddb0127abd18c2fd04779f0ce54f169b823e532215829bba5e3c"
+    },
+    {
+      "path": "docs/v03/EXTERNAL_OPERATOR_REHEARSAL.md",
+      "bytes": 8630,
+      "sha256": "478b09f411f7d11c0577851ca4d1892e10a84adcdcbe3c36af0a37a127412851"
+    },
+    {
+      "path": "docs/v03/PAPER_V01_DRAFT.md",
+      "bytes": 12596,
+      "sha256": "56bafceeb39aaadc02901c0caed586c5cb98c3db9600e5ba2401059b42339339"
+    },
+    {
+      "path": "docs/v03/REVIEW_ECONOMICS_ADR.md",
+      "bytes": 5057,
+      "sha256": "7e7abdf2fca1d67f2f1df0e33c979c49d5f5f76c482db516f516bda8c1693b2a"
+    },
+    {
+      "path": "docs/v03/TIME_FULL_VALIDATION_REPORT.md",
+      "bytes": 8420,
+      "sha256": "5717a5b0dfe6fdcaba6864c50dfc64a05a037f328dc019be3445d664105f0360"
+    },
+    {
+      "path": "docs/v03/TOKOIN_SCIENCE_PROTOCOL_V03.md",
+      "bytes": 6558,
+      "sha256": "bc11c227ec272d84e0da93ba6f931c5598bba831ddff549349cbd68e6c594bdc"
+    }
+  ],
+  "verification_limits": [
+    "Manifest hashes establish bytes, not publisher authenticity. Authenticate manifest through another channel.",
+    "Application journal export verification does not independently check all CometBFT consensus signatures.",
+    "Source/runtime hashes, not historical checkout HEAD alone, bind the actual final execution.",
+    "No claim of permissionless security, institutional endorsement, general scientific discovery or economic sustainability."
+  ]
+}
