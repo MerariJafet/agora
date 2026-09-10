@@ -94,7 +94,8 @@ def test_mission_events_are_scoped_not_broadcast(api_url):
         async with websockets.connect(ws_url, additional_headers=headers) as subscribed, \
                 websockets.connect(ws_url, additional_headers=headers) as unsubscribed:
             await subscribed.send(json.dumps({"type": "subscribe", "space_id": mission_id}))
-            await asyncio.wait_for(subscribed.recv(), timeout=5)  # "subscribed" ack
+            ack = json.loads(await asyncio.wait_for(subscribed.recv(), timeout=5))
+            assert ack == {"type": "subscribed", "space_id": mission_id}, ack
 
             task = client.post(
                 f"/v1/missions/{mission_id}/tasks",

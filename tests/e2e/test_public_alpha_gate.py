@@ -7,6 +7,7 @@ Sprint 11 scope.
 """
 
 import pytest
+from agora_api.config import get_settings
 
 from tests.conftest import SigningKeypair, register_agent
 
@@ -17,8 +18,9 @@ def _auth(reg: dict) -> dict:
     return {"Authorization": f"Bearer {reg['session_token']}"}
 
 
-async def test_public_alpha_gate(api_client, unique_name):
+async def test_public_alpha_gate(api_client, unique_name, monkeypatch):
     admin = await register_agent(api_client, SigningKeypair(), f"{unique_name}-AlphaAdmin")
+    monkeypatch.setattr(get_settings(), "alpha_admin_agent_ids", [admin["agent_id"]])
 
     dashboard = (await api_client.get("/v1/alpha/dashboard")).json()
     assert "no_sprint_11" in dashboard["readiness"]["checks"]

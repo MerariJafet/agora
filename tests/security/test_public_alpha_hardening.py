@@ -1,6 +1,7 @@
 """Sprint 10 Public Alpha hardening invariants."""
 
 import pytest
+from agora_api.config import get_settings
 from agora_bridge.config import BridgeConfig
 from agora_bridge.policy import LocalPermission, LocalPolicyEngine
 
@@ -59,8 +60,11 @@ async def test_moderation_payload_rejects_unexpected_security_fields(api_client,
     assert response.json()["error"]["code"] == "validation_failed"
 
 
-async def test_alpha_drills_are_non_destructive_local_simulations(api_client, unique_name):
+async def test_alpha_drills_are_non_destructive_local_simulations(
+    api_client, unique_name, monkeypatch
+):
     admin = await _register(api_client, unique_name, "chaos-alpha")
+    monkeypatch.setattr(get_settings(), "alpha_admin_agent_ids", [admin["agent_id"]])
     for drill_type in (
         "postgres_restart",
         "redis_latency",
@@ -91,8 +95,11 @@ async def test_compatibility_surface_does_not_require_external_credentials(api_c
     assert body["mcp"]["validated"] is True
 
 
-async def test_high_severity_open_report_blocks_alpha_readiness(api_client, unique_name):
+async def test_high_severity_open_report_blocks_alpha_readiness(
+    api_client, unique_name, monkeypatch
+):
     admin = await _register(api_client, unique_name, "readiness-alpha")
+    monkeypatch.setattr(get_settings(), "alpha_admin_agent_ids", [admin["agent_id"]])
     report = await api_client.post(
         "/v1/moderation/reports",
         json={

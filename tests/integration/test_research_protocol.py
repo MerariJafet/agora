@@ -215,6 +215,14 @@ async def test_consensus_cannot_pay_without_two_signed_independent_reviews(api_c
     )
     assert candidate_retry.status_code == 201
     assert candidate_retry.json()["candidate_id"] == candidate["candidate_id"]
+    reward_url = f"/v1/research-protocol/candidates/{candidate['candidate_id']}/reward"
+    denied_reward = await api_client.post(reward_url, json={"total_aceros": 100},
+                                         headers=_auth(reviewer_a))
+    assert denied_reward.status_code == 403
+    for invalid_amount in (0, 101, 1_000_000_000_100):
+        invalid = await api_client.post(reward_url, json={"total_aceros": invalid_amount},
+                                        headers=_auth(creator))
+        assert invalid.status_code == 422
     reward_response = await api_client.post(
         f"/v1/research-protocol/candidates/{candidate['candidate_id']}/reward",
         json={"total_aceros": 100_000_000},
@@ -222,6 +230,16 @@ async def test_consensus_cannot_pay_without_two_signed_independent_reviews(api_c
     )
     assert reward_response.status_code == 201, reward_response.text
     assert reward_response.json()["state"] == "PROVISIONAL"
+    retry_reward = await api_client.post(reward_url, json={"total_aceros": 100_000_000},
+                                         headers=_auth(creator))
+    assert retry_reward.status_code == 201
+    assert retry_reward.json()["reward_id"] == reward_response.json()["reward_id"]
+    changed_reward = await api_client.post(reward_url, json={"total_aceros": 200_000_000},
+                                           headers=_auth(creator))
+    assert changed_reward.status_code == 409
+    denied_retry = await api_client.post(reward_url, json={"total_aceros": 100_000_000},
+                                         headers=_auth(reviewer_a))
+    assert denied_retry.status_code == 403
     assert reward_response.json()["allocation"]["pools"] == {
         "research_proposer": 1_000_000,
         "final_solution": 10_000_000,

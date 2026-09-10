@@ -183,3 +183,35 @@ def test_mcp_server_has_no_network_surface():
     all_interfaces = ".".join(["0", "0", "0", "0"])  # avoid S104 literal
     for forbidden in ("run_sse", "run_streamable_http", "uvicorn", all_interfaces, "bind("):
         assert forbidden not in source
+
+def test_legacy_bridge_gets_no_task_until_delivery_protocol_2(api_url, unique_name):
+    """An old runtime must not execute before failing the new claim contract."""
+    import secrets
+
+    reg = _register(api_url, unique_name)
+    headers = {"Authorization": f"Bearer {reg['session_token']}"}
+    with httpx.Client(base_url=api_url, timeout=10) as client:
+        response = client.post(
+            f"/v1/a2a/agents/{reg['agent_id']}/jsonrpc", headers=headers,
+            json={"jsonrpc": "2.0", "id": 1, "method": "message/send", "params": {
+                "message": {"messageId": secrets.token_hex(16), "role": "ROLE_USER",
+                            "parts": [{"text": "TEST protocol negotiation"}]},
+            }},
+        )
+        assert response.status_code == 200, response.text
+        task_id = response.json()["result"]["task"]["id"]
+
+    async def run():
+        async with await _connect(api_url, headers) as ws:
+            assert json.loads(await ws.recv())["type"] == "welcome"
+            # The task already exists and refill is active, but legacy receives none.
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(ws.recv(), timeout=1.2)
+            await ws.send(json.dumps({"type": "bridge_capabilities", "a2a_delivery_protocol": 2}))
+            assert json.loads(await asyncio.wait_for(ws.recv(), timeout=5)) == {
+                "type": "bridge_capabilities_ack", "a2a_delivery_protocol": 2,
+            }
+            task = json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+            assert task["type"] == "a2a_task" and task["task_id"] == task_id
+
+    asyncio.run(run())

@@ -9,6 +9,7 @@ import importlib.util
 from pathlib import Path
 
 import pytest
+from agora_api.config import get_settings
 from agora_api.db import session_factory
 from agora_api.models import RecordProvenance, TokoinWallet
 from agora_api.tokoins_service import signed_transfer_message
@@ -18,6 +19,14 @@ from sqlalchemy.exc import DBAPIError
 from tests.conftest import SigningKeypair, register_agent
 
 pytestmark = pytest.mark.integration
+
+
+@pytest.fixture
+def grant_reward_admin(monkeypatch):
+    def grant(reg):
+        monkeypatch.setattr(get_settings(), "tokoin_reward_admin_agent_ids", [reg["agent_id"]])
+
+    return grant
 
 
 def _auth(reg: dict) -> dict:
@@ -64,18 +73,14 @@ async def test_public_tokoin_balances_are_aggregate_only(api_client):
     balances = response.json()
     assert balances["balance_scope"] == "aggregate_only"
     assert balances["per_wallet_balances_exposed"] is False
-    assert balances["balances"]["treasury"]["balance_aceros"] == status[
-        "treasury_balance_aceros"
-    ]
-    assert balances["balances"]["circulating"]["balance_aceros"] == status[
-        "circulating_supply_aceros"
-    ]
+    assert balances["balances"]["treasury"]["balance_aceros"] == status["treasury_balance_aceros"]
+    assert (
+        balances["balances"]["circulating"]["balance_aceros"] == status["circulating_supply_aceros"]
+    )
     assert balances["wallet_count"] == status["wallet_count"]
     assert status["wallet_count"] == sum(status["wallet_count_by_provenance"].values())
     assert status["real_wallet_count"] == status["wallet_count_by_provenance"].get("real", 0)
-    assert status["wallet_count_semantics"] == (
-        "all_historical_rows_separate_from_real_adoption"
-    )
+    assert status["wallet_count_semantics"] == ("all_historical_rows_separate_from_real_adoption")
     assert balances["blockchain"] == status["blockchain"]
 
 
@@ -142,9 +147,12 @@ async def test_wallet_population_audit_is_read_only_and_reports_fixed_supply(api
     assert "by_provenance_class" in audit
 
 
-async def test_tokoin_mission_reward_transfers_without_minting(api_client, unique_name):
+async def test_tokoin_mission_reward_transfers_without_minting(
+    api_client, unique_name, grant_reward_admin
+):
     coordinator = await register_agent(api_client, SigningKeypair(), f"{unique_name}-coordinator")
     worker = await register_agent(api_client, SigningKeypair(), f"{unique_name}-worker")
+    grant_reward_admin(coordinator)
     mission = await _create_mission(api_client, coordinator)
     mission_id = mission["mission_id"]
     joined = await api_client.post(
@@ -172,9 +180,7 @@ async def test_tokoin_mission_reward_transfers_without_minting(api_client, uniqu
     assert entry["mission_id"] == mission_id
     assert entry["previous_hash"]
 
-    worker_wallet = (
-        await api_client.get(f"/v1/agents/{worker['agent_id']}/wallet")
-    ).json()
+    worker_wallet = (await api_client.get(f"/v1/agents/{worker['agent_id']}/wallet")).json()
     assert worker_wallet["balance"] == 0.00000025
     assert worker_wallet["balance_aceros"] == 25
     after = (await api_client.get("/v1/tokoins/status")).json()
@@ -187,18 +193,17 @@ async def test_tokoin_mission_reward_transfers_without_minting(api_client, uniqu
 
 
 async def test_tokoin_blockchain_seals_ledger_entries_without_economic_effect(
-    api_client, unique_name
+    api_client, unique_name, grant_reward_admin
 ):
     coordinator = await register_agent(
         api_client, SigningKeypair(), f"{unique_name}-block-coordinator"
     )
     worker = await register_agent(api_client, SigningKeypair(), f"{unique_name}-block-worker")
-    initial_seal = await api_client.post(
-        "/v1/tokoins/blockchain/seal", headers=_auth(coordinator)
-    )
+    initial_seal = await api_client.post("/v1/tokoins/blockchain/seal", headers=_auth(coordinator))
     assert initial_seal.status_code == 201, initial_seal.text
     assert initial_seal.json()["verification"]["valid"] is True
 
+    grant_reward_admin(coordinator)
     mission = await _create_mission(api_client, coordinator)
     mission_id = mission["mission_id"]
     joined = await api_client.post(
@@ -236,8 +241,7 @@ async def test_tokoin_blockchain_seals_ledger_entries_without_economic_effect(
     assert block["proof_bundle_hash"]
     assert block["proof_bundle"]["schema"] == "agora.tokoin.block_proof_bundle.v2"
     assert any(
-        entry["entry_id"] == reward.json()["entry_id"]
-        for entry in block["proof_bundle"]["entries"]
+        entry["entry_id"] == reward.json()["entry_id"] for entry in block["proof_bundle"]["entries"]
     )
 
     after = (await api_client.get("/v1/tokoins/status")).json()
@@ -247,14 +251,13 @@ async def test_tokoin_blockchain_seals_ledger_entries_without_economic_effect(
 
 
 async def test_signed_wallet_transfer_requires_device_signature_and_rejects_replay(
-    api_client, unique_name
+    api_client, unique_name, grant_reward_admin
 ):
     coordinator_key = SigningKeypair()
     receiver_key = SigningKeypair()
-    coordinator = await register_agent(
-        api_client, coordinator_key, f"{unique_name}-signed-sender"
-    )
+    coordinator = await register_agent(api_client, coordinator_key, f"{unique_name}-signed-sender")
     receiver = await register_agent(api_client, receiver_key, f"{unique_name}-signed-receiver")
+    grant_reward_admin(coordinator)
     mission = await _create_mission(api_client, coordinator)
     mission_id = mission["mission_id"]
     joined = await api_client.post(
@@ -291,13 +294,16 @@ async def test_signed_wallet_transfer_requires_device_signature_and_rejects_repl
     ).json()
     assert message["context"] == "agora.tokoin.transfer.v1"
     assert message["from_wallet_id"] == coordinator["wallet_id"]
-    assert message["canonical_message"] == signed_transfer_message(
-        from_wallet_id=coordinator["wallet_id"],
-        to_wallet_id=receiver_wallet["wallet_id"],
-        amount=11,
-        reason="signed_peer_transfer",
-        nonce=nonce,
-    ).decode()
+    assert (
+        message["canonical_message"]
+        == signed_transfer_message(
+            from_wallet_id=coordinator["wallet_id"],
+            to_wallet_id=receiver_wallet["wallet_id"],
+            amount=11,
+            reason="signed_peer_transfer",
+            nonce=nonce,
+        ).decode()
+    )
 
     invalid = await api_client.post(
         "/v1/agents/me/wallet/transfers",
@@ -398,14 +404,18 @@ async def test_tokoin_blocks_are_append_only(api_client, unique_name):
     assert blockchain["verification"]["valid"] is True
 
 
-async def test_tokoin_rewards_are_creator_and_participant_scoped(api_client, unique_name):
+async def test_tokoin_rewards_are_creator_and_participant_scoped(
+    api_client, unique_name, grant_reward_admin
+):
     creator = await register_agent(api_client, SigningKeypair(), f"{unique_name}-creator")
     participant = await register_agent(api_client, SigningKeypair(), f"{unique_name}-participant")
     outsider = await register_agent(api_client, SigningKeypair(), f"{unique_name}-outsider")
+    grant_reward_admin(creator)
     mission = await _create_mission(api_client, creator)
     mission_id = mission["mission_id"]
     await api_client.post(f"/v1/missions/{mission_id}/join", json={}, headers=_auth(participant))
 
+    grant_reward_admin(participant)
     non_creator = await api_client.post(
         f"/v1/missions/{mission_id}/tokoin-rewards",
         json={"agent_id": creator["agent_id"], "amount": 1, "reason": "not_authorized"},
@@ -413,6 +423,7 @@ async def test_tokoin_rewards_are_creator_and_participant_scoped(api_client, uni
     )
     assert non_creator.status_code == 403
 
+    grant_reward_admin(creator)
     not_participant = await api_client.post(
         f"/v1/missions/{mission_id}/tokoin-rewards",
         json={"agent_id": outsider["agent_id"], "amount": 1, "reason": "not_participant"},
@@ -421,9 +432,12 @@ async def test_tokoin_rewards_are_creator_and_participant_scoped(api_client, uni
     assert not_participant.status_code == 403
 
 
-async def test_tokoin_reward_payload_rejects_unknown_mint_field(api_client, unique_name):
+async def test_tokoin_reward_payload_rejects_unknown_mint_field(
+    api_client, unique_name, grant_reward_admin
+):
     creator = await register_agent(api_client, SigningKeypair(), f"{unique_name}-creator")
     participant = await register_agent(api_client, SigningKeypair(), f"{unique_name}-participant")
+    grant_reward_admin(creator)
     mission = await _create_mission(api_client, creator)
     await api_client.post(
         f"/v1/missions/{mission['mission_id']}/join", json={}, headers=_auth(participant)
@@ -458,3 +472,59 @@ async def test_tokoin_ledger_is_append_only(api_client):
 
     ledger = (await api_client.get("/v1/tokoins/ledger")).json()
     assert ledger["verification"]["valid"] is True
+
+
+async def test_ordinary_mission_creator_cannot_spend_world_treasury(
+    api_client, unique_name, monkeypatch
+):
+    monkeypatch.setattr(get_settings(), "tokoin_reward_admin_agent_ids", [])
+    creator = await register_agent(api_client, SigningKeypair(), f"{unique_name}-ordinary-creator")
+    mission = await _create_mission(api_client, creator)
+    await api_client.post(
+        f"/v1/missions/{mission['mission_id']}/join", json={}, headers=_auth(creator)
+    )
+    before = (await api_client.get("/v1/tokoins/status")).json()["treasury_balance_aceros"]
+    response = await api_client.post(
+        f"/v1/missions/{mission['mission_id']}/tokoin-rewards",
+        json={
+            "agent_id": creator["agent_id"],
+            "amount": 1_000_000_000_000,
+            "reason": "unbudgeted_request",
+        },
+        headers=_auth(creator),
+    )
+    assert response.status_code == 403, response.text
+    assert (await api_client.get("/v1/tokoins/status")).json()["treasury_balance_aceros"] == before
+
+
+async def test_legacy_treasury_rewards_denied_in_production_even_for_operator(
+    api_client, unique_name, monkeypatch, grant_reward_admin
+):
+    from types import SimpleNamespace
+
+    from agora_api.routes import tokoins
+
+    creator = await register_agent(
+        api_client, SigningKeypair(), f"{unique_name}-production-operator"
+    )
+    grant_reward_admin(creator)
+    mission = await _create_mission(api_client, creator)
+    await api_client.post(
+        f"/v1/missions/{mission['mission_id']}/join", json={}, headers=_auth(creator)
+    )
+    before = (await api_client.get("/v1/tokoins/status")).json()["treasury_balance_aceros"]
+    monkeypatch.setattr(
+        tokoins,
+        "get_settings",
+        lambda: SimpleNamespace(
+            is_production=True,
+            tokoin_reward_admin_agent_ids=[creator["agent_id"]],
+        ),
+    )
+    response = await api_client.post(
+        f"/v1/missions/{mission['mission_id']}/tokoin-rewards",
+        json={"agent_id": creator["agent_id"], "amount": 1, "reason": "production_denied"},
+        headers=_auth(creator),
+    )
+    assert response.status_code == 409, response.text
+    assert (await api_client.get("/v1/tokoins/status")).json()["treasury_balance_aceros"] == before

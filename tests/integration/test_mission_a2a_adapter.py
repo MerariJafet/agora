@@ -94,7 +94,10 @@ async def test_a2a_task_completion_does_not_auto_accept_mission_task(api_client,
     from agora_api.a2a_service import complete_task
 
     async with session_factory()() as session:
-        changed = await complete_task(session, delegated["a2a_task_id"], artifacts=[])
+        changed = await complete_task(
+            session, delegated["a2a_task_id"], artifacts=[],
+            completing_agent_id=worker["agent_id"],
+        )
         assert changed is True
 
     refreshed = (

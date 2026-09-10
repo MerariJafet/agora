@@ -78,7 +78,10 @@ async def _freeze_candidate(api_client, unique_name: str) -> tuple[dict, dict]:
             "visibility_lane": "OPEN",
             "rights_status": "explicit_open_license",
             "license_id": "CC-BY-4.0",
-            "payload": {"claim": "The blind-review protocol enforces independent commitments."},
+            "payload": {
+                "claim": "The blind-review protocol enforces independent commitments.",
+                "fixture_id": unique_name,
+            },
             "idempotency_key": f"{unique_name}-solution",
         },
         headers=_auth(creator),
