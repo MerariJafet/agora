@@ -1,0 +1,157 @@
+{
+  "schema": "agora-pilot-plan.v1",
+  "study_status": "DRAFT_NOT_PREREGISTERED",
+  "preregistration_reference": null,
+  "purpose": "External protocol pilot; no superiority claim predeclared",
+  "task_ids": [
+    "prime-10000",
+    "seeded-trace-error",
+    "public-analysis-reproduction"
+  ],
+  "task_specifications": {
+    "prime-10000": "Freeze method/output contract: primes below10000; list bytes, count, SHA256, exclusions.",
+    "seeded-trace-error": "Independent evaluator prepares bounded arithmetic trace with one hidden error; freeze its hash and scoring rubric before assignments.",
+    "public-analysis-reproduction": "External scientific partner selects a bounded licensed dataset and target analysis; freeze exact dataset/code hashes and acceptance rubric before the pilot."
+  },
+  "operator_actions_required": [
+    "Replace owner placeholders, fix agent/model versions and evaluator identity evidence.",
+    "Freeze task/data/rubric hashes, randomized order seed, budget policy and exclusions.",
+    "Register this exact plan externally before executing any run.",
+    "Do not expose hidden answer keys to participants."
+  ],
+  "equal_budget_per_run": {
+    "max_cost_usd": 5,
+    "max_tokens": 20000,
+    "max_wall_seconds": 900
+  },
+  "budget_policy": "Aggregate all cooperating agents and retries inside each run; same cap per arm. Report actual cost including failed calls. No new runs allocated after seeing outcomes.",
+  "reviewer_registry": [],
+  "assignments": [
+    {
+      "run_id": "prime-10000-1",
+      "task_id": "prime-10000",
+      "arm": "single-agent",
+      "owner_ids": [
+        "REPLACE_WITH_REAL_OWNER_ID"
+      ],
+      "budget": {
+        "max_cost_usd": 5,
+        "max_tokens": 20000,
+        "max_wall_seconds": 900
+      },
+      "model_version": "REPLACE_BEFORE_PREREGISTRATION"
+    },
+    {
+      "run_id": "prime-10000-2",
+      "task_id": "prime-10000",
+      "arm": "conventional-multi-agent",
+      "owner_ids": [
+        "REPLACE_WITH_REAL_OWNER_ID"
+      ],
+      "budget": {
+        "max_cost_usd": 5,
+        "max_tokens": 20000,
+        "max_wall_seconds": 900
+      },
+      "model_version": "REPLACE_BEFORE_PREREGISTRATION"
+    },
+    {
+      "run_id": "prime-10000-3",
+      "task_id": "prime-10000",
+      "arm": "agora",
+      "owner_ids": [
+        "REPLACE_WITH_REAL_OWNER_ID"
+      ],
+      "budget": {
+        "max_cost_usd": 5,
+        "max_tokens": 20000,
+        "max_wall_seconds": 900
+      },
+      "model_version": "REPLACE_BEFORE_PREREGISTRATION"
+    },
+    {
+      "run_id": "seeded-trace-error-1",
+      "task_id": "seeded-trace-error",
+      "arm": "single-agent",
+      "owner_ids": [
+        "REPLACE_WITH_REAL_OWNER_ID"
+      ],
+      "budget": {
+        "max_cost_usd": 5,
+        "max_tokens": 20000,
+        "max_wall_seconds": 900
+      },
+      "model_version": "REPLACE_BEFORE_PREREGISTRATION"
+    },
+    {
+      "run_id": "seeded-trace-error-2",
+      "task_id": "seeded-trace-error",
+      "arm": "conventional-multi-agent",
+      "owner_ids": [
+        "REPLACE_WITH_REAL_OWNER_ID"
+      ],
+      "budget": {
+        "max_cost_usd": 5,
+        "max_tokens": 20000,
+        "max_wall_seconds": 900
+      },
+      "model_version": "REPLACE_BEFORE_PREREGISTRATION"
+    },
+    {
+      "run_id": "seeded-trace-error-3",
+      "task_id": "seeded-trace-error",
+      "arm": "agora",
+      "owner_ids": [
+        "REPLACE_WITH_REAL_OWNER_ID"
+      ],
+      "budget": {
+        "max_cost_usd": 5,
+        "max_tokens": 20000,
+        "max_wall_seconds": 900
+      },
+      "model_version": "REPLACE_BEFORE_PREREGISTRATION"
+    },
+    {
+      "run_id": "public-analysis-reproduction-1",
+      "task_id": "public-analysis-reproduction",
+      "arm": "single-agent",
+      "owner_ids": [
+        "REPLACE_WITH_REAL_OWNER_ID"
+      ],
+      "budget": {
+        "max_cost_usd": 5,
+        "max_tokens": 20000,
+        "max_wall_seconds": 900
+      },
+      "model_version": "REPLACE_BEFORE_PREREGISTRATION"
+    },
+    {
+      "run_id": "public-analysis-reproduction-2",
+      "task_id": "public-analysis-reproduction",
+      "arm": "conventional-multi-agent",
+      "owner_ids": [
+        "REPLACE_WITH_REAL_OWNER_ID"
+      ],
+      "budget": {
+        "max_cost_usd": 5,
+        "max_tokens": 20000,
+        "max_wall_seconds": 900
+      },
+      "model_version": "REPLACE_BEFORE_PREREGISTRATION"
+    },
+    {
+      "run_id": "public-analysis-reproduction-3",
+      "task_id": "public-analysis-reproduction",
+      "arm": "agora",
+      "owner_ids": [
+        "REPLACE_WITH_REAL_OWNER_ID"
+      ],
+      "budget": {
+        "max_cost_usd": 5,
+        "max_tokens": 20000,
+        "max_wall_seconds": 900
+      },
+      "model_version": "REPLACE_BEFORE_PREREGISTRATION"
+    }
+  ]
+}

@@ -95,7 +95,7 @@
         "institution_mode": {"const": "simulated_test"},
         "accreditation_status": {"const": "NOT_REAL"},
         "public_label": {"const": "Institución simulada para pruebas de AGORA"},
-        "brain_provider": {"type": "string", "enum": ["codex", "claude"]},
+        "brain_provider": {"type": "string", "enum": ["codex", "claude", "python-scripted-test"]},
         "review_role": {"type": "string", "enum": ["REPRODUCTION_METHODOLOGY", "FALSIFICATION_EVIDENCE"]},
         "scientific_domains": {
           "type": "array",

@@ -1,0 +1,29 @@
+FROM node:20-slim@sha256:c6585df72c34172bebd8d36abed961e231d7d3b5cee2e01294c4495e8a03f687 AS web-build
+ENV NEXT_TELEMETRY_DISABLED=1
+WORKDIR /app/apps/web
+COPY apps/web/package.json apps/web/package-lock.json ./
+COPY packages/sdk-typescript /app/packages/sdk-typescript
+RUN npm ci --no-audit --no-fund
+COPY apps/web /app/apps/web
+ARG AGORA_API_REWRITE_TARGET=http://api:8700
+ARG NEXT_PUBLIC_AGORA_API_URL=/agora-api
+ARG NEXT_PUBLIC_AGORA_WS_URL=/agora-api/v1/realtime/web
+ENV AGORA_API_REWRITE_TARGET=$AGORA_API_REWRITE_TARGET \
+    AGORA_CANONICAL_API_URL=$AGORA_API_REWRITE_TARGET \
+    NEXT_PUBLIC_AGORA_API_URL=$NEXT_PUBLIC_AGORA_API_URL \
+    NEXT_PUBLIC_AGORA_WS_URL=$NEXT_PUBLIC_AGORA_WS_URL
+RUN npm run build
+
+FROM node:20-slim@sha256:c6585df72c34172bebd8d36abed961e231d7d3b5cee2e01294c4495e8a03f687 AS web
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOME=/home/agora \
+    AGORA_API_REWRITE_TARGET=http://api:8700 AGORA_CANONICAL_API_URL=http://api:8700
+RUN groupadd --gid 10001 agora && useradd --uid 10001 --gid 10001 --create-home agora
+WORKDIR /app/apps/web
+COPY --from=web-build --chown=10001:10001 /app /app
+ARG AGORA_SOURCE_SHA256
+LABEL org.agora.source-sha256=$AGORA_SOURCE_SHA256
+USER 10001:10001
+EXPOSE 3000
+HEALTHCHECK --interval=15s --timeout=8s --start-period=30s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"
+CMD ["npm", "run", "start", "--", "--hostname", "0.0.0.0"]

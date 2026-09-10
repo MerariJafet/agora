@@ -1,0 +1,27 @@
+{
+  "release": "LOCAL_ALPHA_HARDENING_V0_2",
+  "source_commit": "aa21f2e6fac27362da1017ca5800a1ded1bdb7bf",
+  "mode": "TEST_NON_RECOGNIZABLE",
+  "external_launch_authorized": false,
+  "external_genesis": null,
+  "pilot_balances_imported": false,
+  "recognized_economic_units": 0,
+  "engine": {
+    "version": "0.38.26",
+    "commit": "94d77f9f51a72e2b7d832798859f6222f08028f8",
+    "sha256": "6edb2aa0f223e71758a48cf3d13d9d7ffd26f3357585bebe54311ba71f11ac3f"
+  },
+  "operator_keys": "Generate independently; no bundled private validator keys",
+  "independent_operators_verified": 0,
+  "independent_machines_verified": 0,
+  "external_incident_contact": null,
+  "remaining_gates": [
+    "Complete clock-skew coverage",
+    "Scientific end-to-end network workflow",
+    "Negative review compensation protocol",
+    "Independent security review",
+    "External operator installation and fault tests",
+    "Publication responsibility and disclosure decision"
+  ],
+  "local_evidence": "audit/local-alpha-v02/RELEASE_MANIFEST.json"
+}
