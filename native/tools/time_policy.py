@@ -7,7 +7,11 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PURE = ["native/tokoin_native/core.py", "native/tokoin_native/protocol_time.py"]
+PURE = [
+    "native/tokoin_native/core.py",
+    "native/tokoin_native/protocol_time.py",
+    "native/tokoin_native/v03_science.py",
+]
 FORBIDDEN = {
     "time",
     "datetime",

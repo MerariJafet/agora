@@ -481,3 +481,25 @@ async def get_reproducibility_package(
     candidate_id: str, session: AsyncSession = Depends(get_session)
 ) -> dict:
     return await reproducibility_package(session, candidate_id)
+
+
+@router.post('/test-challenges', status_code=201)
+async def post_test_challenge(request: Request, device: CurrentDevice,
+                             session: AsyncSession = Depends(get_session)) -> dict:
+    from pydantic import ValidationError
+
+    from agora_api.errors import ValidationFailed
+    from agora_api.ratelimit import enforce_rate_limit
+    from agora_api.v03_test_challenges import TestChallengeRequest, create_test_challenge
+
+    await enforce_rate_limit('mission_create', device.agent_id)
+    try:
+        body = TestChallengeRequest.model_validate(await request.json())
+    except (ValueError, ValidationError) as error:
+        raise ValidationFailed('Invalid TEST challenge request.') from error
+    agent = await session.get(Agent, device.agent_id)
+    assert agent is not None
+    result = await create_test_challenge(session, agent, body,
+                                        getattr(request.state, 'trace_id', None))
+    await session.commit()
+    return result

@@ -182,6 +182,10 @@ def make_genesis(
 
 
 def initial_state(genesis):
+    if type(genesis) is dict and "scientific_protocol" in genesis:
+        from .v03_science import initial_v03
+
+        return initial_v03(genesis)
     fields(
         genesis,
         "version transaction_version mode chain_id max_supply_units pilot_cap_units unit "
@@ -361,8 +365,13 @@ def _apply(genesis, s, tx):
     unsigned = {k: v for k, v in tx.items() if k != "signature"}
     verify(tx["public_key"], "tokoin.transaction.v3", unsigned, tx["signature"])
     p, kind = tx["payload"], tx["kind"]
+    require(type(kind) is str, "transaction kind required")
     require(type(p) is dict, "payload object required")
-    if kind == "review_commit":
+    if kind.startswith("science_"):
+        from .v03_science import apply
+
+        apply(genesis, s, tx)
+    elif kind == "review_commit":
         fields(p, "reward_hash commitment")
         hex_value(p["reward_hash"])
         hex_value(p["commitment"])
@@ -384,6 +393,7 @@ def _apply(genesis, s, tx):
         panel[key]["verdict"] = p["verdict"]
         panel[key]["review_hash"] = digest("tokoin.review.v2", p)
     elif kind == "authorize":
+        require("scientific_protocol" not in genesis, "V03 scientific lifecycle required")
         allocations = _authorization(genesis, s, p)
         rid = p["reward_id"]
         candidate = p["research_id"] + ":" + str(p["candidate_version"])
@@ -500,6 +510,10 @@ def _apply(genesis, s, tx):
         )
         history.append(copy.deepcopy(p) | {"height": s["height"], "time": s["time"]})
         reward["scientific_status"] = "INVALIDATED_AFTER_MATURITY"
+        if "science" in s:
+            from .v03_science import propagate_review_dependency
+
+            propagate_review_dependency(s, d["reward_id"])
     elif kind == "challenge_decide":
         decision = _decision(genesis, p)
         challenge = s["challenges"].get(decision["challenge_id"])
@@ -543,6 +557,10 @@ def _apply(genesis, s, tx):
                 )
             del reward["active_challenge"]
         challenge.setdefault("decisions", []).append(copy.deepcopy(p))
+        if "science" in s:
+            from .v03_science import propagate_review_dependency
+
+            propagate_review_dependency(s, decision["reward_id"])
     elif kind == "finalize":
         fields(p, "reward_id")
         reward = s["rewards"].get(p["reward_id"])
@@ -551,6 +569,10 @@ def _apply(genesis, s, tx):
             ProtocolTime(s["time"]).reached(reward["unlock_at"]),
             "365 days not elapsed",
         )
+        if "science" in s:
+            from .v03_science import validate_dependency_finality
+
+            validate_dependency_finality(s, reward)
         # Submissions stay in history; only evidence admitted by the scientific
         # protocol suspends finality. A hash-only allegation cannot lock funds.
         for recipient, amount in reward["allocations"].items():
