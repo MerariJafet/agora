@@ -31,7 +31,9 @@ def test_production_file_keystore_with_explicit_opt_in(file_backend, monkeypatch
     public_key = manager.generate()
     assert len(public_key) == 43
     warning = capsys.readouterr().err
-    assert "WARNING" in warning and "fallback" in warning.lower()
+    # The file keystore is never selected silently: a notice names the
+    # missing keyring and the 0600 file (F-003 reworded it to be calm).
+    assert "keyring" in warning.lower() and "0600" in warning
     key_file = file_backend / "keys" / "OptInAgent.ed25519"
     assert key_file.exists()
     assert (key_file.stat().st_mode & 0o777) == 0o600
@@ -41,7 +43,8 @@ def test_dev_fallback_warns_and_restricts_permissions(file_backend, monkeypatch,
     monkeypatch.delenv("AGORA_BRIDGE_ENV", raising=False)
     manager = IdentityManager("DevAgent")
     manager.generate()
-    assert "WARNING" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "keyring" in err.lower() and "0600" in err
     key_file = file_backend / "keys" / "DevAgent.ed25519"
     assert (key_file.stat().st_mode & 0o777) == 0o600
     # signing works and never prints/logs key material

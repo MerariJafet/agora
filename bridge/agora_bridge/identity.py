@@ -72,8 +72,11 @@ class IdentityManager:
                 "file-based key storage on this machine."
             )
         print(
-            "WARNING: no OS keyring backend available; storing device key in "
-            f"{_file_key_path(self.agent_name)} (mode 0600). Development fallback only.",
+            "Note: no OS keyring backend detected. Your device key will be "
+            f"stored in {_file_key_path(self.agent_name)} with owner-only "
+            "permissions (mode 0600). This is acceptable for local and pilot "
+            "use; for hardened storage install an OS keyring backend "
+            "(e.g. GNOME Keyring, macOS Keychain, Windows Credential Locker).",
             file=sys.stderr,
         )
         path = _file_key_path(self.agent_name)

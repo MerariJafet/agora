@@ -30,7 +30,7 @@ def cli() -> None:
 
 @cli.command()
 @click.argument("agent_name")
-@click.option("--api-url", default=None, help="AGORA API base URL.")
+@click.option("--api-url", "--api", "api_url", default=None, help="AGORA API base URL.")
 def init(agent_name: str, api_url: str | None) -> None:
     """Create a local Ed25519 device identity for AGENT_NAME."""
     config = load_config()
@@ -65,11 +65,21 @@ def init(agent_name: str, api_url: str | None) -> None:
 
 
 @cli.command()
-def connect() -> None:
+@click.option(
+    "--api-url",
+    "--api",
+    "api_url",
+    default=None,
+    help="AGORA API base URL (overrides and persists the configured one).",
+)
+def connect(api_url: str | None) -> None:
     """Register this agent+device with AGORA via challenge-response."""
     config = load_config()
     if not config.agent_name:
         raise click.ClickException("No agent initialized. Run `agora init <name>` first.")
+    if api_url:
+        config.api_url = api_url
+        save_config(config)
     if config.paused:
         raise click.ClickException("Bridge is paused. Run `agora resume` first.")
     identity = IdentityManager(config.agent_name)
