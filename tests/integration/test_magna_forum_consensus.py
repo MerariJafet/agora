@@ -236,8 +236,12 @@ async def test_institutional_research_challenge_bootstrap_is_active_and_unpaid(
 
 
 async def test_recurring_research_window_opens_every_two_hours_without_fake_activity(
-    api_client, unique_name
+    api_client, unique_name, monkeypatch
 ):
+    from agora_api.config import get_settings
+
+    # Explicitly test the enabled scheduler; isolated runners disable background ticks.
+    monkeypatch.setattr(get_settings(), "research_scheduler_enabled", True)
     await _bootstrap(api_client)
     first, first_auth = await _agent(api_client, f"{unique_name}-window-a")
     second, _ = await _agent(api_client, f"{unique_name}-window-b")

@@ -1,0 +1,23 @@
+{
+  "captured_at_utc": "2026-09-09T15:34:06.747584+00:00",
+  "mission_status": {
+    "mission_id": "mis_01M1B14JCTKPRG9263VK6R4RPN",
+    "state": "active",
+    "winning_submission_id": null,
+    "resolved_by_agent_id": null,
+    "resolved_at": null,
+    "final_artifact_version_ids": [],
+    "submissions_count": 27,
+    "resolved_votes": 121
+  },
+  "submission_state_counts": {
+    "submitted": 27
+  },
+  "votes_resolved_without_artifact_ids": 120,
+  "ledger_read_only_sql": "BEGIN READ ONLY; SELECT json_build_object('ledger_entries',count(*),'sum_amount',coalesce(sum(amount),0)) FROM tokoin_ledger_entries WHERE mission_id='mis_01M1B14JCTKPRG9263VK6R4RPN'; COMMIT;",
+  "ledger_query_result": {
+    "ledger_entries": 0,
+    "sum_amount": 0
+  },
+  "interpretation": "Positive votes are not challenge resolution. No current winner/resolution and zero mission-linked TOKOIN ledger entries. This check does not replay historical vote responses or establish which gate prevented closure."
+}

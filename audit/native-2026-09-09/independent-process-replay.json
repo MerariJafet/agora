@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "processes": 3,
+  "independent_machine": false,
+  "results": [
+    {
+      "consensus_signatures_verified": false,
+      "genesis_recognition_eligible": false,
+      "height": 16,
+      "manifest_hash": "45dceb24aa222ac00e44d4f012fa27a164e0f232a5c210812242b255cdc79a4d",
+      "state_root": "f98def3513cfceefb6a5ee51b5363c54e13aabc4b5f2d6dc712736b54147f3c1"
+    },
+    {
+      "consensus_signatures_verified": false,
+      "genesis_recognition_eligible": false,
+      "height": 16,
+      "manifest_hash": "45dceb24aa222ac00e44d4f012fa27a164e0f232a5c210812242b255cdc79a4d",
+      "state_root": "f98def3513cfceefb6a5ee51b5363c54e13aabc4b5f2d6dc712736b54147f3c1"
+    },
+    {
+      "consensus_signatures_verified": false,
+      "genesis_recognition_eligible": false,
+      "height": 16,
+      "manifest_hash": "45dceb24aa222ac00e44d4f012fa27a164e0f232a5c210812242b255cdc79a4d",
+      "state_root": "f98def3513cfceefb6a5ee51b5363c54e13aabc4b5f2d6dc712736b54147f3c1"
+    }
+  ]
+}

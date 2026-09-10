@@ -1,0 +1,45 @@
+{
+  "evaluated_at": "2026-09-09T16:45:30.209215+00:00",
+  "commit": "717bf39627502e96a4c9e2a21a7f9a34cb6d4c63",
+  "scope": "implemented local pilot candidate; external gates remain",
+  "public_release_verdict": "NO-GO",
+  "verification": {
+    "python_tests_passed": 610,
+    "python_tests_skipped": 1,
+    "suite_seconds": 157.75,
+    "ruff": "PASS",
+    "mypy_files": 126,
+    "python_dependencies_audited": 106,
+    "known_python_vulnerabilities": 0,
+    "container_smoke": "PASS",
+    "container_smoke_seconds": 32.92,
+    "web_cookie_websocket_proxy": "PASS",
+    "image_source_bindings": "API/Bridge/Web verified"
+  },
+  "load": {
+    "connections": 500,
+    "heartbeats_confirmed": 2500,
+    "messages_written_and_read": 50,
+    "tasks_claimed_completed_read": 30,
+    "provider_calls": 0,
+    "economic_actions": 0,
+    "status": "PASS",
+    "duration_seconds": 30.570416801994725,
+    "classification": "brief local TEST-only protocol exercise, not sustained capacity"
+  },
+  "migration": "0037_a2a_delivery_contract",
+  "live_api_restarted": false,
+  "live_database_migrated": false,
+  "public_deployment_performed": false,
+  "network_token_transactions": 0,
+  "plan": "docs/strategy/2026-09-09-implementation-status.md",
+  "packaging": "infra/pilot/README.md",
+  "external_pilot": "docs/pilot/README.md",
+  "blockers": [
+    "Real domain/HTTPS/ingress/OIDC/secrets and destination recovery acceptance unverified",
+    "External-owner integration, independent reproduction and demand not yet demonstrated",
+    "Distribution rights and exact-candidate independent security review unresolved",
+    "Public TOKOIN independent audit, Safe/custody/authorization and economic distribution gates unresolved",
+    "Candidate has not been promoted to running API; local tests do not prove public SLO"
+  ]
+}

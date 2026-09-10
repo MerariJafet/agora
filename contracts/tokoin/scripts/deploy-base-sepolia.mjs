@@ -3,6 +3,8 @@ import path from "node:path";
 import { network } from "hardhat";
 import { evaluatePublicTestnetReadiness, repoRoot } from "./release-preflight-lib.mjs";
 
+import { verifyControlGovernance } from "./deployment-verifier-lib.mjs";
+
 const readiness = evaluatePublicTestnetReadiness();
 if (!readiness.ready) throw new Error(`release preflight failed: ${readiness.blockers.join(",")}`);
 
@@ -13,6 +15,9 @@ if (chainId !== 84532) throw new Error(`refusing unexpected chain ${chainId}`);
 const treasury = process.env.TOKOIN_GENESIS_TREASURY_ADDRESS;
 const settlementAuthority = process.env.TOKOIN_SETTLEMENT_AUTHORITY_ADDRESS;
 const identityIssuer = process.env.AGORA_IDENTITY_ISSUER_ADDRESS;
+const controlGovernance = await verifyControlGovernance(ethers.provider, [
+  treasury, settlementAuthority, identityIssuer,
+]);
 const token = await ethers.deployContract("TokoinFixedSupply", [treasury]);
 await token.waitForDeployment();
 const tokenReceipt = await token.deploymentTransaction().wait(2);
@@ -45,6 +50,7 @@ const output = {
   network: "BASE_SEPOLIA",
   chain_id: chainId,
   economic_value: false,
+  control_governance: controlGovernance,
   contracts: {
     TokoinFixedSupply: tokenAddress,
     TokoinResearchRewards: await rewards.getAddress(),

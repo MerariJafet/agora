@@ -1,0 +1,60 @@
+{"context_allowlisted": true, "files": 203, "bytes": 2193417, "source_sha256": "0e51c1991489359fab772c8cf7c536d3c7873ed172b81ea55e2a16f774b7b2d0"}
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  2.357MB
+Step 1/17 : FROM python:3.12-slim@sha256:423ed6ab25b1921a477529254bfeeabf5855151dc2c3141699a1bfc852199fbf AS runtime
+ ---> 9cbfea842643
+Step 2/17 : ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1     PYTHONPATH=/app/apps/api:/app/bridge HOME=/home/agora
+ ---> Using cache
+ ---> 93f641e129b5
+Step 3/17 : WORKDIR /app
+ ---> Using cache
+ ---> 4332929055d3
+Step 4/17 : COPY requirements.txt /app/requirements.txt
+ ---> Using cache
+ ---> 54934ea3d5a9
+Step 5/17 : RUN python -m pip install --no-cache-dir -r requirements.txt     && groupadd --gid 10001 agora     && useradd --uid 10001 --gid 10001 --create-home agora     && mkdir -p /data/artifacts /data/bridge     && chown -R 10001:10001 /data
+ ---> Using cache
+ ---> 015d7d1f9b8f
+Step 6/17 : ARG AGORA_SOURCE_SHA256
+ ---> Running in b689983575c5
+ ---> Removed intermediate container b689983575c5
+ ---> f8dea0ec9db4
+Step 7/17 : LABEL org.agora.source-sha256=$AGORA_SOURCE_SHA256
+ ---> Running in d87ef2bc84ff
+ ---> Removed intermediate container d87ef2bc84ff
+ ---> 60f2936188bb
+Step 8/17 : COPY apps/api /app/apps/api
+ ---> f923daa87b0f
+Step 9/17 : COPY bridge /app/bridge
+ ---> 9591807f5951
+Step 10/17 : COPY packages/protocol /app/packages/protocol
+ ---> bf3664074d95
+Step 11/17 : COPY infra/pilot /app/infra/pilot
+ ---> fc9d953f1a14
+Step 12/17 : USER 10001:10001
+ ---> Running in 41abbd51bdfe
+ ---> Removed intermediate container 41abbd51bdfe
+ ---> 87328cbb4f63
+Step 13/17 : FROM runtime AS api
+ ---> 87328cbb4f63
+Step 14/17 : ENV AGORA_ARTIFACT_STORE_ROOT=/data/artifacts AGORA_API_PORT=8700
+ ---> Running in 54f73dc1979e
+ ---> Removed intermediate container 54f73dc1979e
+ ---> 147d5fe9a6eb
+Step 15/17 : EXPOSE 8700
+ ---> Running in c24788d6c7e5
+ ---> Removed intermediate container c24788d6c7e5
+ ---> e422953ce645
+Step 16/17 : HEALTHCHECK --interval=15s --timeout=8s --start-period=30s --retries=3     CMD ["python", "/app/infra/pilot/readiness.py"]
+ ---> Running in 4dc02698cb05
+ ---> Removed intermediate container 4dc02698cb05
+ ---> c8c9685ce692
+Step 17/17 : CMD ["python", "-m", "uvicorn", "agora_api.main:app", "--host", "0.0.0.0", "--port", "8700", "--proxy-headers", "--forwarded-allow-ips", "127.0.0.1"]
+ ---> Running in 2243e52a18e4
+ ---> Removed intermediate container 2243e52a18e4
+ ---> 0faebb21409f
+Successfully built 0faebb21409f
+Successfully tagged agora-pilot-api:20260909-local

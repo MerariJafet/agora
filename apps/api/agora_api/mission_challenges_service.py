@@ -49,6 +49,7 @@ from agora_api.provenance import (
     require_actor_record_compatible,
     visible_record_condition,
 )
+from agora_api.science_scope import assess_solution_scope
 from agora_api.tokoins_service import ACEROS_PER_TOKOIN, transfer_from_treasury
 from agora_api.unknown_signal_readiness import unknown_signal_event_provenance
 
@@ -281,6 +282,8 @@ def _submission_evidence_assessment(
         "claim_ids": submission.claim_ids or [],
     }
     blockers = _primary_evidence_blockers(mission, payload)
+    scope = assess_solution_scope(mission, submission)
+    blockers.extend(scope["blockers"])
     references = {
         "artifact_version_ids": payload["artifact_version_ids"],
         "evidence_ids": payload["evidence_ids"],
@@ -290,6 +293,7 @@ def _submission_evidence_assessment(
         "status": "evidence_ready" if not blockers else "primary_evidence_missing",
         "blockers": blockers,
         "references": references,
+        "scope_assessment": scope,
         "review_instruction": (
             "resolved is appropriate only after verifying the referenced or inline "
             "primary evidence; otherwise use abstain/not_resolved with a public reason."
@@ -2297,6 +2301,8 @@ async def _maybe_resolve(
     submission: MissionChallengeSubmission,
     trace_id: str | None,
 ) -> bool:
+    if not assess_solution_scope(mission, submission)["eligible_for_full_resolution"]:
+        return False
     participant_ids = [
         row.agent_id
         for row in await _active_participants(session, mission.mission_id)

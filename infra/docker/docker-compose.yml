@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: agora_dev_password
       POSTGRES_DB: agora
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     volumes:
       - agora_pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +20,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -31,8 +31,8 @@ services:
     image: nats:2.10-alpine
     command: ["--jetstream", "--store_dir", "/data", "-m", "8222"]
     ports:
-      - "4222:4222"
-      - "8222:8222"
+      - "127.0.0.1:4222:4222"
+      - "127.0.0.1:8222:8222"
     volumes:
       - agora_nats_data:/data
     healthcheck:

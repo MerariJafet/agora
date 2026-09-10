@@ -1,0 +1,136 @@
+{
+  "observed_at": "2026-09-09T15:29:26.017459+00:00",
+  "scope": "read-only consistent local PostgreSQL snapshot; aggregates only",
+  "supply": [
+    {
+      "currency_code": "TOKOIN",
+      "max_supply": 100000000000000
+    }
+  ],
+  "wallet_totals": [
+    {
+      "wallets": 3505,
+      "positive_wallets": 64,
+      "balance_aceros": "1.00E+14",
+      "min_balance": 0,
+      "negative_wallets": 0,
+      "agent_balance_aceros": "19600000375",
+      "treasury_balance_aceros": "99980399999625"
+    }
+  ],
+  "ledger_by_type_provenance": [
+    {
+      "entry_type": "genesis",
+      "provenance": "unknown",
+      "entries": 1,
+      "amount_aceros": "1.00E+14",
+      "distinct_receiver_wallets": 1
+    },
+    {
+      "entry_type": "mission_reward",
+      "provenance": "test",
+      "entries": 38,
+      "amount_aceros": "3100000175",
+      "distinct_receiver_wallets": 38
+    },
+    {
+      "entry_type": "mission_reward",
+      "provenance": "unknown",
+      "entries": 35,
+      "amount_aceros": "16500000200",
+      "distinct_receiver_wallets": 25
+    }
+  ],
+  "wallet_by_provenance": [
+    {
+      "provenance": "missing",
+      "wallets": 2226,
+      "positive_wallets": 24,
+      "balance_aceros": "99996299999825"
+    },
+    {
+      "provenance": "real",
+      "wallets": 7,
+      "positive_wallets": 1,
+      "balance_aceros": "6.00E+6"
+    },
+    {
+      "provenance": "test",
+      "wallets": 1165,
+      "positive_wallets": 38,
+      "balance_aceros": "3100000175"
+    },
+    {
+      "provenance": "unknown",
+      "wallets": 107,
+      "positive_wallets": 1,
+      "balance_aceros": "5.9400E+8"
+    }
+  ],
+  "owner_concentration": [
+    {
+      "owners": 102,
+      "positive_owners": 0,
+      "top_owner_aceros": "0",
+      "owned_agent_balance_aceros": "0",
+      "max_agent_wallets_per_owner": 2
+    }
+  ],
+  "unowned_agent_balances": [
+    {
+      "wallets": 3352,
+      "balance_aceros": "19600000375"
+    }
+  ],
+  "ledger_projection": [
+    {
+      "mismatched_wallets": 0
+    }
+  ],
+  "deployments": [
+    {
+      "environment": "LOCAL_DEVNET",
+      "network_key": "LOCAL_DEVNET",
+      "chain_id": 31337,
+      "status": "LOCAL_SIMULATED_AUDIT_READY",
+      "source_verified": true,
+      "bytecode_verified": false,
+      "rows": 1
+    }
+  ],
+  "reservations": [],
+  "settlements": [],
+  "claimable": [],
+  "pre_public_entitlements": [],
+  "devnet_transfers": [],
+  "wallet_bindings": [],
+  "anchors": [],
+  "migration_snapshots": [],
+  "ledger_trigger_guards": [
+    {
+      "user_triggers": 2
+    }
+  ],
+  "ledger_integrity": {
+    "valid": true,
+    "entries": 74,
+    "total_balance": 100000000000000,
+    "max_supply": 100000000000000,
+    "unit": "acero",
+    "aceros_per_tokoin": 100000000
+  },
+  "internal_blocks_integrity": {
+    "valid": true,
+    "scheme": "tokoin_hash_chain_merkle_blocks_v1",
+    "blocks": 1,
+    "sealed_entries": 62,
+    "pending_entries": 12,
+    "signed_transfer_entries": 0,
+    "unsigned_legacy_transfer_entries": 0,
+    "currency_code": "TOKOIN",
+    "unit": "acero",
+    "aceros_per_tokoin": 100000000,
+    "max_supply_aceros": 100000000000000,
+    "security_model": "tamper_evident_internal_testnet_not_public_consensus"
+  }
+}

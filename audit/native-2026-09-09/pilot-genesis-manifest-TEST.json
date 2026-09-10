@@ -1,0 +1,81 @@
+{
+  "manifest": {
+    "balances_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+    "chain_id": "tokoin-test-local-network",
+    "challenges": {},
+    "created_units": 100000000,
+    "genesis_hash": "33438088359bf2f7ed3ea2456e5d907adfd9568e0ebc55f81c0f66924a613d2f",
+    "genesis_recognition_eligible": false,
+    "height": 16,
+    "history_root": "23730a9a4819d8e707ed40d54051ec9bd2da634cdb8f8c867aaea30cfb0945b6",
+    "kind": "PILOT_GENESIS_MANIFEST_TEST_ONLY",
+    "mode": "TEST_NON_RECOGNIZABLE",
+    "recognized_economic_units": 0,
+    "rewards": {
+      "TEST-network-reward-1": {
+        "allocations": {
+          "tkn11c8dd9a90fcf577c1bf1ed50b0b8e6b7fb1c079b6a9042632e405cf4704540c3": 10000000,
+          "tkn14122afb37ec8b5ea9291c12527c9d77334f02f1e4ee1486d9a5fe9628a4ac75a": 9000000,
+          "tkn157f5d13f00dfee8271c946f026200fdea991decd44a2aebd416d98f97e18e0ad": 10000000,
+          "tkn1bbcff04bb61a5eea4ffc1a13bf7b7361046222a9b128eed66ceb6aad62715cc4": 58250000,
+          "tkn1d2019fd081baddb4617e6bc9de8247b38026555aa48c66b1a0afebbfb454c73f": 12750000
+        },
+        "authorization": {
+          "candidate_version": 1,
+          "code_manifest_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "dataset_manifest_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "distribution_root": "3aa91d6edbf6169b963da97e6aaff4416a8b60125a06fa8eaa57ac8a527b48bc",
+          "genealogy_root": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "groups": {
+            "contributors": {
+              "tkn1bbcff04bb61a5eea4ffc1a13bf7b7361046222a9b128eed66ceb6aad62715cc4": 3,
+              "tkn1d2019fd081baddb4617e6bc9de8247b38026555aa48c66b1a0afebbfb454c73f": 1
+            },
+            "infra": {
+              "tkn14122afb37ec8b5ea9291c12527c9d77334f02f1e4ee1486d9a5fe9628a4ac75a": 1
+            },
+            "institutions": {
+              "tkn11c8dd9a90fcf577c1bf1ed50b0b8e6b7fb1c079b6a9042632e405cf4704540c3": 1,
+              "tkn157f5d13f00dfee8271c946f026200fdea991decd44a2aebd416d98f97e18e0ad": 1
+            },
+            "proposer": {
+              "tkn1bbcff04bb61a5eea4ffc1a13bf7b7361046222a9b128eed66ceb6aad62715cc4": 1
+            },
+            "solver": {
+              "tkn1bbcff04bb61a5eea4ffc1a13bf7b7361046222a9b128eed66ceb6aad62715cc4": 1
+            }
+          },
+          "paper_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "participant_controllers": [
+            "TEST-researcher"
+          ],
+          "protocol_version": "TOKOIN_NATIVE_REWARD_V2",
+          "research_id": "TEST-fixture-research-1",
+          "reward_id": "TEST-network-reward-1",
+          "reward_total": 100000000
+        },
+        "created_at": 1788975947,
+        "elapsed": 0,
+        "last_started": 1788975947,
+        "reviews": {
+          "07307cebf3c767f02ef690578f1156034fe04ce8a365a2e5650135a1b186116c": {
+            "commitment": "51d9f8afa2a4863e603a2c077ce3beaf3665de45f6cd27e1c351f933d51343e6",
+            "review_hash": "55cc511091aae65ffb177471aed966b6cc8f6827e7fe3ea65a616ff02cf48b77",
+            "verdict": "APPROVED"
+          },
+          "c2e3a36bcd257f36462b60af1a009d1d744cab690661d32ddbc53563af46aa87": {
+            "commitment": "bdd335f9565abc238cb532fd65835cfd427412a7dcb1bfe3765c6f3b3b73e956",
+            "review_hash": "ee5d244d847511cbc3f09373c43dd35f674412484f1797491fa0a934e777e9b8",
+            "verdict": "APPROVED"
+          }
+        },
+        "reward_hash": "3388810aa797db17bf0348e3977b06f0543029488f84352f4c3387c7d6133717",
+        "status": "LOCKED"
+      }
+    },
+    "state_root": "f98def3513cfceefb6a5ee51b5363c54e13aabc4b5f2d6dc712736b54147f3c1",
+    "test_balances": [],
+    "version": 2
+  },
+  "manifest_hash": "45dceb24aa222ac00e44d4f012fa27a164e0f232a5c210812242b255cdc79a4d"
+}

@@ -1,0 +1,29 @@
+{
+  "cometbft_commit": "94d77f9f51a72e2b7d832798859f6222f08028f8",
+  "gogoproto_version": "v1.7.0",
+  "grpcio_tools": "1.78.0",
+  "protobuf_runtime_minimum": "6.31.1",
+  "transform": "Imports namespaced; generated pyi module-level ClassVar[int] constants normalized to int",
+  "source_schemas": {
+    "gogoproto/gogo.proto": "a2bef0fb7e233ff2f442da08b3764be6ce59cc3f2df05cd1c9a44dbb5b55c18f",
+    "tendermint/abci/types.proto": "b0b78373a8f93c4f8a747367ba1a52f41e4d5e228ead24fe4ab71da600c33efd",
+    "tendermint/crypto/keys.proto": "adacf909484f519551cab1c1acd727e5d71c5343fd80434e12097e532fcb629e",
+    "tendermint/crypto/proof.proto": "926346f92322a8460753426c578e360c13cce5124d0d6e7245230c56b88613f7",
+    "tendermint/types/params.proto": "d4141c7d3dcb7ef207f9e46bcbddb124a1ee68aa9ae32c7abc95a4e57bd32e1c",
+    "tendermint/types/validator.proto": "d11afbbc8cc831f7d7e5af3a35d7f1641afd1ec0551e1f4d37ef2902d85a0b4c"
+  },
+  "generated_files": {
+    "gogoproto/gogo_pb2.py": "dbf4f3a6b743c4558ab1f363c122787ac769fdbf0bc6df70ded28f853f42bbb0",
+    "gogoproto/gogo_pb2.pyi": "c0a31874c53e75335774d7152c642af6bb191f5c584b87d7df30ed9612682328",
+    "tendermint/abci/types_pb2.py": "05e5a499eb1431f65ffa7f7c2ec0c561066268de8c2665ca48fd6a23751e8b69",
+    "tendermint/abci/types_pb2.pyi": "9bbf1d3bef3cf0b35055328e30d13c75f72c65274e38705d97f9fadd9fad960e",
+    "tendermint/crypto/keys_pb2.py": "2d8d26569956f8190d7dbc58be39a66bd36b75cbec0c67af26386922300289dc",
+    "tendermint/crypto/keys_pb2.pyi": "e68c5391ac034cd84773a0ee8787965d063aba5f1addae233889ba31434e4faa",
+    "tendermint/crypto/proof_pb2.py": "1e2ffce4092a72953bdd8d0c75d3cd8d041d093ad1381c7d4557a419d5e94ee8",
+    "tendermint/crypto/proof_pb2.pyi": "827e6b74d474ec685d9a953bb977615809f23468d14d7d68f6253480932db1bd",
+    "tendermint/types/params_pb2.py": "87c00b1045f008d075bf9a42b04a8d48c951b8059bf2dc0f9cbcf3b97c650486",
+    "tendermint/types/params_pb2.pyi": "8646e9bfef6fcb7d82398fdac33798616f43ad447771e53c1a235900c74ec630",
+    "tendermint/types/validator_pb2.py": "acec59ddf57704fc42a7a201dcba04e086f5be92bd8cea3029bf2a801481b57d",
+    "tendermint/types/validator_pb2.pyi": "54b9ed77b5a6f857b41dd4957f0a24778e016ec6d32dfe33fbcc9b0a62895fb2"
+  }
+}

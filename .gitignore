@@ -12,3 +12,5 @@ dist/
 *.tsbuildinfo
 contracts/tokoin/artifacts/
 contracts/tokoin/cache/
+# Local database backups are private operational data, never release artifacts.
+/backups/

@@ -1,0 +1,59 @@
+{
+  "agora-dev-postgres-1": {
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "agora-dev_agora_pg_data",
+        "Destination": "/var/lib/postgresql/data"
+      }
+    ],
+    "ports": {
+      "5432/tcp": [
+        {
+          "HostIp": "",
+          "HostPort": "5434"
+        }
+      ]
+    }
+  },
+  "agora-dev-redis-1": {
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "e09b508e464ffde95acafe27598ffcce78d960be8a7dcfe468ed613f8870b4e2",
+        "Destination": "/data"
+      }
+    ],
+    "ports": {
+      "6379/tcp": [
+        {
+          "HostIp": "",
+          "HostPort": "6380"
+        }
+      ]
+    }
+  },
+  "agora-dev-nats-1": {
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "agora-dev_agora_nats_data",
+        "Destination": "/data"
+      }
+    ],
+    "ports": {
+      "4222/tcp": [
+        {
+          "HostIp": "",
+          "HostPort": "4222"
+        }
+      ],
+      "8222/tcp": [
+        {
+          "HostIp": "",
+          "HostPort": "8222"
+        }
+      ]
+    }
+  }
+}

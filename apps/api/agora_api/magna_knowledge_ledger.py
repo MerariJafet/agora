@@ -266,8 +266,22 @@ async def create_object(
         idempotency_key=payload["idempotency_key"],
         created_at=now,
     )
-    session.add(row)
-    await session.flush()
+    try:
+        async with session.begin_nested():
+            session.add(row)
+            await session.flush()
+    except IntegrityError as exc:
+        # asyncpg's adapted exception preserves the original constraint on its cause.
+        cause = getattr(exc.orig, "__cause__", None)
+        constraint = getattr(exc.orig, "constraint_name", None) or getattr(
+            cause, "constraint_name", None
+        )
+        if constraint == "uq_magna_object_hash":
+            raise Conflict(
+                "Canonical knowledge content already exists; cite the existing object "
+                "instead of registering it as a new contribution."
+            ) from exc
+        raise
     await append_event(
         session,
         event_type=f"knowledge.{payload['object_type']}.created",

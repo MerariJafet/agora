@@ -1,0 +1,20 @@
+{
+  "verdict": "NO-GO",
+  "paper_architecture_draft": "READY_WITH_EXPLICIT_LOCAL_LIMITATIONS",
+  "public_production": "NO-GO",
+  "economic_token_launch": "NO-GO",
+  "python_tests": 524,
+  "web_tests": 38,
+  "contract_invariants": 21,
+  "preflight_tests": 7,
+  "bundle_tests": 18,
+  "restore_tables": 143,
+  "restore_rows": 17332513,
+  "infra_loopback_and_volumes_verified": true,
+  "application_process_restarted": false,
+  "public_deployment_performed": false,
+  "financial_transactions": 0,
+  "institutional_validation_real": false,
+  "token_candidate_sha256": "5086bcb6efd63e6758a447e6ed5d7984171f293fa7a4f2c0b2120b49d83cf2b6",
+  "report": ".Codex/release-gate/reports/2026-09-09-agora-launch.md"
+}

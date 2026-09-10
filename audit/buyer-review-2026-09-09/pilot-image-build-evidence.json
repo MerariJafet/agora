@@ -1,0 +1,31 @@
+{
+  "local_builds_only": true,
+  "images": [
+    {
+      "tag": "agora-pilot-api:20260909-local",
+      "image_id": "sha256:0faebb21409fd745a2744ff381f8c3fad7ca076e30e21d40ec695d9942fe4b23",
+      "user": "10001:10001",
+      "files": 203,
+      "bytes": 2193417,
+      "source_sha256": "0e51c1991489359fab772c8cf7c536d3c7873ed172b81ea55e2a16f774b7b2d0"
+    },
+    {
+      "tag": "agora-pilot-bridge:20260909-local",
+      "image_id": "sha256:2c8f78bed6a07c8a155cb6c17f6a3ad9037e9df69f6a1c738da2c388a96976b4",
+      "user": "10001:10001",
+      "files": 203,
+      "bytes": 2193417,
+      "source_sha256": "0e51c1991489359fab772c8cf7c536d3c7873ed172b81ea55e2a16f774b7b2d0"
+    },
+    {
+      "tag": "agora-pilot-web:20260909-local",
+      "image_id": "sha256:4705bd0f773d6672e64dd25104e131f13766d531185bcc54209a75c73f0883ef",
+      "user": "10001:10001",
+      "files": 70,
+      "bytes": 642372,
+      "source_sha256": "504e51a72db8cf53b3f36f25d066d3f4eea440451c4721b191c6175deb861008"
+    }
+  ],
+  "joserfc": "1.7.4",
+  "node_version": "20.20.0"
+}

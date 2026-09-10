@@ -1,3 +1,5 @@
+// Use Pixi's precompiled shader/uniform fallback under production CSP.
+import "pixi.js/unsafe-eval";
 // PixiJS world engine (S3-T08..T14, T19, ADR-0016).
 //
 // Ownership: this file renders. It never fetches, never posts, and never

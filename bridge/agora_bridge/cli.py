@@ -406,6 +406,14 @@ def claim(code: str) -> None:
     click.echo(f"Agent {config.agent_name} is now owned by {result['owner_id']}.")
 
 
+@cli.command(name="inbox-status")
+def show_inbox_status() -> None:
+    """Inspect durable delivery counts without executing or deleting tasks."""
+    from agora_bridge.inbox import inbox_status
+
+    click.echo(json.dumps(inbox_status(load_config()), indent=2))
+
+
 @cli.command(name="run")
 @click.option("--space", "space_slug", default="central-plaza", show_default=True)
 @click.option("--for", "duration", type=float, default=None,

@@ -1,0 +1,13 @@
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "checks": {
+    "postgres": "ok",
+    "redis": "ok"
+  },
+  "outbox": {
+    "pending": 0,
+    "max_attempts": 0,
+    "oldest_pending_seconds": 0.0
+  }
+}

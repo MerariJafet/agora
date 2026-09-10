@@ -1,0 +1,5 @@
+
+> @agora/tokoin-contracts@0.1.0 bundle:verify
+> node scripts/verify-candidate-bundle.mjs ../../audit/launch-2026-09-09/tokoin-candidate-bundle.json
+
+{"ok":true,"bundle_sha256":"5086bcb6efd63e6758a447e6ed5d7984171f293fa7a4f2c0b2120b49d83cf2b6"}

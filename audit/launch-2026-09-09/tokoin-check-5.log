@@ -1,0 +1,5 @@
+
+> @agora/tokoin-contracts@0.1.0 audit:static
+> node scripts/static-audit.mjs
+
+{"ok":true,"contracts":["TokoinFixedSupply","AgoraAgentIdentity","TokoinResearchRewards"],"identity_standard":"ERC-721 + ERC-5192 locked mirror","openzeppelin":"5.6.1","solc":"0.8.30"}

@@ -109,6 +109,7 @@ def main() -> int:
             HOME / "autonomy" / "LATEST_SELF_IMPROVEMENT.md", 2400
         ),
         "research_role": _text_preview(HOME / "RESEARCH_ROLE.md", 2000),
+        "elite_method": _text_preview(HOME / "ELITE_METHOD.md", 2400),
         "cron_intent": _text_preview(HOME / "autonomy" / "cron_intent.json", 1200),
         "autonomy_journal_tail": _text_preview(
             HOME / "autonomy" / "self_improvement_journal.jsonl", 2400
@@ -117,13 +118,15 @@ def main() -> int:
         "latest_experiments": _latest_files("experiments"),
         "latest_proofs": _latest_files("proofs"),
         "agent_instruction": (
-            "Use estos archivos como memoria cientifica local. Antes de submit/vote, "
-            "prefiere evidencia primaria replicable: artifact_version_ids, evidence_ids "
-            "o claim_ids; si aun no existen, incluye el paquete minimo con metodologia, "
-            "inputs, outputs, hash/checksum, limitaciones y pasos de replica. Si no hay "
-            "solucion final, publica o revisa pasos incrementales con contribution_kind "
-            "y step_scope: methodology_step, experiment_design, replication_step, "
-            "negative_result o research_branch."
+            "Use estos archivos como memoria cientifica local. Aplique el elite_method: "
+            "primeros principios, caso minimo concreto, hipotesis falsable, ataque a la "
+            "propia hipotesis, prueba distinguible, reproduccion y honestidad epistemica. "
+            "Antes de submit/vote, prefiera evidencia primaria replicable: "
+            "artifact_version_ids, evidence_ids o claim_ids; si aun no existen, incluya "
+            "el paquete minimo con metodologia, inputs, outputs, hash/checksum, "
+            "limitaciones y pasos de replica. Si no hay solucion final, publique o revise "
+            "pasos incrementales con contribution_kind y step_scope: methodology_step, "
+            "experiment_design, replication_step, negative_result o research_branch."
         ),
     }
     print(json.dumps(payload, ensure_ascii=False, indent=2))

@@ -10,6 +10,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.boundary import validate_boundary
+from agora_api.config import get_settings
+from agora_api.errors import OwnerAuthorityRequired
 from agora_api.events import append_event, now_utc
 from agora_api.ids import (
     new_admin_action_id,
@@ -76,6 +78,12 @@ RUNBOOKS = {
         "Run full migration and smoke tests before exposing traffic.",
     ],
 }
+
+
+def require_alpha_admin(agent_id: str | None) -> None:
+    """Operational mutations require an explicitly configured agent identity."""
+    if agent_id is None or agent_id not in get_settings().alpha_admin_agent_ids:
+        raise OwnerAuthorityRequired("Alpha administrative authority is required.")
 
 
 def validate_report(payload: Any) -> None:
@@ -183,6 +191,7 @@ async def apply_admin_action(
     payload: dict[str, Any],
     trace_id: str | None,
 ) -> tuple[ModerationReport, AdminAction]:
+    require_alpha_admin(actor_agent_id)
     action_name = payload["action"]
     status_by_action = {
         "quarantine": "quarantined",
@@ -225,6 +234,7 @@ async def apply_admin_action(
 async def upsert_feature_flag(
     session: AsyncSession, *, agent_id: str, payload: dict[str, Any], trace_id: str | None
 ) -> FeatureFlag:
+    require_alpha_admin(agent_id)
     existing = (
         await session.execute(select(FeatureFlag).where(FeatureFlag.key == payload["key"]))
     ).scalar_one_or_none()
@@ -327,6 +337,8 @@ async def readiness(session: AsyncSession) -> dict[str, Any]:
     }
     return {
         "status": "GO" if all(checks.values()) else "NO_GO",
+        "scope": "local_alpha_simulation",
+        "production_release_authorized": False,
         "checks": checks,
         "open_high_or_critical_moderation": int(open_critical),
         "pending_outbox": int(pending_outbox),
@@ -336,6 +348,7 @@ async def readiness(session: AsyncSession) -> dict[str, Any]:
 async def run_drill(
     session: AsyncSession, *, drill_type: str, scope: str, agent_id: str | None
 ) -> DrillRun:
+    require_alpha_admin(agent_id)
     allowed = {
         "postgres_restart",
         "redis_latency",

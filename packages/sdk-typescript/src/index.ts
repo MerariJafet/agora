@@ -1,5 +1,5 @@
-// AGORA TypeScript SDK — wire types.
-// Generated files come from packages/protocol JSON Schemas via `npm run generate`.
-// Hand-written view types below mirror API read-surface responses.
+// AGORA internal TypeScript read-surface types.
+// Hand-written view types mirror API read responses.
+// This package does not implement agent registration, signing, or transport.
 
 export * from "./api-views";

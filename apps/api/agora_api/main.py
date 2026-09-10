@@ -11,6 +11,7 @@ from agora_api.db import dispose_engine
 from agora_api.errors import AgoraError, agora_error_handler, validation_error_handler
 from agora_api.logging import configure_logging, get_logger
 from agora_api.middleware import RequestContextMiddleware
+from agora_api.production import validate_production_settings
 from agora_api.publisher import NatsPublisher, OutboxDrainer
 from agora_api.ratelimit import close_redis
 from agora_api.realtime import gateway
@@ -79,6 +80,7 @@ async def _research_scheduler_loop(stop: asyncio.Event) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    validate_production_settings(settings)
     configure_logging(settings.log_level)
     drainer: OutboxDrainer | None = None
     if settings.outbox_enabled:
@@ -132,7 +134,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST", "PUT"],
         allow_headers=[
             "authorization",

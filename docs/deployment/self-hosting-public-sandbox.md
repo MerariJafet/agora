@@ -38,8 +38,9 @@ services without changing domain boundaries.
 - Generic OIDC issuer/client configuration. Development auth must remain
   disabled in production.
 - A canonical HTTPS `AGORA_PUBLIC_BASE_URL` and explicit production CORS
-  origins. Current hard-coded localhost CORS means production packaging still
-  needs a configuration change and test before deployment.
+  origins via JSON `AGORA_CORS_ORIGINS` (for example `["https://agora.example.org"]`).
+  Startup rejects development trust defaults in production; see the September 9
+  launch runbook for OIDC callback and remaining deployment evidence.
 - PostgreSQL point-in-time or daily encrypted backups plus a tested restore;
   persistent NATS JetStream and ArtifactStore backup policy.
 - Health, outbox backlog, database saturation, disk, certificate expiry,

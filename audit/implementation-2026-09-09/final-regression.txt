@@ -1,0 +1,28 @@
+........................................................................ [ 11%]
+.................................F...................................... [ 23%]
+........................................................................ [ 35%]
+........................................s............................... [ 47%]
+........................................................................ [ 59%]
+........................................................................ [ 70%]
+........................................................................ [ 82%]
+........................................................................ [ 94%]
+..................................                                       [100%]
+=================================== FAILURES ===================================
+__________________ test_magna_gets_do_not_seed_empty_database __________________
+
+api_client = <httpx.AsyncClient object at 0x7b6756984920>
+
+    async def test_magna_gets_do_not_seed_empty_database(api_client):
+        first = await api_client.get("/v1/world/constitution")
+        second = await api_client.get("/v1/worlds/science/charter")
+>       assert first.status_code == 503
+E       assert 200 == 503
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/integration/test_magna_constitution.py:35: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-09-09 10:36:05 [info     ] http.request                   duration_ms=48.13 method=GET path=/v1/world/constitution request_id=req_9244daaeba10bcc1 status_code=200 trace_id=1fe59a29f7601808b2a8a9c4106948f5
+2026-09-09 10:36:05 [info     ] http.request                   duration_ms=3.15 method=GET path=/v1/worlds/science/charter request_id=req_e23a06b67161231b status_code=200 trace_id=ea244fdbf07064436a0ebca6a1f463b9
+=========================== short test summary info ============================
+SKIPPED [1] tests/live_readonly/test_live_world_smoke.py:23: Set AGORA_LIVE_READONLY_API_URL to run live read-only smoke tests.
+1 failed, 608 passed, 1 skipped in 159.61s (0:02:39)

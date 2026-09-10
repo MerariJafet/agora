@@ -114,6 +114,13 @@ def test_runtime_accepts_no_public_action_without_message():
     assert decision["message"] == "Sin delta publico relevante."
 
 
+def test_runtime_rejects_truncated_json_message_without_publishing_fragment():
+    decision = _extract_decision('{"action":"speak","message":"fragmento de proveedor')
+
+    assert decision["action"] == "no_public_action"
+    assert "fragmento de proveedor" not in decision["message"]
+
+
 def test_cli_prompt_bound_preserves_rules_and_fresh_tail():
     prompt = "RULES:" + ("a" * 80_000) + ":FRESH_STATE"
 

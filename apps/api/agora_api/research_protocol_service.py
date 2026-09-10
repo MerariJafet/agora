@@ -45,6 +45,7 @@ from agora_api.models import (
     User,
 )
 from agora_api.provenance import SYSTEM_ACTOR_ID
+from agora_api.science_scope import assess_solution_scope
 
 PROTOCOL_VERSION = "1.0.0"
 SCORING_VERSION = "AGORA_CONTRIBUTION_SCORE_V1"
@@ -297,6 +298,9 @@ async def create_candidate(
     beneficiaries = set(submission.team_agent_ids or [submission.agent_id])
     if agent_id not in beneficiaries:
         raise OwnerAuthorityRequired("Only a submission beneficiary can freeze its candidate.")
+    scope = assess_solution_scope(mission, submission)
+    if not scope["eligible_for_full_resolution"]:
+        raise Conflict("Candidate scope is incomplete: " + ", ".join(scope["blockers"]))
     if solution is None or solution.challenge_id != challenge_id:
         raise ValidationFailed("Final solution object must belong to this challenge.")
     solution_types = {"candidate_solution", "final_solution", "outcome", "proof", "refutation"}
@@ -544,13 +548,18 @@ def _largest_remainder(total: int, weights: dict[str, int]) -> dict[str, int]:
 
 
 async def calculate_reward(
-    session: AsyncSession, *, candidate_id: str, total_aceros: int, trace_id: str | None
+    session: AsyncSession, *, candidate_id: str, agent_id: str, total_aceros: int,
+    trace_id: str | None
 ) -> ResearchRewardCalculation:
+    if type(total_aceros) is not int or not 100 <= total_aceros <= 1_000_000_000_000:
+        raise ValidationFailed("total_aceros must be an integer between 100 and 1000000000000.")
     if total_aceros % 100:
         raise ValidationFailed("total_aceros must be divisible by 100 for exact allocation.")
-    candidate = await session.get(ResearchCandidateSnapshot, candidate_id)
+    candidate = await session.get(ResearchCandidateSnapshot, candidate_id, with_for_update=True)
     if candidate is None:
         raise NotFound("Research candidate not found.")
+    if candidate.created_by_agent_id != agent_id:
+        raise OwnerAuthorityRequired("Only the candidate creator may calculate its reward.")
     existing = (
         await session.execute(
             select(ResearchRewardCalculation).where(
@@ -560,6 +569,8 @@ async def calculate_reward(
         )
     ).scalar_one_or_none()
     if existing:
+        if existing.total_aceros != total_aceros:
+            raise Conflict("Reward amount differs from the existing calculation.")
         return existing
     mission = await session.get(Mission, candidate.challenge_id)
     submission = await session.get(MissionChallengeSubmission, candidate.submission_id)
@@ -1085,3 +1096,74 @@ async def challenge_research_view(session: AsyncSession, challenge_id: str) -> d
             for row in packages
         ],
     }
+
+
+async def reproducibility_package(session: AsyncSession, candidate_id: str) -> dict[str, Any]:
+    """Export exact public preimages; fail closed on drift or unavailable history."""
+    from sqlalchemy import or_
+
+    from agora_api.research_export import verify_package
+
+    candidate = await session.get(ResearchCandidateSnapshot, candidate_id)
+    if candidate is None:
+        raise NotFound("Research candidate not found.")
+    objects = list((await session.execute(select(MagnaKnowledgeObject).where(
+        MagnaKnowledgeObject.challenge_id == candidate.challenge_id,
+        MagnaKnowledgeObject.created_at <= candidate.created_at,
+    ).order_by(MagnaKnowledgeObject.created_at, MagnaKnowledgeObject.object_id)
+        .limit(5001))).scalars())
+    if len(objects) > 5000:
+        raise Conflict("Candidate graph exceeds the bounded export limit.")
+    if any(row.visibility_lane != "OPEN" for row in objects):
+        raise OwnerAuthorityRequired("Public export cannot disclose non-OPEN genealogy material.")
+    object_map = {row.object_id: row for row in objects}
+    edges = list((await session.execute(select(MagnaKnowledgeEdge).where(
+        MagnaKnowledgeEdge.source_object_id.in_(object_map),
+        MagnaKnowledgeEdge.target_object_id.in_(object_map),
+        MagnaKnowledgeEdge.created_at <= candidate.created_at,
+        or_(MagnaKnowledgeEdge.retracted_at.is_(None),
+            MagnaKnowledgeEdge.retracted_at > candidate.created_at),
+    ).order_by(MagnaKnowledgeEdge.created_at, MagnaKnowledgeEdge.edge_id).limit(10001))).scalars())
+    if len(edges) > 10000:
+        raise Conflict("Candidate graph exceeds the bounded export limit.")
+    solution = object_map.get(candidate.final_solution_object_id)
+    if solution is None:
+        raise Conflict("Frozen final solution bytes are unavailable.")
+    body = {
+        "challenge_id": candidate.challenge_id,
+        "submission_id": candidate.submission_id,
+        "candidate_version": candidate.candidate_version,
+        "final_solution_hash": solution.canonical_content_hash,
+        "manuscript_artifact_version_id": candidate.manuscript_artifact_version_id,
+        "knowledge_root_hash": candidate.knowledge_root_hash,
+        "consensus_snapshot": candidate.consensus_snapshot,
+        "protocol_version": candidate.protocol_version,
+    }
+    package = {
+        "schema": "agora.reproducibility-package.v1",
+        "candidate": {"candidate_id": candidate.candidate_id,
+                      "final_solution_object_id": candidate.final_solution_object_id,
+                      "content_hash": candidate.content_hash, "canonical_payload": body},
+        "objects": [{"object_id": row.object_id, "content_hash": row.canonical_content_hash,
+                     "canonical_payload": {
+                         "object_type": row.object_type, "payload": row.payload,
+                         "parents": row.parent_hashes, "lane": row.visibility_lane,
+                         "rights": row.rights_status, "license_id": row.license_id,
+                         "constitution_hash": row.constitution_hash,
+                     }} for row in objects],
+        "edges": [{"edge_id": row.edge_id, "source_object_id": row.source_object_id,
+                   "target_object_id": row.target_object_id,
+                   "content_hash": row.canonical_content_hash, "canonical_payload": {
+                       "source": object_map[row.source_object_id].canonical_content_hash,
+                       "target": object_map[row.target_object_id].canonical_content_hash,
+                       "relation_type": row.relation_type, "payload": row.payload,
+                   }} for row in edges],
+        "limits": {"authenticity_requires_trusted_candidate_hash": True,
+                   "execution_attested": False, "scientific_truth_attested": False,
+                   "artifact_bytes_included": False},
+    }
+    try:
+        package["verification"] = verify_package(package, candidate.content_hash)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise Conflict("Frozen canonical material cannot be reconstructed exactly.") from exc
+    return package

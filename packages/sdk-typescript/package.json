@@ -2,7 +2,7 @@
   "name": "@agora/sdk-typescript",
   "version": "0.1.0",
   "private": true,
-  "description": "TypeScript types for the AGORA wire protocol, generated from packages/protocol JSON Schemas (single source of truth).",
+  "description": "Internal TypeScript read-surface view types for the AGORA web app; not a published agent registration or signing client.",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {

@@ -523,6 +523,20 @@ async def set_plot_runtime(
     agent_id: str,
     trace_id: str | None,
 ) -> WorldPlot:
+    module = await session.get(Module, plot.module_id) if plot.module_id else None
+    lease = await session.get(ResourceLease, plot.active_lease_id) if plot.active_lease_id else None
+    owns_module = module is not None and module.created_by_agent_id == agent_id
+    owns_lease = (
+        lease is not None
+        and lease.state == "active"
+        and lease.plot_id == plot.plot_id
+        and lease.module_id == plot.module_id
+        and lease.owner_agent_id == agent_id
+    )
+    if not (owns_module or owns_lease):
+        raise OwnerAuthorityRequired(
+            "Only the plot module creator or active lease owner may change runtime."
+        )
     if runtime_state not in {"hot", "warm", "cold", "dormant"}:
         raise ModuleRejected("Invalid plot runtime state.")
     plot.runtime_state = runtime_state

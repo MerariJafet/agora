@@ -47,6 +47,7 @@ from agora_api.research_protocol_service import (
     lock_reward,
     prepare_review_signing_payload,
     register_institution,
+    reproducibility_package,
     verify_institution,
 )
 
@@ -103,7 +104,7 @@ async def post_candidate(
 async def post_reward_calculation(
     candidate_id: str,
     request: Request,
-    _device: CurrentDevice,
+    device: CurrentDevice,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     body = await request.json()
@@ -111,6 +112,7 @@ async def post_reward_calculation(
     row = await calculate_reward(
         session,
         candidate_id=candidate_id,
+        agent_id=device.agent_id,
         total_aceros=body["total_aceros"],
         trace_id=getattr(request.state, "trace_id", None),
     )
@@ -472,3 +474,10 @@ async def post_publication_package(
         "package_hash": row.package_hash,
         "provenance": row.provenance,
     }
+
+
+@router.get("/candidates/{candidate_id}/reproducibility-package")
+async def get_reproducibility_package(
+    candidate_id: str, session: AsyncSession = Depends(get_session)
+) -> dict:
+    return await reproducibility_package(session, candidate_id)

@@ -1,0 +1,86 @@
+{
+  "schema": "agora.reproducibility-package.v1",
+  "candidate": {
+    "candidate_id": "rcs_01M1ZEY7JSCZQVKB6SV7XZ3NGF",
+    "final_solution_object_id": "kob_01M1ZEY26YSY364FBBFPKXQ7SA",
+    "content_hash": "7eedcfc4c0dfc770a2ac40a60d6bf2d30d469a8533ad6390c9e32fb12089fc6f",
+    "canonical_payload": {
+      "challenge_id": "mis_01M1ZESRT339J71KSFCX9WA317",
+      "submission_id": "sub_01M1ZEXWSEXYP18JMA3PKQ7QBW",
+      "candidate_version": 1,
+      "final_solution_hash": "c77a49d91ed37b82087e1a3b9eaf00c84708a5d5d2809411240fa6574b628439",
+      "manuscript_artifact_version_id": null,
+      "knowledge_root_hash": "39f4e83cf554ed0f87a9f44ab1139e17294363bb491bfeb1f1a940da8a33aaf7",
+      "consensus_snapshot": {
+        "votes": [
+          {
+            "verdict": "resolved",
+            "abstained": false,
+            "evidence_ids": [],
+            "rationale_hash": "9cfc5227a2c37af4b67fb2bb0e8ebf64e244207c5bea9067ae1051b87f18cc51",
+            "voter_agent_id": "agt_01M1ZEQP3QVXF4QT2DDP6YCTCN"
+          },
+          {
+            "verdict": "resolved",
+            "abstained": false,
+            "evidence_ids": [],
+            "rationale_hash": "9cfc5227a2c37af4b67fb2bb0e8ebf64e244207c5bea9067ae1051b87f18cc51",
+            "voter_agent_id": "agt_01M1ZEQQXA61N2K4JJ9M2N49C0"
+          }
+        ],
+        "meaning": "agent_perception_not_scientific_truth",
+        "submission_id": "sub_01M1ZEXWSEXYP18JMA3PKQ7QBW",
+        "participant_ids": [
+          "agt_01M1ZEQP3QVXF4QT2DDP6YCTCN",
+          "agt_01M1ZEQQXA61N2K4JJ9M2N49C0"
+        ]
+      },
+      "protocol_version": "1.0.0"
+    }
+  },
+  "objects": [
+    {
+      "object_id": "kob_01M1ZEY26YSY364FBBFPKXQ7SA",
+      "content_hash": "c77a49d91ed37b82087e1a3b9eaf00c84708a5d5d2809411240fa6574b628439",
+      "canonical_payload": {
+        "object_type": "candidate_solution",
+        "payload": {
+          "claim": "sum(i*i for i in range(1, 101)) == 338350",
+          "title": "Frozen sum-of-squares verification capsule",
+          "inputs": {
+            "end": 100,
+            "start": 1,
+            "inclusive": true
+          },
+          "algorithm": "sum(value * value for value in range(start, end + 1))",
+          "protocol_id": "sum-of-squares-v1",
+          "expected_output": 338350,
+          "independent_check": "end*(end+1)*(2*end+1)//6",
+          "synthetic_fixture": true,
+          "falsification_test": "Dropping the inclusive endpoint must produce a different value."
+        },
+        "parents": [],
+        "lane": "OPEN",
+        "rights": "explicit_open_license",
+        "license_id": "CC-BY-4.0",
+        "constitution_hash": "73151f606bbdf2da46b28d8b2749444a2e0ca29319e538144e25a9b6408544ef"
+      }
+    }
+  ],
+  "edges": [],
+  "limits": {
+    "authenticity_requires_trusted_candidate_hash": true,
+    "execution_attested": false,
+    "scientific_truth_attested": false,
+    "artifact_bytes_included": false
+  },
+  "verification": {
+    "integrity_verified": true,
+    "candidate_hash": "7eedcfc4c0dfc770a2ac40a60d6bf2d30d469a8533ad6390c9e32fb12089fc6f",
+    "knowledge_root_hash": "39f4e83cf554ed0f87a9f44ab1139e17294363bb491bfeb1f1a940da8a33aaf7",
+    "objects": 1,
+    "edges": 0,
+    "scientific_truth_verified": false,
+    "execution_verified": false
+  }
+}

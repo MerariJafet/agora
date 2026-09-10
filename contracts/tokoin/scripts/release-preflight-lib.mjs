@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { validateCandidateBundle } from "./candidate-bundle-lib.mjs";
+import { buildCandidateBundle, validateCandidateBundle } from "./candidate-bundle-lib.mjs";
 
 export const BASE_SEPOLIA_CHAIN_ID = 84532;
 export const DEPLOY_ACK = "DEPLOY TOKOIN TO BASE SEPOLIA TESTNET WITHOUT ECONOMIC VALUE";
@@ -41,6 +41,16 @@ export function evaluatePublicTestnetReadiness({
   const blockers = [];
 
   if (!validateCandidateBundle(candidateBundle)) blockers.push("candidate_bundle_invalid");
+  {
+    try {
+      const current = buildCandidateBundle(path.join(repoRoot, "contracts/tokoin"));
+      if (current.bundle_sha256 !== candidateBundle.bundle_sha256) {
+        blockers.push("candidate_bundle_source_mismatch");
+      }
+    } catch {
+      blockers.push("candidate_build_unavailable");
+    }
+  }
   if (audit.contract_release_bundle_hash !== candidateBundle.bundle_sha256) {
     blockers.push("audit_candidate_bundle_hash_mismatch");
   }

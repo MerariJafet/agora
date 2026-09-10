@@ -1,0 +1,174 @@
+{
+  "schema": "agora.magna.tokoin.independent_review_decisions.v1",
+  "reviewer_type": "AI_INDEPENDENT_REVIEW_CAPABILITY_TEST",
+  "reviewer_model": "claude-opus-4-6",
+  "independence_status": "SAME_AI_FAMILY_AS_AUTHOR",
+  "date": "2026-09-07",
+  "commit": "1ceb2a0f8dc18a4e5ec6f28cf4cef15f80689f4b",
+  "bundle_sha256": "3043f6345d00e3ff3da777f9094283789f6af661f4af8453869fbf8e8f8fc4db",
+  "target": {
+    "network": "BASE_SEPOLIA",
+    "chain_id": 84532,
+    "economic_value": false,
+    "mainnet_authorized": false
+  },
+  "integrity_verification": {
+    "commit_verified": true,
+    "source_hashes_match_bundle": true,
+    "bundle_sha256_verified": true,
+    "bundle_reconstructed_from_source": true,
+    "compilation_reproducible": true,
+    "npm_vulnerabilities": 0
+  },
+  "test_execution": {
+    "contract_invariants": { "passed": 21, "failed": 0 },
+    "preflight_tests": { "passed": 6, "failed": 0 },
+    "bundle_tests": { "passed": 9, "failed": 0 },
+    "static_audit": "PASS",
+    "total_passed": 36,
+    "total_failed": 0,
+    "gas_1024_leaf_claim": 107843,
+    "merkle_proof_nodes_1024": 10
+  },
+  "independent_attack_vector_analysis": {
+    "vectors_analyzed": 15,
+    "vulnerable": 0,
+    "safe": 13,
+    "informational": 2
+  },
+  "prior_findings_decisions": {
+    "F-01_unclaimed_funds_lock": {
+      "prior_severity": "MEDIUM",
+      "disposition": "FIXED",
+      "decision": "ACCEPT_FIX",
+      "verified_at_lines": "TokoinResearchRewards.sol:148-158"
+    },
+    "F-02_zero_claim": {
+      "prior_severity": "LOW",
+      "disposition": "FIXED",
+      "decision": "ACCEPT_FIX",
+      "verified_at_lines": "TokoinResearchRewards.sol:170"
+    },
+    "F-03_no_emergency_control": {
+      "prior_severity": "MEDIUM",
+      "disposition": "FIXED",
+      "decision": "ACCEPT_FIX",
+      "verified_at_lines": "TokoinResearchRewards.sol:124-144"
+    },
+    "F-04_duplicate_revocation": {
+      "prior_severity": "INFORMATIONAL",
+      "disposition": "FIXED",
+      "decision": "ACCEPT_FIX",
+      "verified_at_lines": "AgoraAgentIdentity.sol:52"
+    },
+    "F-05_permissionless_claim": {
+      "prior_severity": "LOW",
+      "disposition": "ACCEPTED",
+      "decision": "ACCEPT_DESIGN",
+      "rationale": "Standard Merkle airdrop pattern. Payment bound to leaf account."
+    },
+    "F-06_immutable_authority": {
+      "prior_severity": "LOW",
+      "disposition": "ACCEPTED",
+      "decision": "ACCEPT_WITH_CONDITION",
+      "condition": "Safe 2-of-3 must be verified on-chain post-deployment (NF-02)"
+    },
+    "F-07_no_tokenURI": {
+      "prior_severity": "INFORMATIONAL",
+      "disposition": "DEFERRED",
+      "decision": "ACCEPT_DEFERRAL",
+      "rationale": "No security impact. AGORA profiles are canonical."
+    },
+    "F-08_api_authorization": {
+      "prior_severity": "MEDIUM",
+      "disposition": "FIXED",
+      "decision": "ACCEPT_FIX",
+      "rationale": "5-layer defense-in-depth verified via code review"
+    },
+    "F-09_production_guard_spof": {
+      "prior_severity": "LOW",
+      "disposition": "STRENGTHENED",
+      "decision": "ACCEPT",
+      "rationale": "5 independent layers with default-deny"
+    },
+    "F-10_immutable_issuer": {
+      "prior_severity": "LOW",
+      "disposition": "ACCEPTED",
+      "decision": "ACCEPT_WITH_CONDITION",
+      "condition": "Safe 2-of-3 must be verified on-chain post-deployment (NF-02)"
+    }
+  },
+  "new_findings_decisions": {
+    "NF-01": {
+      "severity": "INFORMATIONAL",
+      "title": "solc 0.8.30 known bugs (not triggered)",
+      "decision": "ACCEPT_FOR_TESTNET",
+      "mainnet_requirement": "Upgrade to solc 0.8.36+"
+    },
+    "NF-02": {
+      "severity": "LOW",
+      "title": "Preflight checks attestation, not on-chain Safe configuration",
+      "decision": "REQUIRE_CHANGES",
+      "required_action": "Add Safe.getThreshold() and Safe.getOwners() verification to verify-base-sepolia.mjs. Must pass before any settlement activity.",
+      "blocks_deployment": false,
+      "blocks_settlement_activity": true
+    },
+    "NF-03": {
+      "severity": "LOW",
+      "title": "setClaimsPaused can enable indefinite DoS",
+      "decision": "ACCEPT_FOR_TESTNET",
+      "mainnet_requirement": "Implement MAX_PAUSE_DURATION"
+    }
+  },
+  "independent_findings": {
+    "IV-01": {
+      "severity": "INFORMATIONAL",
+      "title": "Inherited ERC-20 approval race condition",
+      "decision": "ACCEPT",
+      "rationale": "ERC-20 spec limitation. No impact on reward system."
+    },
+    "IV-02": {
+      "severity": "INFORMATIONAL",
+      "title": "No explicit proof.length cap in claim()",
+      "decision": "ACCEPT_FOR_TESTNET",
+      "recommended_hardening": "require(proof.length <= 256)"
+    }
+  },
+  "findings_by_severity": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 2,
+    "INFORMATIONAL": 3
+  },
+  "overall_decision": "CONDITIONALLY_APPROVED_FOR_BASE_SEPOLIA_TESTNET",
+  "conditions_before_deployment": [
+    "Create 3 distinct Safe 2-of-3 contracts on Base Sepolia with named signers",
+    "Add Safe verification to post-deployment script (NF-02)",
+    "Create real base-sepolia-deploy-authorization.json with real data",
+    "All 33 preflight checks must pass with real data"
+  ],
+  "conditions_before_value_bearing": [
+    "Independent human audit from unrelated party",
+    "MAX_PAUSE_DURATION for setClaimsPaused (NF-03)",
+    "Compiler upgrade to solc 0.8.36+ (NF-01)",
+    "Property-based fuzz testing (Foundry/Echidna)",
+    "Optional: proof.length cap in claim() (IV-02)"
+  ],
+  "explicitly_not_authorized": [
+    "Ethereum mainnet deployment",
+    "Base mainnet deployment",
+    "Any deployment with economic value",
+    "Public sale or presale",
+    "Third-party fund custody",
+    "Genesis-100 activation"
+  ],
+  "limitations": [
+    "Reviewer is same AI model family as code author (inherent circularity)",
+    "No stateless fuzz testing performed",
+    "No formal verification",
+    "No live network testing (hardhatOp simulator only)",
+    "Cannot create or verify Safe contracts on-chain",
+    "Does not constitute legal, financial, or regulatory advice"
+  ]
+}

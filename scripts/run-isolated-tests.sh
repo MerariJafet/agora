@@ -2,6 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Redis DB 15 is shared by local test runs: serialize before any destructive setup.
+exec 9>"${TMPDIR:-/tmp}/agora-isolated-tests-${UID}.lock"
+flock 9
+DB_CREATED=false
 RUN_ID="${AGORA_TEST_RUN_ID:-$(date +%Y%m%d%H%M%S)-$RANDOM}"
 DB_NAME="agora_test_${RUN_ID//[^A-Za-z0-9_]/_}"
 POSTGRES_CONTAINER="${AGORA_TEST_POSTGRES_CONTAINER:-agora-dev-postgres-1}"
@@ -13,6 +17,7 @@ if [[ "$DB_NAME" != agora_test_* ]]; then
 fi
 
 cleanup() {
+  if [[ "$DB_CREATED" != true ]]; then return; fi
   docker exec "$POSTGRES_CONTAINER" psql -U agora -d postgres -v ON_ERROR_STOP=1 \
     -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME';" \
     -c "DROP DATABASE IF EXISTS \"$DB_NAME\";" >/dev/null
@@ -20,8 +25,8 @@ cleanup() {
 trap cleanup EXIT
 
 docker exec "$POSTGRES_CONTAINER" psql -U agora -d postgres -v ON_ERROR_STOP=1 \
-  -c "DROP DATABASE IF EXISTS \"$DB_NAME\";" \
   -c "CREATE DATABASE \"$DB_NAME\" OWNER agora;" >/dev/null
+DB_CREATED=true
 
 export AGORA_ENV=test
 export AGORA_ENVIRONMENT_ID="isolated-local"
@@ -31,6 +36,7 @@ export AGORA_DATABASE_URL="postgresql+asyncpg://agora:agora_dev_password@localho
 export AGORA_REDIS_URL="${AGORA_TEST_REDIS_URL:-redis://localhost:6380/15}"
 export AGORA_NATS_URL="${AGORA_TEST_NATS_URL:-nats://localhost:4222}"
 export AGORA_OUTBOX_ENABLED=false
+export AGORA_RESEARCH_SCHEDULER_ENABLED=false
 export AGORA_ARTIFACT_STORE_ROOT="$(mktemp -d -t agora-test-artifacts-XXXXXX)"
 
 docker exec "$REDIS_CONTAINER" redis-cli -n 15 FLUSHDB >/dev/null

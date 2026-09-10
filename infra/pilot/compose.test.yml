@@ -1,0 +1,13 @@
+# ONLY for new disposable projects, never for public participants or live data.
+services:
+  api:
+    environment:
+      AGORA_ENV: test
+      AGORA_PROVENANCE_CLASS: test
+      AGORA_OUTBOX_ENABLED: 'false'
+      AGORA_TEST_WORLD_INSTANCE_ID: ${AGORA_PILOT_PROJECT}
+  migrate:
+    environment:
+      AGORA_ENV: test
+      AGORA_PROVENANCE_CLASS: test
+      AGORA_TEST_WORLD_INSTANCE_ID: ${AGORA_PILOT_PROJECT}

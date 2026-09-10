@@ -82,7 +82,7 @@ async def test_happy_path_provisions_user():
     async with session_factory()() as session:
         user = await provider.login(session, {"code": "abc", "state": state})
         await session.commit()
-    assert user.username.startswith(ISSUER)
+    assert user.username.startswith("oidc:")
 
 
 async def test_state_replay_rejected():
@@ -177,3 +177,98 @@ async def test_production_without_oidc_fails_closed(monkeypatch):
     monkeypatch.setattr(owners, "get_settings", lambda: Settings(env="production"))
     with pytest.raises(owners.DevAuthDisabled):
         owners.get_owner_auth_provider()
+
+
+async def test_long_subjects_remain_distinct():
+    issuer = MockIssuer()
+    provider = _provider(issuer)
+    users = []
+    for suffix in ('a', 'b'):
+        issuer.claims_override = {'sub': 'shared-prefix-' * 8 + suffix}
+        state = await _begin(provider, issuer)
+        async with session_factory()() as session:
+            user = await provider.login(session, {'code': 'abc', 'state': state})
+            await session.commit()
+            users.append(user.user_id)
+    assert users[0] != users[1]
+
+
+async def test_authorization_query_encodes_reserved_characters():
+    from urllib.parse import parse_qs, urlsplit
+
+    issuer = MockIssuer()
+    provider = OIDCOwnerAuthProvider(
+        OIDCConfig(issuer=ISSUER, client_id='client&admin=true', client_secret='test',
+                   redirect_uri='https://client.test/cb?x=one&y=two'), fetcher=issuer,
+    )
+    started = await provider.begin_login()
+    query = parse_qs(urlsplit(started['authorization_url']).query)
+    assert query['client_id'] == ['client&admin=true']
+    assert query['redirect_uri'] == ['https://client.test/cb?x=one&y=two']
+    assert 'admin' not in query
+
+
+@pytest.mark.parametrize('claims', [
+    {'iss': ISSUER + '/'},
+    {'aud': [CLIENT_ID, 'other']},
+    {'aud': [CLIENT_ID, 'other'], 'azp': 'other'},
+    {'azp': 'other'},
+    {'sub': 12},
+    {'sub': ''},
+    {'exp': float('nan')},
+])
+async def test_invalid_identity_claims_rejected(claims):
+    issuer = MockIssuer()
+    issuer.claims_override = claims
+    provider = _provider(issuer)
+    state = await _begin(provider, issuer)
+    async with session_factory()() as session:
+        with pytest.raises(OIDCError):
+            await provider.login(session, {'code': 'abc', 'state': state})
+
+
+async def test_same_subject_returns_same_owner():
+    issuer = MockIssuer()
+    issuer.claims_override = {'sub': secrets.token_hex(12)}
+    provider = _provider(issuer)
+    ids = []
+    for _ in range(2):
+        state = await _begin(provider, issuer)
+        async with session_factory()() as session:
+            user = await provider.login(session, {'code': 'abc', 'state': state})
+            await session.commit()
+            ids.append(user.user_id)
+    assert ids[0] == ids[1]
+
+
+async def test_callback_requires_same_browser(api_client, monkeypatch):
+    from agora_api import owners
+
+    issuer = MockIssuer()
+    provider = _provider(issuer)
+    monkeypatch.setattr(owners, 'get_production_auth_provider', lambda: provider)
+    started = await api_client.get('/v1/auth/oidc/start')
+    state = started.json()['state']
+    assert 'HttpOnly' in started.headers['set-cookie']
+    api_client.cookies.clear()
+    denied = await api_client.post('/v1/auth/oidc/callback', json={'code': 'x', 'state': state})
+    assert denied.status_code == 401
+    assert denied.json()['error']['message'] == 'OIDC browser state mismatch.'
+
+
+async def test_callback_with_bound_browser_and_replay(api_client, monkeypatch):
+    from agora_api import owners
+    from agora_api.ratelimit import get_redis
+
+    issuer = MockIssuer()
+    issuer.claims_override = {'sub': secrets.token_hex(12)}
+    provider = _provider(issuer)
+    monkeypatch.setattr(owners, 'get_production_auth_provider', lambda: provider)
+    state = (await api_client.get('/v1/auth/oidc/start')).json()['state']
+    issuer.last_nonce = await get_redis().get(f'oidc:state:{state}')
+    body = {'code': 'x', 'state': state}
+    response = await api_client.post('/v1/auth/oidc/callback', json=body)
+    assert response.status_code == 200, response.text
+    assert response.json()['username'].startswith('oidc:')
+    assert 'agora_oidc_state' not in api_client.cookies
+    assert (await api_client.post('/v1/auth/oidc/callback', json=body)).status_code == 401

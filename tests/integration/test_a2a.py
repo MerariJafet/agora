@@ -116,9 +116,13 @@ async def test_duplicate_completion_is_idempotent(api_client, unique_name):
         "parts": [{"text": '{"ok": true}', "mediaType": "application/json"}],
     }
     async with session_factory()() as session:
-        assert await complete_task(session, task_id, [artifact]) is True
+        assert await complete_task(
+            session, task_id, [artifact], completing_agent_id=target["agent_id"]
+        ) is True
     async with session_factory()() as session:
-        assert await complete_task(session, task_id, [artifact]) is False  # duplicate ignored
+        assert await complete_task(
+            session, task_id, [artifact], completing_agent_id=target["agent_id"]
+        ) is False  # duplicate ignored
 
     poll = await api_client.post(
         f"/v1/a2a/agents/{target['agent_id']}/jsonrpc",
@@ -142,7 +146,8 @@ async def test_malformed_artifact_rejected(api_client, unique_name):
     async with session_factory()() as session:
         with pytest.raises(AgoraError):
             await complete_task(
-                session, task_id, [{"artifactId": "a", "evilField": "x"}]
+                session, task_id, [{"artifactId": "a", "evilField": "x"}],
+                completing_agent_id=target["agent_id"],
             )
 
 
@@ -182,3 +187,76 @@ async def test_unsupported_method_gets_jsonrpc_error(api_client, keypair, unique
     )
     assert r.status_code == 200
     assert r.json()["error"]["code"] == -32601
+
+async def test_only_authenticated_target_can_complete_task(api_client, unique_name):
+    """Knowing a task ID grants neither a stranger nor the initiator completion authority."""
+    from agora_api.errors import NotFound
+
+    initiator = await register_agent(api_client, SigningKeypair(), f"{unique_name}-I")
+    target = await register_agent(api_client, SigningKeypair(), f"{unique_name}-T")
+    stranger = await register_agent(api_client, SigningKeypair(), f"{unique_name}-X")
+    response = await _send(
+        api_client, initiator["session_token"], target["agent_id"], _wire_message("private")
+    )
+    task_id = response["result"]["task"]["id"]
+    for unauthorized in (stranger, initiator):
+        async with session_factory()() as session:
+            with pytest.raises(NotFound):
+                await complete_task(
+                    session, task_id, [], completing_agent_id=unauthorized["agent_id"]
+                )
+    async with session_factory()() as session:
+        row = await session.get(A2ATask, task_id)
+        assert row.status == "submitted"
+        assert await complete_task(
+            session, task_id, [], completing_agent_id=target["agent_id"]
+        ) is True
+
+
+async def test_browser_subscription_requires_existing_visible_space(unique_name):
+    from agora_api.events import now_utc
+    from agora_api.ids import new_space_id
+    from agora_api.models import Space
+    from agora_api.provenance import add_provenance
+    from agora_api.routes.realtime import _public_space_exists
+
+    async with session_factory()() as session:
+        visible_id, hidden_id = new_space_id(), new_space_id()
+        for space_id, label in ((visible_id, "visible"), (hidden_id, "hidden")):
+            session.add(Space(
+                space_id=space_id, slug=f"{unique_name}-{label}", name=label,
+                kind="plaza", created_at=now_utc(),
+            ))
+        await session.flush()
+        await add_provenance(session, record_table="spaces", record_id=visible_id)
+        await add_provenance(
+            session, record_table="spaces", record_id=hidden_id, provenance_class="demo"
+        )
+        await session.flush()
+        assert await _public_space_exists(session, visible_id) is True
+        assert await _public_space_exists(session, hidden_id) is False
+        assert await _public_space_exists(session, new_space_id()) is False
+        assert await _public_space_exists(session, "agt_private_target") is False
+        # Fixtures remain transaction-local and are rolled back on context exit.
+
+
+async def test_browser_mission_interest_requires_public_visible_resource(api_client, unique_name):
+    from agora_api.models import Mission
+    from agora_api.routes.realtime import _public_interest_exists
+
+    owner = await register_agent(api_client, SigningKeypair(), f"{unique_name}-M")
+    response = await api_client.post(
+        "/v1/missions", json={"title": "Public realtime", "objective": "fixture"},
+        headers={"Authorization": f"Bearer {owner['session_token']}"},
+    )
+    assert response.status_code == 201, response.text
+    mission_id = response.json()["mission_id"]
+    async with session_factory()() as session:
+        assert await _public_interest_exists(session, mission_id) is True
+        mission = await session.get(Mission, mission_id)
+        mission.visibility = "private"
+        await session.flush()
+        assert await _public_interest_exists(session, mission_id) is False
+        assert await _public_interest_exists(session, "mis_unknown") is False
+        assert await _public_interest_exists(session, owner["agent_id"]) is False
+        # The private mutation is rolled back; no committed fixture policy change.

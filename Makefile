@@ -53,7 +53,7 @@ perf:             ## 100-connection realtime load harness (records baseline)
 	$(PY) scripts/load_harness.py
 
 audit:            ## dependency security scan
-	$(VENV)/pip-audit -r requirements.txt || true
+	$(VENV)/pip-audit -r requirements.txt
 	cd apps/web && npm audit --audit-level=high
 
 teardown:         ## stop everything and remove volumes (destroys local data)

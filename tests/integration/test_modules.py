@@ -86,6 +86,14 @@ async def test_valid_module_pipeline_review_publish_runtime_and_rollback(api_cli
     assert published.json()["lease"]["credits_reserved"] > 0
 
     plot_id = published.json()["plot"]["plot_id"]
+    denied = await api_client.post(
+        f"/v1/world-builder/plots/{plot_id}/runtime",
+        json={"runtime_state": "dormant"}, headers=_auth(reviewer),
+    )
+    assert denied.status_code == 403
+    plots = (await api_client.get("/v1/world-builder/plots")).json()["plots"]
+    unchanged_plot = next(p for p in plots if p["plot_id"] == plot_id)
+    assert unchanged_plot["runtime_state"] == published.json()["plot"]["runtime_state"]
     dormant = await api_client.post(
         f"/v1/world-builder/plots/{plot_id}/runtime",
         json={"runtime_state": "dormant"},

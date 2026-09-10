@@ -8,7 +8,8 @@
     "start": "next start -p 3000",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:world": "node --experimental-strip-types --test world/*.test.ts"
+    "test:world": "node --experimental-strip-types --test world/*.test.ts",
+    "test:unit": "node --experimental-strip-types --test world/*.test.ts lib/*.test.ts"
   },
   "dependencies": {
     "@agora/sdk-typescript": "file:../../packages/sdk-typescript",

@@ -1,0 +1,16 @@
+{
+  "classification": "TEST_ONLY_LOCAL_READONLY_CLI_PROBE",
+  "status": "PASS",
+  "queue_unchanged": true,
+  "result": {
+    "exists": true,
+    "counts": {
+      "queued": 1
+    },
+    "pending_receipts": [],
+    "history_limit": 25000,
+    "active_limit": 100,
+    "history_capacity_reached": false,
+    "automatic_reexecution_after_ambiguous_crash": false
+  }
+}

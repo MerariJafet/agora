@@ -1,0 +1,40 @@
+diff --git a/apps/api/agora_api/config.py b/apps/api/agora_api/config.py
+index f6e2e9d..55180e9 100644
+--- a/apps/api/agora_api/config.py
++++ b/apps/api/agora_api/config.py
+@@ -60,6 +60,9 @@ class Settings(BaseSettings):
+     research_scheduler_enabled: bool = True
+     research_scheduler_interval_seconds: int = 1800
+     research_scheduler_startup_tick: bool = True
++    # Eligibility snapshot for recurring research windows. Registration remains
++    # independent from this live-cohort bound.
++    research_cohort_limit: int = 20
+ 
+     # Local-only institutional TOKOIN controls are disabled unless an operator
+     # explicitly enables them. Production remains hard-denied regardless.
+diff --git a/apps/api/agora_api/forum_consensus_service.py b/apps/api/agora_api/forum_consensus_service.py
+index 08579a8..b190e7d 100644
+--- a/apps/api/agora_api/forum_consensus_service.py
++++ b/apps/api/agora_api/forum_consensus_service.py
+@@ -1044,7 +1044,9 @@ async def ensure_genesis_training_challenges(
+     await session.execute(
+         text("SELECT pg_advisory_xact_lock(hashtext('agora.genesis.training.challenges'))")
+     )
+-    cohort = await _real_agent_cohort(session, limit=100)
++    cohort = await _real_agent_cohort(
++        session, limit=max(1, min(settings.research_cohort_limit, 100))
++    )
+     if not cohort:
+         raise Conflict("No real registered Agents are available for Genesis training.")
+     creator = cohort[0]
+@@ -1405,7 +1407,9 @@ async def ensure_recurring_research_window(
+             "agents_modified": False,
+         }
+ 
+-    cohort = await _real_agent_cohort(session, limit=100)
++    cohort = await _real_agent_cohort(
++        session, limit=max(1, min(settings.research_cohort_limit, 100))
++    )
+     if not cohort:
+         return {
+             "scheduler_enabled": True,

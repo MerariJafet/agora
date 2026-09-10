@@ -1,0 +1,110 @@
+# Standalone pilot project. Never layer this on top of the live dev compose.
+name: ${AGORA_PILOT_PROJECT:?set a unique pilot project name}
+x-api-env: &api-env
+  AGORA_ENV: production
+  AGORA_DATABASE_URL: postgresql+asyncpg://agora:${AGORA_PILOT_DB_PASSWORD:?provide external secret}@postgres:5432/agora_pilot
+  AGORA_REDIS_URL: redis://redis:6379/0
+  AGORA_NATS_URL: nats://nats:4222
+  AGORA_PUBLIC_BASE_URL: ${AGORA_PUBLIC_BASE_URL:?HTTPS origin required}
+  AGORA_OIDC_ISSUER: ${AGORA_OIDC_ISSUER:?external OIDC issuer required}
+  AGORA_OIDC_CLIENT_ID: ${AGORA_OIDC_CLIENT_ID:?OIDC client required}
+  AGORA_OIDC_CLIENT_SECRET: ${AGORA_OIDC_CLIENT_SECRET:?external secret required}
+  AGORA_OIDC_REDIRECT_URI: ${AGORA_OIDC_REDIRECT_URI:?HTTPS redirect required}
+  AGORA_WORLD_SIGNING_SECRET: ${AGORA_WORLD_SIGNING_SECRET:?external secret required}
+  AGORA_PASSPORT_SIGNING_SECRET: ${AGORA_PASSPORT_SIGNING_SECRET:?external secret required}
+  AGORA_WORLD_SIGNING_KEY_ID: ${AGORA_WORLD_SIGNING_KEY_ID:?real key ID required}
+  AGORA_WORLD_INSTANCE_ID: ${AGORA_WORLD_INSTANCE_ID:?unique world ID required}
+  AGORA_ENVIRONMENT_ID: ${AGORA_PILOT_PROJECT}
+  AGORA_PROVENANCE_CLASS: real
+  AGORA_CORS_ORIGINS: ${AGORA_CORS_ORIGINS:?JSON HTTPS origins required}
+  AGORA_ARTIFACT_STORE_ROOT: /data/artifacts
+  AGORA_OUTBOX_ENABLED: 'true'
+  AGORA_RESEARCH_SCHEDULER_ENABLED: 'false'
+  AGORA_PUBLIC_OPEN_WORLD: 'false'
+  AGORA_TOKOIN_LOCAL_CONTROL_PLANE_ENABLED: 'false'
+  AGORA_INSTITUTIONAL_REGISTRY_CONTROL_PLANE_ENABLED: 'false'
+  AGORA_INSTITUTIONAL_VALIDATOR_PILOT_ENABLED: 'false'
+  AGORA_TOKOIN_REWARD_ADMIN_AGENT_IDS: '[]'
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:20edbde7749f822887a1a022ad526fde0a47d6b2be9a8364433605cf65099416
+    environment:
+      POSTGRES_USER: agora
+      POSTGRES_PASSWORD: ${AGORA_PILOT_DB_PASSWORD:?provide external secret}
+      POSTGRES_DB: agora_pilot
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U agora -d agora_pilot']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [backend]
+  redis:
+    image: redis:7-alpine@sha256:ee64a64eaab618d88051c3ade8f6352d11531fcf79d9a4818b9b183d8c1d18ba
+    command: [redis-server, --appendonly, 'yes']
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [backend]
+  nats:
+    image: nats:2.10-alpine@sha256:b83efabe3e7def1e0a4a31ec6e078999bb17c80363f881df35edc70fcb6bb927
+    command: [--jetstream, --store_dir, /data, -m, '8222']
+    volumes: [nats-data:/data]
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8222/healthz']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [backend]
+  migrate:
+    image: ${AGORA_API_IMAGE:?build and set immutable API image}
+    environment: *api-env
+    command: [python, -m, alembic, -c, apps/api/alembic.ini, upgrade, head]
+    profiles: [maintenance]
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [backend]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  api:
+    image: ${AGORA_API_IMAGE:?build and set immutable API image}
+    environment: *api-env
+    ports: ['127.0.0.1:${AGORA_PILOT_HTTP_PORT:-18700}:8700']
+    volumes: [artifacts:/data/artifacts]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      nats: {condition: service_healthy}
+    networks: [backend, egress]
+  web:
+    image: ${AGORA_WEB_IMAGE:?build and set immutable Web image}
+    ports: ['127.0.0.1:${AGORA_PILOT_WEB_PORT:-13000}:3000']
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: '1'
+      AGORA_API_REWRITE_TARGET: http://api:8700
+      AGORA_CANONICAL_API_URL: http://api:8700
+    read_only: true
+    tmpfs: [/tmp, '/app/apps/web/.next/cache:uid=10001,gid=10001']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      api: {condition: service_healthy}
+    networks: [backend]
+networks:
+  backend: {internal: true}
+  egress: {}
+volumes:
+  postgres-data:
+  redis-data:
+  nats-data:
+  artifacts:

@@ -22,13 +22,15 @@ import hashlib
 import json
 import secrets
 from typing import Any
+from uuid import UUID
 
 import a2a.types as a2a_types
 from google.protobuf.json_format import MessageToDict, ParseDict, ParseError
-from sqlalchemy import select, update
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agora_api.errors import AgoraError, NotFound, ValidationFailed
+from agora_api.errors import AgoraError, Conflict, NotFound, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import new_task_id
 from agora_api.logging import get_logger
@@ -39,6 +41,18 @@ log = get_logger("agora.api.a2a")
 
 A2A_PROTOCOL_VERSION = "1.0"
 FIRST_CONTACT_SKILL = "first_contact"
+
+
+class A2AResultConflict(Conflict):
+    code = "a2a_result_conflict"
+
+
+class A2AExecutionConflict(Conflict):
+    code = "a2a_execution_conflict"
+
+
+class A2ARequestConflict(Conflict):
+    code = "a2a_request_conflict"
 
 
 class A2AError(AgoraError):
@@ -93,8 +107,8 @@ def parse_wire_message(message: dict[str, Any]) -> a2a_types.Message:
         parsed = ParseDict(message, a2a_types.Message())
     except ParseError as exc:
         raise A2AError(f"Invalid A2A Message: {str(exc)[:200]}") from exc
-    if not parsed.message_id:
-        raise A2AError("A2A Message requires messageId.")
+    if not parsed.message_id or len(parsed.message_id) > 256:
+        raise A2AError("A2A Message requires messageId of at most 256 characters.")
     return parsed
 
 
@@ -113,7 +127,14 @@ def task_wire(row: A2ATask) -> dict[str, Any]:
     wire["history"] = [row.message]
     if row.artifacts:
         wire["artifacts"] = row.artifacts
+    if row.result_reason:
+        wire["metadata"] = {"agora_result_reason": row.result_reason}
     return wire
+
+
+def _content_hash(value: Any) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 async def create_task(
@@ -130,22 +151,35 @@ async def create_task(
     domain rows atomically. That caller is then responsible for committing
     and calling `deliver_task` itself — see `mission_a2a_adapter.py`."""
     parsed = parse_wire_message(message)
-    task = A2ATask(
-        task_id=parsed.task_id or new_task_id(),
-        context_id=parsed.context_id or new_task_id(),
-        initiator_agent_id=initiator_agent_id,
-        target_agent_id=target.agent_id,
-        status="submitted",
-        message=message,
-        nonce=secrets.token_hex(16),  # server-issued, verified in the artifact
-        created_at=now_utc(),
-        updated_at=now_utc(),
+    request_hash = _content_hash(message)
+    task_id = parsed.task_id or new_task_id()
+    created = await session.execute(
+        pg_insert(A2ATask).values(
+            task_id=task_id,
+            context_id=parsed.context_id or new_task_id(),
+            initiator_agent_id=initiator_agent_id,
+            target_agent_id=target.agent_id,
+            status="submitted", message=message,
+            message_id=parsed.message_id, request_hash=request_hash,
+            nonce=secrets.token_hex(16),
+            created_at=now_utc(), updated_at=now_utc(),
+        ).on_conflict_do_nothing().returning(A2ATask.task_id)
     )
-    session.add(task)
+    if created.scalar_one_or_none() is None:
+        existing = (await session.execute(select(A2ATask).where(
+            A2ATask.initiator_agent_id == initiator_agent_id,
+            A2ATask.target_agent_id == target.agent_id,
+            A2ATask.message_id == parsed.message_id,
+        ))).scalar_one_or_none()
+        if existing is None or existing.request_hash != request_hash:
+            raise A2ARequestConflict("A2A request identity conflicts with an existing task.")
+        if commit:
+            await session.commit()
+        return existing
+    task = await session.get(A2ATask, task_id)
+    assert task is not None
     await append_event(
-        session,
-        event_type="a2a.task.created",
-        actor={"agent_id": initiator_agent_id},
+        session, event_type="a2a.task.created", actor={"agent_id": initiator_agent_id},
         payload={"task_id": task.task_id, "target_agent_id": target.agent_id},
         trace_id=trace_id,
     )
@@ -173,21 +207,29 @@ async def deliver_task(task: A2ATask) -> bool:
     """Relay over the target's outbound connection. Offline targets stay in
     `submitted` and receive pending tasks at their next connect (predictable
     offline handling). No payload contents are logged."""
-    await gateway.publish(task.target_agent_id, "a2a_task", _relay_frame(task))
-    log.info("a2a.task_relayed", task_id=task.task_id, target=task.target_agent_id)
+    try:
+        await gateway.publish(task.target_agent_id, "a2a_task", _relay_frame(task))
+    except Exception as exc:
+        # Persistence is authoritative. The connected refill loop recovers
+        # missed notifications; a broker outage must not turn a committed
+        # request into an ambiguous HTTP failure.
+        log.warning("a2a.notification_deferred", task_id=task.task_id,
+                    error=type(exc).__name__)
+        return False
     return True
 
 
-async def pending_tasks_for(session: AsyncSession, agent_id: str) -> list[A2ATask]:
-    return list(
-        (
-            await session.execute(
-                select(A2ATask).where(
-                    A2ATask.target_agent_id == agent_id, A2ATask.status == "submitted"
-                )
-            )
-        ).scalars()
+async def pending_tasks_for(
+    session: AsyncSession, agent_id: str, *, limit: int = 64, after_task_id: str | None = None,
+) -> list[A2ATask]:
+    query = select(A2ATask).where(
+        A2ATask.target_agent_id == agent_id, A2ATask.status.in_(["submitted", "working"]),
     )
+    if after_task_id:
+        query = query.where(A2ATask.task_id > after_task_id)
+    return list((await session.execute(
+        query.order_by(A2ATask.task_id).limit(max(1, min(limit, 256)))
+    )).scalars())
 
 
 def artifact_hash(artifact: dict[str, Any]) -> str:
@@ -197,43 +239,100 @@ def artifact_hash(artifact: dict[str, Any]) -> str:
     ).hexdigest()
 
 
-async def complete_task(
-    session: AsyncSession, task_id: str, artifacts: list[dict[str, Any]]
+async def claim_task(
+    session: AsyncSession, task_id: str, *, completing_agent_id: str, execution_id: str,
 ) -> bool:
-    """Idempotent completion (SEC-009): the conditional UPDATE is the single
-    logical transition — duplicate results from re-delivered tasks are
-    ignored. Artifacts are validated against official SDK types."""
+    """Bind one durable executor UUID. Never expire/reassign ambiguous execution."""
+    try:
+        parsed = UUID(execution_id)
+        if parsed.version != 4 or str(parsed) != execution_id:
+            raise ValueError
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise A2AError("execution_id must be a canonical UUID v4.") from exc
+    task = (await session.execute(
+        select(A2ATask).where(
+            A2ATask.task_id == task_id, A2ATask.target_agent_id == completing_agent_id,
+        ).with_for_update().execution_options(populate_existing=True)
+    )).scalar_one_or_none()
+    if task is None:
+        raise NotFound("Task not found.")
+    if task.executor_id:
+        accepted = task.executor_id == execution_id
+        await session.commit()
+        return accepted
+    if task.status not in {"submitted", "working"}:
+        await session.commit()
+        return False
+    task.executor_id = execution_id
+    task.status = "working"
+    task.updated_at = now_utc()
+    await session.commit()
+    return True
+
+
+async def complete_task(
+    session: AsyncSession, task_id: str, artifacts: list[dict[str, Any]],
+    *, completing_agent_id: str, result_status: str = "completed", reason: str | None = None,
+    execution_id: str | None = None, require_claim: bool = False,
+) -> bool:
+    """Persist a target-authorized terminal result before acknowledging it.
+
+    Exact replays are safe; conflicting terminal receipts are never silently
+    accepted or allowed to replace committed artifacts.
+    """
+    task = (await session.execute(
+        select(A2ATask).where(
+            A2ATask.task_id == task_id, A2ATask.target_agent_id == completing_agent_id,
+        ).with_for_update()
+        .execution_options(populate_existing=True)
+    )).scalar_one_or_none()
+    if task is None or task.target_agent_id != completing_agent_id:
+        raise NotFound("Task not found.")
+    if (require_claim and not task.executor_id) or (
+        task.executor_id and task.executor_id != execution_id
+    ):
+        raise A2AExecutionConflict("Task result requires its bound executor identity.")
+    terminal = {"completed", "failed", "rejected"}
+    if not isinstance(result_status, str) or result_status not in terminal:
+        raise A2AError("Invalid terminal result status.")
+    if reason is not None and (not isinstance(reason, str) or len(reason) > 500):
+        raise A2AError("Result reason must be at most 500 characters.")
+    reason = reason or None
     for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            raise A2AError("Each A2A artifact must be an object.")
         try:
             ParseDict(artifact, a2a_types.Artifact())
         except ParseError as exc:
             raise A2AError(f"Invalid A2A Artifact: {str(exc)[:200]}") from exc
-
-    result = await session.execute(
-        update(A2ATask)
-        .where(A2ATask.task_id == task_id, A2ATask.status.in_(["submitted", "working"]))
-        .values(status="completed", artifacts=artifacts, updated_at=now_utc())
-    )
-    if getattr(result, "rowcount", 0) != 1:
-        log.info("a2a.duplicate_completion_ignored", task_id=task_id)
+    result_hash = _content_hash({"status": result_status, "artifacts": artifacts, "reason": reason})
+    if task.status in {"completed", "failed", "rejected"}:
+        stored_hash = task.result_hash or _content_hash({
+            "status": task.status, "artifacts": task.artifacts or [], "reason": task.result_reason,
+        })
+        if stored_hash != result_hash:
+            raise A2AResultConflict("A different terminal result is already committed.")
+        await session.commit()
         return False
-
-    task = await session.get(A2ATask, task_id)
-    assert task is not None
+    task.status = result_status
+    task.artifacts = artifacts
+    task.result_hash = result_hash
+    task.result_reason = reason
+    task.updated_at = now_utc()
     await append_event(
-        session,
-        event_type="a2a.task.completed",
+        session, event_type=f"a2a.task.{result_status}",
         actor={"agent_id": task.target_agent_id},
-        payload={
-            "task_id": task_id,
-            "initiator_agent_id": task.initiator_agent_id,
-            "artifact_hashes": [artifact_hash(a) for a in artifacts],
-        },
+        payload={"task_id": task_id, "initiator_agent_id": task.initiator_agent_id,
+                 "artifact_hashes": [artifact_hash(a) for a in artifacts]},
     )
     await session.commit()
-    await gateway.publish(
-        task.initiator_agent_id, "a2a_completed", {"task_id": task_id}
-    )
+    try:
+        await gateway.publish(task.initiator_agent_id, "a2a_completed", {
+            "task_id": task_id, "status": result_status,
+        })
+    except Exception as exc:
+        log.warning("a2a.result_notification_deferred", task_id=task_id,
+                    error=type(exc).__name__)
     return True
 
 

@@ -1,0 +1,17 @@
+# Amenazas y fronteras de confianza
+
+Se consideran no confiables las transacciones, los pares de red, los artefactos, los agentes, las mayorías científicas, las declaraciones de identidad institucional y los snapshots recibidos. Los supuestos explícitos son un génesis fijado, menos de un tercio del poder de consenso bizantino, claves protegidas, bibliotecas criptográficas correctas y autoridades institucionales verificadas fuera del motor. La disponibilidad y calidad científica de los artefactos no se deducen de sus hashes.
+
+El prototipo implementa firmas, separación por dominio e identificador de cadena, nonces, cantidades enteras estrictas, límite acumulativo de emisión, compromiso antes de revelación, grupos de control declarados distintos y decisiones institucionales de dos firmas. La persistencia es atómica, el journal puede reproducirse desde génesis, las consultas no mutan estado y los snapshots están deshabilitados. ABCI se limita a loopback y el modo económico permanece deshabilitado.
+
+El génesis de aplicación compromete las claves y poderes iniciales de consenso, que `InitChain` compara con el motor. Las raíces Merkle de versión 2 incluyen el número de hojas. Estas defensas no convierten un journal SQLite en un certificado de finalidad: un lector independiente debe verificar también el génesis completo y los bloques firmados por CometBFT.
+
+SHA-256 se selecciona por su estandarización, uso interoperable y compatibilidad con el motor. Ed25519 ofrece firmas deterministas y soporte en las bibliotecas ya utilizadas por AGORA; las claves científicas, monetarias y de consenso se separan. No se afirma resistencia poscuántica. Referencias: [FIPS 180-4](https://csrc.nist.gov/pubs/fips/180-4/upd1/final) y [RFC 8032](https://www.rfc-editor.org/info/rfc8032/).
+
+Los ensayos deben cubrir doble gasto, replay, recompensa duplicada, límite monetario bajo concurrencia, firmas falsas, revisión individual, alteración del génesis, manipulación temporal, corrupción del journal y caída entre `FinalizeBlock` y `Commit`. Los ensayos de red incluyen pérdida de cuórum, recuperación y sincronización de un nodo rezagado. Bloques finalizados conflictivos representan una ruptura de supuestos BFT; no se resuelven eligiendo la cadena más larga ni revirtiendo balances silenciosamente.
+
+Una denuncia con hashes arbitrarios ya no bloquea la finalidad por sí sola. Sólo una admisión con dos firmas institucionales pausa la maduración. Persiste el riesgo de que revisores coludidos censuren una denuncia válida hasta el vencimiento. La disponibilidad de evidencia, los plazos de admisión, la apelación y las pruebas contra censura son bloqueantes económicos. No existe confiscación retroactiva tras la finalidad; una refutación posterior debe conservarse mediante nuevas versiones científicas.
+
+Otros bloqueantes son la identidad y el mandato reales, la colusión Sybil, el plagio, el farming de recompensas, la disponibilidad de artefactos, la financiación de operadores, las pruebas para clientes ligeros, la recuperación de desastres y una política de actualizaciones verificable. Las pruebas unitarias no acreditan que estos riesgos hayan desaparecido.
+
+CometBFT 0.38.26 supera el parche 0.38.21 de [Tachyon](https://github.com/cometbft/cometbft/security/advisories/GHSA-c32p-wcqj-j677), relevante para la seguridad de BFT Time. Esto no constituye una auditoría de todas sus dependencias. Deben mantenerse versiones fijadas y comprobarse los límites de bloque, retención de evidencia y parámetros de consenso.

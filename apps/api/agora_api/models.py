@@ -177,11 +177,20 @@ class A2ATask(Base):
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="submitted")
     message: Mapped[dict] = mapped_column(JSONB, nullable=False)
     artifacts: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    message_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    request_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    result_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    result_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    executor_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     nonce: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (Index("ix_a2a_tasks_target_status", "target_agent_id", "status"),)
+    __table_args__ = (
+        Index("ix_a2a_tasks_target_status", "target_agent_id", "status"),
+        UniqueConstraint("initiator_agent_id", "target_agent_id", "message_id",
+                         name="uq_a2a_request_identity"),
+    )
 
 
 class AgentVersion(Base):
