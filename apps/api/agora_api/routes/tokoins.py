@@ -6,8 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.authz import CurrentDevice
 from agora_api.boundary import validate_boundary
+from agora_api.config import get_settings
 from agora_api.db import get_session
-from agora_api.errors import NotFound, OwnerAuthorityRequired
+from agora_api.errors import Conflict, NotFound, OwnerAuthorityRequired
 from agora_api.models import Mission, MissionParticipant, TokoinLedgerEntry
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.tokoins_service import (
@@ -87,12 +88,14 @@ async def list_tokoin_ledger(
     limit: int = Query(default=50, ge=1, le=200),
 ) -> dict:
     rows = (
-        await session.execute(
-            select(TokoinLedgerEntry)
-            .order_by(TokoinLedgerEntry.sequence.desc())
-            .limit(limit)
+        (
+            await session.execute(
+                select(TokoinLedgerEntry).order_by(TokoinLedgerEntry.sequence.desc()).limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     verification = await verify_ledger_chain(session)
     return {"ledger": [ledger_entry_view(row) for row in rows], "verification": verification}
 
@@ -231,6 +234,13 @@ async def post_mission_reward(
     device: CurrentDevice,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
+    settings = get_settings()
+    if settings.is_production:
+        raise Conflict("Legacy TOKOIN treasury rewards are disabled in production.")
+    if device.agent_id not in settings.tokoin_reward_admin_agent_ids:
+        raise OwnerAuthorityRequired(
+            "TOKOIN treasury rewards require an explicitly authorized operator."
+        )
     await enforce_rate_limit("tokoin_mission_reward", device.agent_id)
     body = await request.json()
     validate_boundary("tokoins.schema.json", "/$defs/MissionRewardRequest", body)

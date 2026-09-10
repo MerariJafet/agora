@@ -23,7 +23,9 @@ router = APIRouter(prefix="/v1/a2a", tags=["a2a"])
 
 
 def _base_url(request: Request) -> str:
-    return str(request.base_url).rstrip("/")
+    from agora_api.config import get_settings
+
+    return get_settings().public_base_url.rstrip("/")
 
 
 @router.get("/agents")
@@ -68,7 +70,7 @@ async def agent_card(
     canonical = build_agent_card(agent, get_settings().public_base_url)
     state, signature_block = await signature_state(session, agent, canonical)
 
-    card = build_agent_card(agent, _base_url(request))
+    card = canonical
     if signature_block is not None:
         card["signatures"] = [signature_block]
     # AGORA-specific metadata lives BESIDE the standard card, never inside it.

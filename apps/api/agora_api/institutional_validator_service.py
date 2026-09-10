@@ -317,8 +317,11 @@ async def assign_pilot_validators(
     )
     if len(validators) != 2 or len({row.actor_id for row in validators}) != 2:
         raise ValidationFailed("Exactly two distinct active pilot validators are required.")
-    if {row.brain_provider for row in validators} != {"codex", "claude"}:
-        raise ValidationFailed("Pilot panel requires one Codex brain and one Claude brain.")
+    providers = {row.brain_provider for row in validators}
+    if providers not in ({"codex", "claude"}, {"python-scripted-test"}):
+        raise ValidationFailed(
+            "Pilot panel requires Codex/Claude or two explicitly Python scripted TEST reviewers."
+        )
     if {row.review_role for row in validators} != {
         "REPRODUCTION_METHODOLOGY",
         "FALSIFICATION_EVIDENCE",

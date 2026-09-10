@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from sqlalchemy import text
 
 from agora_api import __version__
@@ -10,7 +10,7 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/healthz")
-async def healthz() -> dict:
+async def healthz(response: Response) -> dict:
     checks: dict[str, str] = {}
     try:
         async with session_factory()() as session:
@@ -30,6 +30,7 @@ async def healthz() -> dict:
     except Exception:
         outbox = None
     healthy = all(v == "ok" for v in checks.values())
+    response.status_code = 200 if healthy else 503
     return {
         "status": "ok" if healthy else "degraded",
         "version": __version__,

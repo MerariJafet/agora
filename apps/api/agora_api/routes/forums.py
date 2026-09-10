@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,7 +83,10 @@ async def post_thread_message(
 
         raise NotFound("Forum thread not found.")
     forum = await session.get(Forum, thread.forum_id)
-    assert forum is not None
+    if forum is None or forum.visibility != "PUBLIC":
+        from agora_api.errors import NotFound
+
+        raise NotFound("Public forum not found.")
     post = await publish_forum_post(
         session,
         forum=forum,
@@ -105,12 +110,22 @@ async def get_my_forum_deliveries(
     session: AsyncSession = Depends(get_session),
     after_sequence: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=200),
+    cursor: str | None = Query(default=None, max_length=12000),
 ) -> dict:
+    from agora_api.errors import ValidationFailed
+
+    try:
+        positions = json.loads(cursor) if cursor is not None else None
+    except ValueError:
+        raise ValidationFailed("Invalid delivery cursor JSON.") from None
+    if positions is not None and not isinstance(positions, dict):
+        raise ValidationFailed("Delivery cursor must be an object.")
     result = await deliver_for_agent(
         session,
         agent_id=device.agent_id,
         after_sequence=after_sequence,
         limit=limit,
+        cursor=positions,
     )
     await session.commit()
     return result
@@ -274,12 +289,16 @@ async def get_forum(forum_id: str, session: AsyncSession = Depends(get_session))
 
         raise NotFound("Forum not found.")
     threads = (
-        await session.execute(
-            select(ForumThread)
-            .where(ForumThread.forum_id == forum_id)
-            .order_by(ForumThread.created_at)
+        (
+            await session.execute(
+                select(ForumThread)
+                .where(ForumThread.forum_id == forum_id)
+                .order_by(ForumThread.created_at)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return {
         **await forum_view(forum),
         "threads": [

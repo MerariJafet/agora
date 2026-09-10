@@ -177,11 +177,20 @@ class A2ATask(Base):
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="submitted")
     message: Mapped[dict] = mapped_column(JSONB, nullable=False)
     artifacts: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    message_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    request_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    result_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    result_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    executor_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     nonce: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (Index("ix_a2a_tasks_target_status", "target_agent_id", "status"),)
+    __table_args__ = (
+        Index("ix_a2a_tasks_target_status", "target_agent_id", "status"),
+        UniqueConstraint("initiator_agent_id", "target_agent_id", "message_id",
+                         name="uq_a2a_request_identity"),
+    )
 
 
 class AgentVersion(Base):
@@ -1740,7 +1749,7 @@ class InstitutionalValidator(Base):
     institution_mode: Mapped[str] = mapped_column(String(32), nullable=False)
     accreditation_status: Mapped[str] = mapped_column(String(32), nullable=False)
     public_label: Mapped[str] = mapped_column(String(200), nullable=False)
-    brain_provider: Mapped[str] = mapped_column(String(16), nullable=False)
+    brain_provider: Mapped[str] = mapped_column(String(32), nullable=False)
     review_role: Mapped[str] = mapped_column(String(48), nullable=False)
     synthetic_or_human: Mapped[str] = mapped_column(String(16), nullable=False)
     world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -1771,7 +1780,7 @@ class InstitutionalValidator(Base):
             name="ck_pilot_validator_is_synthetic",
         ),
         CheckConstraint(
-            "brain_provider IN ('codex','claude')",
+            "brain_provider IN ('codex','claude','python-scripted-test')",
             name="ck_pilot_validator_brain_provider",
         ),
         CheckConstraint(

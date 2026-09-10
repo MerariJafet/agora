@@ -47,6 +47,7 @@ from agora_api.research_protocol_service import (
     lock_reward,
     prepare_review_signing_payload,
     register_institution,
+    reproducibility_package,
     verify_institution,
 )
 
@@ -103,7 +104,7 @@ async def post_candidate(
 async def post_reward_calculation(
     candidate_id: str,
     request: Request,
-    _device: CurrentDevice,
+    device: CurrentDevice,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     body = await request.json()
@@ -111,6 +112,7 @@ async def post_reward_calculation(
     row = await calculate_reward(
         session,
         candidate_id=candidate_id,
+        agent_id=device.agent_id,
         total_aceros=body["total_aceros"],
         trace_id=getattr(request.state, "trace_id", None),
     )
@@ -472,3 +474,32 @@ async def post_publication_package(
         "package_hash": row.package_hash,
         "provenance": row.provenance,
     }
+
+
+@router.get("/candidates/{candidate_id}/reproducibility-package")
+async def get_reproducibility_package(
+    candidate_id: str, session: AsyncSession = Depends(get_session)
+) -> dict:
+    return await reproducibility_package(session, candidate_id)
+
+
+@router.post('/test-challenges', status_code=201)
+async def post_test_challenge(request: Request, device: CurrentDevice,
+                             session: AsyncSession = Depends(get_session)) -> dict:
+    from pydantic import ValidationError
+
+    from agora_api.errors import ValidationFailed
+    from agora_api.ratelimit import enforce_rate_limit
+    from agora_api.v03_test_challenges import TestChallengeRequest, create_test_challenge
+
+    await enforce_rate_limit('mission_create', device.agent_id)
+    try:
+        body = TestChallengeRequest.model_validate(await request.json())
+    except (ValueError, ValidationError) as error:
+        raise ValidationFailed('Invalid TEST challenge request.') from error
+    agent = await session.get(Agent, device.agent_id)
+    assert agent is not None
+    result = await create_test_challenge(session, agent, body,
+                                        getattr(request.state, 'trace_id', None))
+    await session.commit()
+    return result

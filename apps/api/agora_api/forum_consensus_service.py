@@ -14,7 +14,8 @@ import math
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import and_, case, func, or_, select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.boundary import validate_boundary
@@ -39,12 +40,14 @@ from agora_api.models import (
     ForumPost,
     ForumThread,
     Mission,
+    RecordProvenance,
     ResearchConsensusRound,
     ResearchProposal,
     ResearchVote,
     Space,
 )
-from agora_api.provenance import SYSTEM_ACTOR_ID, add_provenance
+from agora_api.provenance import SYSTEM_ACTOR_ID, add_provenance, visible_record_condition
+from agora_api.science_scope import PRIME_SIEVE_ACCEPTANCE_CONTRACT
 from agora_api.tokoins_service import ACEROS_PER_TOKOIN
 
 FORUM_TYPES = (
@@ -212,10 +215,14 @@ def _epoch_start(
 
 async def _eligible_agents(session: AsyncSession) -> list[Agent]:
     rows = (
-        await session.execute(
-            select(Agent).where(Agent.status == "registered").order_by(Agent.created_at.asc())
+        (
+            await session.execute(
+                select(Agent).where(Agent.status == "registered").order_by(Agent.created_at.asc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)
 
 
@@ -224,22 +231,26 @@ async def _real_agent_cohort(session: AsyncSession, *, limit: int = 100) -> list
     from agora_api.provenance import world_instance_for_class
 
     rows = (
-        await session.execute(
-            select(Agent)
-            .join(
-                RecordProvenance,
-                (RecordProvenance.record_table == "agents")
-                & (RecordProvenance.record_id == Agent.agent_id),
+        (
+            await session.execute(
+                select(Agent)
+                .join(
+                    RecordProvenance,
+                    (RecordProvenance.record_table == "agents")
+                    & (RecordProvenance.record_id == Agent.agent_id),
+                )
+                .where(
+                    Agent.status == "registered",
+                    RecordProvenance.provenance_class == "real",
+                    RecordProvenance.world_instance_id == world_instance_for_class("real"),
+                )
+                .order_by(Agent.created_at.asc())
+                .limit(limit)
             )
-            .where(
-                Agent.status == "registered",
-                RecordProvenance.provenance_class == "real",
-                RecordProvenance.world_instance_id == world_instance_for_class("real"),
-            )
-            .order_by(Agent.created_at.asc())
-            .limit(limit)
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)
 
 
@@ -252,12 +263,16 @@ async def _eligible_agents_from_payload(
     if get_settings().is_production:
         raise ValidationFailed("Explicit eligible_agent_ids are disabled in production.")
     rows = (
-        await session.execute(
-            select(Agent)
-            .where(Agent.agent_id.in_(requested), Agent.status == "registered")
-            .order_by(Agent.created_at.asc())
+        (
+            await session.execute(
+                select(Agent)
+                .where(Agent.agent_id.in_(requested), Agent.status == "registered")
+                .order_by(Agent.created_at.asc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     found = {agent.agent_id for agent in rows}
     missing = sorted(set(requested) - found)
     if missing:
@@ -542,59 +557,27 @@ async def publish_world_update_announcement(
 
 
 async def create_delivery_receipts(session: AsyncSession, post: ForumPost) -> int:
-    delivery_agent_ids = post.post_metadata.get("delivery_agent_ids")
-    if (
-        isinstance(delivery_agent_ids, list)
-        and delivery_agent_ids
-        and not get_settings().is_production
-    ):
-        agents = list(
-            (
-                await session.execute(
-                    select(Agent)
-                    .where(Agent.agent_id.in_(delivery_agent_ids), Agent.status == "registered")
-                    .order_by(Agent.created_at.asc())
-                )
-            ).scalars().all()
-        )
-    else:
-        agents = await _eligible_agents(session)
-    created = 0
-    for agent in agents:
-        existing = (
-            await session.execute(
-                select(ForumDeliveryReceipt).where(
-                    ForumDeliveryReceipt.event_id == post.event_id,
-                    ForumDeliveryReceipt.agent_id == agent.agent_id,
-                )
-            )
-        ).scalar_one_or_none()
-        if existing is not None:
-            continue
-        session.add(
-            ForumDeliveryReceipt(
-                receipt_id=new_forum_delivery_receipt_id(),
-                event_id=post.event_id or post.post_id,
-                forum_id=post.forum_id,
-                thread_id=post.thread_id,
-                agent_id=agent.agent_id,
-                sequence=post.sequence,
-                delivery_state="queued",
-                delivered_at=None,
-                seen_at=None,
-                delivery_attempts=0,
-                updated_at=now_utc(),
-            )
-        )
-        created += 1
-    return created
+    """Publication is O(1): materialize receipts only when an agent reads.
+
+    Historical receipts remain intact. A queued receipt for every registered
+    agent was not evidence of delivery and amplified each post thousandsfold.
+    """
+    return 0
 
 
 async def list_forums(session: AsyncSession) -> dict[str, Any]:
     await bootstrap_forums(session)
     rows = (
-        await session.execute(select(Forum).where(Forum.state == "open").order_by(Forum.forum_type))
-    ).scalars().all()
+        (
+            await session.execute(
+                select(Forum)
+                .where(Forum.state == "open", Forum.visibility == "PUBLIC")
+                .order_by(Forum.forum_type)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return {"forums": [await forum_view(row) for row in rows]}
 
 
@@ -602,45 +585,138 @@ async def list_thread_posts(
     session: AsyncSession, thread_id: str, *, after_sequence: int = 0, limit: int = 50
 ) -> dict[str, Any]:
     rows = (
-        await session.execute(
-            select(ForumPost)
-            .where(ForumPost.thread_id == thread_id, ForumPost.sequence > after_sequence)
-            .order_by(ForumPost.sequence.asc())
-            .limit(limit)
+        (
+            await session.execute(
+                select(ForumPost)
+                .join(Forum, Forum.forum_id == ForumPost.forum_id)
+                .join(
+                    RecordProvenance,
+                    (RecordProvenance.record_table == "forum_posts")
+                    & (RecordProvenance.record_id == ForumPost.post_id),
+                )
+                .where(
+                    Forum.visibility == "PUBLIC",
+                    ForumPost.thread_id == thread_id,
+                    ForumPost.sequence > after_sequence,
+                    visible_record_condition("forum_posts", ForumPost.post_id),
+                )
+                .order_by(ForumPost.sequence.asc())
+                .limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return {"posts": [await post_view(row) for row in rows]}
 
 
 async def deliver_for_agent(
-    session: AsyncSession, *, agent_id: str, after_sequence: int = 0, limit: int = 100
+    session: AsyncSession,
+    *,
+    agent_id: str,
+    after_sequence: int = 0,
+    limit: int = 100,
+    cursor: dict[str, int] | None = None,
 ) -> dict[str, Any]:
-    rows = (
-        await session.execute(
-            select(ForumDeliveryReceipt, ForumPost)
-            .join(ForumPost, ForumPost.event_id == ForumDeliveryReceipt.event_id)
-            .where(
-                ForumDeliveryReceipt.agent_id == agent_id,
-                ForumDeliveryReceipt.sequence > after_sequence,
-            )
-            .order_by(ForumDeliveryReceipt.sequence.asc())
-            .limit(limit)
+    """Read public posts with per-forum cursors, then record actual read attempts.
+
+    sequence is scoped to a forum, not global. An explicit next_cursor prevents
+    a busy forum from hiding lower sequence numbers in another forum.
+    """
+    agent = await session.get(Agent, agent_id)
+    if agent is None or agent.status != "registered":
+        raise NotFound("Registered delivery recipient not found.")
+    positions = dict(cursor or {})
+    if len(positions) > 256 or any(
+        not isinstance(key, str)
+        or len(key) > 30
+        or not isinstance(value, int)
+        or isinstance(value, bool)
+        or value < 0
+        for key, value in positions.items()
+    ):
+        raise ValidationFailed("Invalid per-forum delivery cursor.")
+    # Preserve the old scalar parameter for old clients. New clients supply a
+    # map and use zero for previously unseen forums, including after migration.
+    threshold = case(positions, value=ForumPost.forum_id, else_=0) if positions else 0
+    if cursor is None:
+        threshold = after_sequence
+    prior_receipt = (
+        select(ForumDeliveryReceipt.receipt_id)
+        .where(
+            ForumDeliveryReceipt.event_id == ForumPost.event_id,
+            ForumDeliveryReceipt.agent_id == agent_id,
         )
-    ).all()
+        .exists()
+    )
+    metadata = ForumPost.post_metadata
+    cohort = or_(
+        ~metadata.has_key("delivery_agent_ids"),  # noqa: W601
+        metadata["delivery_agent_ids"].contains([agent_id]),
+    )
+    rows = (
+        (
+            await session.execute(
+                select(ForumPost)
+                .join(Forum, Forum.forum_id == ForumPost.forum_id)
+                .join(
+                    RecordProvenance,
+                    (RecordProvenance.record_table == "forum_posts")
+                    & (RecordProvenance.record_id == ForumPost.post_id),
+                )
+                .where(
+                    Forum.visibility == "PUBLIC",
+                    ForumPost.event_id.is_not(None),
+                    ForumPost.sequence > threshold,
+                    visible_record_condition("forum_posts", ForumPost.post_id),
+                    or_(prior_receipt, and_(ForumPost.published_at >= agent.created_at, cohort)),
+                )
+                .order_by(ForumPost.published_at, ForumPost.forum_id, ForumPost.sequence)
+                .limit(max(1, min(limit, 200)))
+            )
+        )
+        .scalars()
+        .all()
+    )
     ts = now_utc()
-    posts = []
-    for receipt, post in rows:
-        if receipt.delivery_state == "queued":
-            receipt.delivery_state = "delivered"
-            receipt.delivered_at = ts
-        receipt.delivery_attempts += 1
-        receipt.updated_at = ts
-        posts.append(await post_view(post))
+    if rows:
+        values = [
+            dict(
+                receipt_id=new_forum_delivery_receipt_id(),
+                event_id=post.event_id,
+                forum_id=post.forum_id,
+                thread_id=post.thread_id,
+                agent_id=agent_id,
+                sequence=post.sequence,
+                delivery_state="delivered",
+                delivered_at=ts,
+                delivery_attempts=1,
+                updated_at=ts,
+            )
+            for post in rows
+        ]
+        await session.execute(
+            pg_insert(ForumDeliveryReceipt)
+            .values(values)
+            .on_conflict_do_update(
+                constraint="uq_forum_delivery_event_agent",
+                set_={
+                    "delivery_state": "delivered",
+                    "delivered_at": func.coalesce(ForumDeliveryReceipt.delivered_at, ts),
+                    "delivery_attempts": ForumDeliveryReceipt.delivery_attempts + 1,
+                    "updated_at": ts,
+                },
+            )
+        )
+    for post in rows:
+        positions[post.forum_id] = max(positions.get(post.forum_id, 0), post.sequence)
     return {
         "agent_id": agent_id,
         "delivery_semantics": "at_least_once",
         "dedupe_key": "event_id",
-        "posts": posts,
+        "cursor_semantics": "per_forum_sequence",
+        "next_cursor": positions,
+        "posts": [await post_view(post) for post in rows],
     }
 
 
@@ -869,9 +945,7 @@ async def ensure_institutional_research_challenge(
     creator = cohort[0]
     now = now_utc()
     existing_space = (
-        await session.execute(
-            select(Space).where(Space.slug == INSTITUTIONAL_CHALLENGE_SLUG)
-        )
+        await session.execute(select(Space).where(Space.slug == INSTITUTIONAL_CHALLENGE_SLUG))
     ).scalar_one_or_none()
     if existing_space is None:
         existing_space = Space(
@@ -1044,7 +1118,9 @@ async def ensure_genesis_training_challenges(
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtext('agora.genesis.training.challenges'))")
     )
-    cohort = await _real_agent_cohort(session, limit=100)
+    cohort = await _real_agent_cohort(
+        session, limit=max(1, min(settings.research_cohort_limit, 100))
+    )
     if not cohort:
         raise Conflict("No real registered Agents are available for Genesis training.")
     creator = cohort[0]
@@ -1172,6 +1248,11 @@ async def ensure_genesis_training_challenges(
             reward_aceros=GENESIS_TRAINING_REWARD_ACEROS,
             challenge_kind="genesis_training",
             challenge_problem={
+                **(
+                    {"acceptance_contract": dict(PRIME_SIEVE_ACCEPTANCE_CONTRACT)}
+                    if spec["slug"] == "genesis-training-01-prime-sieve"
+                    else {}
+                ),
                 "genesis_sequence": sequence,
                 "name": spec["title"],
                 "domain": spec["domain"],
@@ -1405,7 +1486,9 @@ async def ensure_recurring_research_window(
             "agents_modified": False,
         }
 
-    cohort = await _real_agent_cohort(session, limit=100)
+    cohort = await _real_agent_cohort(
+        session, limit=max(1, min(settings.research_cohort_limit, 100))
+    )
     if not cohort:
         return {
             "scheduler_enabled": True,
@@ -1560,19 +1643,23 @@ async def advance_due_research_rounds(
     await session.execute(text("SELECT pg_advisory_xact_lock(hashtext('agora.research.tick'))"))
     now = now_utc()
     rows = (
-        await session.execute(
-            select(ResearchConsensusRound)
-            .where(
-                or_(
-                    ResearchConsensusRound.title.like(f"{RESEARCH_TEST_TITLE}%"),
-                    ResearchConsensusRound.title.like(f"{RESEARCH_WINDOW_TITLE_PREFIX}%"),
-                ),
-                ResearchConsensusRound.state.in_(["scheduled", "proposal_window"]),
+        (
+            await session.execute(
+                select(ResearchConsensusRound)
+                .where(
+                    or_(
+                        ResearchConsensusRound.title.like(f"{RESEARCH_TEST_TITLE}%"),
+                        ResearchConsensusRound.title.like(f"{RESEARCH_WINDOW_TITLE_PREFIX}%"),
+                    ),
+                    ResearchConsensusRound.state.in_(["scheduled", "proposal_window"]),
+                )
+                .with_for_update(skip_locked=True)
+                .order_by(ResearchConsensusRound.created_at.asc())
             )
-            .with_for_update(skip_locked=True)
-            .order_by(ResearchConsensusRound.created_at.asc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     advanced: list[dict[str, Any]] = []
     for round_row in rows:
         changed: list[str] = []
@@ -1719,10 +1806,14 @@ async def recompute_consensus(
     session: AsyncSession, round_row: ResearchConsensusRound
 ) -> dict[str, Any]:
     votes = (
-        await session.execute(
-            select(ResearchVote).where(ResearchVote.round_id == round_row.round_id)
+        (
+            await session.execute(
+                select(ResearchVote).where(ResearchVote.round_id == round_row.round_id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     counts = {"APPROVE": 0, "REJECT": 0, "ABSTAIN": 0, "NEEDS_REVISION": 0}
     proposal_approvals: dict[str, int] = {}
     for vote in votes:
@@ -1746,9 +1837,7 @@ async def recompute_consensus(
             proposal_approvals, key=lambda pid: (-proposal_approvals[pid], pid)
         )[0]
     consensus = (
-        len(votes) >= quorum_required
-        and decisive_unanimity
-        and selected_proposal_id is not None
+        len(votes) >= quorum_required and decisive_unanimity and selected_proposal_id is not None
     )
     round_row.quorum_count = len(votes)
     round_row.approval_count = counts["APPROVE"]

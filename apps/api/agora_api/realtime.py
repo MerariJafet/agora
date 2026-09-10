@@ -39,6 +39,17 @@ def rt_subject(scope: str, kind: str) -> str:
     return f"{RT_PREFIX}.{scope}.{kind}"
 
 
+def public_interest_allows(scope: str, kind: str) -> bool:
+    """Defense in depth after resource visibility checks at subscription time."""
+    if kind in {"a2a_task", "a2a_completed"}:
+        return False
+    if scope.startswith("spc_"):
+        return True
+    if scope.startswith("mis_"):
+        return kind in {"mission", "artifact", "mission_challenge"}
+    return scope == "arena" and kind == "arena"
+
+
 @dataclass(eq=False)  # identity semantics: clients live in a set
 class RtClient:
     kind: str  # "bridge" | "browser"
@@ -47,16 +58,31 @@ class RtClient:
     spaces: set[str] = field(default_factory=set)
     queue: asyncio.Queue = field(default_factory=lambda: asyncio.Queue(CLIENT_QUEUE_LIMIT))
     closed: bool = False
+    a2a_ready: bool = False
 
-    def offer(self, frame: dict) -> None:
-        """Bounded, lossy for ephemeral fanout: drop oldest when full."""
+    def offer(self, frame: dict) -> bool:
+        """Only browser notifications are lossy. Bridge work is DB-refilled.
+
+        Refuse overload rather than evicting queued work; reserve control
+        headroom so task bursts do not displace result ACKs/revocation.
+        """
+        if self.kind == "bridge" and frame.get("type") == "a2a_task":
+            if not self.a2a_ready:
+                return False
+            if self.queue.qsize() >= max(1, self.queue.maxsize - 16):
+                return False
         try:
             self.queue.put_nowait(frame)
+            return True
         except asyncio.QueueFull:
+            if self.kind == "bridge":
+                return False
             with contextlib.suppress(asyncio.QueueEmpty):
                 self.queue.get_nowait()
             with contextlib.suppress(asyncio.QueueFull):
                 self.queue.put_nowait(frame)
+                return True
+            return False
 
 
 class RealtimeGateway:
@@ -106,7 +132,14 @@ class RealtimeGateway:
                 continue
             if client.kind == "bridge" and scope == client.agent_id:
                 client.offer({"type": kind, **frame["data"]})
-            elif scope in client.spaces:
+            elif (
+                isinstance(scope, str)
+                and isinstance(kind, str)
+                and scope in client.spaces
+                and public_interest_allows(scope, kind)
+            ):
+                # Even a corrupted/injected subscription set cannot cross the
+                # direct-agent/public-interest boundary. A2A bodies stay directed.
                 client.offer({"type": kind, "space_id": scope, **frame["data"]})
 
     # -- registry ------------------------------------------------------------

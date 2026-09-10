@@ -18,7 +18,10 @@ Production fail-closed rule stays intact (SEC-011): if `AGORA_ENV=production`
 and no OIDC configuration exists, no provider is returned and login is 403.
 """
 
+import base64
+import hashlib
 import json
+import math
 import secrets
 import time
 from dataclasses import dataclass
@@ -86,7 +89,7 @@ class OIDCConfig:
         if not (s.oidc_issuer and s.oidc_client_id and s.oidc_redirect_uri):
             return None
         return cls(
-            issuer=s.oidc_issuer.rstrip("/"),
+            issuer=s.oidc_issuer,
             client_id=s.oidc_client_id,
             client_secret=s.oidc_client_secret,
             redirect_uri=s.oidc_redirect_uri,
@@ -103,10 +106,11 @@ class OIDCOwnerAuthProvider:
 
     async def discovery(self) -> dict[str, Any]:
         if self._discovery is None:
+            discovery_base = self.config.issuer.rstrip("/")
             doc = await self.fetcher.get_json(
-                f"{self.config.issuer}/.well-known/openid-configuration"
+                f"{discovery_base}/.well-known/openid-configuration"
             )
-            if doc.get("issuer", "").rstrip("/") != self.config.issuer:
+            if doc.get("issuer") != self.config.issuer:
                 raise OIDCError("Discovery document issuer mismatch.")
             self._discovery = doc
         return self._discovery
@@ -125,7 +129,7 @@ class OIDCOwnerAuthProvider:
             "state": state,
             "nonce": nonce,
         }
-        query = "&".join(f"{k}={httpx.QueryParams({k: v})[k]}" for k, v in params.items())
+        query = str(httpx.QueryParams(params))
         return {
             "authorization_url": f"{doc['authorization_endpoint']}?{query}",
             "state": state,
@@ -169,23 +173,32 @@ class OIDCOwnerAuthProvider:
             raise OIDCError("ID token signature validation failed.") from exc
         claims = decoded.claims
 
-        if str(claims.get("iss", "")).rstrip("/") != self.config.issuer:
+        if claims.get("iss") != self.config.issuer:
             raise OIDCError("ID token issuer mismatch.")
         aud = claims.get("aud")
         audiences = aud if isinstance(aud, list) else [aud]
         if self.config.client_id not in audiences:
             raise OIDCError("ID token audience mismatch.")
+        if (len(audiences) > 1 or "azp" in claims) and claims.get("azp") != self.config.client_id:
+            raise OIDCError("ID token authorized party mismatch.")
         if claims.get("nonce") != expected_nonce:
             raise OIDCError("ID token nonce mismatch or replayed.")
         exp = claims.get("exp")
-        if not isinstance(exp, int | float) or exp <= time.time():
+        if (
+            isinstance(exp, bool) or not isinstance(exp, int | float)
+            or not math.isfinite(exp) or exp <= time.time()
+        ):
             raise OIDCError("ID token expired.")
         subject = claims.get("sub")
-        if not subject:
-            raise OIDCError("ID token has no subject.")
+        if not isinstance(subject, str) or not subject or len(subject) > 255:
+            raise OIDCError("ID token has no valid subject.")
 
         # Stable local identity: issuer+sub, never the display email alone.
-        username = f"{self.config.issuer}#{subject}"[:64]
+        # Hash the complete tuple; truncation merged different long subjects.
+        # Do not auto-link legacy truncated usernames: their ownership is ambiguous.
+        identity = json.dumps([self.config.issuer, subject], ensure_ascii=False).encode()
+        digest = base64.urlsafe_b64encode(hashlib.sha256(identity).digest()).decode().rstrip("=")
+        username = f"oidc:{digest}"
         existing = (
             await session.execute(select(User).where(User.username == username))
         ).scalar_one_or_none()

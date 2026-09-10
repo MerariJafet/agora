@@ -1,6 +1,7 @@
 """Owner authentication routes (development provider only in Sprint 02)."""
 
 import contextlib
+import secrets
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,8 @@ from agora_api.owners import (
     resolve_web_session,
 )
 from agora_api.ratelimit import enforce_rate_limit
+
+OIDC_STATE_COOKIE = "agora_oidc_state"
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -56,13 +59,19 @@ async def dev_login(
 
 
 @router.get("/oidc/start")
-async def oidc_start(request: Request) -> dict:
+async def oidc_start(request: Request, response: Response) -> dict:
     """Begin a generic OIDC authorization-code flow (ADR-0019)."""
     from agora_api.owners import get_production_auth_provider
 
     await enforce_rate_limit("auth_oidc", request.client.host if request.client else "unknown")
     provider = get_production_auth_provider()
-    return await provider.begin_login()  # type: ignore[attr-defined]
+    started = await provider.begin_login()  # type: ignore[attr-defined]
+    response.set_cookie(
+        OIDC_STATE_COOKIE, started["state"], httponly=True,
+        secure=get_settings().is_production, samesite="lax",
+        max_age=600, path="/",
+    )
+    return started
 
 
 @router.post("/oidc/callback")
@@ -78,6 +87,14 @@ async def oidc_callback(
     body = await request.json()
     if not isinstance(body, dict):
         raise ValidationFailed("Expected JSON object.")
+    from agora_api.oidc import OIDCError
+
+    state = body.get("state")
+    browser_state = request.cookies.get(OIDC_STATE_COOKIE)
+    if (not isinstance(state, str) or not browser_state
+            or not secrets.compare_digest(state.encode(), browser_state.encode())):
+        raise OIDCError("OIDC browser state mismatch.")
+    response.delete_cookie(OIDC_STATE_COOKIE, path="/")
     user = await provider.login(session, body)
     token, csrf, expires_at = await create_web_session(session, user)
     await session.commit()

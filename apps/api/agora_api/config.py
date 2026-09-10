@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     nats_url: str = "nats://localhost:4222"
     api_host: str = "127.0.0.1"
     api_port: int = 8700
+    alpha_admin_agent_ids: list[str] = []
+    tokoin_reward_admin_agent_ids: list[str] = []
+    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     log_level: str = "INFO"
 
     # Generic OIDC (production AuthProvider). Empty = not configured;
@@ -60,6 +63,9 @@ class Settings(BaseSettings):
     research_scheduler_enabled: bool = True
     research_scheduler_interval_seconds: int = 1800
     research_scheduler_startup_tick: bool = True
+    # Eligibility snapshot for recurring research windows. Registration remains
+    # independent from this live-cohort bound.
+    research_cohort_limit: int = 20
 
     # Local-only institutional TOKOIN controls are disabled unless an operator
     # explicitly enables them. Production remains hard-denied regardless.
