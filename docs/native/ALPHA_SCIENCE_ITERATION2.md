@@ -134,3 +134,26 @@ scripts/run-isolated-tests.sh tests/integration/test_local_alpha_science_migrati
 
 La prueba de migración requiere su invocación separada con base nueva, porque
 comprueba explícitamente ausencia de revisores antes del downgrade.
+
+## Corrección de aislamiento detectada por la suite completa
+
+Primera ejecución amplia: **599 PASS, 2 FAIL, 66.26 s**. Se preservó en
+`audit/local-alpha-v02/iteration-2/api-suite-full.txt`. Ambos fallos provenían de
+supuestos de aislamiento de los tests nuevos: el test de migración esperaba tabla
+vacía, y el bootstrap de SCI afectaba al test posterior que comprueba una base sin
+constitución. No se relajaron las aserciones de producción ni del test constitucional.
+
+Corrección exclusivamente en tests: cada escenario científico usa transacción
+exterior y savepoints para los commits reales del API, exporta evidencia y revierte
+sus filas. Comprueba igualdad de conteos antes/después en agents, missions,
+institutional_validators y root_constitutions. La migración crea su propia sub-base
+`agora_test_migration_*`, únicamente dentro del wrapper verificado, y la elimina al
+final. Ya no requiere ejecutar el test por separado de la suite general.
+
+Regresión conjunta: **15 PASS, 8.14 s**. Suite amplia repetida sin exclusiones:
+**601 PASS, 68.51 s**. Ruff aprobado; consulta final encuentra cero sub-bases
+`agora_test_migration_*` restantes. No se modificó núcleo nativo ni base viva.
+
+Evidencia completa corregida:
+`audit/local-alpha-v02/iteration-2/api-suite-full-corrected.txt` y
+`audit/local-alpha-v02/iteration-2/api-suite-full-corrected.xml`.

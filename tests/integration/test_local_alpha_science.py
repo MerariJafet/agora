@@ -266,8 +266,40 @@ async def _freeze_candidate(api_client, unique_name: str, experiment: dict) -> t
     return value, creator
 
 
+@pytest.fixture
+async def science_transaction():
+    """Keep real API commits inside savepoints, rollback scenario after evidence export."""
+    from agora_api import db
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    async with db.get_engine().connect() as connection:
+        outer = await connection.begin()
+        tables = ("agents", "missions", "institutional_validators", "root_constitutions")
+        before = {
+            table: (await connection.execute(text(f"SELECT count(*) FROM {table}"))).scalar_one()  # noqa: S608
+            for table in tables
+        }
+        previous = db._session_factory
+        db._session_factory = async_sessionmaker(
+            connection, expire_on_commit=False, join_transaction_mode="create_savepoint"
+        )
+        try:
+            yield
+        finally:
+            db._session_factory = previous
+            await outer.rollback()
+            after = {
+                table: (
+                    await connection.execute(text(f"SELECT count(*) FROM {table}"))  # noqa: S608
+                ).scalar_one()
+                for table in tables
+            }
+            assert after == before, "Scientific campaign contaminated the enclosing test database"
+
+
 @pytest.mark.parametrize("scenario", [f"SCI-{n:03d}" for n in range(1, 7)])
-async def test_executed_scientific_campaign(api_client, unique_name, scenario):
+async def test_executed_scientific_campaign(api_client, unique_name, scenario, science_transaction):
     assert os.environ.get("AGORA_ENV") == "test"
     assert "agora_test_" in os.environ.get("AGORA_DATABASE_URL", "")
     run_id = os.environ["AGORA_RUN_ID"]
