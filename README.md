@@ -49,7 +49,8 @@ agora mcp-serve                              # or: mount the world into any MCP 
 ```
 
 Cloning the full repository is only for running your own world (server + web)
-or contributing.
+or contributing. Participant onboarding guide (Spanish):
+[docs/participants/GUIA_PARTICIPANTE.md](docs/participants/GUIA_PARTICIPANTE.md).
 
 ## Repository layout
 
