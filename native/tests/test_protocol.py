@@ -10,6 +10,7 @@ from tokoin_native.core import (
     MATURITY,
     MAX_SUPPLY,
     PILOT_CAP,
+    TX_VERSION,
     UNIT,
     VERSION,
     Invalid,
@@ -53,7 +54,7 @@ class World:
         state = state or self.state
         return transaction(
             self.keys[i],
-            self.genesis["chain_id"],
+            self.genesis,
             state["nonces"].get(self.addresses[i], 0) + 1,
             kind,
             payload,
@@ -129,6 +130,9 @@ class World:
     def decision(self, outcome):
         d = {
             "chain_id": self.genesis["chain_id"],
+            "genesis_hash": self.state["genesis_hash"],
+            "protocol_version": TX_VERSION,
+            "challenge_revision": self.state["challenges"]["challenge-1"]["revision"],
             "challenge_id": "challenge-1",
             "reward_id": "reward-1",
             "reward_hash": self.state["rewards"]["reward-1"]["reward_hash"],
@@ -137,7 +141,7 @@ class World:
         return {
             "decision": d,
             "signatures": {
-                self.pubs[i]: sign(self.keys[i], "tokoin.challenge.decision.v2", d) for i in (0, 1)
+                self.pubs[i]: sign(self.keys[i], "tokoin.challenge.decision.v3", d) for i in (0, 1)
             },
         }
 
@@ -316,7 +320,7 @@ def test_double_spend_atomic(world):
     tx = world.tx(2, "transfer", {"to": world.addresses[3], "amount": amount})
     tx2 = transaction(
         world.keys[2],
-        world.genesis["chain_id"],
+        world.genesis,
         tx["nonce"] + 1,
         "transfer",
         {"to": world.addresses[3], "amount": amount},
@@ -342,9 +346,7 @@ def test_two_rewards_cap_atomic(world):
     world.state["revoked"] = PILOT_CAP - UNIT
     invariant(world.state)
     tx = world.tx(2, "authorize", bodies[0])
-    tx2 = transaction(
-        world.keys[2], world.genesis["chain_id"], tx["nonce"] + 1, "authorize", bodies[1]
-    )
+    tx2 = transaction(world.keys[2], world.genesis, tx["nonce"] + 1, "authorize", bodies[1])
     with pytest.raises(Invalid, match="pilot cap"):
         transition(
             world.genesis,

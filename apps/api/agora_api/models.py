@@ -1749,7 +1749,7 @@ class InstitutionalValidator(Base):
     institution_mode: Mapped[str] = mapped_column(String(32), nullable=False)
     accreditation_status: Mapped[str] = mapped_column(String(32), nullable=False)
     public_label: Mapped[str] = mapped_column(String(200), nullable=False)
-    brain_provider: Mapped[str] = mapped_column(String(16), nullable=False)
+    brain_provider: Mapped[str] = mapped_column(String(32), nullable=False)
     review_role: Mapped[str] = mapped_column(String(48), nullable=False)
     synthetic_or_human: Mapped[str] = mapped_column(String(16), nullable=False)
     world_instance_id: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -1780,7 +1780,7 @@ class InstitutionalValidator(Base):
             name="ck_pilot_validator_is_synthetic",
         ),
         CheckConstraint(
-            "brain_provider IN ('codex','claude')",
+            "brain_provider IN ('codex','claude','python-scripted-test')",
             name="ck_pilot_validator_brain_provider",
         ),
         CheckConstraint(

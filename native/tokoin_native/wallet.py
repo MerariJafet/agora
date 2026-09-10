@@ -6,7 +6,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from .core import canonical, require
+from .core import TX_VERSION, address, canonical, digest, require
 
 
 def public_key(key):
@@ -17,15 +17,20 @@ def sign(key, domain, payload):
     return key.sign(domain.encode() + b"\x00" + canonical(payload)).hex()
 
 
-def transaction(key, chain_id, nonce, kind, payload):
+def transaction(key, genesis, nonce, kind, payload):
+    require(type(genesis) is dict, "full genesis required for signing")
     tx = {
-        "chain_id": chain_id,
+        "chain_id": genesis["chain_id"],
+        "protocol_version": TX_VERSION,
+        "genesis_hash": digest("tokoin.genesis.v2", genesis),
+        "sender": address(public_key(key)),
+        "payload_hash": digest("tokoin.payload.v3", payload),
         "nonce": nonce,
         "kind": kind,
         "payload": payload,
         "public_key": public_key(key),
     }
-    return tx | {"signature": sign(key, "tokoin.transaction.v2", tx)}
+    return tx | {"signature": sign(key, "tokoin.transaction.v3", tx)}
 
 
 def save_key(path: Path, password: bytes):

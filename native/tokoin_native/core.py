@@ -12,6 +12,10 @@ import re
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from .protocol_time import ProtocolTime
+
+TOKEN_DECIMALS = 8
+TX_VERSION = "TOKOIN_TX_V3"
 UNIT = 100_000_000
 MAX_SUPPLY = 1_000_000 * UNIT
 PILOT_CAP = 500 * UNIT
@@ -133,11 +137,14 @@ def split_weighted(total, weights):
 def distribution(total, groups):
     integer(total, 1)
     require(sum(SPLIT.values()) == 100 and set(groups) == set(SPLIT), "invalid distribution")
-    # Fixed reward is divisible by 100; reject rather than silently drop pool dust.
-    require(total % 100 == 0, "indivisible reward pools")
+    # Largest remainder across pools, then recipients; no lost minimal units.
+    pools = {name: total * percent // 100 for name, percent in SPLIT.items()}
+    order = sorted(SPLIT, key=lambda name: (-(total * SPLIT[name] % 100), name))
+    for name in order[: total - sum(pools.values())]:
+        pools[name] += 1
     result: dict[str, int] = {}
-    for name, percent in SPLIT.items():
-        for recipient, units in split_weighted(total * percent // 100, groups[name]).items():
+    for name, _percent in SPLIT.items():
+        for recipient, units in split_weighted(pools[name], groups[name]).items():
             result[recipient] = result.get(recipient, 0) + units
     require(sum(result.values()) == total, "allocation conservation")
     return dict(sorted(result.items()))
@@ -156,6 +163,7 @@ def make_genesis(
 ):
     g = {
         "version": VERSION,
+        "transaction_version": TX_VERSION,
         "mode": MODE,
         "chain_id": chain_id,
         "max_supply_units": MAX_SUPPLY,
@@ -176,13 +184,14 @@ def make_genesis(
 def initial_state(genesis):
     fields(
         genesis,
-        "version mode chain_id max_supply_units pilot_cap_units unit "
+        "version transaction_version mode chain_id max_supply_units pilot_cap_units unit "
         "maturity_seconds reward_units distribution institutions infrastructure_address timestamp "
         "consensus_validators",
     )
     require(
         genesis["version"] == VERSION and genesis["mode"] == MODE, "unsupported economic genesis"
     )
+    require(genesis["transaction_version"] == TX_VERSION, "transaction version")
     identifier(genesis["chain_id"])
     require(genesis["chain_id"].startswith("tokoin-test-"), "TEST chain ID required")
     for k, v in {
@@ -317,24 +326,40 @@ def _authorization(genesis, state, body):
 def _decision(genesis, payload):
     fields(payload, "decision signatures")
     decision = payload["decision"]
-    fields(decision, "chain_id challenge_id reward_id reward_hash outcome")
+    fields(
+        decision,
+        "chain_id genesis_hash protocol_version challenge_id challenge_revision "
+        "reward_id reward_hash outcome",
+    )
+    require(
+        decision["genesis_hash"] == digest("tokoin.genesis.v2", genesis), "foreign decision genesis"
+    )
+    require(decision["protocol_version"] == TX_VERSION, "foreign decision version")
     require(decision["chain_id"] == genesis["chain_id"], "foreign decision")
     sigs = payload["signatures"]
     require(type(sigs) is dict, "invalid signature set")
     _reviewers(genesis, list(sigs))
     for key, sig in sigs.items():
-        verify(key, "tokoin.challenge.decision.v2", decision, sig)
+        verify(key, "tokoin.challenge.decision.v3", decision, sig)
     return decision
 
 
 def _apply(genesis, s, tx):
-    fields(tx, "chain_id kind payload public_key nonce signature")
+    fields(
+        tx,
+        "protocol_version genesis_hash chain_id kind sender payload payload_hash "
+        "public_key nonce signature",
+    )
+    require(tx["protocol_version"] == TX_VERSION, "transaction version")
+    require(tx["genesis_hash"] == s["genesis_hash"], "foreign genesis")
+    require(tx["payload_hash"] == digest("tokoin.payload.v3", tx["payload"]), "payload hash")
     require(tx["chain_id"] == genesis["chain_id"], "foreign transaction")
     signer = address(tx["public_key"])
+    require(tx["sender"] == signer, "sender mismatch")
     nonce = integer(tx["nonce"], 1)
     require(nonce == s["nonces"].get(signer, 0) + 1, "nonce/replay")
     unsigned = {k: v for k, v in tx.items() if k != "signature"}
-    verify(tx["public_key"], "tokoin.transaction.v2", unsigned, tx["signature"])
+    verify(tx["public_key"], "tokoin.transaction.v3", unsigned, tx["signature"])
     p, kind = tx["payload"], tx["kind"]
     require(type(p) is dict, "payload object required")
     if kind == "review_commit":
@@ -390,6 +415,7 @@ def _apply(genesis, s, tx):
             "elapsed": 0,
             "last_started": s["time"],
             "created_at": s["time"],
+            "unlock_at": ProtocolTime(s["time"]).deadline(MATURITY),
             "reward_hash": authorization_hash(p),
             "reviews": copy.deepcopy(s["reviews"][authorization_hash(p)]),
         }
@@ -406,7 +432,11 @@ def _apply(genesis, s, tx):
             hex_value(p[key])
         require(
             not any(
-                all(c["submission"][k] == p[k] for k in p if k != "challenge_id")
+                all(
+                    c["submission"][k] == p[k]
+                    for k in p
+                    if k not in ("challenge_id", "method_hash")
+                )
                 for c in s["challenges"].values()
             ),
             "duplicate evidence challenge",
@@ -414,27 +444,84 @@ def _apply(genesis, s, tx):
         s["challenges"][p["challenge_id"]] = {
             "submission": p,
             "state": "SUBMITTED",
+            "revision": 0,
+            "appeals": [],
             "challenger": signer,
             "submitted_at": s["time"],
         }
+    elif kind == "challenge_appeal":
+        fields(p, "challenge_id evidence_hash method_hash")
+        challenge = s["challenges"].get(p["challenge_id"])
+        require(challenge is not None and challenge["challenger"] == signer, "appeal authority")
+        require(challenge["state"] in ("REJECT", "REJECTED", "MINOR"), "appeal state")
+        require(challenge["revision"] == 0, "automatic appeal limit")
+        reward = s["rewards"][challenge["submission"]["reward_id"]]
+        require(reward["status"] == "LOCKED", "appeal maturity")
+        hex_value(p["evidence_hash"])
+        hex_value(p["method_hash"])
+        require(
+            p["evidence_hash"] != challenge["submission"]["evidence_hash"],
+            "duplicate appeal evidence",
+        )
+        challenge["appeals"].append(
+            {
+                "evidence_hash": p["evidence_hash"],
+                "method_hash": p["method_hash"],
+                "time": s["time"],
+            }
+        )
+        challenge["revision"] = 1
+        challenge["state"] = "APPEALED"
+    elif kind == "invalidate_finalized":
+        fields(p, "decision signatures")
+        d = p["decision"]
+        fields(d, "chain_id genesis_hash protocol_version reward_id reward_hash evidence_hash")
+        require(
+            d["chain_id"] == genesis["chain_id"]
+            and d["genesis_hash"] == s["genesis_hash"]
+            and d["protocol_version"] == TX_VERSION,
+            "invalidation domain",
+        )
+        _reviewers(genesis, list(p["signatures"]))
+        for key, signature in p["signatures"].items():
+            verify(key, "tokoin.invalidation.v3", d, signature)
+        reward = s["rewards"].get(d["reward_id"])
+        require(
+            reward is not None
+            and reward["status"] == "FINALIZED"
+            and reward["reward_hash"] == d["reward_hash"],
+            "invalidation target",
+        )
+        hex_value(d["evidence_hash"])
+        history = reward.setdefault("scientific_invalidations", [])
+        require(
+            not any(x["decision"]["evidence_hash"] == d["evidence_hash"] for x in history),
+            "duplicate invalidation",
+        )
+        history.append(copy.deepcopy(p) | {"height": s["height"], "time": s["time"]})
+        reward["scientific_status"] = "INVALIDATED_AFTER_MATURITY"
     elif kind == "challenge_decide":
         decision = _decision(genesis, p)
         challenge = s["challenges"].get(decision["challenge_id"])
         require(challenge is not None, "unknown challenge")
+        require(
+            integer(decision["challenge_revision"]) == challenge["revision"],
+            "stale challenge revision",
+        )
         require(challenge["submission"]["reward_id"] == decision["reward_id"], "wrong challenge")
         reward = s["rewards"][decision["reward_id"]]
         require(reward["reward_hash"] == decision["reward_hash"], "wrong candidate")
         outcome = decision["outcome"]
         if outcome == "ADMIT":
             require(
-                challenge["state"] == "SUBMITTED" and reward["status"] == "LOCKED",
+                challenge["state"] in ("SUBMITTED", "APPEALED") and reward["status"] == "LOCKED",
                 "challenge cannot be admitted",
             )
             reward["elapsed"] += s["time"] - reward["last_started"]
             reward["status"] = "CHALLENGED"
             reward["active_challenge"] = decision["challenge_id"]
             challenge["state"] = "ADMITTED"
-        elif outcome == "REJECT" and challenge["state"] == "SUBMITTED":
+        elif outcome == "REJECT" and challenge["state"] in ("SUBMITTED", "APPEALED"):
             challenge["state"] = "REJECTED"
         else:
             require(
@@ -451,6 +538,9 @@ def _apply(genesis, s, tx):
             else:
                 reward["status"] = "LOCKED"
                 reward["last_started"] = s["time"]
+                reward["unlock_at"] = ProtocolTime(s["time"]).deadline(
+                    max(0, MATURITY - reward["elapsed"])
+                )
             del reward["active_challenge"]
         challenge.setdefault("decisions", []).append(copy.deepcopy(p))
     elif kind == "finalize":
@@ -458,7 +548,7 @@ def _apply(genesis, s, tx):
         reward = s["rewards"].get(p["reward_id"])
         require(reward is not None and reward["status"] == "LOCKED", "not finalizable")
         require(
-            reward["elapsed"] + s["time"] - reward["last_started"] >= MATURITY,
+            ProtocolTime(s["time"]).reached(reward["unlock_at"]),
             "365 days not elapsed",
         )
         # Submissions stay in history; only evidence admitted by the scientific
@@ -484,11 +574,14 @@ def transition(genesis, previous, transactions, height, timestamp):
     """Atomic block application. Consensus MUST authenticate height and timestamp."""
     require(previous["genesis_hash"] == digest("tokoin.genesis.v2", genesis), "genesis mismatch")
     require(integer(height, 1) == previous["height"] + 1, "height mismatch")
-    require(integer(timestamp) >= previous["time"], "non-monotonic time")
+    try:
+        protocol_time = ProtocolTime.from_consensus(timestamp, previous["time"])
+    except ValueError as error:
+        raise Invalid(str(error)) from error
     require(type(transactions) is list and len(transactions) <= 1000, "block size")
     require(len(canonical(transactions)) <= 1_000_000, "block bytes limit")
     s = copy.deepcopy(previous)
-    s.update(height=height, time=timestamp)
+    s.update(height=height, time=protocol_time.seconds)
     for tx in transactions:
         _apply(genesis, s, tx)
     invariant(s)

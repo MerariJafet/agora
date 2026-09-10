@@ -44,7 +44,7 @@ class Application:
             out.message = req.message
         elif kind == "info":
             out.data = "TOKOIN TEST native ABCI; economic recognition disabled"
-            out.version, out.app_version = "0.1.0", 2
+            out.version, out.app_version = "0.2.0", 3
             out.last_block_height = state["height"]
             out.last_block_app_hash = bytes.fromhex(digest("tokoin.state.v2", state))
         elif kind == "init_chain":
@@ -68,6 +68,7 @@ class Application:
             except (Invalid, ValueError, KeyError, TypeError) as error:
                 out.code, out.log = 1, str(error)[:200]
         elif kind == "prepare_proposal":
+            store.fault("before_prepare_proposal")
             selected: list[bytes] = []
             size = 0
             for raw in req.txs:
@@ -81,7 +82,9 @@ class Application:
                 selected.append(raw)
                 size += len(raw)
             out.txs.extend(selected)
+            store.fault("after_prepare_proposal")
         elif kind == "process_proposal":
+            store.fault("before_process_proposal")
             try:
                 transition(
                     genesis, state, [decode(tx) for tx in req.txs], req.height, req.time.seconds
@@ -89,6 +92,7 @@ class Application:
                 out.status = pb.ResponseProcessProposal.ACCEPT
             except (Invalid, ValueError, KeyError, TypeError):
                 out.status = pb.ResponseProcessProposal.REJECT
+            store.fault("after_process_proposal")
         elif kind == "finalize_block":
             updated = store.prepare([decode(tx) for tx in req.txs], req.height, req.time.seconds)
             out.tx_results.extend(pb.ExecTxResult(code=0) for _ in req.txs)

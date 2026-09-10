@@ -181,7 +181,7 @@ def run(engine, output):
     def send(i, kind, payload, reject=False):
         s = state()
         tx = transaction(
-            keys[i], genesis["chain_id"], s["nonces"].get(addresses[i], 0) + 1, kind, payload
+            keys[i], genesis, s["nonces"].get(addresses[i], 0) + 1, kind, payload
         )
         response = rpc(ports[0], "broadcast_tx_commit", tx="0x" + canonical(tx).hex())
         code = response["check_tx"]["code"]

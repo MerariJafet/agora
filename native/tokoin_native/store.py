@@ -9,7 +9,8 @@ from .core import canonical, digest, initial_state, merkle, metrics, require, tr
 
 
 class Store:
-    def __init__(self, path: Path, genesis: dict):
+    def __init__(self, path: Path, genesis: dict, fault=None):
+        self.fault = fault or (lambda point: None)
         self.lock = threading.RLock()
         self.genesis = json.loads(canonical(genesis))
         self.state = initial_state(genesis)
@@ -22,6 +23,10 @@ class Store:
             "CREATE TABLE IF NOT EXISTS blocks "
             "(height INTEGER PRIMARY KEY, body TEXT NOT NULL, state_root TEXT NOT NULL)"
         )
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS durable_head "
+            "(id INTEGER PRIMARY KEY, height INTEGER NOT NULL, state_root TEXT NOT NULL)"
+        )
         self.db.execute("BEGIN IMMEDIATE")
         try:
             row = self.db.execute("SELECT body FROM genesis WHERE id=1").fetchone()
@@ -29,6 +34,10 @@ class Store:
                 require(row[0] == canonical(genesis).decode(), "genesis database mismatch")
             else:
                 self.db.execute("INSERT INTO genesis VALUES (1,?)", (canonical(genesis).decode(),))
+                self.db.execute(
+                    "INSERT INTO durable_head VALUES (1,0,?)",
+                    (digest("tokoin.state.v2", self.state),),
+                )
             self.db.execute("COMMIT")
         except Exception:
             self.db.execute("ROLLBACK")
@@ -50,6 +59,12 @@ class Store:
             )
             self.state, self.last_block_hash = state, digest("tokoin.app-block.v2", block)
 
+        head = self.db.execute("SELECT height,state_root FROM durable_head WHERE id=1").fetchone()
+        require(
+            head == (self.state["height"], digest("tokoin.state.v2", self.state)),
+            "durable head mismatch/truncated journal",
+        )
+
     def _block(self, state, transactions):
         return {
             "version": 2,
@@ -61,15 +76,19 @@ class Store:
             "research_commitment_root": merkle(
                 [[k, r["reward_hash"], r["status"]] for k, r in sorted(state["rewards"].items())]
             ),
+            "previous_state_hash": digest("tokoin.state.v2", self.state),
+            "next_state_hash": digest("tokoin.state.v2", state),
             "state_root": digest("tokoin.state.v2", state),
             "transactions": transactions,
         }
 
     def prepare(self, transactions, height, timestamp):
         with self.lock:
+            self.fault("finalize_start")
             state = transition(self.genesis, self.state, transactions, height, timestamp)
             block = self._block(state, transactions)
             self.pending = (state, block)
+            self.fault("after_finalize")
             return state
 
     def commit(self):
@@ -77,6 +96,8 @@ class Store:
             require(self.pending is not None, "nothing prepared")
             assert self.pending is not None
             state, block = self.pending
+            self.fault("before_commit")
+            self.fault("before_persistence")
             self.db.execute("BEGIN IMMEDIATE")
             try:
                 current = self.db.execute("SELECT coalesce(max(height),0) FROM blocks").fetchone()[
@@ -87,13 +108,21 @@ class Store:
                     "INSERT INTO blocks VALUES (?,?,?)",
                     (state["height"], canonical(block).decode(), block["state_root"]),
                 )
+                self.fault("during_journal_write")
+                self.db.execute(
+                    "UPDATE durable_head SET height=?,state_root=? WHERE id=1",
+                    (state["height"], block["state_root"]),
+                )
                 self.db.execute("COMMIT")
+                self.fault("after_fsync")
             except Exception:
-                self.db.execute("ROLLBACK")
+                if self.db.in_transaction:
+                    self.db.execute("ROLLBACK")
                 raise
             self.state = state
             self.last_block_hash = digest("tokoin.app-block.v2", block)
             self.pending = None
+            self.fault("after_commit")
             return self.state
 
     def export(self):

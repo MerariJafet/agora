@@ -60,6 +60,16 @@ jobs:
         run: |
           .venv/bin/pip install -r native/requirements.txt
           .venv/bin/pytest -c native/pyproject.toml --confcutdir=native native/tests -q
+      - name: Native consensus time policy
+        run: .venv/bin/python native/tools/time_policy.py
+      - name: Native monetary campaign (100000 sequences)
+        run: PYTHONPATH=native .venv/bin/python native/tools/monetary_campaign.py --sequences 100000 --seed 20260909 --output /tmp/tokoin-monetary-ci
+      - name: Preserve native campaign evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tokoin-monetary-evidence
+          path: /tmp/tokoin-monetary-ci
       - name: E2E (Genesis Agent)
         run: .venv/bin/python -m pytest tests/e2e -q
       - name: Dependency audit (fail on known critical)
