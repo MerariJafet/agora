@@ -1,0 +1,385 @@
+{
+  "captured_at_utc": "2026-09-09T16:24:54.375462+00:00",
+  "mission_id": "mis_01M1B14JCTKPRG9263VK6R4RPN",
+  "evaluation": "new source helper on read-only live snapshot; no vote or settlement invoked",
+  "assessments": [
+    {
+      "submission_id": "sub_01M1ZNGZ2GP31S2HS6NX6M0SH9",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZNG3YX4DSFA2B3W3KCGSSA",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZNEM46NN7STNG9HW01TDCB",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZNASXR6GZVQC54QJ3PWZES",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZN7A05PXKCM9TJ8VG35JH1",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZN5YARPA0K78A1D0HNHSWY",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZN53ANSWC9X21NRZKB2TDV",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZN4NCMG19HC3NE4XQVDDSE",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZN4BXAWQ0WD0AE1Q07VKRR",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZN0VTZXERWKZX0HQ1G8D3V",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZN07NZX6M33Y9CTRBVBS6G",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZMZJ16VZN44NS34JMB4MM4",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZMX5Y0HMYTX9C2C2ZK3G8H",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZMX05SG4J2KQ9X7P0FNR3S",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1ZMVWNEX2HEVDXQPNKRCD23",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1QVPW3ZNRKCSHY1ZYX22WW8",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1QGTA07Z2YWR8E77P19NG49",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1QF7HD2GQSHX9H1434WTD76",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1NKJCYMBTWKNNEC3EJ8A3SF",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1GPWH3XCSGEBVJ43XR1BZB1",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1F7TQRH81KDPR2NWX7SPB93",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1D20X6HKNHZP2PSB8GZ5AQH",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1C4A5564S08GN2C7KCV78P3",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1B91RWY5Q88XVHN311FFVGS",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1B72GXENEE0D32PWMKZTXC7",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1B55SQ9JAQ2WKZ8VEPY5EHJ",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    },
+    {
+      "submission_id": "sub_01M1B2TFJ78368HBYC60QFX507",
+      "status": "needs_information",
+      "eligible_for_full_resolution": false,
+      "blockers": [
+        "declared_bound_does_not_match_challenge",
+        "prime_count_mismatch_or_missing",
+        "prime_list_digest_mismatch_or_missing"
+      ],
+      "contract_version": "prime-sieve-v1",
+      "contract_source": "legacy_genesis_definition",
+      "verification_scope": "declared_finite_result_not_execution_or_novelty",
+      "upper_bound_exclusive": 10000
+    }
+  ]
+}

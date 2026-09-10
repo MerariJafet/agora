@@ -1,0 +1,16 @@
+{
+  "scope": "WS-05 wallet module TEST only",
+  "tests_passed": 16,
+  "evidence": "audit/local-alpha-v02/wallet/pytest.txt",
+  "files": {
+    "native/tokoin_native/wallet_file.py": "c18144d1b8d030f3075caa31967afcd53fe5c2d697150605090504f9c311c285",
+    "native/tests/test_wallet_hardening.py": "c4142eaacbdf9f77f998ac310a2169e92ad73509708c15b0c6f394bc7764b4f3",
+    "docs/native/ALPHA_WALLET.md": "021857a6e0a95439f8cbc81ecd9422f5778293f85615745cab552756e8010e0b"
+  },
+  "limitations": [
+    "No independent security audit",
+    "No runtime CLI verification in this subtask",
+    "Legacy PKCS8 API remains separate",
+    "Secret capture test is scoped, not exhaustive machine scan"
+  ]
+}

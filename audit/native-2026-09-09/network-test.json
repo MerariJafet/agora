@@ -1,0 +1,24 @@
+{
+  "mode": "TEST_NON_RECOGNIZABLE",
+  "independent_operators": false,
+  "engine": "/tmp/agora-native-build-20260909/bin/cometbft",
+  "runtime_directory": "/tmp/agora-native-network-TEST-jvg17_zh",
+  "checks": {
+    "four_nodes_empty_blocks": true,
+    "signed_blind_reviews_reward_locked": true,
+    "replay_early_finality_locked_spend_rejected": true,
+    "three_of_four_liveness": true,
+    "two_of_four_halts": true,
+    "quorum_recovery_lagging_node_sync": true,
+    "application_restart_replay": true,
+    "same_block_and_state_roots_no_double_issuance": true
+  },
+  "comet_genesis_sha256": "e3ea49da1902b7db295e01caf9ee5f39b70a443b0374686eab6f4a139deca3fb",
+  "common_height": 15,
+  "block_hash": "9047F74D7C062621E58661202BA51D0EF97385D5B3B1A7731613B6E476605293",
+  "state_root": "35b2bff50af3a7df2c3d211ac46f8934639af1de08eb82e21c8915bede7c5f76",
+  "created_test_units": 100000000,
+  "genesis_sha256": "33438088359bf2f7ed3ea2456e5d907adfd9568e0ebc55f81c0f66924a613d2f",
+  "status": "PASS",
+  "all_spawned_processes_stopped": true
+}

@@ -1,0 +1,56 @@
+
+> @agora/tokoin-contracts@0.1.0 test:preflight
+> node --test test/release-preflight.test.mjs
+
+TAP version 13
+# Subtest: complete audit, narrow authorization and multisig declaration pass
+ok 1 - complete audit, narrow authorization and multisig declaration pass
+  ---
+  duration_ms: 4.826413
+  type: 'test'
+  ...
+# Subtest: missing audit and authorization fail closed
+ok 2 - missing audit and authorization fail closed
+  ---
+  duration_ms: 1.240585
+  type: 'test'
+  ...
+# Subtest: mainnet or a single-key treasury cannot pass
+ok 3 - mainnet or a single-key treasury cannot pass
+  ---
+  duration_ms: 2.277548
+  type: 'test'
+  ...
+# Subtest: authorization cannot substitute audited control addresses
+ok 4 - authorization cannot substitute audited control addresses
+  ---
+  duration_ms: 2.357537
+  type: 'test'
+  ...
+# Subtest: audit and authorization must bind the exact candidate bundle
+ok 5 - audit and authorization must bind the exact candidate bundle
+  ---
+  duration_ms: 1.732066
+  type: 'test'
+  ...
+# Subtest: control roles must use three distinct multisig addresses
+ok 6 - control roles must use three distinct multisig addresses
+  ---
+  duration_ms: 1.744489
+  type: 'test'
+  ...
+# Subtest: even a self-consistent authorized bundle must match current source
+ok 7 - even a self-consistent authorized bundle must match current source
+  ---
+  duration_ms: 1.822435
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 55.976418

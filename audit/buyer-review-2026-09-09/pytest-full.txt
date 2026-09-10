@@ -1,0 +1,195 @@
+........................................................................ [ 13%]
+........................................................................ [ 27%]
+........................................................................ [ 40%]
+........................................................................ [ 54%]
+........................................................................ [ 67%]
+........................................................................ [ 81%]
+........................................................................ [ 94%]
+....................F........                                            [100%]
+=================================== FAILURES ===================================
+_________________ test_mission_events_are_scoped_not_broadcast _________________
+
+fut = <coroutine object Connection.recv at 0x72c9f983c340>, timeout = 5
+
+    async def wait_for(fut, timeout):
+        """Wait for the single Future or coroutine to complete, with timeout.
+    
+        Coroutine will be wrapped in Task.
+    
+        Returns result of the Future or coroutine.  When a timeout occurs,
+        it cancels the task and raises TimeoutError.  To avoid the task
+        cancellation, wrap it in shield().
+    
+        If the wait is cancelled, the task is also cancelled.
+    
+        If the task suppresses the cancellation and returns a value instead,
+        that value is returned.
+    
+        This function is a coroutine.
+        """
+        # The special case for timeout <= 0 is for the following case:
+        #
+        # async def test_waitfor():
+        #     func_started = False
+        #
+        #     async def func():
+        #         nonlocal func_started
+        #         func_started = True
+        #
+        #     try:
+        #         await asyncio.wait_for(func(), 0)
+        #     except asyncio.TimeoutError:
+        #         assert not func_started
+        #     else:
+        #         assert False
+        #
+        # asyncio.run(test_waitfor())
+    
+    
+        if timeout is not None and timeout <= 0:
+            fut = ensure_future(fut)
+    
+            if fut.done():
+                return fut.result()
+    
+            await _cancel_and_wait(fut)
+            try:
+                return fut.result()
+            except exceptions.CancelledError as exc:
+                raise TimeoutError from exc
+    
+        async with timeouts.timeout(timeout):
+>           return await fut
+                   ^^^^^^^^^
+
+/usr/lib/python3.12/asyncio/tasks.py:520: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/websockets/asyncio/connection.py:303: in recv
+    return await self.recv_messages.get(decode)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/websockets/asyncio/messages.py:159: in get
+    frame = await self.frames.get(not self.closed)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <websockets.asyncio.messages.SimpleQueue object at 0x72ca0080b4d0>
+block = True
+
+    async def get(self, block: bool = True) -> T:
+        """Remove and return an item from the queue, waiting if necessary."""
+        if not self.queue:
+            if not block:
+                raise EOFError("stream of frames ended")
+            assert self.get_waiter is None, "cannot call get() concurrently"
+            self.get_waiter = self.loop.create_future()
+            try:
+>               await self.get_waiter
+E               asyncio.exceptions.CancelledError
+
+.venv/lib/python3.12/site-packages/websockets/asyncio/messages.py:51: CancelledError
+
+The above exception was the direct cause of the following exception:
+
+api_url = 'http://127.0.0.1:51247'
+
+    def test_mission_events_are_scoped_not_broadcast(api_url):
+        import secrets
+    
+        genesis = _register(api_url, "GenesisRT")
+        auth = {"Authorization": f"Bearer {genesis['session_token']}"}
+        client = httpx.Client(base_url=api_url, timeout=10)
+    
+        mission = client.post(
+            "/v1/missions", json={"title": "Realtime check", "objective": "..."}, headers=auth
+        ).json()
+        mission_id = mission["mission_id"]
+    
+        # Browser-side realtime requires an owner cookie session (same auth as
+        # every other browser-originated realtime/mutation surface).
+        login = httpx.Client(base_url=api_url, timeout=10)
+        login.post("/v1/auth/dev/login", json={"username": f"owner-{secrets.token_hex(4)}"})
+        cookie_header = "; ".join(f"{k}={v}" for k, v in login.cookies.items())
+    
+        async def _scenario():
+            ws_url = api_url.replace("http://", "ws://") + "/v1/realtime/web"
+            headers = {"Cookie": cookie_header}
+            async with websockets.connect(ws_url, additional_headers=headers) as subscribed, \
+                    websockets.connect(ws_url, additional_headers=headers) as unsubscribed:
+                await subscribed.send(json.dumps({"type": "subscribe", "space_id": mission_id}))
+                await asyncio.wait_for(subscribed.recv(), timeout=5)  # "subscribed" ack
+    
+                task = client.post(
+                    f"/v1/missions/{mission_id}/tasks",
+                    json={"title": "T", "description": "..."}, headers=auth,
+                ).json()
+    
+                frame = json.loads(await asyncio.wait_for(subscribed.recv(), timeout=5))
+                assert frame["type"] == "mission"
+                assert frame["event"] == "task_created"
+                assert frame["mission_task_id"] == task["mission_task_id"]
+    
+                # The unsubscribed client (interested in nothing) must receive
+                # nothing at all — there is no unscoped "global" broadcast.
+                with pytest.raises(TimeoutError):
+                    await asyncio.wait_for(unsubscribed.recv(), timeout=1)
+    
+                # Claiming the task fans out too...
+                client.post(f"/v1/mission-tasks/{task['mission_task_id']}/claim", headers=auth)
+                claimed = json.loads(await asyncio.wait_for(subscribed.recv(), timeout=5))
+                assert claimed["event"] == "task_claimed"
+    
+                # ...but renewing the lease is not a semantic change and must
+                # produce NO frame at all.
+                client.post(f"/v1/mission-tasks/{task['mission_task_id']}/renew-lease", headers=auth)
+                with pytest.raises(TimeoutError):
+                    await asyncio.wait_for(subscribed.recv(), timeout=1)
+    
+>       asyncio.run(_scenario())
+
+tests/e2e/test_mission_realtime.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.12/asyncio/runners.py:194: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/usr/lib/python3.12/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.12/asyncio/base_events.py:687: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/e2e/test_mission_realtime.py:104: in _scenario
+    frame = json.loads(await asyncio.wait_for(subscribed.recv(), timeout=5))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.12/asyncio/tasks.py:519: in wait_for
+    async with timeouts.timeout(timeout):
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Timeout [expired]>
+exc_type = <class 'asyncio.exceptions.CancelledError'>
+exc_val = CancelledError(), exc_tb = <traceback object at 0x72c9f99a5980>
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Optional[bool]:
+        assert self._state in (_State.ENTERED, _State.EXPIRING)
+    
+        if self._timeout_handler is not None:
+            self._timeout_handler.cancel()
+            self._timeout_handler = None
+    
+        if self._state is _State.EXPIRING:
+            self._state = _State.EXPIRED
+    
+            if self._task.uncancel() <= self._cancelling and exc_type is exceptions.CancelledError:
+                # Since there are no new cancel requests, we're
+                # handling this.
+>               raise TimeoutError from exc_val
+E               TimeoutError
+
+/usr/lib/python3.12/asyncio/timeouts.py:115: TimeoutError
+=========================== short test summary info ============================
+FAILED tests/e2e/test_mission_realtime.py::test_mission_events_are_scoped_not_broadcast
+1 failed, 532 passed in 154.46s (0:02:34)

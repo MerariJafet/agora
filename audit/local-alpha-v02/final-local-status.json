@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-09-10T03:26:05.064433+00:00",
+  "live_check_read_only": true,
+  "api_http_status": 200,
+  "api_health": {
+    "status": "ok",
+    "version": "0.1.0",
+    "checks": {
+      "postgres": "ok",
+      "redis": "ok"
+    },
+    "outbox": {
+      "pending": 0,
+      "max_attempts": 0,
+      "oldest_pending_seconds": 0.0
+    }
+  },
+  "resources": "total        used        free      shared  buff/cache   available\nMem:           63495       13412       24616        2279       28031       50082\nSwap:          32767           0       32767"
+}

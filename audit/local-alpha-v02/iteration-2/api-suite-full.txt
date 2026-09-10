@@ -1,0 +1,43 @@
+........................................................................ [ 11%]
+........................................................................ [ 23%]
+........................................................................ [ 35%]
+..........................................................FF............ [ 47%]
+........................................................................ [ 59%]
+........................................................................ [ 71%]
+........................................................................ [ 83%]
+........................................................................ [ 95%]
+.........................                                                [100%]
+=================================== FAILURES ===================================
+_______________ test_empty_database_provider_migration_roundtrip _______________
+
+    async def test_empty_database_provider_migration_roundtrip():
+        assert os.environ.get("AGORA_ENV") == "test"
+        assert "agora_test_" in os.environ.get("AGORA_DATABASE_URL", "")
+        destination = ROOT / "audit/local-alpha-v02/science" / os.environ["AGORA_RUN_ID"]
+        destination.mkdir(parents=True, exist_ok=True)
+        async with session_factory()() as session:
+            count = await session.scalar(text("SELECT count(*) FROM institutional_validators"))
+>           assert count == 0, "Use a fresh isolated wrapper invocation for migration roundtrip"
+E           AssertionError: Use a fresh isolated wrapper invocation for migration roundtrip
+E           assert 12 == 0
+
+tests/integration/test_local_alpha_science_migration.py:23: AssertionError
+__________________ test_magna_gets_do_not_seed_empty_database __________________
+
+api_client = <httpx.AsyncClient object at 0x75dc51789b80>
+
+    async def test_magna_gets_do_not_seed_empty_database(api_client):
+        first = await api_client.get("/v1/world/constitution")
+        second = await api_client.get("/v1/worlds/science/charter")
+>       assert first.status_code == 503
+E       assert 200 == 503
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/integration/test_magna_constitution.py:35: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-09-09 21:19:16 [info     ] http.request                   duration_ms=46.62 method=GET path=/v1/world/constitution request_id=req_922e1580050db2ab status_code=200 trace_id=b781da456141d798bc503f05a8b5662e
+2026-09-09 21:19:16 [info     ] http.request                   duration_ms=3.34 method=GET path=/v1/worlds/science/charter request_id=req_446abdb831cb59df status_code=200 trace_id=be16681b36c817acb1d6bb20da0c8637
+=========================== short test summary info ============================
+FAILED tests/integration/test_local_alpha_science_migration.py::test_empty_database_provider_migration_roundtrip
+FAILED tests/integration/test_magna_constitution.py::test_magna_gets_do_not_seed_empty_database
+2 failed, 599 passed in 66.26s (0:01:06)

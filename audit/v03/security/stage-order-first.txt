@@ -1,0 +1,15 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_replication_cannot_precede_any_experiment_result _____________
+
+    def test_replication_cannot_precede_any_experiment_result():
+        w = ScienceWorld()
+        replay_prefix(w, list(w.corpus[:6]))  # Five identities, challenge_created; no experiment yet.
+        content = {"artifact_hash": "a" * 64}
+>       with pytest.raises(Invalid, match="parent|result|lifecycle|stage"):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:262: Failed
+=========================== short test summary info ============================
+FAILED native/tests/test_v03_science_adversarial.py::test_replication_cannot_precede_any_experiment_result
+1 failed in 0.04s

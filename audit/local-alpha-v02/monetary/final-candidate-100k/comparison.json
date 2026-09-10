@@ -1,0 +1,12 @@
+{
+  "pass": true,
+  "third_replay_of_same_corpus": true,
+  "new_independent_cases": 0,
+  "unique_sequences_per_corpus": 100000,
+  "core_sha256": "4cf96e25b3dc28cce4ea1e93efea17e5016daad1d82dad923601b0cd8da02c0e",
+  "same_corpus_in_all_three": true,
+  "same_counts_in_all_three": true,
+  "elapsed_seconds": 139.913,
+  "corpus_sha256": "2c86c9c5b9300d7e5229698d2704c6d43bac8ae994ff080397c2bb05312b336a",
+  "execution_errors": 0
+}

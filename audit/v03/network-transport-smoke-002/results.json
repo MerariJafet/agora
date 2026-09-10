@@ -1,0 +1,300 @@
+{
+  "all_spawned_processes_stopped": true,
+  "apphash_consistency": [],
+  "consensus_results": [
+    {
+      "evidence": [
+        "node-0.log",
+        "node-1.log",
+        "node-2.log",
+        "node-3.log"
+      ],
+      "scenario": "four_nodes_start",
+      "status": "PASS"
+    }
+  ],
+  "engine_sha256": "6edb2aa0f223e71758a48cf3d13d9d7ffd26f3357585bebe54311ba71f11ac3f",
+  "errors": [
+    "<HTTPError 500: 'Internal Server Error'>",
+    "<HTTPError 500: 'Internal Server Error'>"
+  ],
+  "genesis_hash": "97e48a2bf1b0798d7d619c2f121cfdcf40cff6fad520d777fc0080fb72a17d7b",
+  "independent_operators": false,
+  "limitations": [
+    {
+      "reason": "One PC, four processes; not external decentralization",
+      "status": "LIMITATION"
+    },
+    {
+      "reason": "Application replay alone does not verify BFT signatures",
+      "status": "LIMITATION"
+    }
+  ],
+  "mode": "TEST_NON_RECOGNIZABLE",
+  "private_key_exported": false,
+  "replays": [
+    {
+      "export_sha256": "aaaf74d74b482dc93cd2c8df11f3650bea522467f25e535d2ed7eb3659714d64",
+      "node_id": 0,
+      "result": {
+        "consensus_signatures_verified": false,
+        "genesis_recognition_eligible": false,
+        "height": 4,
+        "manifest_hash": "f52a90b786d6a1f592e8ad9394fccadd3a839802537169209dae2c64f32662fe",
+        "state_root": "329fefc3397cc0f1ea0a63d0ff5108fd4980153b7c602d81b51d376509c78d6a"
+      },
+      "status": "PASS"
+    },
+    {
+      "export_sha256": "aaaf74d74b482dc93cd2c8df11f3650bea522467f25e535d2ed7eb3659714d64",
+      "node_id": 1,
+      "result": {
+        "consensus_signatures_verified": false,
+        "genesis_recognition_eligible": false,
+        "height": 4,
+        "manifest_hash": "f52a90b786d6a1f592e8ad9394fccadd3a839802537169209dae2c64f32662fe",
+        "state_root": "329fefc3397cc0f1ea0a63d0ff5108fd4980153b7c602d81b51d376509c78d6a"
+      },
+      "status": "PASS"
+    },
+    {
+      "export_sha256": "aaaf74d74b482dc93cd2c8df11f3650bea522467f25e535d2ed7eb3659714d64",
+      "node_id": 2,
+      "result": {
+        "consensus_signatures_verified": false,
+        "genesis_recognition_eligible": false,
+        "height": 4,
+        "manifest_hash": "f52a90b786d6a1f592e8ad9394fccadd3a839802537169209dae2c64f32662fe",
+        "state_root": "329fefc3397cc0f1ea0a63d0ff5108fd4980153b7c602d81b51d376509c78d6a"
+      },
+      "status": "PASS"
+    },
+    {
+      "export_sha256": "aaaf74d74b482dc93cd2c8df11f3650bea522467f25e535d2ed7eb3659714d64",
+      "node_id": 3,
+      "result": {
+        "consensus_signatures_verified": false,
+        "genesis_recognition_eligible": false,
+        "height": 4,
+        "manifest_hash": "f52a90b786d6a1f592e8ad9394fccadd3a839802537169209dae2c64f32662fe",
+        "state_root": "329fefc3397cc0f1ea0a63d0ff5108fd4980153b7c602d81b51d376509c78d6a"
+      },
+      "status": "PASS"
+    }
+  ],
+  "run_id": "network-transport-smoke-002",
+  "schema_version": "AGORA_V03_RUN_V1",
+  "snapshot_is_dirty_tree": true,
+  "source_archive_sha256": "57aa73dc2590f4f185a7609e3393d35c11d8e56602f146e3bc0b6503b4f5887b",
+  "source_commit": "717bf39627502e96a4c9e2a21a7f9a34cb6d4c63",
+  "source_hashes": {
+    "__init__.py": "be94080d4236916c0c1e5f1b7d6dfcab55d1d32cbb9194e0bf2621ffd5cfe904",
+    "__main__.py": "0b8529abfa7547d66c939ccddab1d6457904744a76138a75e565f0847b3cd761",
+    "abci_server.py": "9709b2e2aea5e5cbaf153c95186a89a242411ae9433d607f0b8c7a27292a3db5",
+    "core.py": "008d00c961f00a48b260cce95e1150a8261c73bd7c7d53bc6034d94d6e51f317",
+    "explorer.py": "fa9db794fb2ca5f414882a479fe966eb3dfdf44e786f3079bb90f0a65d8f2564",
+    "protocol_time.py": "efff2f3ce21a117c278860a155677d2e302c23173a9e2d2eb3a270eff793f00b",
+    "simulation.py": "2373cd91e0add1a5bbd25e198b482bedc53f2695b3f36b0af0cf3a982523b837",
+    "store.py": "aa6665a48a9f21276365da06fad4ce10738434f766b869b37788f9d5ee0cd97f",
+    "v03_science.py": "bb7a90fbac9de544055c286aca37bf7847b96310e653b5abbd71ac084fac28cf",
+    "vendor/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vendor/gogoproto/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vendor/gogoproto/gogo_pb2.py": "dbf4f3a6b743c4558ab1f363c122787ac769fdbf0bc6df70ded28f853f42bbb0",
+    "vendor/tendermint/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vendor/tendermint/abci/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vendor/tendermint/abci/types_pb2.py": "05e5a499eb1431f65ffa7f7c2ec0c561066268de8c2665ca48fd6a23751e8b69",
+    "vendor/tendermint/crypto/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vendor/tendermint/crypto/keys_pb2.py": "2d8d26569956f8190d7dbc58be39a66bd36b75cbec0c67af26386922300289dc",
+    "vendor/tendermint/crypto/proof_pb2.py": "1e2ffce4092a72953bdd8d0c75d3cd8d041d093ad1381c7d4557a419d5e94ee8",
+    "vendor/tendermint/types/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vendor/tendermint/types/params_pb2.py": "87c00b1045f008d075bf9a42b04a8d48c951b8059bf2dc0f9cbcf3b97c650486",
+    "vendor/tendermint/types/validator_pb2.py": "acec59ddf57704fc42a7a201dcba04e086f5be92bd8cea3029bf2a801481b57d",
+    "wallet.py": "dfd02876c08ae0d3c1b091daf4dd80d8863c38d68b89a5559a8ed99415b77d6c",
+    "wallet_cli.py": "0d7ff6e91aedc74f4adbc9994263dd2dd5b5155f6635c3a9d186afc474465942",
+    "wallet_file.py": "c18144d1b8d030f3075caa31967afcd53fe5c2d697150605090504f9c311c285"
+  },
+  "status": "FAIL",
+  "transactions": [
+    {
+      "block": {
+        "block": {
+          "data": {
+            "txs": [
+              "eyJjaGFpbl9pZCI6InRva29pbi10ZXN0LXYwMy10cmFuc3BvcnQtc21va2UiLCJnZW5lc2lzX2hhc2giOiI5N2U0OGEyYmYxYjA3OThkN2Q2MTljMmYxMjFjZmRjZjQwY2ZmNmZhZDUyMGQ3NzdmYzAwODBmYjcyYTE3ZDdiIiwia2luZCI6InJldmlld19jb21taXQiLCJub25jZSI6MSwicGF5bG9hZCI6eyJjb21taXRtZW50IjoiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYiIsInJld2FyZF9oYXNoIjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9LCJwYXlsb2FkX2hhc2giOiJmOTYzMDM2YTRiMjBlZWYxMmVjYjc0YzE0NmRmZjdlNzY2NTJmNWE4MTdiZGFlMTRjYzg5ZGI5YWEwMGM3NjQyIiwicHJvdG9jb2xfdmVyc2lvbiI6IlRPS09JTl9UWF9WMyIsInB1YmxpY19rZXkiOiI0N2U1NzYzOWEwMjMyNzEyNTJiN2MxNjY5OTVhYjEwMDdjYzAwNjI1ODQxZWQwMzliZDkwYTE5YjFhZmRiNDY0Iiwic2VuZGVyIjoidGtuMWQxNzFhOTQyOTZjMjE1YjBjNTcyYzM2MGJkZDgxZTU5ZmE3MTIyNDYyMmRlYmMxNGEwNzk1NTcyZGIwMjgxNzciLCJzaWduYXR1cmUiOiJlZjFjZDI4MzBiM2QyY2Y3MmE4ZTlkNzMyYzdhM2NiMjNmOWE2NmNlNTBlM2Q0M2YzOGQ4ODZjNzIwNjBlNmJhNzdmYjc3ZmJlNTdlMmRhNjMxMjMxYWIwOTRiYjFmNGEwNmMzZDI1NjIwMmEzMGQ3Njc4NGIxZjFjZmYxZGYwOSJ9"
+            ]
+          },
+          "evidence": {
+            "evidence": []
+          },
+          "header": {
+            "app_hash": "67EEDC60088CCADDE38139CA5001A1C0E7828366B10441021EF9552C208DE06E",
+            "chain_id": "tokoin-test-v03-transport-smoke",
+            "consensus_hash": "866B9AF1C09D04E770AC52096CE2AF30F674873949C2F152FEDEF749A995C67A",
+            "data_hash": "916A9EA65900B5E10A332D1F234D1AE91C613875A807A2AD5CAD75A5061E7E51",
+            "evidence_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "height": "4",
+            "last_block_id": {
+              "hash": "C4008E1FC7F1B966DB63BDD8AC43DA300DC258C13F54D898BBD42707A0A916AA",
+              "parts": {
+                "hash": "7E32C2C4E192DE2B9225498397DFDA2AC5CA5FB04F5D8E0D00A6DDE1D5BF4C96",
+                "total": 1
+              }
+            },
+            "last_commit_hash": "B24B27B36F99B277BB5C478359541AFEDD6477710446B77257C73FE14AB45CAA",
+            "last_results_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "next_validators_hash": "24CA61B0CCBF3CC9001B528FE05D42EDD37A99F7C41CD512B7FE76C3F774A77F",
+            "proposer_address": "B5BA62B9D8E0B3D599D407FAF25D96020D51A059",
+            "time": "2026-09-10T04:25:50.157833377Z",
+            "validators_hash": "24CA61B0CCBF3CC9001B528FE05D42EDD37A99F7C41CD512B7FE76C3F774A77F",
+            "version": {
+              "app": "3",
+              "block": "11"
+            }
+          },
+          "last_commit": {
+            "block_id": {
+              "hash": "C4008E1FC7F1B966DB63BDD8AC43DA300DC258C13F54D898BBD42707A0A916AA",
+              "parts": {
+                "hash": "7E32C2C4E192DE2B9225498397DFDA2AC5CA5FB04F5D8E0D00A6DDE1D5BF4C96",
+                "total": 1
+              }
+            },
+            "height": "3",
+            "round": 0,
+            "signatures": [
+              {
+                "block_id_flag": 2,
+                "signature": "fJjN6WhYVwhywB7dnf9Nk8Bo3CjZvyQHXXYkaEx7L/MuFwUCf3aIzDxWar2OnRyePFEByMmbfA5V6rTx+HULCA==",
+                "timestamp": "2026-09-10T04:25:50.157227534Z",
+                "validator_address": "36673D2A48DE622C96FB4E0A0CCD50157AAE59E1"
+              },
+              {
+                "block_id_flag": 2,
+                "signature": "HpUnqxkOKgMmBEAq5keMiCqDSc/MJOVcAS2ubG5OomTaKFlqAG2X1+Od6jINlj3TEitvEUnkBpzGq+Kq+nYODQ==",
+                "timestamp": "2026-09-10T04:25:50.160973361Z",
+                "validator_address": "4FCF84DB3BA51E86E13DB780E99C3C5B75F89A20"
+              },
+              {
+                "block_id_flag": 2,
+                "signature": "v9O2R03wPo1EC1JA06PRM13+ca8/qQkblQYIHptJ2hwsdrQ3bqv6jjNzW2zd7ipXFlKKhOH78cHkufSawhriDw==",
+                "timestamp": "2026-09-10T04:25:50.157833377Z",
+                "validator_address": "757BF00F37E9C83ACEFE2D14ED62870D878C3432"
+              },
+              {
+                "block_id_flag": 2,
+                "signature": "ZZKq/ZnkBDhL5+05wU6I0rymrQ9HfF256kQSSeKmjSjEJ761S9xt941l/7KVq1JL7DWUE7YHDrVKrnT/GtLLAA==",
+                "timestamp": "2026-09-10T04:25:50.157833738Z",
+                "validator_address": "B5BA62B9D8E0B3D599D407FAF25D96020D51A059"
+              }
+            ]
+          }
+        },
+        "block_id": {
+          "hash": "25F14C1858A984B9A0059AA9C91B0C6D0117B1FC1DE28A6327AC47B6E7E0076F",
+          "parts": {
+            "hash": "952E99F451575992CCE508440AE369869CDF232C1015777576D9066451963BDE",
+            "total": 1
+          }
+        }
+      },
+      "broadcast_response": {
+        "check_tx": {
+          "code": 0,
+          "codespace": "",
+          "data": null,
+          "events": [],
+          "gas_used": "0",
+          "gas_wanted": "0",
+          "info": "",
+          "log": ""
+        },
+        "hash": "50A1A2C14D934DEF18B88417CF16C173BA0FB2DB916832096CFFE10F8F865E81",
+        "height": "4",
+        "tx_result": {
+          "code": 0,
+          "codespace": "",
+          "data": null,
+          "events": [],
+          "gas_used": "0",
+          "gas_wanted": "0",
+          "info": "",
+          "log": ""
+        }
+      },
+      "expect_reject": false,
+      "height": 4,
+      "inclusion": {
+        "hash": "50A1A2C14D934DEF18B88417CF16C173BA0FB2DB916832096CFFE10F8F865E81",
+        "height": "4",
+        "index": 0,
+        "proof": {
+          "data": "eyJjaGFpbl9pZCI6InRva29pbi10ZXN0LXYwMy10cmFuc3BvcnQtc21va2UiLCJnZW5lc2lzX2hhc2giOiI5N2U0OGEyYmYxYjA3OThkN2Q2MTljMmYxMjFjZmRjZjQwY2ZmNmZhZDUyMGQ3NzdmYzAwODBmYjcyYTE3ZDdiIiwia2luZCI6InJldmlld19jb21taXQiLCJub25jZSI6MSwicGF5bG9hZCI6eyJjb21taXRtZW50IjoiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYiIsInJld2FyZF9oYXNoIjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9LCJwYXlsb2FkX2hhc2giOiJmOTYzMDM2YTRiMjBlZWYxMmVjYjc0YzE0NmRmZjdlNzY2NTJmNWE4MTdiZGFlMTRjYzg5ZGI5YWEwMGM3NjQyIiwicHJvdG9jb2xfdmVyc2lvbiI6IlRPS09JTl9UWF9WMyIsInB1YmxpY19rZXkiOiI0N2U1NzYzOWEwMjMyNzEyNTJiN2MxNjY5OTVhYjEwMDdjYzAwNjI1ODQxZWQwMzliZDkwYTE5YjFhZmRiNDY0Iiwic2VuZGVyIjoidGtuMWQxNzFhOTQyOTZjMjE1YjBjNTcyYzM2MGJkZDgxZTU5ZmE3MTIyNDYyMmRlYmMxNGEwNzk1NTcyZGIwMjgxNzciLCJzaWduYXR1cmUiOiJlZjFjZDI4MzBiM2QyY2Y3MmE4ZTlkNzMyYzdhM2NiMjNmOWE2NmNlNTBlM2Q0M2YzOGQ4ODZjNzIwNjBlNmJhNzdmYjc3ZmJlNTdlMmRhNjMxMjMxYWIwOTRiYjFmNGEwNmMzZDI1NjIwMmEzMGQ3Njc4NGIxZjFjZmYxZGYwOSJ9",
+          "proof": {
+            "aunts": [],
+            "index": "0",
+            "leaf_hash": "kWqeplkAteEKMy0fI00a6RxhOHWoB6KtXK11pQYeflE=",
+            "total": "1"
+          },
+          "root_hash": "916A9EA65900B5E10A332D1F234D1AE91C613875A807A2AD5CAD75A5061E7E51"
+        },
+        "tx": "eyJjaGFpbl9pZCI6InRva29pbi10ZXN0LXYwMy10cmFuc3BvcnQtc21va2UiLCJnZW5lc2lzX2hhc2giOiI5N2U0OGEyYmYxYjA3OThkN2Q2MTljMmYxMjFjZmRjZjQwY2ZmNmZhZDUyMGQ3NzdmYzAwODBmYjcyYTE3ZDdiIiwia2luZCI6InJldmlld19jb21taXQiLCJub25jZSI6MSwicGF5bG9hZCI6eyJjb21taXRtZW50IjoiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYiIsInJld2FyZF9oYXNoIjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9LCJwYXlsb2FkX2hhc2giOiJmOTYzMDM2YTRiMjBlZWYxMmVjYjc0YzE0NmRmZjdlNzY2NTJmNWE4MTdiZGFlMTRjYzg5ZGI5YWEwMGM3NjQyIiwicHJvdG9jb2xfdmVyc2lvbiI6IlRPS09JTl9UWF9WMyIsInB1YmxpY19rZXkiOiI0N2U1NzYzOWEwMjMyNzEyNTJiN2MxNjY5OTVhYjEwMDdjYzAwNjI1ODQxZWQwMzliZDkwYTE5YjFhZmRiNDY0Iiwic2VuZGVyIjoidGtuMWQxNzFhOTQyOTZjMjE1YjBjNTcyYzM2MGJkZDgxZTU5ZmE3MTIyNDYyMmRlYmMxNGEwNzk1NTcyZGIwMjgxNzciLCJzaWduYXR1cmUiOiJlZjFjZDI4MzBiM2QyY2Y3MmE4ZTlkNzMyYzdhM2NiMjNmOWE2NmNlNTBlM2Q0M2YzOGQ4ODZjNzIwNjBlNmJhNzdmYjc3ZmJlNTdlMmRhNjMxMjMxYWIwOTRiYjFmNGEwNmMzZDI1NjIwMmEzMGQ3Njc4NGIxZjFjZmYxZGYwOSJ9",
+        "tx_result": {
+          "code": 0,
+          "codespace": "",
+          "data": null,
+          "events": [],
+          "gas_used": "0",
+          "gas_wanted": "0",
+          "info": "",
+          "log": ""
+        }
+      },
+      "index": 0,
+      "index_lookup_attempts": [
+        {
+          "body": "{\"jsonrpc\":\"2.0\",\"id\":-1,\"error\":{\"code\":-32603,\"message\":\"Internal error\",\"data\":\"tx (50A1A2C14D934DEF18B88417CF16C173BA0FB2DB916832096CFFE10F8F865E81) not found\"}}",
+          "http_status": 500
+        }
+      ],
+      "status": "INCLUDED",
+      "transaction": {
+        "chain_id": "tokoin-test-v03-transport-smoke",
+        "genesis_hash": "97e48a2bf1b0798d7d619c2f121cfdcf40cff6fad520d777fc0080fb72a17d7b",
+        "kind": "review_commit",
+        "nonce": 1,
+        "payload": {
+          "commitment": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "reward_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "payload_hash": "f963036a4b20eef12ecb74c146dff7e76652f5a817bdae14cc89db9aa00c7642",
+        "protocol_version": "TOKOIN_TX_V3",
+        "public_key": "47e57639a023271252b7c166995ab1007cc00625841ed039bd90a19b1afdb464",
+        "sender": "tkn1d171a94296c215b0c572c360bdd81e59fa71224622debc14a0795572db028177",
+        "signature": "ef1cd2830b3d2cf72a8e9d732c7a3cb23f9a66ce50e3d43f38d886c72060e6ba77fb77fbe57e2da631231ab094bb1f4a06c3d256202a30d76784b1f1cff1df09"
+      },
+      "tx_hash": "50A1A2C14D934DEF18B88417CF16C173BA0FB2DB916832096CFFE10F8F865E81"
+    },
+    {
+      "error": "<HTTPError 500: 'Internal Server Error'>",
+      "expect_reject": true,
+      "index": 1,
+      "status": "FAIL",
+      "transaction": {
+        "chain_id": "tokoin-test-v03-transport-smoke",
+        "genesis_hash": "97e48a2bf1b0798d7d619c2f121cfdcf40cff6fad520d777fc0080fb72a17d7b",
+        "kind": "review_commit",
+        "nonce": 1,
+        "payload": {
+          "commitment": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "reward_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "payload_hash": "f963036a4b20eef12ecb74c146dff7e76652f5a817bdae14cc89db9aa00c7642",
+        "protocol_version": "TOKOIN_TX_V3",
+        "public_key": "47e57639a023271252b7c166995ab1007cc00625841ed039bd90a19b1afdb464",
+        "sender": "tkn1d171a94296c215b0c572c360bdd81e59fa71224622debc14a0795572db028177",
+        "signature": "ef1cd2830b3d2cf72a8e9d732c7a3cb23f9a66ce50e3d43f38d886c72060e6ba77fb77fbe57e2da631231ab094bb1f4a06c3d256202a30d76784b1f1cff1df09"
+      },
+      "tx_hash": "50A1A2C14D934DEF18B88417CF16C173BA0FB2DB916832096CFFE10F8F865E81"
+    }
+  ]
+}

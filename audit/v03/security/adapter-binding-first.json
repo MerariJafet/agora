@@ -1,0 +1,33 @@
+{
+  "finding": "V03-ADAPTER-001",
+  "status": "BYPASS_CONFIRMED",
+  "scope": "read-only verification; no network reward issued",
+  "source_sha256": "180c4e2e27a7f38a1d3595b63b062a014cb4ebc55c2fd8d72554647d88b43cdf",
+  "baseline_verification": {
+    "integrity_verified": true,
+    "candidate_hash": "2c7bd95c9ab5eb5f2bde86a137c37fb4f382cda3be46506879a353b39a532888",
+    "knowledge_root_hash": "aaad15ca143ef61272633e42d17038d3769b13f196526262ea24a65cf4072d29",
+    "objects": 7,
+    "edges": 5,
+    "scientific_truth_verified": false,
+    "execution_verified": false
+  },
+  "tampered_verification": {
+    "integrity_verified": true,
+    "candidate_hash": "2c7bd95c9ab5eb5f2bde86a137c37fb4f382cda3be46506879a353b39a532888",
+    "knowledge_root_hash": "aaad15ca143ef61272633e42d17038d3769b13f196526262ea24a65cf4072d29",
+    "objects": 7,
+    "edges": 5,
+    "scientific_truth_verified": false,
+    "execution_verified": false
+  },
+  "mutation": "Change unsigned llm_contribution verdict/public_conclusion to APPROVE while retaining authentic signed REJECT payload and campaign file",
+  "signed_payload_verdicts": [
+    "REJECTED",
+    "REJECTED"
+  ],
+  "adapter_used_verdicts": [
+    "APPROVE",
+    "APPROVE"
+  ]
+}

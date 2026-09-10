@@ -1,0 +1,14 @@
+E[2026-09-09|22:25:07.503] Stopping peer for error                      module=p2p peer="Peer{MConn{127.0.0.1:32817} b7787588e99e3891c7f83cf70e42a2de3f173210 out}" err="read tcp 127.0.0.1:50856->127.0.0.1:32817: use of closed network connection"
+E[2026-09-09|22:25:07.503] error while stopping peer                    module=p2p error="already stopped"
+E[2026-09-09|22:25:07.503] Stopping peer for error                      module=p2p peer="Peer{MConn{127.0.0.1:36453} 76fd919c08032dd2a0c38b712f46b5b1800ea16a out}" err="read tcp 127.0.0.1:33400->127.0.0.1:36453: use of closed network connection"
+E[2026-09-09|22:25:07.503] error while stopping peer                    module=p2p error="already stopped"
+E[2026-09-09|22:25:07.503] Error stopping pool                          module=blocksync err="already stopped"
+E[2026-09-09|22:25:07.503] Stopping peer for error                      module=p2p peer="Peer{MConn{127.0.0.1:60499} e42ea50cf54d579bbf8bebe68c373ce4e4241ebd out}" err="read tcp 127.0.0.1:54414->127.0.0.1:60499: use of closed network connection"
+E[2026-09-09|22:25:07.503] error while stopping peer                    module=p2p error="already stopped"
+E[2026-09-09|22:25:07.505] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=consensus
+E[2026-09-09|22:25:07.505] consensus connection terminated. Did the application crash? Please restart CometBFT module=proxy err="read message: EOF"
+E[2026-09-09|22:25:07.505] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=query
+E[2026-09-09|22:25:07.505] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=mempool
+E[2026-09-09|22:25:07.505] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=snapshot
+E[2026-09-09|22:25:07.505] Stopped accept routine, as transport is closed module=p2p numPeers=0
+E[2026-09-09|22:25:07.505] Error serving server                         module=main err="accept tcp 127.0.0.1:47727: use of closed network connection"

@@ -1,0 +1,21 @@
+{
+  "evaluated_at": "2026-09-09T16:09:46.711317+00:00",
+  "verdict": "NO-GO",
+  "full_suite": {
+    "passed": 536,
+    "skipped": 1,
+    "seconds": 159.03
+  },
+  "ruff": "PASS",
+  "mypy_api_files": 100,
+  "candidate_deployed": false,
+  "public_token_deployment_verified": false,
+  "source_security_repairs": [
+    "target-bound A2A completion and fresh device authority",
+    "typed public realtime subscriptions excluding directed A2A",
+    "manual treasury allowlist and production denial"
+  ],
+  "remaining_communication_failures": 5,
+  "buyer_plan": "docs/strategy/2026-09-09-buyer-investment-plan.md",
+  "report": ".Codex/release-gate/reports/2026-09-09-buyer-addendum.md"
+}

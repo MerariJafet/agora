@@ -1,0 +1,6 @@
+{
+  "clone": "/tmp/agora-alpha-clean-clone-4f19l67q/repo",
+  "source_commit": "c37419e216ce181831546e0d251674de3f8e5d4b",
+  "fresh_venv": true,
+  "same_physical_machine": true
+}

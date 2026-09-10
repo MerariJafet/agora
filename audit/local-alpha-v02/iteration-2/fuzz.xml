@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.064" timestamp="2026-09-09T20:57:24.319815-06:00" hostname="Acero"><testcase classname="tests.test_alpha_fuzz" name="test_seeded_malformed_transactions_fail_closed" time="0.010"><failure message="tokoin_native.core.Invalid: unsupported canonical value">tmp_path = PosixPath('/tmp/pytest-of-merari-acero/pytest-33/test_seeded_malformed_transact0')
+
+    def test_seeded_malformed_transactions_fail_closed(tmp_path):
+        rng = random.Random(20260910)
+        w = World()
+        store = Store(tmp_path / 'fuzz.sqlite', w.genesis)
+        app = Application(store)
+        before = canonical(store.state)
+        values = [None, True, False, 0, -1, 1.5, [], {}, 'text', {'nonce': []}]
+&gt;       corpus = [canonical(value) for value in values]
+                  ^^^^^^^^^^^^^^^^
+
+native/tests/test_alpha_fuzz.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+native/tokoin_native/core.py:67: in canonical
+    check(value)
+native/tokoin_native/core.py:63: in check
+    require(v is None or type(v) in (str, int, bool), "unsupported canonical value")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+condition = False, reason = 'unsupported canonical value'
+
+    def require(condition, reason):
+        if not condition:
+&gt;           raise Invalid(reason)
+E           tokoin_native.core.Invalid: unsupported canonical value
+
+native/tokoin_native/core.py:36: Invalid</failure></testcase></testsuite></testsuites>

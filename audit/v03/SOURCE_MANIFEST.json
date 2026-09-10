@@ -1,0 +1,33 @@
+{
+  "source_commit": "5bb0a27f74ad6a79567463156f16d5a599120088",
+  "source_ref": "refs/agora/candidates/networked-science-v03-source",
+  "parent": "aa21f2e6fac27362da1017ca5800a1ded1bdb7bf",
+  "user_index_unchanged": true,
+  "files": {
+    "apps/api/agora_api/routes/research_protocol.py": "a243fa67050ed2778f7a6af6281c9605e8ee2efefa0108ef948f3da4ae976ac6",
+    "apps/api/agora_api/v03_test_challenges.py": "b4a87e608b75daff56a471db3f01230ab5b9efdc632fef08b0b1ed3e7b8ea3f0",
+    "docs/v03/REVIEW_ECONOMICS_ADR.md": "7e7abdf2fca1d67f2f1df0e33c979c49d5f5f76c482db516f516bda8c1693b2a",
+    "docs/v03/TOKOIN_SCIENCE_PROTOCOL_V03.md": "bc11c227ec272d84e0da93ba6f931c5598bba831ddff549349cbd68e6c594bdc",
+    "native/tests/test_v03_evidence.py": "761c3321e90dc61cb698f7b2bb031417b2aa581dea3fb952087910df47965a3d",
+    "native/tests/test_v03_science.py": "30ab3322270f0a01b4fabc8d93b07866dbb38af2f6a655955ee930495c2c33c2",
+    "native/tests/test_v03_science_adapter.py": "02ef7e325b092998c1e3eee7ca25db87ea94f70896978d246ae5e628917d3450",
+    "native/tests/test_v03_science_adversarial.py": "a7960f8a4d978596c6fc2f0d9e5d7ec4ddbf47f7a7707595e39f23107f5e050e",
+    "native/tests/test_v03_vm_evidence.py": "568e3ae59cd942990af3566462116772add1a3a4963545fbd798b0a37a57a34a",
+    "native/tokoin_native/core.py": "008d00c961f00a48b260cce95e1150a8261c73bd7c7d53bc6034d94d6e51f317",
+    "native/tokoin_native/v03_science.py": "bb7a90fbac9de544055c286aca37bf7847b96310e653b5abbd71ac084fac28cf",
+    "native/tools/time_policy.py": "87a7c57d3361117a925f9293256526786d66ca07c40472e886c6afb49276dc83",
+    "native/tools/v03_evidence.py": "a3f7bc34dcefb0ae2386f724fa71b644140928c7f6f216ef3be2d0d8156e29e9",
+    "native/tools/v03_network.py": "131b71702609c8e32b525d0216c8ae6aa905980d89835d288f80ee6288a9e17a",
+    "native/tools/v03_scientific_network.py": "0f5cf89417584a7f6b4647393a3357881cbf2f94a1195b3c2cdff977647366a9",
+    "native/tools/v03_vm_guest.py": "172c7d044dd3692a090708a4dbc90a8a48824af9f651d2c20e86b641b87b1074",
+    "native/tools/v03_vm_replay.py": "fe7efe7c6728996db6a94ac354501578bd3a2516b6914fc3e286a648386bd57d",
+    "native/tools/v03_vm_time.py": "8d1a471ef66b30a55512f60cd5ae590e3ea81c6f290a59c4b6e0525604b961d1",
+    "native/tools/v03_vm_verify.py": "cb90acb87b8a9a03a5358bf04766c7727ee1655f4910981a4abfc58a2334a9d2",
+    "scripts/v03_llm_campaign.py": "9073993363a2121d23067351eb1ba95da058631718884cf805a46e0074eb8206",
+    "scripts/v03_llm_evaluate.py": "7a27c5d6dcb267e1b4c140df0355cb9a780ad58fd330b79509db6713599aaac2",
+    "scripts/v03_llm_export.py": "0b0a40d5904a604161a2f00fbada5a6b10b4ee5db9ec18ac6b6cd9b230a240d5",
+    "tests/integration/test_v03_llm_campaign.py": "f279df39177b98a064eb39801fe542ce0a35f148e4a110888c89130b5a696e96",
+    "tests/integration/test_v03_llm_tools.py": "fd277a445878ee3ac88e716016edba9faafe386c2427d568c960536c261563bc",
+    "tests/integration/test_v03_test_challenges.py": "e049714855841d05d19a474b66fd1295f173c08cf9f4d70ae9cf50b6fc3c27fd"
+  }
+}

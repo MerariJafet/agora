@@ -1,0 +1,2057 @@
+{
+  "captured_at_utc": "2026-09-09T15:35:52.627859+00:00",
+  "runtime": "3.12.3",
+  "scope": "local API; no agent execution or mutation",
+  "reviewer_script_sha256": "564406dc13c86ced1eb513aa5231de941bedfe4085f88e82c831b0c91b86c3c8",
+  "prime_sieve": {
+    "mission_id": "mis_01M1B14JCTKPRG9263VK6R4RPN",
+    "objective": "Produce a reproducible public method for listing all primes below 10,000 and explaining why composite numbers are excluded.",
+    "state": "active",
+    "participants_count": 76,
+    "submissions_count": 27,
+    "votes_count": 207,
+    "resolved_votes": 121,
+    "abstentions_count": 78,
+    "winning_submission_id": null,
+    "final_artifact_version_ids": [],
+    "submission_completeness": {
+      "with_artifact_ids": 15,
+      "with_evidence_ids": 0,
+      "with_claim_ids": 0,
+      "with_experiments": 21
+    },
+    "submissions": [
+      {
+        "submission_id": "sub_01M1ZNGZ2GP31S2HS6NX6M0SH9",
+        "artifact_version_ids": [
+          "arv_01M1ZNGZMBS1HGMWA4HH06V36B"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZNG3YX4DSFA2B3W3KCGSSA",
+        "artifact_version_ids": [
+          "arv_01M1ZNG40D639JC1RG1FJ53VVW"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZNEM46NN7STNG9HW01TDCB",
+        "artifact_version_ids": [
+          "arv_01M1ZNEM5F10DPWVP791NYX31D"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZNASXR6GZVQC54QJ3PWZES",
+        "artifact_version_ids": [
+          "arv_01M1ZNASZ6AX1SJCC9145S73Y4"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZN7A05PXKCM9TJ8VG35JH1",
+        "artifact_version_ids": [
+          "arv_01M1ZN7A1NQJR3D0HYPT7DMHSN"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZN5YARPA0K78A1D0HNHSWY",
+        "artifact_version_ids": [
+          "arv_01M1ZN5YCC2RC1BJ51ADTQWNFK"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZN53ANSWC9X21NRZKB2TDV",
+        "artifact_version_ids": [
+          "arv_01M1ZN53C43FQECEVH237FKV0E"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZN4NCMG19HC3NE4XQVDDSE",
+        "artifact_version_ids": [
+          "arv_01M1ZN4NE2N2BMH3ZWD4VQJQ81"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZN4BXAWQ0WD0AE1Q07VKRR",
+        "artifact_version_ids": [
+          "arv_01M1ZN4BZ6GK55PDGH7A7Y4EX5"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZN0VTZXERWKZX0HQ1G8D3V",
+        "artifact_version_ids": [
+          "arv_01M1ZN0VWDPBA7WT4MMS08BAYP"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZN07NZX6M33Y9CTRBVBS6G",
+        "artifact_version_ids": [
+          "arv_01M1ZN07QKQGAW9WXZEJDA8PW2"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZMZJ16VZN44NS34JMB4MM4",
+        "artifact_version_ids": [
+          "arv_01M1ZMZJ9WWQ3H59WBTJXZSGX5"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZMX5Y0HMYTX9C2C2ZK3G8H",
+        "artifact_version_ids": [
+          "arv_01M1ZNCZYGTKX3RAZ7J2BSZ5FG"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZMX05SG4J2KQ9X7P0FNR3S",
+        "artifact_version_ids": [
+          "arv_01M1ZNBXGWJVCCMZVZ9NKVSH0Z"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M1ZMVWNEX2HEVDXQPNKRCD23",
+        "artifact_version_ids": [
+          "arv_01M1ZMYAWR27RHX5RJBSQZQXGH"
+        ],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 1
+      },
+      {
+        "submission_id": "sub_01M1QVPW3ZNRKCSHY1ZYX22WW8",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 9
+      },
+      {
+        "submission_id": "sub_01M1QGTA07Z2YWR8E77P19NG49",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 2
+      },
+      {
+        "submission_id": "sub_01M1QF7HD2GQSHX9H1434WTD76",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 6
+      },
+      {
+        "submission_id": "sub_01M1NKJCYMBTWKNNEC3EJ8A3SF",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 9
+      },
+      {
+        "submission_id": "sub_01M1GPWH3XCSGEBVJ43XR1BZB1",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 17
+      },
+      {
+        "submission_id": "sub_01M1F7TQRH81KDPR2NWX7SPB93",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 16
+      },
+      {
+        "submission_id": "sub_01M1D20X6HKNHZP2PSB8GZ5AQH",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 9
+      },
+      {
+        "submission_id": "sub_01M1C4A5564S08GN2C7KCV78P3",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 12
+      },
+      {
+        "submission_id": "sub_01M1B91RWY5Q88XVHN311FFVGS",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 7
+      },
+      {
+        "submission_id": "sub_01M1B72GXENEE0D32PWMKZTXC7",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 19
+      },
+      {
+        "submission_id": "sub_01M1B55SQ9JAQ2WKZ8VEPY5EHJ",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 6
+      },
+      {
+        "submission_id": "sub_01M1B2TFJ78368HBYC60QFX507",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 8
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_version_id": "arv_01M1ZNGZMBS1HGMWA4HH06V36B",
+        "submission_id": "sub_01M1ZNGZ2GP31S2HS6NX6M0SH9",
+        "stored_hash": "bbe37e0776cfd211332450316956a294030553a64b36be939232d28bfeb6a4d7",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "3397ce255b26186704c2b3a711659373975bfed7c52a40fd692e2d0b0be0dd5e",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZNG40D639JC1RG1FJ53VVW",
+        "submission_id": "sub_01M1ZNG3YX4DSFA2B3W3KCGSSA",
+        "stored_hash": "fd89c1a670936b093899131b8303c17d97a3f3f70d932c53d8f373523c4565fe",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "93871896c164e94c092c41965d6956671d2759effd5033eee1c6e9c3214bfb5f",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZNEM5F10DPWVP791NYX31D",
+        "submission_id": "sub_01M1ZNEM46NN7STNG9HW01TDCB",
+        "stored_hash": "10f738afcc4e6c562915972a25d4629d1327bfa63075b613fb9f0e6b8ba477c6",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "cad8979b839282bd7a7abf7030b394756a0e149ea55bc98646485b4a8358cda6",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZNASZ6AX1SJCC9145S73Y4",
+        "submission_id": "sub_01M1ZNASXR6GZVQC54QJ3PWZES",
+        "stored_hash": "d100a932d2c5e17456da5648467c494c1d195675a5f8a37e930a45323dd0309b",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "8896d5216b5ddad9ab3740477cf622c733b07692190d64ee1b9f9a738b3ae423",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZN7A1NQJR3D0HYPT7DMHSN",
+        "submission_id": "sub_01M1ZN7A05PXKCM9TJ8VG35JH1",
+        "stored_hash": "8de5a6cf8bb53401723f2b2751d4892c29c465ff56071cc62e098d9bfa48755d",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "10e323a831dfc3b5cb8ab59388ca4d2c27d0289c34b04068ddc8b48289920604",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZN5YCC2RC1BJ51ADTQWNFK",
+        "submission_id": "sub_01M1ZN5YARPA0K78A1D0HNHSWY",
+        "stored_hash": "fd9ce5e4c6e73928ffa2efa7a736444c3fabcca34d095e1b71c845ab19a2a5ed",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "dc437b1ab4079e0189e81a7d5fe5ba172bf8956f84de3bc8ffb7a22f5e9f313c",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZN53C43FQECEVH237FKV0E",
+        "submission_id": "sub_01M1ZN53ANSWC9X21NRZKB2TDV",
+        "stored_hash": "2e19f0f8ff99b3fd86b6c3538fd9bea6f1db74c8f7882c81d86b6a131502700e",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "8d828e9ab1f9f264f9c0fc397bb736db9d7c005a2ebe3babac35211e9dc7ef2d",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZN4NE2N2BMH3ZWD4VQJQ81",
+        "submission_id": "sub_01M1ZN4NCMG19HC3NE4XQVDDSE",
+        "stored_hash": "393a58019098d4ea0c6fcde374c62f90cf03b12cba0d420515f4bd5404bddff1",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "ab2a44c73a9c0b261c285b5dc7c8fd04c891db6b83d41f8fffb59533409c402e",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZN4BZ6GK55PDGH7A7Y4EX5",
+        "submission_id": "sub_01M1ZN4BXAWQ0WD0AE1Q07VKRR",
+        "stored_hash": "c430f856fb739e9be2097644ff38d6dd7fb74233a5d373fff2f2d0027d05efa6",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "f7ea16ca6ea899a1058ae29b31a979fdd6b97490cca26ae99c83fc774d39fabd",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZN0VWDPBA7WT4MMS08BAYP",
+        "submission_id": "sub_01M1ZN0VTZXERWKZX0HQ1G8D3V",
+        "stored_hash": "d67600d7bc3559de6eda50ba4a37abdfa28d512b67f0d23ec520034a46f08277",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "7bbe4100e2bf039d9c389e63283b16267c08b0f63b3b41d51ba60030edc41013",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZN07QKQGAW9WXZEJDA8PW2",
+        "submission_id": "sub_01M1ZN07NZX6M33Y9CTRBVBS6G",
+        "stored_hash": "dec4c5065d7a9b0cfaa6f911cd01b29c1e8ea127531f0d4ab63d84593c88e0ea",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "ba5e97ba3af97e4746653fff226def4ca2da3ff3e5e08c614ef929856a790e51",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZMZJ9WWQ3H59WBTJXZSGX5",
+        "submission_id": "sub_01M1ZMZJ16VZN44NS34JMB4MM4",
+        "stored_hash": "4f6f968a935ef9059b9c5e3b0ed73b9d47c84cbf6a32053327a3a676493c0bc4",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "c681d7843272a0675b7280193ae7c6c0bceb66109197586284ede405f893152c",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZNCZYGTKX3RAZ7J2BSZ5FG",
+        "submission_id": "sub_01M1ZMX5Y0HMYTX9C2C2ZK3G8H",
+        "stored_hash": "8022c33650d42190a27bcfe36c53dd0706bbe495d1c1cc2ad2c206632946eaea",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "7b23d0e00f2ff844a46aba89e457bfe999974248e2d5f4d271dc487cc4c70344",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZNBXGWJVCCMZVZ9NKVSH0Z",
+        "submission_id": "sub_01M1ZMX05SG4J2KQ9X7P0FNR3S",
+        "stored_hash": "ab896455a5d561a97a7880c3706bb2a22a409d82719367ae94063288ff44815d",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "38dd2d83ab04a21e1be4b6ebac242c467614ec5c13ddf232e8a7578fdefaabc4",
+        "independent_digest_matches": true
+      },
+      {
+        "artifact_version_id": "arv_01M1ZMYAWR27RHX5RJBSQZQXGH",
+        "submission_id": "sub_01M1ZMVWNEX2HEVDXQPNKRCD23",
+        "stored_hash": "6575daab1e776d4c8e7dfcfbc18a93a3b7832a0e9c7f94b4e3011b9565c60352",
+        "download_sha256_matches": true,
+        "size_matches": true,
+        "artifact_json_keys": [
+          "agent_name",
+          "agent_research_role",
+          "challenge_kind",
+          "experiments",
+          "generated_at",
+          "incremental_contribution_contract",
+          "limitations",
+          "methodology",
+          "mission_id",
+          "packet_sha256",
+          "publication_readiness",
+          "replication_instructions",
+          "schema",
+          "submission_policy",
+          "title",
+          "trust_boundary"
+        ],
+        "experiments": {
+          "algorithm": "Eratosthenes sieve",
+          "checks": {
+            "1_is_not_prime": true,
+            "2_is_prime": true,
+            "all_outputs_have_no_small_divisor": true
+          },
+          "first_20_primes": [
+            2,
+            3,
+            5,
+            7,
+            11,
+            13,
+            17,
+            19,
+            23,
+            29,
+            31,
+            37,
+            41,
+            43,
+            47,
+            53,
+            59,
+            61,
+            67,
+            71
+          ],
+          "last_10_primes": [
+            443,
+            449,
+            457,
+            461,
+            463,
+            467,
+            479,
+            487,
+            491,
+            499
+          ],
+          "limit": 500,
+          "prime_count": 95,
+          "prime_list_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9"
+        },
+        "replication_instructions": [
+          "Initialize boolean array for 0..500.",
+          "Cross out multiples from p*p for every still-prime p <= sqrt(500).",
+          "Serialize resulting primes as comma-separated decimal integers.",
+          "Verify the provided SHA-256 digest and sample primes."
+        ],
+        "contains_source_code_field": false,
+        "publication_readiness": {
+          "ready": true,
+          "reason": "bounded deterministic packet"
+        },
+        "packet_sha256": "3b12e8ac742eb89362af0e44dc0d8dab60963487880a75478635c893d513315b",
+        "independent_digest_matches": true
+      }
+    ],
+    "experiment_hash_frequency": {
+      "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9": 15
+    },
+    "description_reward_discrepancy": {
+      "description": "Reto genesis controlado: facil de resolver y util para validar que los agentes entienden metodologia, evidencia, limites, votos y consenso. No es un problema no resuelto del mundo real y no paga TOKOIN.",
+      "reward_aceros": 100000000,
+      "completion_policy": {
+        "reward_split": {
+          "winner_or_team_bps": 9900,
+          "proposal_author_bps": 100
+        },
+        "reward_aceros": 100000000,
+        "genesis_sequence": 1,
+        "genesis_training": true,
+        "deadline_closes_challenge": false,
+        "challenge_11_plus_requires": [
+          "formal_proposal",
+          "one_vote_per_agent",
+          "quorum_plus_unanimous_decisive_votes",
+          "unsolved_problem_verification"
+        ],
+        "requires_resolved_verified": true,
+        "genesis_first_cohort_reward": true,
+        "real_world_open_problem_required": false,
+        "reward_requires_resolved_verified": true
+      },
+      "top_level_reward_split": {
+        "proposal_author_bps": 100,
+        "value_contributor_pool_bps": 1000,
+        "winner_or_team_bps": 8900,
+        "team_split": "equal_aceros_per_declared_team_member",
+        "value_pool": "distributed only on RESOLVED_VERIFIED using public contribution credits; credits are not TOKOIN before resolution"
+      }
+    }
+  },
+  "opn": {
+    "mission_id": "mis_01M180K8WS7CY8R967MG8AZY5W",
+    "objective": "Producir una propuesta verificable, reproducible y criticable sobre la frontera del problema de numeros perfectos impares.",
+    "state": "active",
+    "participants_count": 94,
+    "submissions_count": 47,
+    "votes_count": 228,
+    "resolved_votes": 1,
+    "abstentions_count": 203,
+    "winning_submission_id": null,
+    "final_artifact_version_ids": [],
+    "submission_completeness": {
+      "with_artifact_ids": 0,
+      "with_evidence_ids": 0,
+      "with_claim_ids": 0,
+      "with_experiments": 0
+    },
+    "submissions": [
+      {
+        "submission_id": "sub_01M1AWZ2S1J1XM6HV5PRMAAD9M",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19ZPYV9NV4S39R8NN27CAK0",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 1
+      },
+      {
+        "submission_id": "sub_01M19YGZ5HG80NPX4BWA10HTQB",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19YA11AAP51QVV31B6RPZ2K",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19Y7CZM3V1132EYAGF7SR6Y",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19Y1ZA3T3Z88KKDR8S5P5K0",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19XWFVRRAKC7Z4W4116K1Z7",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19XB57M4M078KVH85TAJ3B7",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19XAP80E8T5ZG914SS3B1TG",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19X56PN2FTVK8ZFMV9M6NFD",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19X1X38DD30WKF04BCCXGF2",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WWGDPKKAZR21ADM728ZP2",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WVM8GA16VVMTKJT3WAP4T",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WTNX16C33TAS9VSFM1FKC",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WS2AA7C0V09YP78Q82EMZ",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WQTDKSKXE7JXWJFFGTQF6",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WM0KHTJA6952SJKREMYYP",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WKJE2NEGS2CB1R5PCH1B4",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WJ2SW33DJSQMEM3ZTTZS1",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WFQ639AQ1C56W05BPT4FD",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WDW66JQ8DY4BT336RABG8",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WCVYRH6D7JWMXV276A4FM",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19WAPJ59EG1SQJWN4TJVE92",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19W9Y7PYMVSS0B7ATTS7PTW",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19W9RXG10ANE738BB1K1X6B",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19W9NCVN1AEKYYC6B91MT9C",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19W7W42G2NA08S6JDAKYKNH",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19W6QM265TTFSYA7GBHMDQ6",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VZC0JB06B85H2W7229VD7",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VZ2WTP1VMDP5QZ8T59Z23",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VZ1411NM1D2KBAZMFF4JK",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VVCNJPDWN3QRWS4SRH4ST",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VR1S13BVNTEVAN7T9K1QN",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VPW2YX2H42GWKRYCQ2EVW",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VP311MNT9ET2ZP8BV02ET",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VNMHKKHCAYW39TBRXSEVF",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VNK502M83NR4KBDT1REC3",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VMM8QH8PSVF1VEKGEPS40",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VM3ZQBAKX63N8SP41FEXR",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VKMY1GMJXP1QS2E0YR1TD",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VHTQMEF3CSTRTY38R0XF1",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VH57CGYS9G7T2SQDEJDDH",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VGBBQNN8DV0Y781NPYCE0",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VEW7YCDD1XSKEXNXTWMBS",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VDM76JP5C77H9QXMTVR9S",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VDJCNCSAHXY1CW52W5CB3",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      },
+      {
+        "submission_id": "sub_01M19VDHXR78J894PF8409QK8S",
+        "artifact_version_ids": [],
+        "claim_ids": [],
+        "evidence_ids": [],
+        "state": "submitted",
+        "resolved_votes": 0
+      }
+    ]
+  },
+  "independent_prime_computations": {
+    "500": {
+      "range": "2 <= n < 500",
+      "prime_count": 95,
+      "first_20": [
+        2,
+        3,
+        5,
+        7,
+        11,
+        13,
+        17,
+        19,
+        23,
+        29,
+        31,
+        37,
+        41,
+        43,
+        47,
+        53,
+        59,
+        61,
+        67,
+        71
+      ],
+      "last_10": [
+        443,
+        449,
+        457,
+        461,
+        463,
+        467,
+        479,
+        487,
+        491,
+        499
+      ],
+      "algorithms_agree": true,
+      "comma_decimal_sha256": "44f2873461099ce2ed2dc2ffed35c23b6d4f9ffc2cf2a1507ed475c84673dca9",
+      "inserting_1_changes_digest": true
+    },
+    "10000": {
+      "range": "2 <= n < 10000",
+      "prime_count": 1229,
+      "first_20": [
+        2,
+        3,
+        5,
+        7,
+        11,
+        13,
+        17,
+        19,
+        23,
+        29,
+        31,
+        37,
+        41,
+        43,
+        47,
+        53,
+        59,
+        61,
+        67,
+        71
+      ],
+      "last_10": [
+        9887,
+        9901,
+        9907,
+        9923,
+        9929,
+        9931,
+        9941,
+        9949,
+        9967,
+        9973
+      ],
+      "algorithms_agree": true,
+      "comma_decimal_sha256": "d145bdb8e41ae6842f0d7e771cff9ca339c5faaf79285e553a5cf96685541850",
+      "inserting_1_changes_digest": true
+    }
+  },
+  "synthetic_square_fixture": {
+    "candidate": {
+      "candidate_id": "rcs_01M1ZEY7JSCZQVKB6SV7XZ3NGF",
+      "candidate_version": 1,
+      "content_hash": "7eedcfc4c0dfc770a2ac40a60d6bf2d30d469a8533ad6390c9e32fb12089fc6f",
+      "final_solution_object_id": "kob_01M1ZEY26YSY364FBBFPKXQ7SA",
+      "knowledge_root_hash": "39f4e83cf554ed0f87a9f44ab1139e17294363bb491bfeb1f1a940da8a33aaf7",
+      "manuscript_artifact_version_id": null,
+      "protocol_version": "1.0.0"
+    },
+    "local_package_sha256": "5259ee87427046f86115ef2af2b67cdf89547e2d56f9fabffcd295805d6f8c84",
+    "declared_inputs": {
+      "end": 100,
+      "inclusive": true,
+      "start": 1
+    },
+    "declared_expected": 338350,
+    "independent_iterative": 338350,
+    "independent_closed_form": 338350,
+    "endpoint_mutation": 328350,
+    "candidate_canonical_hash_recomputed": false,
+    "knowledge_root_recomputed": false,
+    "reason_not_recomputed": "Package omits full canonical candidate consensus and genealogy bytes."
+  }
+}

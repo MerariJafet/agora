@@ -1,0 +1,9 @@
+{
+  "pass": false,
+  "phase": "fixture setup before sequence execution",
+  "completed_sequences": 0,
+  "execution_errors": 1,
+  "error_type": "Invalid",
+  "error": "TEST chain ID required",
+  "remediation": "Changed fixture chain_id to required tokoin-test- prefix; smoke-002 passed"
+}

@@ -1,0 +1,23 @@
+S603 `subprocess` call: check for execution of untrusted input
+   --> native/tests/test_alpha_hardening.py:197:14
+    |
+195 |     s.commit()
+196 |     s.close()
+197 |     result = subprocess.run(
+    |              ^^^^^^^^^^^^^^
+198 |         [sys.executable, "-c", CRASH_SCRIPT, str(tmp_path), point],
+199 |         env=dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1])),
+    |
+
+S603 `subprocess` call: check for execution of untrusted input
+   --> native/tests/test_alpha_hardening.py:237:14
+    |
+235 | s.prepare(json.loads((p/'txs.json').read_text()),2,1002)
+236 | """
+237 |     result = subprocess.run(
+    |              ^^^^^^^^^^^^^^
+238 |         [sys.executable, "-c", code, str(tmp_path)],
+239 |         env=dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1])),
+    |
+
+Found 8 errors (6 fixed, 2 remaining).

@@ -1,0 +1,48 @@
+[
+  {
+    "broadcast_response": {
+      "check_tx": {
+        "code": 0,
+        "codespace": "",
+        "data": null,
+        "events": [],
+        "gas_used": "0",
+        "gas_wanted": "0",
+        "info": "",
+        "log": ""
+      },
+      "hash": "B97547AD01962D7A04B9BE683D251B26F548D3316C6FC7998EF614CB2C82B617",
+      "height": "4",
+      "tx_result": {
+        "code": 0,
+        "codespace": "",
+        "data": null,
+        "events": [],
+        "gas_used": "0",
+        "gas_wanted": "0",
+        "info": "",
+        "log": ""
+      }
+    },
+    "error": "<HTTPError 500: 'Internal Server Error'>",
+    "expect_reject": false,
+    "index": 0,
+    "status": "FAIL",
+    "transaction": {
+      "chain_id": "tokoin-test-v03-transport-smoke",
+      "genesis_hash": "66175cb806d84187105c09d30ae3c1fa73f073eb88a1db8809ea875459273012",
+      "kind": "review_commit",
+      "nonce": 1,
+      "payload": {
+        "commitment": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reward_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "payload_hash": "f963036a4b20eef12ecb74c146dff7e76652f5a817bdae14cc89db9aa00c7642",
+      "protocol_version": "TOKOIN_TX_V3",
+      "public_key": "26ed027de831902ac0586f34efc3a695d09de7a6667cfcd232b1892409a29648",
+      "sender": "tkn1f0baff1f64fc620a93fe8a2e76780e82bff6e09e0a998941dddf147e4fd2d103",
+      "signature": "8e3b9537ed22e6384dcfc0dc3102ddf95a1fcb98d9134335292850fa7af5c4b605bf75542d11ab38223550d64b56fde9f565ec724fbd4fefae4e880f97e7e305"
+    },
+    "tx_hash": "B97547AD01962D7A04B9BE683D251B26F548D3316C6FC7998EF614CB2C82B617"
+  }
+]

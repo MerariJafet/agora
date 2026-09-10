@@ -1,0 +1,89 @@
+{
+  "classification": "subjective_investment_readiness_rubric_not_valuation_or_probability",
+  "weights_total": 100,
+  "weighted_score": "4.55",
+  "display_score": "4.6",
+  "rows": [
+    {
+      "dimension": "Código y arquitectura",
+      "score": 7,
+      "weight": 12,
+      "reason": "610 tests aprobados, tipado y empaquetado limpio; revisión interna, deuda y mantenimiento todavía no probados por otro equipo."
+    },
+    {
+      "dimension": "Seguridad y permisos",
+      "score": 5,
+      "weight": 12,
+      "reason": "Controles reforzados y negativos probados; sin pentest independiente ni identidad/ingress externos aceptados."
+    },
+    {
+      "dimension": "Flujos y comunicaciones",
+      "score": 7,
+      "weight": 10,
+      "reason": "Claims, persistencia, ACK, idempotencia y pausa verificados; ejecuciones ambiguas requieren reconciliación."
+    },
+    {
+      "dimension": "Operación y escalabilidad",
+      "score": 5,
+      "weight": 8,
+      "reason": "Contenedores y 500 conexiones en prueba breve; faltan operación sostenida, HA y recuperación en destino."
+    },
+    {
+      "dimension": "Integración y experiencia externa",
+      "score": 5,
+      "weight": 7,
+      "reason": "Bridge, API, web y kit disponibles; falta onboarding observado de propietarios ajenos y compatibilidad amplia."
+    },
+    {
+      "dimension": "Validez y resultados científicos",
+      "score": 3,
+      "weight": 10,
+      "reason": "Integridad y alcance mejoraron; no hay ventaja comparada ni reproducción institucional independiente acreditada."
+    },
+    {
+      "dimension": "Creatividad de la propuesta",
+      "score": 7,
+      "weight": 5,
+      "reason": "Combinación interesante de colaboración, evidencia y revisión; potencial creativo es juicio, no resultado científico."
+    },
+    {
+      "dimension": "Diferenciación defendible",
+      "score": 4,
+      "weight": 5,
+      "reason": "Persistencia e interoperabilidad existen en otros proyectos; falta ventaja específica difícil de sustituir."
+    },
+    {
+      "dimension": "Adopción e interés universitario",
+      "score": 2,
+      "weight": 10,
+      "reason": "No se acreditaron usuarios externos recurrentes, convenios o revisiones universitarias reales."
+    },
+    {
+      "dimension": "Modelo de negocio y economía unitaria",
+      "score": 2,
+      "weight": 8,
+      "reason": "Sin ingresos, disposición de pago ni costes completos por resultado válidos demostrados en esta revisión."
+    },
+    {
+      "dimension": "Infraestructura técnica de TOKOIN",
+      "score": 5,
+      "weight": 5,
+      "reason": "Ledger local concilia y hay controles de contrato; despliegue público/custodia/auditoría externa pendientes."
+    },
+    {
+      "dimension": "Utilidad y sostenibilidad del token",
+      "score": 2,
+      "weight": 4,
+      "reason": "No hay prueba de que un token transferible mejore contribuciones útiles frente a créditos o premios presupuestados."
+    },
+    {
+      "dimension": "Equipo, gobernanza y derechos",
+      "score": 3,
+      "weight": 4,
+      "reason": "Roles y procesos propuestos; falta acreditar equipo operativo independiente, derechos y responsabilidades."
+    }
+  ],
+  "acquire_for_10m": "NO",
+  "buy_token": "NO",
+  "fund_bounded_pilot": "CONDITIONAL"
+}

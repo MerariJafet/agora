@@ -1,0 +1,2166 @@
+{
+  "status": "PASS",
+  "critical_scope": [
+    "native/tokoin_native/core.py",
+    "native/tokoin_native/protocol_time.py"
+  ],
+  "files_scanned": 210,
+  "failures": [],
+  "time_uses": [
+    {
+      "path": "apps/api/agora_api/a2a_service.py",
+      "line": 165,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(), updated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/a2a_service.py",
+      "line": 268,
+      "category": "protocol_noncritical",
+      "expression": "task.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/a2a_service.py",
+      "line": 321,
+      "category": "protocol_noncritical",
+      "expression": "task.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/alpha_service.py",
+      "line": 162,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/alpha_service.py",
+      "line": 163,
+      "category": "protocol_noncritical",
+      "expression": "updated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/alpha_service.py",
+      "line": 206,
+      "category": "protocol_noncritical",
+      "expression": "report.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/alpha_service.py",
+      "line": 216,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/alpha_service.py",
+      "line": 247,
+      "category": "protocol_noncritical",
+      "expression": "updated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/alpha_service.py",
+      "line": 253,
+      "category": "protocol_noncritical",
+      "expression": "flag.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/alpha_service.py",
+      "line": 278,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/alpha_service.py",
+      "line": 386,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 168,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 185,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 237,
+      "category": "protocol_noncritical",
+      "expression": "challenge.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 259,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 323,
+      "category": "protocol_noncritical",
+      "expression": "joined_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 365,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 428,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 505,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 516,
+      "category": "protocol_noncritical",
+      "expression": "updated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 522,
+      "category": "protocol_noncritical",
+      "expression": "rating.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 555,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 593,
+      "category": "protocol_noncritical",
+      "expression": "instance.resolved_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/arena_service.py",
+      "line": 595,
+      "category": "protocol_noncritical",
+      "expression": "challenge.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/artifacts_service.py",
+      "line": 105,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/artifacts_service.py",
+      "line": 189,
+      "category": "protocol_noncritical",
+      "expression": "created_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/artifacts_service.py",
+      "line": 274,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/auth.py",
+      "line": 53,
+      "category": "protocol_noncritical",
+      "expression": "expires_at = now_utc() + timedelta(seconds=get_settings().session_ttl_seconds)"
+    },
+    {
+      "path": "apps/api/agora_api/auth.py",
+      "line": 60,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/auth.py",
+      "line": 72,
+      "category": "protocol_noncritical",
+      "expression": "if device_session is None or device_session.expires_at <= now_utc():"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 279,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 316,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 350,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 363,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 404,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 416,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 458,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 522,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 549,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 550,
+      "category": "protocol_noncritical",
+      "expression": "updated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 576,
+      "category": "protocol_noncritical",
+      "expression": "rfc.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 603,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 604,
+      "category": "protocol_noncritical",
+      "expression": "updated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 641,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 650,
+      "category": "protocol_noncritical",
+      "expression": "proposal.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 677,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 680,
+      "category": "protocol_noncritical",
+      "expression": "agent.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 706,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/civic_service.py",
+      "line": 764,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/claims_service.py",
+      "line": 137,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/claims_service.py",
+      "line": 164,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/claims_service.py",
+      "line": 234,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/claims_service.py",
+      "line": 264,
+      "category": "protocol_noncritical",
+      "expression": "claim.retracted_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/claims_service.py",
+      "line": 299,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/claims_service.py",
+      "line": 358,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/claims_service.py",
+      "line": 380,
+      "category": "protocol_noncritical",
+      "expression": "relation.retracted_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/cleanup.py",
+      "line": 40,
+      "category": "protocol_noncritical",
+      "expression": "cutoff = now_utc() - grace"
+    },
+    {
+      "path": "apps/api/agora_api/cleanup.py",
+      "line": 48,
+      "category": "protocol_noncritical",
+      "expression": "cutoff = now_utc() - grace"
+    },
+    {
+      "path": "apps/api/agora_api/cleanup.py",
+      "line": 61,
+      "category": "protocol_noncritical",
+      "expression": "cutoff = now_utc() - retention"
+    },
+    {
+      "path": "apps/api/agora_api/consumers.py",
+      "line": 78,
+      "category": "protocol_noncritical",
+      "expression": ".values(consumer_name=self.name, event_id=event_id, processed_at=now_utc())"
+    },
+    {
+      "path": "apps/api/agora_api/debates_service.py",
+      "line": 71,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/debates_service.py",
+      "line": 122,
+      "category": "protocol_noncritical",
+      "expression": "debate_id=debate_id, agent_id=agent_id, joined_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/debates_service.py",
+      "line": 164,
+      "category": "protocol_noncritical",
+      "expression": "debate.closed_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/debates_service.py",
+      "line": 185,
+      "category": "protocol_noncritical",
+      "expression": "updated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/debates_service.py",
+      "line": 192,
+      "category": "protocol_noncritical",
+      "expression": "row.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/events.py",
+      "line": 25,
+      "category": "protocol_noncritical",
+      "expression": "def now_utc() -> datetime:"
+    },
+    {
+      "path": "apps/api/agora_api/events.py",
+      "line": 26,
+      "category": "protocol_noncritical",
+      "expression": "return datetime.now(UTC)"
+    },
+    {
+      "path": "apps/api/agora_api/events.py",
+      "line": 48,
+      "category": "protocol_noncritical",
+      "expression": "occurred_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/events.py",
+      "line": 63,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 307,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 344,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 681,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 817,
+      "category": "protocol_noncritical",
+      "expression": "started = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 946,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1127,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1422,
+      "category": "protocol_noncritical",
+      "expression": "now = as_of or now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1466,
+      "category": "protocol_noncritical",
+      "expression": "now = as_of or now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1644,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1768,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1849,
+      "category": "protocol_noncritical",
+      "expression": "round_row.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1872,
+      "category": "protocol_noncritical",
+      "expression": "round_row.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1889,
+      "category": "protocol_noncritical",
+      "expression": "round_row.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1911,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1963,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1964,
+      "category": "protocol_noncritical",
+      "expression": "activated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/forum_consensus_service.py",
+      "line": 1986,
+      "category": "protocol_noncritical",
+      "expression": "round_row.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/institutional_validator_service.py",
+      "line": 228,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/institutional_validator_service.py",
+      "line": 276,
+      "category": "protocol_noncritical",
+      "expression": "row.activated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/institutional_validator_service.py",
+      "line": 362,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/institutional_validator_service.py",
+      "line": 540,
+      "category": "protocol_noncritical",
+      "expression": "assignment.committed_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/institutional_validator_service.py",
+      "line": 822,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/institutional_validator_service.py",
+      "line": 826,
+      "category": "protocol_noncritical",
+      "expression": "assignment.revealed_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/knowledge_service.py",
+      "line": 145,
+      "category": "protocol_noncritical",
+      "expression": "if source.circuit_open_until and source.circuit_open_until > now_utc():"
+    },
+    {
+      "path": "apps/api/agora_api/knowledge_service.py",
+      "line": 197,
+      "category": "protocol_noncritical",
+      "expression": "KnowledgeSnapshot.expires_at > now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/knowledge_service.py",
+      "line": 225,
+      "category": "protocol_noncritical",
+      "expression": "source.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/knowledge_service.py",
+      "line": 229,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/knowledge_service.py",
+      "line": 292,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/knowledge_service.py",
+      "line": 368,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/magna_constitution.py",
+      "line": 464,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/magna_constitution.py",
+      "line": 585,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/magna_constitution.py",
+      "line": 747,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/magna_constitution.py",
+      "line": 823,
+      "category": "protocol_noncritical",
+      "expression": "if charter.sunset_at and charter.sunset_at <= now_utc():"
+    },
+    {
+      "path": "apps/api/agora_api/magna_constitution.py",
+      "line": 860,
+      "category": "protocol_noncritical",
+      "expression": "accepted_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/magna_constitution.py",
+      "line": 1101,
+      "category": "protocol_noncritical",
+      "expression": "simulated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/magna_knowledge_ledger.py",
+      "line": 225,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/magna_knowledge_ledger.py",
+      "line": 448,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/magna_knowledge_ledger.py",
+      "line": 621,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/magna_knowledge_ledger.py",
+      "line": 740,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/magna_private_pilot.py",
+      "line": 122,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/magna_private_pilot.py",
+      "line": 382,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/magna_private_pilot.py",
+      "line": 517,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/magna_tokoin_testnet.py",
+      "line": 559,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/magna_tokoin_testnet.py",
+      "line": 681,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/magna_tokoin_testnet.py",
+      "line": 754,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/magna_tokoin_testnet.py",
+      "line": 798,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/magna_tokoin_testnet.py",
+      "line": 909,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/magna_tokoin_testnet.py",
+      "line": 1011,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/middleware.py",
+      "line": 35,
+      "category": "protocol_noncritical",
+      "expression": "start = time.perf_counter()"
+    },
+    {
+      "path": "apps/api/agora_api/middleware.py",
+      "line": 40,
+      "category": "protocol_noncritical",
+      "expression": "duration_ms = round((time.perf_counter() - start) * 1000, 2)"
+    },
+    {
+      "path": "apps/api/agora_api/mission_challenges_service.py",
+      "line": 641,
+      "category": "protocol_noncritical",
+      "expression": "deadline_elapsed = bool(mission.deadline_at and mission.deadline_at < now_utc())"
+    },
+    {
+      "path": "apps/api/agora_api/mission_challenges_service.py",
+      "line": 1353,
+      "category": "protocol_noncritical",
+      "expression": "cooldown_open = next_allowed_at_dt <= now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/mission_challenges_service.py",
+      "line": 1582,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/mission_challenges_service.py",
+      "line": 1697,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/mission_challenges_service.py",
+      "line": 1981,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/mission_challenges_service.py",
+      "line": 2041,
+      "category": "protocol_noncritical",
+      "expression": "joined_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/mission_challenges_service.py",
+      "line": 2082,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/mission_challenges_service.py",
+      "line": 2181,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/mission_challenges_service.py",
+      "line": 2453,
+      "category": "protocol_noncritical",
+      "expression": "mission.completed_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/mission_completion.py",
+      "line": 60,
+      "category": "protocol_noncritical",
+      "expression": "mission.completed_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 178,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 240,
+      "category": "protocol_noncritical",
+      "expression": "roles=roles or [\"observer\"], joined_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 278,
+      "category": "protocol_noncritical",
+      "expression": "mission.activated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 349,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 350,
+      "category": "protocol_noncritical",
+      "expression": "updated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 420,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 466,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 505,
+      "category": "protocol_noncritical",
+      "expression": "task.lease_expires_at = now_utc() + LEASE_DURATION"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 538,
+      "category": "protocol_noncritical",
+      "expression": "task.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 553,
+      "category": "protocol_noncritical",
+      "expression": "task.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 569,
+      "category": "protocol_noncritical",
+      "expression": "task.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/missions_service.py",
+      "line": 584,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 248,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 266,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 341,
+      "category": "protocol_noncritical",
+      "expression": "module.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 369,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 387,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 395,
+      "category": "protocol_noncritical",
+      "expression": "module.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 423,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 438,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 477,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 478,
+      "category": "protocol_noncritical",
+      "expression": "updated_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 491,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 497,
+      "category": "protocol_noncritical",
+      "expression": "module.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 502,
+      "category": "protocol_noncritical",
+      "expression": "plot.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 543,
+      "category": "protocol_noncritical",
+      "expression": "plot.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 565,
+      "category": "protocol_noncritical",
+      "expression": "module.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/modules_service.py",
+      "line": 589,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/oidc.py",
+      "line": 189,
+      "category": "protocol_noncritical",
+      "expression": "or not math.isfinite(exp) or exp <= time.time()"
+    },
+    {
+      "path": "apps/api/agora_api/oidc.py",
+      "line": 207,
+      "category": "protocol_noncritical",
+      "expression": "user = User(user_id=new_user_id(), username=username, created_at=now_utc())"
+    },
+    {
+      "path": "apps/api/agora_api/owners.py",
+      "line": 72,
+      "category": "protocol_noncritical",
+      "expression": "user = User(user_id=new_user_id(), username=username, created_at=now_utc())"
+    },
+    {
+      "path": "apps/api/agora_api/owners.py",
+      "line": 104,
+      "category": "protocol_noncritical",
+      "expression": "expires = now_utc() + SESSION_TTL"
+    },
+    {
+      "path": "apps/api/agora_api/owners.py",
+      "line": 112,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/owners.py",
+      "line": 126,
+      "category": "protocol_noncritical",
+      "expression": "if ws is None or ws.expires_at <= now_utc():"
+    },
+    {
+      "path": "apps/api/agora_api/owners.py",
+      "line": 176,
+      "category": "protocol_noncritical",
+      "expression": "expires_at=now_utc() + CLAIM_TTL,"
+    },
+    {
+      "path": "apps/api/agora_api/owners.py",
+      "line": 178,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 107,
+      "category": "protocol_noncritical",
+      "expression": "if expires_at <= now_utc():"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 195,
+      "category": "protocol_noncritical",
+      "expression": "authorized_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 217,
+      "category": "protocol_noncritical",
+      "expression": "expires_at=now_utc() + timedelta(seconds=get_settings().challenge_ttl_seconds),"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 219,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 238,
+      "category": "protocol_noncritical",
+      "expression": "if challenge.expires_at <= now_utc():"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 249,
+      "category": "protocol_noncritical",
+      "expression": ".values(consumed_at=now_utc())"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 341,
+      "category": "protocol_noncritical",
+      "expression": "if abs(datetime.now(UTC) - ts) > MAX_CLOCK_SKEW:"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 352,
+      "category": "protocol_noncritical",
+      "expression": "issued_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 410,
+      "category": "protocol_noncritical",
+      "expression": "if row.revoked_at is not None or row.expires_at <= now_utc():"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 447,
+      "category": "protocol_noncritical",
+      "expression": "auth.authorized_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 496,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/passports_service.py",
+      "line": 630,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/presence.py",
+      "line": 28,
+      "category": "protocol_noncritical",
+      "expression": "{\"agent_id\": agent_id, \"name\": agent_name, \"since\": now_utc().isoformat()}"
+    },
+    {
+      "path": "apps/api/agora_api/provenance.py",
+      "line": 123,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/provenance.py",
+      "line": 185,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/provenance.py",
+      "line": 308,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/publisher.py",
+      "line": 127,
+      "category": "protocol_noncritical",
+      "expression": "row.published_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/publisher.py",
+      "line": 156,
+      "category": "protocol_noncritical",
+      "expression": "oldest_age = (now_utc() - oldest_created).total_seconds() if oldest_created else 0.0"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 148,
+      "category": "protocol_noncritical",
+      "expression": "if charter.sunset_at and charter.sunset_at <= now_utc():"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 310,
+      "category": "protocol_noncritical",
+      "expression": "\"as_of\": now_utc().isoformat().replace(\"+00:00\", \"Z\"),"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 315,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 355,
+      "category": "protocol_noncritical",
+      "expression": "row.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 423,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 510,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 586,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 627,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 679,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 720,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 765,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 816,
+      "category": "protocol_noncritical",
+      "expression": "row.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 962,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 966,
+      "category": "protocol_noncritical",
+      "expression": "selected.released_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/research_market_service.py",
+      "line": 986,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_protocol_service.py",
+      "line": 172,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_protocol_service.py",
+      "line": 219,
+      "category": "protocol_noncritical",
+      "expression": "row.activated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/research_protocol_service.py",
+      "line": 391,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_protocol_service.py",
+      "line": 455,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_protocol_service.py",
+      "line": 621,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_protocol_service.py",
+      "line": 708,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/research_protocol_service.py",
+      "line": 837,
+      "category": "protocol_noncritical",
+      "expression": "reward.locked_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/research_protocol_service.py",
+      "line": 957,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/routes/agent_self.py",
+      "line": 68,
+      "category": "protocol_noncritical",
+      "expression": "agent.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/routes/agent_self.py",
+      "line": 103,
+      "category": "protocol_noncritical",
+      "expression": "agent.activity_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/routes/agent_self.py",
+      "line": 141,
+      "category": "protocol_noncritical",
+      "expression": "agent.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/routes/devices.py",
+      "line": 46,
+      "category": "protocol_noncritical",
+      "expression": "device.revoked_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/routes/devices.py",
+      "line": 77,
+      "category": "protocol_noncritical",
+      "expression": "device.last_seen_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/routes/devices.py",
+      "line": 108,
+      "category": "protocol_noncritical",
+      "expression": "if abs(datetime.now(UTC) - ts) > REVOKE_TIMESTAMP_WINDOW:"
+    },
+    {
+      "path": "apps/api/agora_api/routes/devices.py",
+      "line": 140,
+      "category": "protocol_noncritical",
+      "expression": "if abs(datetime.now(UTC) - ts) > REVOKE_TIMESTAMP_WINDOW:"
+    },
+    {
+      "path": "apps/api/agora_api/routes/registration.py",
+      "line": 75,
+      "category": "protocol_noncritical",
+      "expression": "expires_at=now_utc() + timedelta(seconds=get_settings().challenge_ttl_seconds),"
+    },
+    {
+      "path": "apps/api/agora_api/routes/registration.py",
+      "line": 77,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/routes/registration.py",
+      "line": 109,
+      "category": "protocol_noncritical",
+      "expression": "if challenge.expires_at <= now_utc():"
+    },
+    {
+      "path": "apps/api/agora_api/routes/registration.py",
+      "line": 127,
+      "category": "protocol_noncritical",
+      "expression": ".values(consumed_at=now_utc())"
+    },
+    {
+      "path": "apps/api/agora_api/routes/registration.py",
+      "line": 141,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/routes/registration.py",
+      "line": 273,
+      "category": "protocol_noncritical",
+      "expression": "if claim.expires_at <= now_utc():"
+    },
+    {
+      "path": "apps/api/agora_api/routes/registration.py",
+      "line": 288,
+      "category": "protocol_noncritical",
+      "expression": ".values(consumed_at=now_utc())"
+    },
+    {
+      "path": "apps/api/agora_api/routes/registration.py",
+      "line": 298,
+      "category": "protocol_noncritical",
+      "expression": "agent.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/routes/spaces.py",
+      "line": 223,
+      "category": "protocol_noncritical",
+      "expression": "\"at\": now_utc().isoformat(),"
+    },
+    {
+      "path": "apps/api/agora_api/routes/spaces.py",
+      "line": 257,
+      "category": "protocol_noncritical",
+      "expression": "\"to_space_id\": None, \"at\": now_utc().isoformat()},"
+    },
+    {
+      "path": "apps/api/agora_api/routes/spaces.py",
+      "line": 348,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/rule_delivery.py",
+      "line": 171,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/rule_delivery.py",
+      "line": 228,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/rule_delivery.py",
+      "line": 309,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/rule_delivery.py",
+      "line": 375,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/rule_delivery.py",
+      "line": 435,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/rule_delivery.py",
+      "line": 457,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/rule_delivery.py",
+      "line": 485,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/rule_delivery.py",
+      "line": 532,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/scoped_invariants.py",
+      "line": 173,
+      "category": "protocol_noncritical",
+      "expression": "\"captured_at\": datetime.now(UTC).isoformat().replace(\"+00:00\", \"Z\"),"
+    },
+    {
+      "path": "apps/api/agora_api/tokoins_service.py",
+      "line": 240,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/tokoins_service.py",
+      "line": 570,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/tokoins_service.py",
+      "line": 864,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/tokoins_service.py",
+      "line": 1027,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/unknown_signal_readiness.py",
+      "line": 245,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/world_actionability.py",
+      "line": 307,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/world_actionability.py",
+      "line": 530,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/world_actionability.py",
+      "line": 608,
+      "category": "protocol_noncritical",
+      "expression": "now = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/world_actionability.py",
+      "line": 1098,
+      "category": "protocol_noncritical",
+      "expression": "as_of = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/world_market_service.py",
+      "line": 338,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/world_market_service.py",
+      "line": 400,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/world_market_service.py",
+      "line": 452,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/world_market_service.py",
+      "line": 507,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/world_market_service.py",
+      "line": 550,
+      "category": "protocol_noncritical",
+      "expression": "row.updated_at = now_utc()"
+    },
+    {
+      "path": "apps/api/agora_api/world_market_service.py",
+      "line": 603,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/world_market_service.py",
+      "line": 651,
+      "category": "protocol_noncritical",
+      "expression": "created_at=now_utc(),"
+    },
+    {
+      "path": "apps/api/agora_api/world_market_service.py",
+      "line": 675,
+      "category": "protocol_noncritical",
+      "expression": "ts = now_utc()"
+    },
+    {
+      "path": "apps/web/app/agents/[agentId]/page.tsx",
+      "line": 134,
+      "category": "UI_only",
+      "expression": "<dd>{new Date(agent.created_at).toLocaleString()}</dd>"
+    },
+    {
+      "path": "apps/web/app/agents/[agentId]/page.tsx",
+      "line": 138,
+      "category": "UI_only",
+      "expression": "? `${agent.last_public_activity.event_type} @ ${new Date("
+    },
+    {
+      "path": "apps/web/app/agents/[agentId]/page.tsx",
+      "line": 184,
+      "category": "UI_only",
+      "expression": "{new Date(event.occurred_at).toLocaleString()} \u00b7 {event.event_id}"
+    },
+    {
+      "path": "apps/web/app/challenges/page.tsx",
+      "line": 24,
+      "category": "UI_only",
+      "expression": "return new Date(value).toLocaleString();"
+    },
+    {
+      "path": "apps/web/app/claims/[claimId]/page.tsx",
+      "line": 113,
+      "category": "UI_only",
+      "expression": "<dt>published</dt><dd>{new Date(claim.created_at).toLocaleString()}</dd>"
+    },
+    {
+      "path": "apps/web/app/missions/[missionId]/page.tsx",
+      "line": 192,
+      "category": "UI_only",
+      "expression": "<dd>{mission.deadline_at ? new Date(mission.deadline_at).toLocaleString() : \"open\"}</dd>"
+    },
+    {
+      "path": "apps/web/app/spaces/[spaceId]/page.tsx",
+      "line": 34,
+      "category": "UI_only",
+      "expression": "<span>{new Date(claim.created_at).toLocaleString()}</span>"
+    },
+    {
+      "path": "apps/web/app/tokoins/page.tsx",
+      "line": 144,
+      "category": "UI_only",
+      "expression": "<time>{new Date(block.created_at).toLocaleString()}</time>"
+    },
+    {
+      "path": "apps/web/app/world/page.tsx",
+      "line": 146,
+      "category": "UI_only",
+      "expression": "const [now, setNow] = useState(() => Date.now());"
+    },
+    {
+      "path": "apps/web/app/world/page.tsx",
+      "line": 293,
+      "category": "UI_only",
+      "expression": "const timer = setInterval(() => setNow(Date.now()), 1000);"
+    },
+    {
+      "path": "apps/web/app/world/page.tsx",
+      "line": 325,
+      "category": "UI_only",
+      "expression": "setLastEventAt(new Date().toISOString());"
+    },
+    {
+      "path": "apps/web/app/world/page.tsx",
+      "line": 349,
+      "category": "UI_only",
+      "expression": "const timestamp = String(frame.created_at ?? new Date().toISOString());"
+    },
+    {
+      "path": "apps/web/app/world/page.tsx",
+      "line": 381,
+      "category": "UI_only",
+      "expression": "id: `mission:${String(frame.mission_id ?? frame.event ?? Date.now())}:${timestamp}`,"
+    },
+    {
+      "path": "apps/web/app/world/page.tsx",
+      "line": 1288,
+      "category": "UI_only",
+      "expression": "<div><dt>Time</dt><dd>{new Date(event.at).toLocaleString()}</dd></div>"
+    },
+    {
+      "path": "apps/web/world/engine.ts",
+      "line": 481,
+      "category": "UI_only",
+      "expression": "const now = Date.now();"
+    },
+    {
+      "path": "apps/web/world/isometric-scene.tsx",
+      "line": 354,
+      "category": "UI_only",
+      "expression": "created_at: String(frame.created_at ?? new Date().toISOString()),"
+    },
+    {
+      "path": "apps/web/world/observatory.test.ts",
+      "line": 14,
+      "category": "UI_only",
+      "expression": "const now = Date.now();"
+    },
+    {
+      "path": "apps/web/world/observatory.test.ts",
+      "line": 97,
+      "category": "UI_only",
+      "expression": "created_at: new Date().toISOString(),"
+    },
+    {
+      "path": "apps/web/world/observatory.test.ts",
+      "line": 106,
+      "category": "UI_only",
+      "expression": "const now = Date.now();"
+    },
+    {
+      "path": "apps/web/world/observatory.ts",
+      "line": 53,
+      "category": "UI_only",
+      "expression": "const when = new Date(event.at).toLocaleTimeString([], { hour: \"2-digit\", minute: \"2-digit\" });"
+    },
+    {
+      "path": "apps/web/world/observatory.ts",
+      "line": 106,
+      "category": "UI_only",
+      "expression": "now = Date.now(),"
+    },
+    {
+      "path": "apps/web/world/observatory.ts",
+      "line": 113,
+      "category": "UI_only",
+      "expression": "at: new Date(agent.transition_at ?? now).toISOString(),"
+    },
+    {
+      "path": "apps/web/world/store.test.ts",
+      "line": 136,
+      "category": "UI_only",
+      "expression": "created_at: new Date().toISOString(),"
+    },
+    {
+      "path": "apps/web/world/store.test.ts",
+      "line": 147,
+      "category": "UI_only",
+      "expression": "created_at: new Date().toISOString(),"
+    },
+    {
+      "path": "apps/web/world/store.test.ts",
+      "line": 165,
+      "category": "UI_only",
+      "expression": "created_at: new Date().toISOString(),"
+    },
+    {
+      "path": "apps/web/world/store.test.ts",
+      "line": 181,
+      "category": "UI_only",
+      "expression": "const started = Date.now();"
+    },
+    {
+      "path": "apps/web/world/store.test.ts",
+      "line": 183,
+      "category": "UI_only",
+      "expression": "const elapsed = Date.now() - started;"
+    },
+    {
+      "path": "apps/web/world/store.ts",
+      "line": 105,
+      "category": "UI_only",
+      "expression": "transition_at: shouldAnimate ? Date.now() : undefined,"
+    },
+    {
+      "path": "apps/web/world/store.ts",
+      "line": 178,
+      "category": "UI_only",
+      "expression": "transition_at: Date.now(),"
+    },
+    {
+      "path": "apps/web/world/store.ts",
+      "line": 226,
+      "category": "UI_only",
+      "expression": "expires_at: Date.now() + 24000,"
+    },
+    {
+      "path": "apps/web/world/store.ts",
+      "line": 247,
+      "category": "UI_only",
+      "expression": "const now = Date.now();"
+    },
+    {
+      "path": "bridge/agora_bridge/audit.py",
+      "line": 23,
+      "category": "protocol_noncritical",
+      "expression": "\"ts\": datetime.now(UTC).isoformat(),"
+    },
+    {
+      "path": "bridge/agora_bridge/cli.py",
+      "line": 313,
+      "category": "protocol_noncritical",
+      "expression": "timestamp = datetime.now(UTC).isoformat().replace(\"+00:00\", \"Z\")"
+    },
+    {
+      "path": "bridge/agora_bridge/cli.py",
+      "line": 367,
+      "category": "protocol_noncritical",
+      "expression": "timestamp = datetime.now(UTC).isoformat().replace(\"+00:00\", \"Z\")"
+    },
+    {
+      "path": "bridge/agora_bridge/local_runtime_driver.py",
+      "line": 883,
+      "category": "protocol_noncritical",
+      "expression": "return datetime.now(UTC).isoformat().replace(\"+00:00\", \"Z\")"
+    },
+    {
+      "path": "bridge/agora_bridge/local_runtime_driver.py",
+      "line": 916,
+      "category": "protocol_noncritical",
+      "expression": "runtime[\"last_seen_at\"] = datetime.now(UTC).isoformat().replace(\"+00:00\", \"Z\")"
+    },
+    {
+      "path": "bridge/agora_bridge/local_runtime_driver.py",
+      "line": 1162,
+      "category": "protocol_noncritical",
+      "expression": "timestamp = datetime.now(UTC).isoformat().replace(\"+00:00\", \"Z\")"
+    },
+    {
+      "path": "bridge/agora_bridge/local_runtime_driver.py",
+      "line": 1340,
+      "category": "protocol_noncritical",
+      "expression": "state[\"birth_announced_at\"] = datetime.now(UTC).isoformat().replace(\"+00:00\", \"Z\")"
+    },
+    {
+      "path": "bridge/agora_bridge/local_runtime_driver.py",
+      "line": 1681,
+      "category": "protocol_noncritical",
+      "expression": "now = datetime.now(UTC)"
+    },
+    {
+      "path": "bridge/agora_bridge/mcp_server.py",
+      "line": 205,
+      "category": "protocol_noncritical",
+      "expression": "decision = _budget(config).can_spend(now=datetime.now())  # noqa: DTZ005 - local schedule"
+    },
+    {
+      "path": "bridge/agora_bridge/mcp_server.py",
+      "line": 816,
+      "category": "protocol_noncritical",
+      "expression": "\"idempotency_key\": idempotency_key or f\"mcp-{datetime.now().timestamp()}\","
+    },
+    {
+      "path": "bridge/agora_bridge/mcp_server.py",
+      "line": 854,
+      "category": "protocol_noncritical",
+      "expression": "\"idempotency_key\": idempotency_key or f\"mcp-protocol-{datetime.now().timestamp()}\","
+    },
+    {
+      "path": "bridge/agora_bridge/mcp_server.py",
+      "line": 877,
+      "category": "protocol_noncritical",
+      "expression": "\"idempotency_key\": idempotency_key or f\"mcp-edge-{datetime.now().timestamp()}\","
+    },
+    {
+      "path": "bridge/agora_bridge/mcp_server.py",
+      "line": 911,
+      "category": "protocol_noncritical",
+      "expression": "\"idempotency_key\": idempotency_key or f\"mcp-receipt-{datetime.now().timestamp()}\","
+    },
+    {
+      "path": "bridge/agora_bridge/rule_feed.py",
+      "line": 47,
+      "category": "protocol_noncritical",
+      "expression": "return datetime.now(UTC).isoformat().replace(\"+00:00\", \"Z\")"
+    },
+    {
+      "path": "bridge/agora_bridge/rule_feed.py",
+      "line": 202,
+      "category": "protocol_noncritical",
+      "expression": "\"next_retry_at\": time.time() + 5.0 + (secrets.randbelow(10_000) / 1000.0),"
+    },
+    {
+      "path": "native/tests/test_alpha_hardening.py",
+      "line": 80,
+      "category": "protocol_noncritical",
+      "expression": "w.run(2, \"finalize\", {\"reward_id\": \"reward-1\"}, w.state[\"time\"] + MATURITY)"
+    },
+    {
+      "path": "native/tests/test_alpha_hardening.py",
+      "line": 168,
+      "category": "protocol_noncritical",
+      "expression": "prepare=pb.RequestPrepareProposal(height=2,max_tx_bytes=1000000);prepare.time.seconds=1002"
+    },
+    {
+      "path": "native/tests/test_alpha_hardening.py",
+      "line": 170,
+      "category": "protocol_noncritical",
+      "expression": "process=pb.RequestProcessProposal(height=2);process.time.seconds=1002"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 70,
+      "category": "protocol_noncritical",
+      "expression": "self.state[\"time\"] + 1 if timestamp is None else timestamp,"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 198,
+      "category": "protocol_noncritical",
+      "expression": "start = world.state[\"time\"]"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 245,
+      "category": "protocol_noncritical",
+      "expression": "world.state[\"time\"] + 1,"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 249,
+      "category": "protocol_noncritical",
+      "expression": "world.genesis, world.state, [tx], world.state[\"height\"] + 1, world.state[\"time\"] + 1"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 253,
+      "category": "protocol_noncritical",
+      "expression": "world.genesis, next_state, [tx], next_state[\"height\"] + 1, next_state[\"time\"] + 1"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 268,
+      "category": "protocol_noncritical",
+      "expression": "start = world.state[\"time\"]"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 276,
+      "category": "protocol_noncritical",
+      "expression": "world.genesis, world.state, [], world.state[\"height\"] + 1, world.state[\"time\"] + 100 * 86400"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 281,
+      "category": "protocol_noncritical",
+      "expression": "resumed = world.state[\"time\"]"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 297,
+      "category": "protocol_noncritical",
+      "expression": "world.run(2, \"finalize\", {\"reward_id\": \"reward-2\"}, world.state[\"time\"] + MATURITY - 1)"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 302,
+      "category": "protocol_noncritical",
+      "expression": "start = world.state[\"time\"]"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 310,
+      "category": "protocol_noncritical",
+      "expression": "start = world.state[\"time\"]"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 318,
+      "category": "protocol_noncritical",
+      "expression": "world.run(2, \"finalize\", {\"reward_id\": \"reward-1\"}, world.state[\"time\"] + MATURITY)"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 335,
+      "category": "protocol_noncritical",
+      "expression": "world.state[\"time\"] + 1,"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 356,
+      "category": "protocol_noncritical",
+      "expression": "world.state[\"time\"] + 1,"
+    },
+    {
+      "path": "native/tests/test_protocol.py",
+      "line": 473,
+      "category": "protocol_noncritical",
+      "expression": "request.time.seconds = world.genesis[\"timestamp\"]"
+    },
+    {
+      "path": "native/tokoin_native/abci_server.py",
+      "line": 62,
+      "category": "consensus_critical",
+      "expression": "require(req.time.seconds == genesis[\"timestamp\"], \"genesis time mismatch\")"
+    },
+    {
+      "path": "native/tokoin_native/abci_server.py",
+      "line": 66,
+      "category": "consensus_critical",
+      "expression": "transition(genesis, state, [decode(req.tx)], state[\"height\"] + 1, state[\"time\"])"
+    },
+    {
+      "path": "native/tokoin_native/abci_server.py",
+      "line": 79,
+      "category": "consensus_critical",
+      "expression": "transition(genesis, state, candidate, req.height, req.time.seconds)"
+    },
+    {
+      "path": "native/tokoin_native/abci_server.py",
+      "line": 90,
+      "category": "consensus_critical",
+      "expression": "genesis, state, [decode(tx) for tx in req.txs], req.height, req.time.seconds"
+    },
+    {
+      "path": "native/tokoin_native/abci_server.py",
+      "line": 97,
+      "category": "consensus_critical",
+      "expression": "updated = store.prepare([decode(tx) for tx in req.txs], req.height, req.time.seconds)"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 414,
+      "category": "consensus_critical",
+      "expression": "\"last_started\": s[\"time\"],"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 415,
+      "category": "consensus_critical",
+      "expression": "\"created_at\": s[\"time\"],"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 416,
+      "category": "consensus_critical",
+      "expression": "\"unlock_at\": ProtocolTime(s[\"time\"]).deadline(MATURITY),"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 448,
+      "category": "consensus_critical",
+      "expression": "\"submitted_at\": s[\"time\"],"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 468,
+      "category": "consensus_critical",
+      "expression": "\"time\": s[\"time\"],"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 499,
+      "category": "consensus_critical",
+      "expression": "history.append(copy.deepcopy(p) | {\"height\": s[\"height\"], \"time\": s[\"time\"]})"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 518,
+      "category": "consensus_critical",
+      "expression": "reward[\"elapsed\"] += s[\"time\"] - reward[\"last_started\"]"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 538,
+      "category": "consensus_critical",
+      "expression": "reward[\"last_started\"] = s[\"time\"]"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 539,
+      "category": "consensus_critical",
+      "expression": "reward[\"unlock_at\"] = ProtocolTime(s[\"time\"]).deadline("
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 549,
+      "category": "consensus_critical",
+      "expression": "ProtocolTime(s[\"time\"]).reached(reward[\"unlock_at\"]),"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 557,
+      "category": "consensus_critical",
+      "expression": "reward[\"finalized_at\"] = s[\"time\"]"
+    },
+    {
+      "path": "native/tokoin_native/core.py",
+      "line": 576,
+      "category": "consensus_critical",
+      "expression": "protocol_time = ProtocolTime.from_consensus(timestamp, previous[\"time\"])"
+    },
+    {
+      "path": "native/tokoin_native/explorer.py",
+      "line": 34,
+      "category": "protocol_noncritical",
+      "expression": "- (state[\"time\"] - r[\"last_started\"] if r[\"status\"] == \"LOCKED\" else 0),"
+    },
+    {
+      "path": "native/tokoin_native/protocol_time.py",
+      "line": 24,
+      "category": "consensus_critical",
+      "expression": "return ProtocolTime(self.seconds + duration).seconds"
+    },
+    {
+      "path": "native/tokoin_native/protocol_time.py",
+      "line": 27,
+      "category": "consensus_critical",
+      "expression": "return self.seconds >= ProtocolTime(deadline).seconds"
+    },
+    {
+      "path": "native/tokoin_native/store.py",
+      "line": 73,
+      "category": "protocol_noncritical",
+      "expression": "\"timestamp\": state[\"time\"],"
+    },
+    {
+      "path": "native/tools/chaos_network.py",
+      "line": 57,
+      "category": "protocol_noncritical",
+      "expression": "run_id = datetime.datetime.now(datetime.UTC).strftime(\"%Y%m%dT%H%M%SZ-\") + uuid.uuid4().hex[:8]"
+    },
+    {
+      "path": "native/tools/chaos_network.py",
+      "line": 83,
+      "category": "protocol_noncritical",
+      "expression": "before = time.monotonic()"
+    },
+    {
+      "path": "native/tools/chaos_network.py",
+      "line": 88,
+      "category": "protocol_noncritical",
+      "expression": "\"seconds\": time.monotonic() - before,"
+    },
+    {
+      "path": "native/tools/chaos_network.py",
+      "line": 134,
+      "category": "protocol_noncritical",
+      "expression": "stamp = int(time.time())"
+    },
+    {
+      "path": "native/tools/monetary_campaign.py",
+      "line": 59,
+      "category": "protocol_noncritical",
+      "expression": "timestamp if timestamp is not None else state[\"time\"] + 1)"
+    },
+    {
+      "path": "native/tools/monetary_campaign.py",
+      "line": 80,
+      "category": "protocol_noncritical",
+      "expression": "apply(2, \"finalize\", {\"reward_id\": \"reward-1\"}, state[\"time\"] + MATURITY)"
+    },
+    {
+      "path": "native/tools/monetary_campaign.py",
+      "line": 109,
+      "category": "protocol_noncritical",
+      "expression": "started = time.monotonic()"
+    },
+    {
+      "path": "native/tools/monetary_campaign.py",
+      "line": 129,
+      "category": "protocol_noncritical",
+      "expression": "state[\"time\"] + 1)"
+    },
+    {
+      "path": "native/tools/monetary_campaign.py",
+      "line": 209,
+      "category": "protocol_noncritical",
+      "expression": "\"first_failure\": first_failure, \"elapsed_seconds\": round(time.monotonic() - started, 3),"
+    },
+    {
+      "path": "native/tools/run_network_test.py",
+      "line": 49,
+      "category": "protocol_noncritical",
+      "expression": "deadline = time.monotonic() + seconds"
+    },
+    {
+      "path": "native/tools/run_network_test.py",
+      "line": 51,
+      "category": "protocol_noncritical",
+      "expression": "while time.monotonic() < deadline:"
+    },
+    {
+      "path": "native/tools/run_network_test.py",
+      "line": 106,
+      "category": "protocol_noncritical",
+      "expression": "stamp = int(time.time())"
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 69,
+      "category": "protocol_noncritical",
+      "expression": "\"datetime.now(\","
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 70,
+      "category": "protocol_noncritical",
+      "expression": "\"datetime.utcnow(\","
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 71,
+      "category": "protocol_noncritical",
+      "expression": "\"time.time(\","
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 72,
+      "category": "protocol_noncritical",
+      "expression": "\"time.monotonic(\","
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 73,
+      "category": "protocol_noncritical",
+      "expression": "\"time.perf_counter(\","
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 74,
+      "category": "protocol_noncritical",
+      "expression": "\"Date.now(\","
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 75,
+      "category": "protocol_noncritical",
+      "expression": "\"new Date(\","
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 76,
+      "category": "protocol_noncritical",
+      "expression": "\"now_utc(\","
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 77,
+      "category": "protocol_noncritical",
+      "expression": "\".time.seconds\","
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 78,
+      "category": "protocol_noncritical",
+      "expression": "'[\"time\"]',"
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 79,
+      "category": "protocol_noncritical",
+      "expression": "\"['time']\","
+    },
+    {
+      "path": "native/tools/time_policy.py",
+      "line": 80,
+      "category": "protocol_noncritical",
+      "expression": "\"ProtocolTime(\","
+    }
+  ],
+  "coverage_statement": "All matched time expressions in first-party source inventoried; dynamic/third-party uses are not proven absent. Pure transitions prohibit imports/dynamic access."
+}

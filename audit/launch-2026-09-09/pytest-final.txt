@@ -1,0 +1,83 @@
+........................................................................ [ 13%]
+........................................................................ [ 27%]
+....................................................F................... [ 41%]
+........................................................................ [ 54%]
+........................................................................ [ 68%]
+........................................................................ [ 82%]
+........................................................................ [ 96%]
+....................                                                     [100%]
+=================================== FAILURES ===================================
+__ test_recurring_research_window_opens_every_two_hours_without_fake_activity __
+
+api_client = <httpx.AsyncClient object at 0x77960d403110>
+unique_name = 'TestAgent-3d29a32a4469'
+
+    async def test_recurring_research_window_opens_every_two_hours_without_fake_activity(
+        api_client, unique_name
+    ):
+        await _bootstrap(api_client)
+        first, first_auth = await _agent(api_client, f"{unique_name}-window-a")
+        second, _ = await _agent(api_client, f"{unique_name}-window-b")
+    
+        async with session_factory()() as session:
+            for agent in (first, second):
+                await reclassify_provenance(
+                    session,
+                    record_table="agents",
+                    record_id=agent["agent_id"],
+                    new_class="real",
+                    actor="test.owner_authorized",
+                    reason="test real recurring window cohort",
+                    evidence_reference=unique_name,
+                )
+            ledger_before = (
+                await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
+            ).scalar_one()
+            await session.commit()
+    
+        tick = await api_client.post("/v1/forums/research-windows/tick")
+        assert tick.status_code == 201, tick.text
+        body = tick.json()
+        assert body["scheduler_enabled"] is True
+        assert body["created"] is True
+        assert body["eligible_real_agents"] >= 2
+        assert body["tokoin_moved"] is False
+        assert body["agents_modified"] is False
+    
+        repeated = await api_client.post("/v1/forums/research-windows/tick")
+        assert repeated.status_code == 201, repeated.text
+        repeated_body = repeated.json()
+        assert repeated_body["created"] is False
+        assert repeated_body["round_id"] == body["round_id"]
+        assert repeated_body["reason"] in {
+            "open_window_exists",
+            "current_epoch_already_created",
+        }
+    
+        status = await api_client.get("/v1/forums/research-windows/status")
+        assert status.status_code == 200, status.text
+        status_body = status.json()
+>       assert status_body["scheduler_enabled"] is True
+E       assert False is True
+
+tests/integration/test_magna_forum_consensus.py:283: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=54.39 method=POST path=/v1/world/magna/bootstrap request_id=req_9290f201a4334169 status_code=200 trace_id=7f8a8a1a011bacfe9e913e04d56a2488
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=8.14 method=POST path=/v1/registration/challenge request_id=req_e5599ae22b7a0d7d status_code=201 trace_id=dcfd07827370cbf57192f8f79e4692d4
+2026-09-09 08:50:51 [info     ] registration.completed         agent_id=agt_01M23ACXNRF22140TFMRFXXXQF device_id=dev_01M23ACXNS21EXTRYE4X977VGS request_id=req_a65553e9a1230c6e trace_id=3f08229fb8f89bf15daa680164b963cf
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=25.9 method=POST path=/v1/registration/register request_id=req_a65553e9a1230c6e status_code=201 trace_id=3f08229fb8f89bf15daa680164b963cf
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=0.27 method=GET path=/v1/world/rules request_id=req_80191e82b927abe7 status_code=200 trace_id=da10ab52f138742b1523687ddf2e0d5f
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=2.41 method=POST path=/v1/world/rules/attest request_id=req_90bf93368e9f9ce1 status_code=200 trace_id=dc3b9dd3c8b7e2a60ac81383a8e39e05
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=1.68 method=POST path=/v1/registration/challenge request_id=req_faa243e2679f17ef status_code=201 trace_id=23f9a405e5be14e4a9fd6a2deb672f83
+2026-09-09 08:50:51 [info     ] registration.completed         agent_id=agt_01M23ACXPNY98DQSXCDKZQGXQZ device_id=dev_01M23ACXPNY98DQSXCDKZQGXR1 request_id=req_5a3691789608cee0 trace_id=3acd9a4a79a5360b3e8eb43238abb89b
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=11.34 method=POST path=/v1/registration/register request_id=req_5a3691789608cee0 status_code=201 trace_id=3acd9a4a79a5360b3e8eb43238abb89b
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=0.2 method=GET path=/v1/world/rules request_id=req_a730e9dc6f74b30d status_code=200 trace_id=2f142a98e8d14c67f97e7735529484e2
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=1.37 method=POST path=/v1/world/rules/attest request_id=req_ebf3e1bed1c9e01f status_code=200 trace_id=dfc905147164b03e687f06d2dda60354
+2026-09-09 08:50:51 [debug    ] realtime.publish_skipped_gateway_down kind=forum request_id=req_c8a2cd6127b1503f scope=global trace_id=1543725c564c84df725c69cd7669f2df
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=33.37 method=POST path=/v1/forums/research-windows/tick request_id=req_c8a2cd6127b1503f status_code=201 trace_id=1543725c564c84df725c69cd7669f2df
+2026-09-09 08:50:51 [debug    ] realtime.publish_skipped_gateway_down kind=forum request_id=req_fe42dd10e6f51168 scope=global trace_id=8d6dfb1ffd71efabed39774fab5337da
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=2.29 method=POST path=/v1/forums/research-windows/tick request_id=req_fe42dd10e6f51168 status_code=201 trace_id=8d6dfb1ffd71efabed39774fab5337da
+2026-09-09 08:50:51 [info     ] http.request                   duration_ms=4.1 method=GET path=/v1/forums/research-windows/status request_id=req_758f13fe741e0875 status_code=200 trace_id=946c4f7bda7f99aa4e96942a41a42a83
+=========================== short test summary info ============================
+FAILED tests/integration/test_magna_forum_consensus.py::test_recurring_research_window_opens_every_two_hours_without_fake_activity
+1 failed, 523 passed in 150.96s (0:02:30)

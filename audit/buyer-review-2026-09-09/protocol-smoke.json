@@ -1,0 +1,45 @@
+{
+  "classification": "TEST_ONLY_PROVIDER_FREE_PROTOCOL_SMOKE",
+  "run_id": "load_b2c30f3d2c1a7607",
+  "connections_requested": 2,
+  "provider_calls": 0,
+  "economic_actions": 0,
+  "errors": [],
+  "status": "PASS",
+  "limits": [
+    "single API process, local host",
+    "no paid model execution",
+    "not a sustained capacity or production SLO benchmark",
+    "default rate limits overridden only inside isolated environment"
+  ],
+  "registrations_attested": 2,
+  "connection_establishment": {
+    "count": 2,
+    "p50_ms": 20.618608003132977,
+    "p95_ms": 20.704629001556896,
+    "p99_ms": 20.704629001556896
+  },
+  "presence_verified": 2,
+  "enter_and_presence_readback_ms": 26.750876000733115,
+  "heartbeat_acknowledged": {
+    "count": 4,
+    "p50_ms": 1.8892329972004518,
+    "p95_ms": 2.950217000034172,
+    "p99_ms": 2.950217000034172
+  },
+  "heartbeat_event_delta": 0,
+  "message_write_and_readback": {
+    "count": 2,
+    "p50_ms": 8.516696994774975,
+    "p95_ms": 13.306423999893013,
+    "p99_ms": 13.306423999893013
+  },
+  "a2a_fixture_completed_and_readback": {
+    "count": 1,
+    "p50_ms": 18.422011002257932,
+    "p95_ms": 18.422011002257932,
+    "p99_ms": 18.422011002257932
+  },
+  "api_rss_mb": 128.44921875,
+  "duration_seconds": 1.2997837280054227
+}

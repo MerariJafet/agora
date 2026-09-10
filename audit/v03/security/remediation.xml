@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="23" time="0.282" timestamp="2026-09-09T22:20:45.763502-06:00" hostname="Acero"><testcase classname="tests.test_v03_science" name="test_review_compensation_independent_of_verdict[APPROVE]" time="0.014" /><testcase classname="tests.test_v03_science" name="test_review_compensation_independent_of_verdict[REJECT]" time="0.012" /><testcase classname="tests.test_v03_science" name="test_review_compensation_independent_of_verdict[INCONCLUSIVE]" time="0.012" /><testcase classname="tests.test_v03_science" name="test_review_compensation_independent_of_verdict[REQUEST_REPLICATION]" time="0.013" /><testcase classname="tests.test_v03_science" name="test_no_science_bypass_and_no_identity_rebinding" time="0.005" /><testcase classname="tests.test_v03_science" name="test_self_review_and_incomplete_method_rejected" time="0.004"><failure message="tokoin_native.core.Invalid: scientific predecessor required">def test_self_review_and_incomplete_method_rejected():
+        w = ScienceWorld()
+        with pytest.raises(Invalid, match="registered"):
+            w.run(2, "science_review_commit", {"challenge_id": "science-1", "commitment": "a" * 64})
+        # Even an epistemic identity cannot review its own contribution.
+        content = {"artifact_hash": "e" * 64}
+&gt;       w.run(
+            0,
+            "science_event",
+            {
+                "event_id": "self",
+                "challenge_id": "science-1",
+                "kind": "agent_contribution_registered",
+                "agent_id": "agent-0",
+                "parents": ["event-0"],
+                "content": content,
+                "content_hash": digest("tokoin.science.content.v03", content),
+            },
+        )
+
+native/tests/test_v03_science.py:160: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+native/tests/test_v03_science.py:55: in run
+    tx = super().run(*args, **kwargs)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+native/tests/test_protocol.py:65: in run
+    self.state = transition(
+native/tokoin_native/core.py:608: in transition
+    _apply(genesis, s, tx)
+native/tokoin_native/core.py:373: in _apply
+    apply(genesis, s, tx)
+native/tokoin_native/v03_science.py:208: in apply
+    require(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+condition = False, reason = 'scientific predecessor required'
+
+    def require(condition, reason):
+        if not condition:
+&gt;           raise Invalid(reason)
+E           tokoin_native.core.Invalid: scientific predecessor required
+
+native/tokoin_native/core.py:36: Invalid</failure></testcase><testcase classname="tests.test_v03_science" name="test_review_reward_maturity_and_malformed_transaction_kind" time="0.008" /><testcase classname="tests.test_v03_science" name="test_foreign_parent_atomic_rejection" time="0.004" /><testcase classname="tests.test_v03_science_adversarial" name="test_mixed_positive_and_nonpositive_review_never_earns_result_pool[REJECT]" time="0.012" /><testcase classname="tests.test_v03_science_adversarial" name="test_mixed_positive_and_nonpositive_review_never_earns_result_pool[INCONCLUSIVE]" time="0.012" /><testcase classname="tests.test_v03_science_adversarial" name="test_mixed_positive_and_nonpositive_review_never_earns_result_pool[REQUEST_REPLICATION]" time="0.012" /><testcase classname="tests.test_v03_science_adversarial" name="test_registered_owner_cannot_evade_conflict_by_declaring_another_group" time="0.007" /><testcase classname="tests.test_v03_science_adversarial" name="test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[None]" time="0.009" /><testcase classname="tests.test_v03_science_adversarial" name="test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[INVALIDATE]" time="0.009" /><testcase classname="tests.test_v03_science_adversarial" name="test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[MATERIAL]" time="0.009" /><testcase classname="tests.test_v03_science_adversarial" name="test_unresolved_scientific_objection_prevents_freeze_and_compensation" time="0.012" /><testcase classname="tests.test_v03_science_adversarial" name="test_source_hash_tampering_rejected_without_partial_state" time="0.004" /><testcase classname="tests.test_v03_science_adversarial" name="test_contributor_cannot_change_author_identity" time="0.004" /><testcase classname="tests.test_v03_science_adversarial" name="test_single_commit_freezes_contributions_before_reveal" time="0.004" /><testcase classname="tests.test_v03_science_adversarial" name="test_no_double_settlement_with_fresh_nonce_and_different_reward_id" time="0.008" /><testcase classname="tests.test_v03_science_adversarial" name="test_replication_cannot_precede_any_experiment_result" time="0.005"><failure message="AssertionError: Regex pattern did not match.&#10;  Expected regex: 'parent|result|lifecycle|stage'&#10;  Actual message: 'scientific predecessor required'">def test_replication_cannot_precede_any_experiment_result():
+        w = ScienceWorld()
+        replay_prefix(w, list(w.corpus[:6]))  # Five identities, challenge_created; no experiment yet.
+        content = {"artifact_hash": "a" * 64}
+&gt;       with pytest.raises(Invalid, match="parent|result|lifecycle|stage"):
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'parent|result|lifecycle|stage'
+E         Actual message: 'scientific predecessor required'
+
+native/tests/test_v03_science_adversarial.py:262: AssertionError</failure></testcase><testcase classname="tests.test_v03_science_adversarial" name="test_invalidated_mature_review_cannot_authorize_new_result_reward" time="0.008" /><testcase classname="tests.test_v03_science_adversarial" name="test_review_challenge_pause_is_preserved_in_dependent_result_maturity" time="0.009"><failure message="AssertionError: Regex pattern did not match.&#10;  Expected regex: '365|prerequisite|review|elapsed'&#10;  Actual message: 'dependent maturity not reached'">def test_review_challenge_pause_is_preserved_in_dependent_result_maturity():
+        w = ScienceWorld()
+        settle_both(w)
+        original_unlock = w.state["rewards"]["result-80"]["unlock_at"]
+        challenge_review(w)
+        paused_at = w.state["time"]
+        w.run(2, "challenge_decide", reviewer_decision(w, "review-20", "REJECT"), paused_at + 100_000)
+&gt;       with pytest.raises(Invalid, match="365|prerequisite|review|elapsed"):
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: '365|prerequisite|review|elapsed'
+E         Actual message: 'dependent maturity not reached'
+
+native/tests/test_v03_science_adversarial.py:320: AssertionError</failure></testcase></testsuite></testsuites>

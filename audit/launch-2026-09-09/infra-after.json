@@ -1,0 +1,47 @@
+{
+  "agora-dev-postgres-1": {
+    "volumes_preserved": true,
+    "loopback_only": true,
+    "ports": {
+      "5432/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "5434"
+        }
+      ]
+    },
+    "healthy": "healthy"
+  },
+  "agora-dev-redis-1": {
+    "volumes_preserved": true,
+    "loopback_only": true,
+    "ports": {
+      "6379/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "6380"
+        }
+      ]
+    },
+    "healthy": "healthy"
+  },
+  "agora-dev-nats-1": {
+    "volumes_preserved": true,
+    "loopback_only": true,
+    "ports": {
+      "4222/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "4222"
+        }
+      ],
+      "8222/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "8222"
+        }
+      ]
+    },
+    "healthy": "healthy"
+  }
+}

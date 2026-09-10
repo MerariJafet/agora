@@ -12,3 +12,17 @@ dist/
 *.tsbuildinfo
 contracts/tokoin/artifacts/
 contracts/tokoin/cache/
+# Local database backups are private operational data, never release artifacts.
+/backups/
+
+# audit: large raw run artifacts stay out of git; committed *.LARGE_ARTIFACTS.sha256
+# manifests make them verifiable packages (available from the author on request)
+audit/v03/operator-bundle/
+audit/v03/agents/
+audit/v03/scientific-network-001/
+audit/v03/scientific-network-002/
+audit/v03/time/
+audit/v03/paper/
+audit/local-alpha-v02/chaos/
+audit/local-alpha-v02/chaos-frozen/
+audit/local-alpha-v02/science/

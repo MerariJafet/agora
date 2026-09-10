@@ -1,0 +1,41 @@
+
+> @agora/tokoin-contracts@0.1.0 preflight:base-sepolia
+> node scripts/release-preflight.mjs
+
+{
+  "ready": false,
+  "target": {
+    "network": "BASE_SEPOLIA",
+    "chain_id": 84532
+  },
+  "economic_value": false,
+  "mainnet_authorized": false,
+  "blockers": [
+    "candidate_bundle_source_mismatch",
+    "audit_candidate_bundle_hash_mismatch",
+    "external_audit_not_complete",
+    "external_audit_not_accepted",
+    "external_audit_hash_missing",
+    "critical_findings_not_zero",
+    "high_findings_not_zero",
+    "auditor_independence_not_confirmed",
+    "network_not_authorized",
+    "chain_not_authorized",
+    "transaction_not_authorized",
+    "authorization_scope_invalid",
+    "authorization_audit_hash_mismatch",
+    "authorization_candidate_bundle_hash_mismatch",
+    "release_commit_missing_or_invalid",
+    "test_eth_budget_missing_or_invalid",
+    "independent_authorizers_missing",
+    "authorization_timestamp_invalid",
+    "deploy_ack_missing",
+    "treasury_address_missing_or_invalid",
+    "settlement_authority_missing_or_invalid",
+    "identity_issuer_missing_or_invalid",
+    "treasury_multisig_attestation_missing",
+    "settlement_multisig_attestation_missing",
+    "identity_issuer_multisig_attestation_missing",
+    "control_role_concentration_rejected"
+  ]
+}

@@ -1,0 +1,35 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________ test_seeded_malformed_transactions_fail_closed ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-merari-acero/pytest-33/test_seeded_malformed_transact0')
+
+    def test_seeded_malformed_transactions_fail_closed(tmp_path):
+        rng = random.Random(20260910)
+        w = World()
+        store = Store(tmp_path / 'fuzz.sqlite', w.genesis)
+        app = Application(store)
+        before = canonical(store.state)
+        values = [None, True, False, 0, -1, 1.5, [], {}, 'text', {'nonce': []}]
+>       corpus = [canonical(value) for value in values]
+                  ^^^^^^^^^^^^^^^^
+
+native/tests/test_alpha_fuzz.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+native/tokoin_native/core.py:67: in canonical
+    check(value)
+native/tokoin_native/core.py:63: in check
+    require(v is None or type(v) in (str, int, bool), "unsupported canonical value")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+condition = False, reason = 'unsupported canonical value'
+
+    def require(condition, reason):
+        if not condition:
+>           raise Invalid(reason)
+E           tokoin_native.core.Invalid: unsupported canonical value
+
+native/tokoin_native/core.py:36: Invalid
+=========================== short test summary info ============================
+FAILED native/tests/test_alpha_fuzz.py::test_seeded_malformed_transactions_fail_closed
+1 failed in 0.06s

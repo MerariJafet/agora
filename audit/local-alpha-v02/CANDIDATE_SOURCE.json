@@ -1,0 +1,23 @@
+{
+  "commit": "c37419e216ce181831546e0d251674de3f8e5d4b",
+  "tree": "d1d81492f13c38c04e11434aaade5cbcaa0a2c80",
+  "parent": "569e4ca2b28a4dd90dfe3b5cdf342451477248c8",
+  "ref": "refs/agora/candidates/local-alpha-v02-20260910T031312Z",
+  "source_paths": [
+    "native",
+    "docs/native",
+    ".github/workflows/ci.yml",
+    ".github/workflows/native-alpha.yml",
+    "apps/api/agora_api/institutional_validator_service.py",
+    "apps/api/agora_api/models.py",
+    "apps/api/alembic/versions/0038_python_test_reviewer.py",
+    "packages/protocol/schemas/research-protocol.schema.json",
+    "scripts/local_alpha_science_native.py",
+    "scripts/local_alpha_science_signals.py",
+    "scripts/local_alpha_science_worker.py",
+    "tests/integration/test_local_alpha_science.py",
+    "tests/integration/test_local_alpha_science_migration.py"
+  ],
+  "active_branch_unchanged": true,
+  "user_index_preserved": true
+}

@@ -1,0 +1,6 @@
+
+> @agora/tokoin-contracts@0.1.0 test:contracts
+> hardhat run scripts/contract-tests.mjs --build-profile production --network hardhatOp
+
+
+{"ok":true,"network":"hardhatOp","invariants":["fixed_supply","eight_decimals","authority_only_settlement","immutable_challenge_root","invalid_proof_rejected","claim_replay_rejected","claim_cross_deployment_replay_rejected","multi_leaf_settlement_bundle_compatible","settlement_overcommit_rejected","reward_transfer_does_not_mint","agent_identity_unique","agent_identity_non_transferable","agent_identity_revocable_without_erasure","duplicate_identity_revocation_rejected","zero_amount_claim_rejected","authority_only_claim_pause","bounded_claim_deadline","preclaim_settlement_cancellation_releases_reserve","postclaim_settlement_cancellation_rejected","expired_claim_rejected","permissionless_expired_reserve_release"],"gas":{"claim_1024_leaf_tree":"107843","merkle_proof_nodes":10}}

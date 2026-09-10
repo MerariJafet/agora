@@ -1,0 +1,136 @@
+{
+  "blocks": [
+    {
+      "chain_id": "tokoin-test-v03-transport-smoke",
+      "height": 1,
+      "next_state_hash": "920f7080464943a6c36dd19db5dbf10f186383cdbcf4f35c0653c72e4d2fc36c",
+      "previous_block_hash": "66175cb806d84187105c09d30ae3c1fa73f073eb88a1db8809ea875459273012",
+      "previous_state_hash": "153a768452dd4267ca3a577d86b41b8e433fca47cb3c6653ced97034710fa889",
+      "research_commitment_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "state_root": "920f7080464943a6c36dd19db5dbf10f186383cdbcf4f35c0653c72e4d2fc36c",
+      "timestamp": 1789014301,
+      "transactions": [],
+      "transactions_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "version": 2
+    },
+    {
+      "chain_id": "tokoin-test-v03-transport-smoke",
+      "height": 2,
+      "next_state_hash": "8e72f5a911d2fcf518403be4971386583b18c1b776eb2d5790b74d2ea4271ce2",
+      "previous_block_hash": "bf97a64de27cacd20a830710c7d5e60b5094c4ff2f66717e74755c59fbea0dd9",
+      "previous_state_hash": "920f7080464943a6c36dd19db5dbf10f186383cdbcf4f35c0653c72e4d2fc36c",
+      "research_commitment_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "state_root": "8e72f5a911d2fcf518403be4971386583b18c1b776eb2d5790b74d2ea4271ce2",
+      "timestamp": 1789014305,
+      "transactions": [],
+      "transactions_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "version": 2
+    },
+    {
+      "chain_id": "tokoin-test-v03-transport-smoke",
+      "height": 3,
+      "next_state_hash": "584c0678993852994c12f8f22c6241d7ea8e0465fbe7d4255cbc437bc836ee93",
+      "previous_block_hash": "e49657361c0791c15cacbef7d84e809ddfefceddd8adfd6bb03c28ae11ef5df4",
+      "previous_state_hash": "8e72f5a911d2fcf518403be4971386583b18c1b776eb2d5790b74d2ea4271ce2",
+      "research_commitment_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "state_root": "584c0678993852994c12f8f22c6241d7ea8e0465fbe7d4255cbc437bc836ee93",
+      "timestamp": 1789014306,
+      "transactions": [],
+      "transactions_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "version": 2
+    },
+    {
+      "chain_id": "tokoin-test-v03-transport-smoke",
+      "height": 4,
+      "next_state_hash": "a275524e6d9322753c8d63b87604f0a3b2ad59cccbca4e3c92f3a3c9f7b579b7",
+      "previous_block_hash": "471ecae4bcbc609c0dd96929b390650e40ddf8a5c4d13c546f1812823bf02548",
+      "previous_state_hash": "584c0678993852994c12f8f22c6241d7ea8e0465fbe7d4255cbc437bc836ee93",
+      "research_commitment_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "state_root": "a275524e6d9322753c8d63b87604f0a3b2ad59cccbca4e3c92f3a3c9f7b579b7",
+      "timestamp": 1789014306,
+      "transactions": [
+        {
+          "chain_id": "tokoin-test-v03-transport-smoke",
+          "genesis_hash": "66175cb806d84187105c09d30ae3c1fa73f073eb88a1db8809ea875459273012",
+          "kind": "review_commit",
+          "nonce": 1,
+          "payload": {
+            "commitment": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "reward_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "payload_hash": "f963036a4b20eef12ecb74c146dff7e76652f5a817bdae14cc89db9aa00c7642",
+          "protocol_version": "TOKOIN_TX_V3",
+          "public_key": "26ed027de831902ac0586f34efc3a695d09de7a6667cfcd232b1892409a29648",
+          "sender": "tkn1f0baff1f64fc620a93fe8a2e76780e82bff6e09e0a998941dddf147e4fd2d103",
+          "signature": "8e3b9537ed22e6384dcfc0dc3102ddf95a1fcb98d9134335292850fa7af5c4b605bf75542d11ab38223550d64b56fde9f565ec724fbd4fefae4e880f97e7e305"
+        }
+      ],
+      "transactions_root": "24be233b04f8769674938f407e7fd7cd3e788f934e70f46240709a3581426bd4",
+      "version": 2
+    }
+  ],
+  "genesis": {
+    "chain_id": "tokoin-test-v03-transport-smoke",
+    "consensus_validators": [
+      {
+        "power": 1,
+        "public_key": "09f06ba244836bab58756a1322d9e3e52fe8375efccea3c9ff2a9f3fc5c9ae56"
+      },
+      {
+        "power": 1,
+        "public_key": "5a9b43df5d3cf0f0f08cc0c1f7c990b1dc9a6dcf4474a5622114a04012ac04a3"
+      },
+      {
+        "power": 1,
+        "public_key": "bc2d6baa67c3f6827328fe04ce6364e2cdfdc977188bf47bc58b15c5f24eb63f"
+      },
+      {
+        "power": 1,
+        "public_key": "dc31f19d2411bd58bcdca40331da4b8f79348fe42b6da27d78b406ace9d8c766"
+      }
+    ],
+    "distribution": {
+      "contributors": 51,
+      "infra": 9,
+      "institutions": 20,
+      "proposer": 10,
+      "solver": 10
+    },
+    "infrastructure_address": "tkn11aca89f413e897106363f27769f2547cb3a6004c059ab530664b3a44bf70d0fc",
+    "institutions": {
+      "26ed027de831902ac0586f34efc3a695d09de7a6667cfcd232b1892409a29648": {
+        "controller_group": "TEST-owner-0",
+        "institution_id": "TEST-0",
+        "label": "INSTITUTIONAL_VALIDATOR_TEST",
+        "payout_address": "tkn1f0baff1f64fc620a93fe8a2e76780e82bff6e09e0a998941dddf147e4fd2d103"
+      },
+      "33e43b0941a1d7552a9c6c4785ae5331c7ebe7928282c2baa3fbe6d48961e158": {
+        "controller_group": "TEST-owner-1",
+        "institution_id": "TEST-1",
+        "label": "INSTITUTIONAL_VALIDATOR_TEST",
+        "payout_address": "tkn1aef0e8973bcdb897d427596fe1fd70dbe870e8287a64703fa4b0c9cef05ec652"
+      }
+    },
+    "maturity_seconds": 31536000,
+    "max_supply_units": 100000000000000,
+    "mode": "TEST_NON_RECOGNIZABLE",
+    "pilot_cap_units": 50000000000,
+    "reward_units": 100000000,
+    "timestamp": 1789014301,
+    "transaction_version": "TOKOIN_TX_V3",
+    "unit": 100000000,
+    "version": "TOKOIN_NATIVE_REWARD_V2"
+  },
+  "metrics": {
+    "active_challenges": 0,
+    "chain_height": 4,
+    "circulating_units": 0,
+    "created_units": 0,
+    "genesis_recognition_eligible": false,
+    "locked_units": 0,
+    "mode": "TEST_NON_RECOGNIZABLE",
+    "pilot_remaining_units": 50000000000,
+    "remaining_units": 100000000000000,
+    "revoked_units": 0
+  }
+}

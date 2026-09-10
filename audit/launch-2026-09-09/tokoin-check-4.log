@@ -1,0 +1,122 @@
+
+> @agora/tokoin-contracts@0.1.0 test:bundle
+> node --test test/candidate-bundle.test.mjs test/deployment-verifier.test.mjs test/settlement-bundle.test.mjs
+
+TAP version 13
+# Subtest: candidate bundle binds source, build inputs, ABI and bytecode
+ok 1 - candidate bundle binds source, build inputs, ABI and bytecode
+  ---
+  duration_ms: 2.902689
+  type: 'test'
+  ...
+# Subtest: candidate bundle detects metadata tampering
+ok 2 - candidate bundle detects metadata tampering
+  ---
+  duration_ms: 1.429749
+  type: 'test'
+  ...
+# Subtest: canonical JSON is independent of object insertion order
+ok 3 - canonical JSON is independent of object insertion order
+  ---
+  duration_ms: 0.079449
+  type: 'test'
+  ...
+# Subtest: explicit bundle CLI validates current candidate and rejects tampering or missing files
+ok 4 - explicit bundle CLI validates current candidate and rejects tampering or missing files
+  ---
+  duration_ms: 73.521311
+  type: 'test'
+  ...
+# Subtest: accepts a narrow Base Sepolia no-value receipt
+ok 5 - accepts a narrow Base Sepolia no-value receipt
+  ---
+  duration_ms: 2.70074
+  type: 'test'
+  ...
+# Subtest: rejects mainnet scope, missing transactions and invalid addresses
+ok 6 - rejects mainnet scope, missing transactions and invalid addresses
+  ---
+  duration_ms: 1.197453
+  type: 'test'
+  ...
+# Subtest: reads governance for all three roles at one block
+ok 7 - reads governance for all three roles at one block
+  ---
+  duration_ms: 2.449749
+  type: 'test'
+  ...
+# Subtest: rejects wrong RPC chain
+ok 8 - rejects wrong RPC chain
+  ---
+  duration_ms: 0.664415
+  type: 'test'
+  ...
+# Subtest: rejects EOA
+ok 9 - rejects EOA
+  ---
+  duration_ms: 0.164307
+  type: 'test'
+  ...
+# Subtest: rejects one-of-three
+ok 10 - rejects one-of-three
+  ---
+  duration_ms: 0.221946
+  type: 'test'
+  ...
+# Subtest: rejects two-of-four
+ok 11 - rejects two-of-four
+  ---
+  duration_ms: 0.266549
+  type: 'test'
+  ...
+# Subtest: rejects duplicate owners
+ok 12 - rejects duplicate owners
+  ---
+  duration_ms: 0.243016
+  type: 'test'
+  ...
+# Subtest: rejects zero owner
+ok 13 - rejects zero owner
+  ---
+  duration_ms: 0.369362
+  type: 'test'
+  ...
+# Subtest: rejects concentrated controls and unavailable RPC
+ok 14 - rejects concentrated controls and unavailable RPC
+  ---
+  duration_ms: 0.4217
+  type: 'test'
+  ...
+# Subtest: builds deterministic OpenZeppelin-compatible proofs
+ok 15 - builds deterministic OpenZeppelin-compatible proofs
+  ---
+  duration_ms: 12.847111
+  type: 'test'
+  ...
+# Subtest: rejects over-allocation and unsupported chains
+ok 16 - rejects over-allocation and unsupported chains
+  ---
+  duration_ms: 0.657041
+  type: 'test'
+  ...
+# Subtest: rejects duplicate claims
+ok 17 - rejects duplicate claims
+  ---
+  duration_ms: 0.686617
+  type: 'test'
+  ...
+# Subtest: verifies deterministic proofs across odd, even and large trees
+ok 18 - verifies deterministic proofs across odd, even and large trees
+  ---
+  duration_ms: 475.692434
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 597.647352

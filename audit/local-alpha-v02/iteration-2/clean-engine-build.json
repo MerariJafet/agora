@@ -1,0 +1,28 @@
+{
+  "engine": "CometBFT",
+  "version": "v0.38.26",
+  "commit": "94d77f9f51a72e2b7d832798859f6222f08028f8",
+  "source_url": "https://codeload.github.com/cometbft/cometbft/tar.gz/94d77f9f51a72e2b7d832798859f6222f08028f8",
+  "source_sha256": "0269ac18fe3f79b902232f7bf8d6afe4145316555f00c5e80fe58250e3e6c9c7",
+  "go_version": "go1.27.1",
+  "go_url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
+  "go_sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
+  "go_mod_sha256": "d9352cd4e0892d3487ba29cd2cf67ea608619d2ec79e090627a316cf4be5bac7",
+  "go_sum_sha256": "5fc1a579729ab516fe26984eac47adb5819e7dd24ce2214975290bfd42f1a90c",
+  "binary": "/tmp/agora-alpha-clean-build-2r3r1iw7/bin/cometbft",
+  "binary_sha256": "6edb2aa0f223e71758a48cf3d13d9d7ffd26f3357585bebe54311ba71f11ac3f",
+  "command": [
+    "/tmp/agora-alpha-clean-build-2r3r1iw7/go/bin/go",
+    "build",
+    "-p=4",
+    "-mod=readonly",
+    "-trimpath",
+    "-buildvcs=false",
+    "-ldflags=-buildid=",
+    "-o",
+    "/tmp/agora-alpha-clean-build-2r3r1iw7/bin/cometbft",
+    "./cmd/cometbft"
+  ],
+  "status": "BUILT_LOCAL_NOT_PRODUCTION_AUDIT",
+  "private_keys_created": false
+}

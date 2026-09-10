@@ -1,0 +1,16 @@
+{
+  "run_id": "baseline-adversarial-001",
+  "baseline_commit": "569e4ca2b28a4dd90dfe3b5cdf342451477248c8",
+  "findings": [
+    {
+      "id": "ALPHA-TX-007",
+      "same_chain_different_genesis_replay_accepted": true,
+      "status": "FAIL_CONFIRMED"
+    },
+    {
+      "id": "ALPHA-STATE-006",
+      "truncated_committed_journal_accepted": true,
+      "status": "FAIL_CONFIRMED"
+    }
+  ]
+}

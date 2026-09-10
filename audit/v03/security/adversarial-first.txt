@@ -1,0 +1,68 @@
+...FFFF.....                                                             [100%]
+=================================== FAILURES ===================================
+____ test_registered_owner_cannot_evade_conflict_by_declaring_another_group ____
+
+    def test_registered_owner_cannot_evade_conflict_by_declaring_another_group():
+        w = ScienceWorld()
+        source = list(w.corpus)
+        w.state, w.corpus = initial_state(w.genesis), []
+        for record in source:
+            tx = record["tx"]
+            i = w.pubs.index(tx["public_key"])
+            payload = copy.deepcopy(tx["payload"])
+            if tx["kind"] == "science_identity" and i == 2:
+                # Author honestly declares owner-0, which also controls registered reviewer 0.
+                payload["controller_group"] = w.genesis["institutions"][w.pubs[0]]["controller_group"]
+            w.run(i, tx["kind"], payload)
+>       with pytest.raises(Invalid, match="conflict|controller|owner"):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:143: Failed
+_ test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[None] _
+
+resolution = None
+
+    @pytest.mark.parametrize("resolution", [None, "INVALIDATE", "MATERIAL"])
+    def test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked(resolution):
+        w = ScienceWorld()
+        settle_both(w)
+        challenge_review(w, resolution)
+        before = canonical(w.state["balances"])
+>       with pytest.raises(Invalid):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:153: Failed
+_ test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[INVALIDATE] _
+
+resolution = 'INVALIDATE'
+
+    @pytest.mark.parametrize("resolution", [None, "INVALIDATE", "MATERIAL"])
+    def test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked(resolution):
+        w = ScienceWorld()
+        settle_both(w)
+        challenge_review(w, resolution)
+        before = canonical(w.state["balances"])
+>       with pytest.raises(Invalid):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:153: Failed
+_ test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[MATERIAL] _
+
+resolution = 'MATERIAL'
+
+    @pytest.mark.parametrize("resolution", [None, "INVALIDATE", "MATERIAL"])
+    def test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked(resolution):
+        w = ScienceWorld()
+        settle_both(w)
+        challenge_review(w, resolution)
+        before = canonical(w.state["balances"])
+>       with pytest.raises(Invalid):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:153: Failed
+=========================== short test summary info ============================
+FAILED native/tests/test_v03_science_adversarial.py::test_registered_owner_cannot_evade_conflict_by_declaring_another_group
+FAILED native/tests/test_v03_science_adversarial.py::test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[None]
+FAILED native/tests/test_v03_science_adversarial.py::test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[INVALIDATE]
+FAILED native/tests/test_v03_science_adversarial.py::test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[MATERIAL]
+4 failed, 8 passed in 0.15s

@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "read_only_source": true,
+  "snapshot_consistent": true,
+  "source_tables": 143,
+  "source_rows": 17332513,
+  "restored_tables": 143,
+  "restored_rows": 17332513,
+  "per_table_counts_equal": true,
+  "column_schema_equal": true,
+  "dump_bytes": 548105870,
+  "duration_seconds": 116.43,
+  "test_database": "agora_test_restore_78a8ea99cd0241689c",
+  "temporary_database_removed": true,
+  "private_dump_removed": true
+}

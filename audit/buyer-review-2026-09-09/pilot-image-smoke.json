@@ -1,0 +1,19 @@
+{
+  "classification": "TEST_ONLY_LOCAL_IMAGE_BOOT",
+  "project": "agora-pilot-test-1139de461c93",
+  "status": "PASS",
+  "web_home_http_ok": true,
+  "web_csp_ok": true,
+  "web_api_proxy_ok": true,
+  "web_uid": 10001,
+  "web_cookie_login_and_ws_subscribe_ok": true,
+  "api_uid": 10001,
+  "readiness_passed": true,
+  "broker_outage_readiness_denied": true,
+  "private_infrastructure_ports": true,
+  "artifact_volume_writable": true,
+  "unconfigured_production_denied": true,
+  "bridge_cli_executed": true,
+  "cleanup_ok": true,
+  "duration_seconds": 32.92
+}

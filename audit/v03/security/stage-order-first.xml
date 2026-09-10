@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.043" timestamp="2026-09-09T22:18:35.192753-06:00" hostname="Acero"><testcase classname="tests.test_v03_science_adversarial" name="test_replication_cannot_precede_any_experiment_result" time="0.006"><failure message="Failed: DID NOT RAISE Invalid">def test_replication_cannot_precede_any_experiment_result():
+        w = ScienceWorld()
+        replay_prefix(w, list(w.corpus[:6]))  # Five identities, challenge_created; no experiment yet.
+        content = {"artifact_hash": "a" * 64}
+&gt;       with pytest.raises(Invalid, match="parent|result|lifecycle|stage"):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:262: Failed</failure></testcase></testsuite></testsuites>

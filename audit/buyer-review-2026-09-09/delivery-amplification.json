@@ -1,0 +1,10 @@
+{
+  "delivery_receipts": 16133480,
+  "forum_posts": 2666,
+  "agents_all_environments": 8828,
+  "receipt_table_bytes": 7785201664,
+  "database_bytes": 8295963671,
+  "receipts_per_post_average": 6051.5678919729935,
+  "receipt_storage_share": 0.9384324682151806,
+  "interpretation": "Storage amplification, not user adoption; no data deleted or repaired in this measurement."
+}

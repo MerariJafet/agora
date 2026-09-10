@@ -1,0 +1,33 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_invalidated_mature_review_cannot_authorize_new_result_reward _______
+
+    def test_invalidated_mature_review_cannot_authorize_new_result_reward():
+        w = ScienceWorld()
+        w.reviewed()
+        w.run(2, "science_settle_review", {"challenge_id": "science-1", "reward_id": "review-20"})
+        w.run(0, "finalize", {"reward_id": "review-20"}, w.state["time"] + MATURITY)
+        d = {
+            "chain_id": w.genesis["chain_id"],
+            "genesis_hash": w.state["genesis_hash"],
+            "protocol_version": TX_VERSION,
+            "reward_id": "review-20",
+            "reward_hash": w.state["rewards"]["review-20"]["reward_hash"],
+            "evidence_hash": "f" * 64,
+        }
+        w.run(
+            2,
+            "invalidate_finalized",
+            {
+                "decision": d,
+                "signatures": {w.pubs[i]: sign(w.keys[i], "tokoin.invalidation.v3", d) for i in (0, 1)},
+            },
+        )
+        before = w.state["created"]
+>       with pytest.raises(Invalid, match="review|invalid|prerequisite"):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:300: Failed
+=========================== short test summary info ============================
+FAILED native/tests/test_v03_science_adversarial.py::test_invalidated_mature_review_cannot_authorize_new_result_reward
+1 failed in 0.05s

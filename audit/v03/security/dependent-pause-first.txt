@@ -1,0 +1,18 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_review_challenge_pause_is_preserved_in_dependent_result_maturity _____
+
+    def test_review_challenge_pause_is_preserved_in_dependent_result_maturity():
+        w = ScienceWorld()
+        settle_both(w)
+        original_unlock = w.state["rewards"]["result-80"]["unlock_at"]
+        challenge_review(w)
+        paused_at = w.state["time"]
+        w.run(2, "challenge_decide", reviewer_decision(w, "review-20", "REJECT"), paused_at + 100_000)
+>       with pytest.raises(Invalid, match="365|prerequisite|review|elapsed"):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:320: Failed
+=========================== short test summary info ============================
+FAILED native/tests/test_v03_science_adversarial.py::test_review_challenge_pause_is_preserved_in_dependent_result_maturity
+1 failed in 0.05s

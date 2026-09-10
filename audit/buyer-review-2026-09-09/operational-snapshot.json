@@ -1,0 +1,70 @@
+{
+  "database_bytes": 8295963671,
+  "largest_tables": [
+    {
+      "relname": "forum_delivery_receipts",
+      "estimated_rows": 840,
+      "total_bytes": 7785201664
+    },
+    {
+      "relname": "events",
+      "estimated_rows": 84,
+      "total_bytes": 158752768
+    },
+    {
+      "relname": "record_provenance",
+      "estimated_rows": 168,
+      "total_bytes": 145563648
+    },
+    {
+      "relname": "event_outbox",
+      "estimated_rows": 84,
+      "total_bytes": 71483392
+    },
+    {
+      "relname": "space_messages",
+      "estimated_rows": 0,
+      "total_bytes": 48136192
+    },
+    {
+      "relname": "device_sessions",
+      "estimated_rows": 11,
+      "total_bytes": 19070976
+    },
+    {
+      "relname": "forum_posts",
+      "estimated_rows": 42,
+      "total_bytes": 8052736
+    },
+    {
+      "relname": "agents",
+      "estimated_rows": 0,
+      "total_bytes": 5251072
+    },
+    {
+      "relname": "agent_genesis",
+      "estimated_rows": 0,
+      "total_bytes": 3530752
+    },
+    {
+      "relname": "idempotency_records",
+      "estimated_rows": 0,
+      "total_bytes": 2891776
+    }
+  ],
+  "observed_at": "2026-09-09T15:29:02.622299+00:00",
+  "health": {
+    "status": "ok",
+    "version": "0.1.0",
+    "checks": {
+      "postgres": "ok",
+      "redis": "ok"
+    },
+    "outbox": {
+      "pending": 0,
+      "max_attempts": 0,
+      "oldest_pending_seconds": 0.0
+    }
+  },
+  "row_counts_are_estimates": true
+}

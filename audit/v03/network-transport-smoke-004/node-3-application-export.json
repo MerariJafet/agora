@@ -1,0 +1,149 @@
+{
+  "blocks": [
+    {
+      "chain_id": "tokoin-test-v03-transport-smoke",
+      "height": 1,
+      "next_state_hash": "d04a42ab7bdc13332b3ec3ff3662d7a86b4bde895079d60ba2fe6781196844f6",
+      "previous_block_hash": "48334c179d2a2612e75ee57f0b0de90450125fd9884665060a1097aadb8715f0",
+      "previous_state_hash": "6fb302413363f7c16531d7c771df4a9aef16e290d5070e3bb57f9ba4f34bc955",
+      "research_commitment_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "state_root": "d04a42ab7bdc13332b3ec3ff3662d7a86b4bde895079d60ba2fe6781196844f6",
+      "timestamp": 1789014461,
+      "transactions": [],
+      "transactions_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "version": 2
+    },
+    {
+      "chain_id": "tokoin-test-v03-transport-smoke",
+      "height": 2,
+      "next_state_hash": "dff4cbe0405fa0b55b4e996cffa5c65d0282a6f22bfa6a617426cae36b1d4cb7",
+      "previous_block_hash": "ae8ed6a7ab244bac9758484bda00f0c3ea1a12e6d58c9eba779cd1628a1e9166",
+      "previous_state_hash": "d04a42ab7bdc13332b3ec3ff3662d7a86b4bde895079d60ba2fe6781196844f6",
+      "research_commitment_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "state_root": "dff4cbe0405fa0b55b4e996cffa5c65d0282a6f22bfa6a617426cae36b1d4cb7",
+      "timestamp": 1789014465,
+      "transactions": [],
+      "transactions_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "version": 2
+    },
+    {
+      "chain_id": "tokoin-test-v03-transport-smoke",
+      "height": 3,
+      "next_state_hash": "f01051dca6ba57df499cb667650ff5951668c0aa40320861002f2819cf7d6123",
+      "previous_block_hash": "46e59220c2c224b160f034dfa976c9fb4136911deb91cfd6b42741ad91c2bd8c",
+      "previous_state_hash": "dff4cbe0405fa0b55b4e996cffa5c65d0282a6f22bfa6a617426cae36b1d4cb7",
+      "research_commitment_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "state_root": "f01051dca6ba57df499cb667650ff5951668c0aa40320861002f2819cf7d6123",
+      "timestamp": 1789014465,
+      "transactions": [],
+      "transactions_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "version": 2
+    },
+    {
+      "chain_id": "tokoin-test-v03-transport-smoke",
+      "height": 4,
+      "next_state_hash": "3380350fd63844763e2eab8694ca2596f57f38fcef0546db55aea2de259ed949",
+      "previous_block_hash": "5d1b60b1cd6747cb53f5523a2bc7863cdc840e85b2180211a232354ba5ced00f",
+      "previous_state_hash": "f01051dca6ba57df499cb667650ff5951668c0aa40320861002f2819cf7d6123",
+      "research_commitment_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "state_root": "3380350fd63844763e2eab8694ca2596f57f38fcef0546db55aea2de259ed949",
+      "timestamp": 1789014466,
+      "transactions": [
+        {
+          "chain_id": "tokoin-test-v03-transport-smoke",
+          "genesis_hash": "48334c179d2a2612e75ee57f0b0de90450125fd9884665060a1097aadb8715f0",
+          "kind": "review_commit",
+          "nonce": 1,
+          "payload": {
+            "commitment": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "reward_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "payload_hash": "f963036a4b20eef12ecb74c146dff7e76652f5a817bdae14cc89db9aa00c7642",
+          "protocol_version": "TOKOIN_TX_V3",
+          "public_key": "2ca265e2f8c95def8a849233068f1a6ec574b3a4932d513889f2969572ea6e42",
+          "sender": "tkn1a815036f416c7b39272e27f9d165c838d17b0930b796967f861468a777deff37",
+          "signature": "4fee425086a69b4455210f1c44a2a5c2209e4e33462b655d7c012fa5a0c3a3550738ae7c20a5035c9667d3bdffa059eb3c95eb71c53c210de7ae0a7ca105f800"
+        }
+      ],
+      "transactions_root": "ed64ac3a146860e3f6122a7eac7a5c3f009a1161d35b67a9ebb6291a9560cd2e",
+      "version": 2
+    },
+    {
+      "chain_id": "tokoin-test-v03-transport-smoke",
+      "height": 5,
+      "next_state_hash": "51a578a699511221bc040a1cb4a5f837324f09ba49445599472d3eeacc62d3b4",
+      "previous_block_hash": "d84ef93f0cdb5facdf30b3d5e2d21536b722fccae3967df823cbe690eb1d6d34",
+      "previous_state_hash": "3380350fd63844763e2eab8694ca2596f57f38fcef0546db55aea2de259ed949",
+      "research_commitment_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "state_root": "51a578a699511221bc040a1cb4a5f837324f09ba49445599472d3eeacc62d3b4",
+      "timestamp": 1789014466,
+      "transactions": [],
+      "transactions_root": "82ce1f8b6cc5bdb1b983f158f3aa32945016097b977ac41dca978ca6da933bec",
+      "version": 2
+    }
+  ],
+  "genesis": {
+    "chain_id": "tokoin-test-v03-transport-smoke",
+    "consensus_validators": [
+      {
+        "power": 1,
+        "public_key": "4b0612b377ac572bd9afed239a208a955cb5dd4289b1f22e1f82fb21a029b224"
+      },
+      {
+        "power": 1,
+        "public_key": "540d9d550f121c8262fe74baa18e3e6d03a1b703ab6ff9728824bcf0b5b834d0"
+      },
+      {
+        "power": 1,
+        "public_key": "a59966160f4c864dafbbdf2b5075f1a512891da6f5932df7bf320d3232e206f2"
+      },
+      {
+        "power": 1,
+        "public_key": "f247a4a28dfad4804b23a7b22de1fef7f9c8e87826f3b4a325fcd7730dfd5fb9"
+      }
+    ],
+    "distribution": {
+      "contributors": 51,
+      "infra": 9,
+      "institutions": 20,
+      "proposer": 10,
+      "solver": 10
+    },
+    "infrastructure_address": "tkn12b293e47076f038711c4358107207cffc76c99714f5e45b58f05dde090af04d6",
+    "institutions": {
+      "2ca265e2f8c95def8a849233068f1a6ec574b3a4932d513889f2969572ea6e42": {
+        "controller_group": "TEST-owner-0",
+        "institution_id": "TEST-0",
+        "label": "INSTITUTIONAL_VALIDATOR_TEST",
+        "payout_address": "tkn1a815036f416c7b39272e27f9d165c838d17b0930b796967f861468a777deff37"
+      },
+      "c3202374e242c88b93b79dfd3a3e73f68f94a2f3af8857f8605f11c2c81d5ca3": {
+        "controller_group": "TEST-owner-1",
+        "institution_id": "TEST-1",
+        "label": "INSTITUTIONAL_VALIDATOR_TEST",
+        "payout_address": "tkn190fcd2da876612d7c743320ddf3030a66b42d10f19037c25f1f864709589d111"
+      }
+    },
+    "maturity_seconds": 31536000,
+    "max_supply_units": 100000000000000,
+    "mode": "TEST_NON_RECOGNIZABLE",
+    "pilot_cap_units": 50000000000,
+    "reward_units": 100000000,
+    "timestamp": 1789014461,
+    "transaction_version": "TOKOIN_TX_V3",
+    "unit": 100000000,
+    "version": "TOKOIN_NATIVE_REWARD_V2"
+  },
+  "metrics": {
+    "active_challenges": 0,
+    "chain_height": 5,
+    "circulating_units": 0,
+    "created_units": 0,
+    "genesis_recognition_eligible": false,
+    "locked_units": 0,
+    "mode": "TEST_NON_RECOGNIZABLE",
+    "pilot_remaining_units": 50000000000,
+    "remaining_units": 100000000000000,
+    "revoked_units": 0
+  }
+}

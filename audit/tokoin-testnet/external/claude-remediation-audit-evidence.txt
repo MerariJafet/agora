@@ -1,0 +1,255 @@
+================================================================================
+CLAUDE REMEDIATION AUDIT EVIDENCE LOG
+TOKOIN Contract Release Candidate v1 (Remediated)
+Date: 2026-09-07
+Commit: 1ceb2a0f8dc18a4e5ec6f28cf4cef15f80689f4b
+Prior Commit: 001e202aee63b991d22ead591580584c6341f0c0
+================================================================================
+
+PHASE 1: INTEGRITY VERIFICATION
+================================================================================
+
+--- 1.1 Commit Verification ---
+
+Command: git rev-parse HEAD
+Output:  1ceb2a0f8dc18a4e5ec6f28cf4cef15f80689f4b
+
+Command: git log --oneline -8
+Output:
+  1ceb2a0 docs: correct TOKOIN gate evidence
+  2673952 fix: remediate TOKOIN audit findings
+  6306d3a docs: preserve TOKOIN internal audit
+  001e202 fix: harden TOKOIN release candidate
+  1bbf4ac feat: prepare TOKOIN public testnet candidate
+  c0eb30e feat: harden AGORA public launch foundations
+  104dcfc Add living world social density layer
+  0862298 Improve living world V3 interaction UX
+
+--- 1.2 Bundle SHA-256 ---
+
+Command: npm run bundle:verify
+Output:  {"ok":true,"bundle_sha256":"3043f6345d00e3ff3da777f9094283789f6af661f4af8453869fbf8e8f8fc4db"}
+
+Manual Node.js verification:
+  Expected: 3043f6345d00e3ff3da777f9094283789f6af661f4af8453869fbf8e8f8fc4db
+  Computed: 3043f6345d00e3ff3da777f9094283789f6af661f4af8453869fbf8e8f8fc4db
+  Result: MATCH
+
+--- 1.3 Source File Hashes ---
+
+Command: sha256sum contracts/*.sol
+Output:
+  ce47ac22...  contracts/TokoinFixedSupply.sol       (MATCH - unchanged)
+  a10ba1c5...  contracts/TokoinResearchRewards.sol   (MATCH - updated)
+  7b5234d5...  contracts/AgoraAgentIdentity.sol      (MATCH - updated)
+  26fb5e31...  contracts/TokoinControlPlane.sol      (MATCH - unchanged)
+
+--- 1.4 Clean Compilation ---
+
+Command: npx hardhat clean && npm run compile
+Output:  Compiled 4 Solidity files with solc 0.8.30 (evm target: cancun)
+
+--- 1.5 ABI and Bytecode Hashes ---
+
+All 9 artifact hashes MATCH bundle after clean recompilation.
+
+--- 1.6 Git Status ---
+
+Command: git status --short
+Output:
+   M bridge/agora_bridge/local_research_context_template.py
+   M bridge/agora_bridge/local_runtime_driver.py
+
+Command: git diff contracts/tokoin/ audit/tokoin-testnet/release-candidate/
+Output:  (empty -- no changes to audited candidate)
+
+================================================================================
+
+PHASE 3: AUTOMATED TESTS
+================================================================================
+
+--- Contract Integration Tests (21 invariants) ---
+
+Command: npm run test:contracts
+Output:
+  {"ok":true,"network":"hardhatOp","invariants":[
+    "fixed_supply",
+    "eight_decimals",
+    "authority_only_settlement",
+    "immutable_challenge_root",
+    "invalid_proof_rejected",
+    "claim_replay_rejected",
+    "claim_cross_deployment_replay_rejected",
+    "multi_leaf_settlement_bundle_compatible",
+    "settlement_overcommit_rejected",
+    "reward_transfer_does_not_mint",
+    "agent_identity_unique",
+    "agent_identity_non_transferable",
+    "agent_identity_revocable_without_erasure",
+    "duplicate_identity_revocation_rejected",
+    "zero_amount_claim_rejected",
+    "authority_only_claim_pause",
+    "bounded_claim_deadline",
+    "preclaim_settlement_cancellation_releases_reserve",
+    "postclaim_settlement_cancellation_rejected",
+    "expired_claim_rejected",
+    "permissionless_expired_reserve_release"
+  ],"gas":{"claim_1024_leaf_tree":"107843","merkle_proof_nodes":10}}
+
+New invariants (8 added since prior audit):
+  - duplicate_identity_revocation_rejected (F-04 fix)
+  - zero_amount_claim_rejected (F-02 fix)
+  - authority_only_claim_pause (F-03 fix)
+  - bounded_claim_deadline (F-01 fix)
+  - preclaim_settlement_cancellation_releases_reserve (F-03 fix)
+  - postclaim_settlement_cancellation_rejected (F-03 fix)
+  - expired_claim_rejected (F-01 fix)
+  - permissionless_expired_reserve_release (F-01 fix)
+
+--- Preflight Tests (6/6) ---
+
+Command: npm run test:preflight
+Output:  6 tests, 6 pass, 0 fail
+
+--- Bundle Tests (9/9) ---
+
+Command: npm run test:bundle
+Output:  9 tests, 9 pass, 0 fail
+New test: "verifies deterministic proofs across odd, even and large trees"
+  Sizes tested: 1, 2, 3, 5, 17, 64, 257, 1024
+  All proofs verified, tampered proofs rejected
+
+--- Static Audit ---
+
+Command: npm run audit:static
+Output:  {"ok":true,...}
+New patterns checked:
+  - "revert ZeroAmount()"
+  - "function releaseExpiredSettlement"
+  - "function cancelSettlement"
+  - "function setClaimsPaused"
+
+--- Bundle Verify ---
+
+Command: npm run bundle:verify
+Output:  {"ok":true,"bundle_sha256":"3043f63..."}
+
+--- npm Audit ---
+
+Command: npm audit --audit-level=high
+Output:  found 0 vulnerabilities
+
+================================================================================
+
+ADVERSARIAL TESTS (15/15 PASSED)
+================================================================================
+
+Executed outside the audited tree (/tmp/tokoin-adversarial-tests.mjs).
+Copied temporarily to scripts/, executed, then removed.
+
+ADV-01: All 5 ERC-721 transfer/approval methods revert Soulbound      PASS
+ADV-02: ERC-5192, ERC-721, ERC-165 interface detection                PASS
+ADV-03: Deadline boundary: too-short and too-long rejected             PASS
+ADV-04: Cancel after claim is rejected (SettlementHasClaims)           PASS
+ADV-05: Double release of expired settlement (SettlementInactive)      PASS
+ADV-06: Claim pause/unpause flow with authority check                  PASS
+ADV-07: Claims on cancelled settlement rejected (SettlementInactive)   PASS
+ADV-08: TokoinFixedSupply with zero treasury rejected                  PASS
+ADV-09: TokoinResearchRewards with zero addresses rejected             PASS
+ADV-10: Standard ERC-20 approve/transferFrom flow works                PASS
+ADV-11: Total supply conservation after all operations                 PASS
+ADV-12: Single-leaf Merkle tree claim (empty proof)                    PASS
+ADV-13: Empty payout/knowledge roots rejected (EmptyRoot)              PASS
+ADV-14: releaseExpiredSettlement on active settlement rejected         PASS
+ADV-15: AgoraAgentIdentity with zero issuer rejected                   PASS
+
+Adversarial test file removed after execution.
+Audited tree verified clean: git diff contracts/tokoin/ -> no output.
+
+================================================================================
+
+MANDATORY REVIEW ITEMS EVIDENCE
+================================================================================
+
+Item 1: Merkle Proof Construction
+  Method: settlement-bundle.test.mjs test 9 (1,2,3,5,17,64,257,1024 leaves)
+  Result: All proofs verified, tampered proofs rejected, deterministic ordering
+
+Item 2: Domain Separation
+  Parameters: block.chainid, address(this), challengeId, account, amount, role
+  Test: claim_cross_deployment_replay_rejected invariant PASSES
+
+Item 3: ERC-721 Soulbound
+  Method: OpenZeppelin 5.6.1 ERC721.sol source analysis
+  Result: All transfer paths (transferFrom, safeTransferFrom x2, _transfer,
+          _safeTransfer, _burn) converge through _update() which is overridden
+  ADV-01 confirms all 5 public methods revert
+
+Item 4: OpenZeppelin 5.6.1
+  Advisory: GHSA-wprv-93r4-jj2p (multiProofVerify) - NOT USED by TOKOIN
+  Result: No applicable vulnerabilities
+
+Item 5: Solidity 0.8.30
+  Bug: TransientStorageClearingHelperCollision (HIGH) - requires viaIR - NOT USED
+  Bug: InheritanceOrderReversalOnStorageEndWarning (MEDIUM) - no custom layout
+  Bug: UnsoundSpillInMutualRecursion (MEDIUM) - requires viaIR - NOT USED
+  Bug: LostStorageArrayWriteOnSlotOverflow (LOW) - probabilistically impossible
+  Result: None triggered
+
+Item 6: Gas Analysis
+  1024-leaf claim: 107,843 gas, 10 proof nodes
+  Block gas limit context: ~0.36% of 30M
+
+Item 7: Unclaimed Fund Recovery
+  Mechanism: releaseExpiredSettlement() + cancelSettlement()
+  Verified: ADV-05 (double release), ADV-14 (non-expired rejected)
+
+Item 8: Off-Chain Boundary
+  Guards: dual-gate production denial, explicit enablement, rate limiting,
+          MutatingOwner+CSRF, reservation-operator binding
+
+Item 9: Multisig Governance
+  Enforcement: SAFE_2_OF_3 attestation + 3 distinct addresses required
+  Limitation: attestation-based, not on-chain verified
+
+Item 10: Adversarial Tests
+  15 tests executed, all passed
+
+================================================================================
+
+DEPENDENCY SECURITY VERIFICATION
+================================================================================
+
+OpenZeppelin security advisories page reviewed: 2026-09-07
+  Source: https://github.com/OpenZeppelin/openzeppelin-contracts/security/advisories
+  Result: No advisories affect ERC20, ERC721, MerkleProof.verifyCalldata, or
+          SafeERC20 in version 5.6.1
+
+Solidity known bugs page reviewed: 2026-09-07
+  Source: https://docs.soliditylang.org/en/latest/bugs.html
+  Result: 4 bugs in range, 0 triggered by TOKOIN contracts
+
+npm audit: 0 vulnerabilities
+
+================================================================================
+
+POST-AUDIT INTEGRITY VERIFICATION
+================================================================================
+
+git diff contracts/tokoin/ audit/tokoin-testnet/release-candidate/
+  -> No output (candidate unmodified)
+
+git status --short
+  -> Only bridge/ files modified (outside audit scope)
+
+New files created:
+  - audit/tokoin-testnet/external/CLAUDE_REMEDIATION_AUDIT_REPORT.md
+  - audit/tokoin-testnet/external/claude-remediation-audit-results.json
+  - audit/tokoin-testnet/external/claude-remediation-audit-evidence.txt
+
+No files in contracts/tokoin/ were modified.
+No files in audit/tokoin-testnet/release-candidate/ were modified.
+
+================================================================================
+END OF EVIDENCE LOG
+================================================================================

@@ -1,0 +1,10 @@
+E[2026-09-09|22:26:36.718] Stopping peer for error                      module=p2p peer="Peer{MConn{127.0.0.1:51645} e37d5c42b39459819dbb530257fb5abb21857fdf out}" err="read tcp 127.0.0.1:44114->127.0.0.1:51645: use of closed network connection"
+E[2026-09-09|22:26:36.718] error while stopping peer                    module=p2p error="already stopped"
+E[2026-09-09|22:26:36.718] Error stopping pool                          module=blocksync err="already stopped"
+E[2026-09-09|22:26:36.720] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=consensus
+E[2026-09-09|22:26:36.720] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=snapshot
+E[2026-09-09|22:26:36.720] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=query
+E[2026-09-09|22:26:36.720] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=mempool
+E[2026-09-09|22:26:36.720] consensus connection terminated. Did the application crash? Please restart CometBFT module=proxy err="read message: EOF"
+E[2026-09-09|22:26:36.725] Stopped accept routine, as transport is closed module=p2p numPeers=0
+E[2026-09-09|22:26:36.725] Error serving server                         module=main err="accept tcp 127.0.0.1:35509: use of closed network connection"

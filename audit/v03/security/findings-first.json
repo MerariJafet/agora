@@ -1,0 +1,29 @@
+{
+  "run_id": "V03-independent-security-first",
+  "assessment": "FAIL_CONFIRMED",
+  "scope": "signed deterministic transactions, not live network",
+  "observed_failures": 4,
+  "observed_passes": 8,
+  "evidence": [
+    "audit/v03/security/adversarial-first.txt",
+    "audit/v03/security/adversarial-first.xml"
+  ],
+  "sources_recorded_after_test": {
+    "native/tokoin_native/v03_science.py": "59ddcd77bab35531186610107072df7c7dfa3f856c50efb128d4f7bba76f2fcf",
+    "native/tokoin_native/core.py": "9b870790037a050e5b1b592f1cd451db98875d80faf081b94a815b63db179141",
+    "native/tests/test_v03_science_adversarial.py": "bb634b5a424c8e22b2ce1ac6627dcf859a6c8c75d6e78fa79e1357fd4fc2540f",
+    "docs/v03/REVIEW_ECONOMICS_ADR.md": "0e9abfb0fa1e42d4226f21cb3acaf6c16a2e011b4b23e8e099df19a2ce3df935"
+  },
+  "findings": [
+    {
+      "id": "V03-SEC-001",
+      "severity": "P0",
+      "finding": "Registered reviewer owner and self-declared scientific identity owner are not bound; declared author-owner conflict bypassed."
+    },
+    {
+      "id": "V03-SEC-002",
+      "severity": "P0",
+      "finding": "Result reward finalizes despite prerequisite review reward CHALLENGED or REVOKED_BEFORE_FINALITY (INVALIDATE/MATERIAL)."
+    }
+  ]
+}

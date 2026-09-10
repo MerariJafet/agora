@@ -1,0 +1,434 @@
+....F.....................................                               [100%]
+=================================== FAILURES ===================================
+__________ test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin ___________
+
+self = <sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_cursor object at 0x739b57d77e80>
+operation = 'INSERT INTO magna_knowledge_objects (object_id, object_type, object_version, world_instance_id, world_id, challenge_i...AR, $21::VARCHAR, $22::VARCHAR, $23::VARCHAR, $24::VARCHAR, $25::VARCHAR, $26::VARCHAR, $27::TIMESTAMP WITH TIME ZONE)'
+parameters = ('kob_01M23FRF4ENYW9W2XGVWP01VR7', 'candidate_solution', 1, 'agora-local-real', None, 'mis_01M23FRF0J4DXS64GFTJRDJGWK', ...)
+
+    async def _prepare_and_execute(self, operation, parameters):
+        adapt_connection = self._adapt_connection
+    
+        async with adapt_connection._execute_mutex:
+            if not adapt_connection._started:
+                await adapt_connection._start_transaction()
+    
+            if parameters is None:
+                parameters = ()
+    
+            try:
+                prepared_stmt, attributes = await adapt_connection._prepare(
+                    operation, self._invalidate_schema_cache_asof
+                )
+    
+                if attributes:
+                    self.description = [
+                        (
+                            attr.name,
+                            attr.type.oid,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                        )
+                        for attr in attributes
+                    ]
+                else:
+                    self.description = None
+    
+                if self.server_side:
+                    self._cursor = await prepared_stmt.cursor(*parameters)
+                    self.rowcount = -1
+                else:
+>                   self._rows = deque(await prepared_stmt.fetch(*parameters))
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:550: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/asyncpg/prepared_stmt.py:177: in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/asyncpg/prepared_stmt.py:268: in __bind_execute
+    data, status, _ = await self.__do_execute(
+.venv/lib/python3.12/site-packages/asyncpg/prepared_stmt.py:257: in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+>   ???
+E   asyncpg.exceptions.UniqueViolationError: duplicate key value violates unique constraint "uq_magna_object_hash"
+E   DETAIL:  Key (canonical_content_hash)=(0d3a7258ac553988dbd8568e1858aa775b14a5c3c30800a959fc9e01c69d0d58) already exists.
+
+asyncpg/protocol/protocol.pyx:205: UniqueViolationError
+
+The above exception was the direct cause of the following exception:
+
+self = <sqlalchemy.engine.base.Connection object at 0x739b57d8b1d0>
+dialect = <sqlalchemy.dialects.postgresql.asyncpg.PGDialect_asyncpg object at 0x739b5c0dcbf0>
+context = <sqlalchemy.dialects.postgresql.asyncpg.PGExecutionContext_asyncpg object at 0x739b57ef3fe0>
+statement = <sqlalchemy.dialects.postgresql.asyncpg.PGCompiler_asyncpg object at 0x739b57e87770>
+parameters = [('kob_01M23FRF4ENYW9W2XGVWP01VR7', 'candidate_solution', 1, 'agora-local-real', None, 'mis_01M23FRF0J4DXS64GFTJRDJGWK', ...)]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:585: in execute
+    self._adapt_connection.await_(
+.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132: in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196: in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:563: in _prepare_and_execute
+    self._handle_exception(error)
+.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:513: in _handle_exception
+    self._adapt_connection._handle_exception(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <AdaptedConnection <asyncpg.connection.Connection object at 0x739b5c537110>>
+error = UniqueViolationError('duplicate key value violates unique constraint "uq_magna_object_hash"')
+
+    def _handle_exception(self, error):
+        if self._connection.is_closed():
+            self._transaction = None
+            self._started = False
+    
+        if not isinstance(error, AsyncAdapt_asyncpg_dbapi.Error):
+            exception_mapping = self.dbapi._asyncpg_error_translate
+    
+            for super_ in type(error).__mro__:
+                if super_ in exception_mapping:
+                    translated_error = exception_mapping[super_](
+                        "%s: %s" % (type(error), error)
+                    )
+                    translated_error.pgcode = translated_error.sqlstate = (
+                        getattr(error, "sqlstate", None)
+                    )
+>                   raise translated_error from error
+E                   sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uq_magna_object_hash"
+E                   DETAIL:  Key (canonical_content_hash)=(0d3a7258ac553988dbd8568e1858aa775b14a5c3c30800a959fc9e01c69d0d58) already exists.
+
+.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:797: IntegrityError
+
+The above exception was the direct cause of the following exception:
+
+api_client = <httpx.AsyncClient object at 0x739b5d3d8890>
+unique_name = 'TestAgent-aba3d36712f4'
+
+    async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(api_client, unique_name):
+>       candidate, creator = await _freeze_candidate(api_client, unique_name)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/integration/test_research_protocol_institutional_validators.py:146: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_research_protocol_institutional_validators.py:73: in _freeze_candidate
+    solution = await api_client.post(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+.venv/lib/python3.12/site-packages/fastapi/applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+.venv/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv/lib/python3.12/site-packages/starlette/middleware/cors.py:88: in __call__
+    await self.app(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/middleware/base.py:193: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/api/agora_api/middleware.py:37: in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/starlette/middleware/base.py:168: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+.venv/lib/python3.12/site-packages/starlette/middleware/base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/routing.py:670: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv/lib/python3.12/site-packages/fastapi/routing.py:2734: in app
+    await route.handle(scope, receive, send)
+.venv/lib/python3.12/site-packages/fastapi/routing.py:1780: in handle
+    await self.original_router.handle(scope, receive, send)
+.venv/lib/python3.12/site-packages/fastapi/routing.py:2789: in handle
+    await included_router._handle_selected(scope, receive, send)
+.venv/lib/python3.12/site-packages/fastapi/routing.py:1800: in _handle_selected
+    await original_route.handle(scope, receive, send)
+.venv/lib/python3.12/site-packages/fastapi/routing.py:1279: in handle
+    await app(scope, receive, send)
+.venv/lib/python3.12/site-packages/fastapi/routing.py:158: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv/lib/python3.12/site-packages/fastapi/routing.py:144: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/fastapi/routing.py:706: in app
+    raw_response = await run_endpoint_function(
+.venv/lib/python3.12/site-packages/fastapi/routing.py:352: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/api/agora_api/routes/magna_knowledge.py:89: in post_object
+    row = await create_object(
+apps/api/agora_api/magna_knowledge_ledger.py:270: in create_object
+    await session.flush()
+.venv/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py:786: in flush
+    await greenlet_spawn(self.sync_session.flush, objects=objects)
+.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:203: in greenlet_spawn
+    result = context.switch(value)
+             ^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4353: in flush
+    self._flush(objects)
+.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4488: in _flush
+    with util.safe_reraise():
+.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4449: in _flush
+    flush_context.execute()
+.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:465: in execute
+    rec.execute(self)
+.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:641: in execute
+    util.preloaded.orm_persistence.save_obj(
+.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:94: in save_obj
+    _emit_insert_statements(
+.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:1049: in _emit_insert_statements
+    result = connection.execute(
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:585: in execute
+    self._adapt_connection.await_(
+.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132: in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196: in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:563: in _prepare_and_execute
+    self._handle_exception(error)
+.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:513: in _handle_exception
+    self._adapt_connection._handle_exception(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <AdaptedConnection <asyncpg.connection.Connection object at 0x739b5c537110>>
+error = UniqueViolationError('duplicate key value violates unique constraint "uq_magna_object_hash"')
+
+    def _handle_exception(self, error):
+        if self._connection.is_closed():
+            self._transaction = None
+            self._started = False
+    
+        if not isinstance(error, AsyncAdapt_asyncpg_dbapi.Error):
+            exception_mapping = self.dbapi._asyncpg_error_translate
+    
+            for super_ in type(error).__mro__:
+                if super_ in exception_mapping:
+                    translated_error = exception_mapping[super_](
+                        "%s: %s" % (type(error), error)
+                    )
+                    translated_error.pgcode = translated_error.sqlstate = (
+                        getattr(error, "sqlstate", None)
+                    )
+>                   raise translated_error from error
+E                   sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uq_magna_object_hash"
+E                   DETAIL:  Key (canonical_content_hash)=(0d3a7258ac553988dbd8568e1858aa775b14a5c3c30800a959fc9e01c69d0d58) already exists.
+E                   [SQL: INSERT INTO magna_knowledge_objects (object_id, object_type, object_version, world_instance_id, world_id, challenge_id, proposal_id, author_agent_id, author_agent_version_id, beneficial_controller_id, visibility_lane, safety_classification, rights_status, license_id, payload, public_summary, canonical_content_hash, parent_hashes, constitution_hash, charter_hash, rule_evaluation_receipt_id, state, maturity, frozen_hash, supersedes_object_id, idempotency_key, created_at) VALUES ($1::VARCHAR, $2::VARCHAR, $3::INTEGER, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::JSONB, $16::JSONB, $17::VARCHAR, $18::JSONB, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR, $23::VARCHAR, $24::VARCHAR, $25::VARCHAR, $26::VARCHAR, $27::TIMESTAMP WITH TIME ZONE)]
+E                   [parameters: ('kob_01M23FRF4ENYW9W2XGVWP01VR7', 'candidate_solution', 1, 'agora-local-real', None, 'mis_01M23FRF0J4DXS64GFTJRDJGWK', None, 'agt_01M23FREYS3ZD93SZY5NF6VZ64', 'agv_01M23FREYS3ZD93SZY5NF6VZ65', 'agt_01M23FREYS3ZD93SZY5NF6VZ64', 'OPEN', 'D0_PUBLIC_METADATA', 'explicit_open_license', 'CC-BY-4.0', '{"claim": "The blind-review protocol enforces independent commitments."}', '{"object_type": "candidate_solution", "title": null, "plaintext_disclosed": true}', '0d3a7258ac553988dbd8568e1858aa775b14a5c3c30800a959fc9e01c69d0d58', '[]', 'df6ce5ac30bfc757080dae83c072a15ded604fbc685caae9e0bc2fb7e89f757c', None, None, 'PROPOSED', 'exploratory', None, None, 'TestAgent-aba3d36712f4-solution', datetime.datetime(2026, 9, 9, 16, 24, 32, 654055, tzinfo=datetime.timezone.utc))]
+E                   (Background on this error at: https://sqlalche.me/e/20/gkpj)
+
+.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:797: IntegrityError
+----------------------------- Captured stdout call -----------------------------
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=56.06 method=POST path=/v1/world/magna/bootstrap request_id=req_3f785e52ef8fe3ce status_code=200 trace_id=542113174c38f115aba9d95692b35869
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=4.6 method=POST path=/v1/registration/challenge request_id=req_ce021fe6ebe78718 status_code=201 trace_id=95a87ca4e86c991e27ccc95ba4f2330e
+2026-09-09 10:24:32 [info     ] registration.completed         agent_id=agt_01M23FREYS3ZD93SZY5NF6VZ64 device_id=dev_01M23FREYS3ZD93SZY5NF6VZ66 request_id=req_e4963a97c3baf710 trace_id=3aa8f81a1dd98bbc3d26b6426b5b415b
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=27.53 method=POST path=/v1/registration/register request_id=req_e4963a97c3baf710 status_code=201 trace_id=3aa8f81a1dd98bbc3d26b6426b5b415b
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=0.27 method=GET path=/v1/world/rules request_id=req_df0bd50936175e9c status_code=200 trace_id=fa6d1b5d36895dc628ffeb11a9077192
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=2.33 method=POST path=/v1/world/rules/attest request_id=req_dec6377c8c661ddf status_code=200 trace_id=bec96073b4062fcc61a1ffa34916da02
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=1.74 method=POST path=/v1/registration/challenge request_id=req_016119307f32650d status_code=201 trace_id=f2413f8fde0ee9989837fdcf61aa5d1b
+2026-09-09 10:24:32 [info     ] registration.completed         agent_id=agt_01M23FREZPSYTX18BTX73PM79C device_id=dev_01M23FREZPSYTX18BTX73PM79E request_id=req_d89bbe8fc7d0e456 trace_id=23f42f2318e0f0e3c6ea7fbbbf0bc995
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=12.23 method=POST path=/v1/registration/register request_id=req_d89bbe8fc7d0e456 status_code=201 trace_id=23f42f2318e0f0e3c6ea7fbbbf0bc995
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=0.2 method=GET path=/v1/world/rules request_id=req_53b4979c943e9e60 status_code=200 trace_id=13b82056180854f5bcef5344acc2f074
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=1.51 method=POST path=/v1/world/rules/attest request_id=req_4f5bbac5986ed5bd status_code=200 trace_id=86c0efa8054f3de01812bc2e8457e001
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=1.53 method=POST path=/v1/registration/challenge request_id=req_fb8d6dedf66bdcb3 status_code=201 trace_id=9b984677b5e977f64f21a3826a8841f6
+2026-09-09 10:24:32 [info     ] registration.completed         agent_id=agt_01M23FRF07RCSN4YCT0VR91NRX device_id=dev_01M23FRF07RCSN4YCT0VR91NRZ request_id=req_7aa1991adefb796a trace_id=1e7f15ab8f89f96137b267ec0dee9cf9
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=11.0 method=POST path=/v1/registration/register request_id=req_7aa1991adefb796a status_code=201 trace_id=1e7f15ab8f89f96137b267ec0dee9cf9
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=0.2 method=GET path=/v1/world/rules request_id=req_bda1b7ed59351b65 status_code=200 trace_id=2459f2011eb86b44de8d2c689c6beb6e
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=1.41 method=POST path=/v1/world/rules/attest request_id=req_25213b9af620e476 status_code=200 trace_id=395cbbda50b464ff3abadf1246b26cc3
+2026-09-09 10:24:32 [debug    ] realtime.publish_skipped_gateway_down kind=mission_challenge request_id=req_790e4528df06afe7 scope=mis_01M23FRF0J4DXS64GFTJRDJGWK trace_id=3f7eb5701cd1ca3cb7ea0782f4f09a7f
+2026-09-09 10:24:32 [debug    ] realtime.publish_skipped_gateway_down kind=mission_challenge request_id=req_790e4528df06afe7 scope=spc_01M23FRF0J4DXS64GFTJRDJGWM trace_id=3f7eb5701cd1ca3cb7ea0782f4f09a7f
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=64.91 method=POST path=/v1/mission-challenges/mis_01M23FRF0J4DXS64GFTJRDJGWK/join request_id=req_790e4528df06afe7 status_code=201 trace_id=3f7eb5701cd1ca3cb7ea0782f4f09a7f
+2026-09-09 10:24:32 [debug    ] realtime.publish_skipped_gateway_down kind=mission_challenge request_id=req_95f1ffcdb77855cb scope=mis_01M23FRF0J4DXS64GFTJRDJGWK trace_id=958a2bb07eb2567b06ecf1cda63b1ef8
+2026-09-09 10:24:32 [debug    ] realtime.publish_skipped_gateway_down kind=mission_challenge request_id=req_95f1ffcdb77855cb scope=spc_01M23FRF0J4DXS64GFTJRDJGWM trace_id=958a2bb07eb2567b06ecf1cda63b1ef8
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=10.15 method=POST path=/v1/mission-challenges/mis_01M23FRF0J4DXS64GFTJRDJGWK/join request_id=req_95f1ffcdb77855cb status_code=201 trace_id=958a2bb07eb2567b06ecf1cda63b1ef8
+2026-09-09 10:24:32 [debug    ] realtime.publish_skipped_gateway_down kind=mission_challenge request_id=req_422121ccebd19313 scope=mis_01M23FRF0J4DXS64GFTJRDJGWK trace_id=efb2ce845948cf3d387e74f5dc9e8964
+2026-09-09 10:24:32 [debug    ] realtime.publish_skipped_gateway_down kind=mission_challenge request_id=req_422121ccebd19313 scope=spc_01M23FRF0J4DXS64GFTJRDJGWM trace_id=efb2ce845948cf3d387e74f5dc9e8964
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=10.11 method=POST path=/v1/mission-challenges/mis_01M23FRF0J4DXS64GFTJRDJGWK/join request_id=req_422121ccebd19313 status_code=201 trace_id=efb2ce845948cf3d387e74f5dc9e8964
+2026-09-09 10:24:32 [debug    ] realtime.publish_skipped_gateway_down kind=mission_challenge request_id=req_2e1da69ee287775c scope=mis_01M23FRF0J4DXS64GFTJRDJGWK trace_id=92520c5c2e36a40df5b9940c03be2aad
+2026-09-09 10:24:32 [debug    ] realtime.publish_skipped_gateway_down kind=mission_challenge request_id=req_2e1da69ee287775c scope=spc_01M23FRF0J4DXS64GFTJRDJGWM trace_id=92520c5c2e36a40df5b9940c03be2aad
+2026-09-09 10:24:32 [info     ] http.request                   duration_ms=26.34 method=POST path=/v1/mission-challenges/mis_01M23FRF0J4DXS64GFTJRDJGWK/submissions request_id=req_2e1da69ee287775c status_code=201 trace_id=92520c5c2e36a40df5b9940c03be2aad
+=========================== short test summary info ============================
+FAILED tests/integration/test_research_protocol_institutional_validators.py::test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin
+1 failed, 41 passed in 8.73s

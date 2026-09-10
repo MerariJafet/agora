@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="12" time="0.147" timestamp="2026-09-09T22:17:35.415518-06:00" hostname="Acero"><testcase classname="tests.test_v03_science_adversarial" name="test_mixed_positive_and_nonpositive_review_never_earns_result_pool[REJECT]" time="0.013" /><testcase classname="tests.test_v03_science_adversarial" name="test_mixed_positive_and_nonpositive_review_never_earns_result_pool[INCONCLUSIVE]" time="0.012" /><testcase classname="tests.test_v03_science_adversarial" name="test_mixed_positive_and_nonpositive_review_never_earns_result_pool[REQUEST_REPLICATION]" time="0.012" /><testcase classname="tests.test_v03_science_adversarial" name="test_registered_owner_cannot_evade_conflict_by_declaring_another_group" time="0.007"><failure message="Failed: DID NOT RAISE Invalid">def test_registered_owner_cannot_evade_conflict_by_declaring_another_group():
+        w = ScienceWorld()
+        source = list(w.corpus)
+        w.state, w.corpus = initial_state(w.genesis), []
+        for record in source:
+            tx = record["tx"]
+            i = w.pubs.index(tx["public_key"])
+            payload = copy.deepcopy(tx["payload"])
+            if tx["kind"] == "science_identity" and i == 2:
+                # Author honestly declares owner-0, which also controls registered reviewer 0.
+                payload["controller_group"] = w.genesis["institutions"][w.pubs[0]]["controller_group"]
+            w.run(i, tx["kind"], payload)
+&gt;       with pytest.raises(Invalid, match="conflict|controller|owner"):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:143: Failed</failure></testcase><testcase classname="tests.test_v03_science_adversarial" name="test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[None]" time="0.009"><failure message="Failed: DID NOT RAISE Invalid">resolution = None
+
+    @pytest.mark.parametrize("resolution", [None, "INVALIDATE", "MATERIAL"])
+    def test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked(resolution):
+        w = ScienceWorld()
+        settle_both(w)
+        challenge_review(w, resolution)
+        before = canonical(w.state["balances"])
+&gt;       with pytest.raises(Invalid):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:153: Failed</failure></testcase><testcase classname="tests.test_v03_science_adversarial" name="test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[INVALIDATE]" time="0.009"><failure message="Failed: DID NOT RAISE Invalid">resolution = 'INVALIDATE'
+
+    @pytest.mark.parametrize("resolution", [None, "INVALIDATE", "MATERIAL"])
+    def test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked(resolution):
+        w = ScienceWorld()
+        settle_both(w)
+        challenge_review(w, resolution)
+        before = canonical(w.state["balances"])
+&gt;       with pytest.raises(Invalid):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:153: Failed</failure></testcase><testcase classname="tests.test_v03_science_adversarial" name="test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked[MATERIAL]" time="0.009"><failure message="Failed: DID NOT RAISE Invalid">resolution = 'MATERIAL'
+
+    @pytest.mark.parametrize("resolution", [None, "INVALIDATE", "MATERIAL"])
+    def test_result_cannot_finalize_after_review_prerequisite_challenged_or_revoked(resolution):
+        w = ScienceWorld()
+        settle_both(w)
+        challenge_review(w, resolution)
+        before = canonical(w.state["balances"])
+&gt;       with pytest.raises(Invalid):
+E       Failed: DID NOT RAISE Invalid
+
+native/tests/test_v03_science_adversarial.py:153: Failed</failure></testcase><testcase classname="tests.test_v03_science_adversarial" name="test_unresolved_scientific_objection_prevents_freeze_and_compensation" time="0.011" /><testcase classname="tests.test_v03_science_adversarial" name="test_source_hash_tampering_rejected_without_partial_state" time="0.004" /><testcase classname="tests.test_v03_science_adversarial" name="test_contributor_cannot_change_author_identity" time="0.004" /><testcase classname="tests.test_v03_science_adversarial" name="test_single_commit_freezes_contributions_before_reveal" time="0.004" /><testcase classname="tests.test_v03_science_adversarial" name="test_no_double_settlement_with_fresh_nonce_and_different_reward_id" time="0.008" /></testsuite></testsuites>

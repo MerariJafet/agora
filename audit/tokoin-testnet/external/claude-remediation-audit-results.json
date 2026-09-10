@@ -1,0 +1,210 @@
+{
+  "schema": "agora.magna.tokoin.claude_remediation_audit.v1",
+  "auditor_type": "AI_INTERNAL_TECHNICAL_REVIEW",
+  "auditor_model": "claude-opus-4-6",
+  "independent_external_audit": false,
+  "date": "2026-09-07",
+  "prior_audit_commit": "001e202aee63b991d22ead591580584c6341f0c0",
+  "prior_bundle_sha256": "f283883379dffaa6cbe8b6498957b40a54f6283735e3c8f0b90395c836d165a5",
+  "commit": "1ceb2a0f8dc18a4e5ec6f28cf4cef15f80689f4b",
+  "bundle_sha256": "3043f6345d00e3ff3da777f9094283789f6af661f4af8453869fbf8e8f8fc4db",
+  "target": {
+    "network": "BASE_SEPOLIA",
+    "chain_id": 84532,
+    "economic_value": false,
+    "mainnet_authorized": false
+  },
+  "methodology": [
+    "PHASE_1_INTEGRITY: Commit verification, bundle SHA-256, source hash comparison, reproducible clean compilation, ABI/bytecode match",
+    "PHASE_2_REMEDIATION_VERIFICATION: Line-by-line review of each prior finding (F-01 through F-10) against remediated code",
+    "PHASE_3_TESTING: npm ci, compile, test:contracts (21 invariants), test:preflight (6), test:bundle (9), audit:static, bundle:verify, npm audit",
+    "PHASE_3_ADVERSARIAL: 15 custom adversarial tests covering edge cases not in existing suite",
+    "PHASE_4_MANDATORY_REVIEW: All 10 mandatory items from prior report verified (Merkle proofs, domain separation, soulbound enforcement, OZ 5.6.1, solc 0.8.30, gas analysis, fund recovery, off-chain boundary, multisig governance, adversarial testing)",
+    "PHASE_5_DEPENDENCY_AUDIT: OpenZeppelin security advisories reviewed, Solidity known bugs reviewed, npm audit"
+  ],
+  "commands_executed": [
+    "git rev-parse HEAD",
+    "git log --oneline -8",
+    "git status --short",
+    "sha256sum contracts/TokoinFixedSupply.sol contracts/TokoinResearchRewards.sol contracts/AgoraAgentIdentity.sol contracts/TokoinControlPlane.sol",
+    "npm ci",
+    "npx hardhat clean",
+    "npm run compile",
+    "npm run test:contracts",
+    "npm run test:preflight",
+    "npm run test:bundle",
+    "npm run audit:static",
+    "npm run bundle:verify",
+    "npm audit --audit-level=high",
+    "node --input-type=module (ABI/bytecode hash verification)",
+    "npx hardhat run scripts/adversarial-tests.mjs --build-profile production --network hardhatOp",
+    "git diff contracts/tokoin/ audit/tokoin-testnet/release-candidate/"
+  ],
+  "prior_findings_disposition": {
+    "F-01_unclaimed_funds_lock": {
+      "prior_severity": "MEDIUM",
+      "disposition": "FIXED",
+      "verified": true,
+      "evidence": "publishSettlement requires claimDeadline (1-365 days); releaseExpiredSettlement is permissionless after deadline; cancelSettlement authority-only before first claim"
+    },
+    "F-02_zero_claim": {
+      "prior_severity": "LOW",
+      "disposition": "FIXED",
+      "verified": true,
+      "evidence": "claim() now checks if (amount == 0) revert ZeroAmount()"
+    },
+    "F-03_no_emergency_control": {
+      "prior_severity": "MEDIUM",
+      "disposition": "FIXED",
+      "verified": true,
+      "evidence": "setClaimsPaused() for emergency pause; cancelSettlement() for pre-claim cancellation; roots are never rewritten"
+    },
+    "F-04_duplicate_revocation": {
+      "prior_severity": "INFORMATIONAL",
+      "disposition": "FIXED",
+      "verified": true,
+      "evidence": "revoke() now checks if (revoked[tokenId]) revert IdentityAlreadyRevoked()"
+    },
+    "F-05_permissionless_claim": {
+      "prior_severity": "LOW",
+      "disposition": "ACCEPTED",
+      "verified": true,
+      "evidence": "Design decision: proof-bound payment goes to leaf account. Standard Merkle airdrop pattern."
+    },
+    "F-06_immutable_authority": {
+      "prior_severity": "LOW",
+      "disposition": "ACCEPTED",
+      "verified": true,
+      "evidence": "Mandatory 2-of-3 Safe; Safe signers can rotate internally."
+    },
+    "F-07_no_tokenURI": {
+      "prior_severity": "INFORMATIONAL",
+      "disposition": "DEFERRED",
+      "verified": true,
+      "evidence": "Signed AGORA Agent profiles remain canonical metadata."
+    },
+    "F-08_api_authorization": {
+      "prior_severity": "MEDIUM",
+      "disposition": "FIXED",
+      "verified": true,
+      "evidence": "Dual-gate production denial; explicit enablement; reservation-operator binding; rate limiting on all 7 mutation endpoints; MutatingOwner+CSRF on all state-changing routes"
+    },
+    "F-09_production_guard_spof": {
+      "prior_severity": "LOW",
+      "disposition": "STRENGTHENED",
+      "verified": true,
+      "evidence": "5 layers: settings is_production, tokoin_local_control_plane_enabled (default False), route-level guard, state machine validation, Redis rate limiting (production fail-closed)"
+    },
+    "F-10_immutable_issuer": {
+      "prior_severity": "LOW",
+      "disposition": "ACCEPTED",
+      "verified": true,
+      "evidence": "Distinct mandatory 2-of-3 Safe with signer rotation inside Safe."
+    }
+  },
+  "new_findings": [
+    {
+      "id": "NF-01",
+      "severity": "INFORMATIONAL",
+      "component": "Compiler toolchain (solc 0.8.30)",
+      "title": "Solidity 0.8.30 has known bugs (none triggered)",
+      "description": "4 known bugs in range (TransientStorageClearingHelperCollision HIGH, InheritanceOrderReversalOnStorageEndWarning MEDIUM, UnsoundSpillInMutualRecursion MEDIUM, LostStorageArrayWriteOnSlotOverflow LOW). None triggered: no viaIR, no transient storage, no custom layout, no mutual recursion.",
+      "status": "CONFIRMED",
+      "recommendation": "Upgrade to solc 0.8.36+ when toolchain permits."
+    },
+    {
+      "id": "NF-02",
+      "severity": "LOW",
+      "component": "release-preflight-lib.mjs:97-104",
+      "title": "Preflight checks attestation, not on-chain Safe configuration",
+      "description": "Preflight verifies SAFE_2_OF_3 environment variable attestation but cannot verify on-chain that addresses are deployed Safe contracts with correct threshold.",
+      "status": "CONFIRMED",
+      "recommendation": "Add post-deployment Safe.getThreshold()/getOwners() verification."
+    },
+    {
+      "id": "NF-03",
+      "severity": "LOW",
+      "component": "TokoinResearchRewards.sol:124-128",
+      "title": "setClaimsPaused can enable indefinite denial of service",
+      "description": "Settlement authority can pause claims indefinitely. If pause persists past deadline, claimants lose allocations. Mitigated by Safe signer rotation and releaseExpiredSettlement().",
+      "status": "CONFIRMED",
+      "recommendation": "For testnet, acceptable. For mainnet, consider maximum pause duration."
+    }
+  ],
+  "findings_by_severity": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 2,
+    "INFORMATIONAL": 1
+  },
+  "tests_passed": [
+    "npm run test:contracts (21 invariants, gas: 107843 for 1024-leaf claim)",
+    "npm run test:preflight (6/6)",
+    "npm run test:bundle (9/9 including Merkle property tests at 1-1024 leaves)",
+    "npm run audit:static (3 contracts, no forbidden patterns, new remediation patterns verified)",
+    "npm run bundle:verify (bundle_sha256 match)",
+    "npm audit --audit-level=high (0 vulnerabilities)",
+    "adversarial-tests.mjs (15/15 custom adversarial tests)"
+  ],
+  "tests_failed": [],
+  "invariants_verified": [
+    "fixed_supply",
+    "eight_decimals",
+    "authority_only_settlement",
+    "immutable_challenge_root",
+    "invalid_proof_rejected",
+    "claim_replay_rejected",
+    "claim_cross_deployment_replay_rejected",
+    "multi_leaf_settlement_bundle_compatible",
+    "settlement_overcommit_rejected",
+    "reward_transfer_does_not_mint",
+    "agent_identity_unique",
+    "agent_identity_non_transferable",
+    "agent_identity_revocable_without_erasure",
+    "duplicate_identity_revocation_rejected",
+    "zero_amount_claim_rejected",
+    "authority_only_claim_pause",
+    "bounded_claim_deadline",
+    "preclaim_settlement_cancellation_releases_reserve",
+    "postclaim_settlement_cancellation_rejected",
+    "expired_claim_rejected",
+    "permissionless_expired_reserve_release"
+  ],
+  "mandatory_review_items": {
+    "merkle_proof_construction": "VERIFIED (1-1024 leaves, deterministic, tamper-detected)",
+    "domain_separation": "VERIFIED (chainid + address(this) + challengeId + account + amount + role)",
+    "erc721_soulbound": "VERIFIED (all transfer paths through _update override, 5 methods tested)",
+    "openzeppelin_5_6_1": "VERIFIED (no applicable advisories)",
+    "solidity_0_8_30": "VERIFIED (4 bugs in range, 0 triggered)",
+    "gas_analysis": "VERIFIED (107843 gas for 1024-leaf, ~0.36% of block limit)",
+    "unclaimed_fund_recovery": "VERIFIED (releaseExpiredSettlement + cancelSettlement)",
+    "offchain_boundary": "VERIFIED (dual-gate, explicit enablement, operator binding)",
+    "multisig_governance": "VERIFIED (SAFE_2_OF_3 attestation + distinct addresses)",
+    "adversarial_testing": "VERIFIED (15/15 adversarial tests passed)"
+  },
+  "integrity_verification": {
+    "commit_match": true,
+    "bundle_sha256_match": true,
+    "source_hashes_match": true,
+    "abi_match": true,
+    "creation_bytecode_match": true,
+    "deployed_bytecode_match": true,
+    "compilation_reproducible": true,
+    "npm_vulnerabilities": 0,
+    "candidate_unmodified": true
+  },
+  "limitations": [
+    "AI-generated review, not independent human audit",
+    "Targeted adversarial tests, not stateless fuzz testing (Foundry/Echidna)",
+    "No live network testing (hardhatOp simulator only)",
+    "No formal verification",
+    "API control plane analysis was code review, not runtime tested",
+    "Cannot verify on-chain Safe contract configuration",
+    "Does not constitute legal, financial, or regulatory advice",
+    "This report does NOT satisfy the independent human audit gate",
+    "Prior internal audit retained as historical evidence only"
+  ],
+  "recommendation": "READY_FOR_HUMAN_EXTERNAL_AUDIT",
+  "report_sha256": "cc93d90ba91d85a3381f6510fad5270572b30146cf5682055dfd9d7ae862404f"
+}

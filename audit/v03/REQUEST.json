@@ -1,0 +1,386 @@
+{
+  "project": "AGORA / TOKOIN",
+  "iteration": "V0.3",
+  "codename": "NETWORKED_SCIENTIFIC_REALITY",
+  "priority": "P0",
+  "baseline": {
+    "source_release": "LOCAL_ALPHA_HARDENING_V0_2",
+    "final_commit": "aa21f2e6fac27362da1017ca5800a1ded1bdb7bf",
+    "instruction": "V0.2 queda congelada como baseline experimental. No reescribir ni eliminar los resultados, fallos iniciales, evidence pack o hashes producidos por V0.2."
+  },
+
+  "primary_goal": "Cerrar la distancia entre una blockchain local endurecida y el sistema científico AGORA real. La iteración debe ejecutar un ciclo científico completo producido por agentes LLM autónomos, transmitido y asentado mediante la red TOKOIN nativa, conservando evidencia reproducible de cada transición.",
+
+  "critical_change_of_focus": {
+    "previous_iteration": "Demostrar que la infraestructura local resiste fallos y mantiene invariantes.",
+    "current_iteration": "Demostrar que AGORA puede utilizar esa infraestructura para ejecutar ciencia multiagente real de extremo a extremo.",
+    "do_not_prioritize": [
+      "UI",
+      "cosmetic redesign",
+      "new social features",
+      "new tokenomics",
+      "new blockchain engine",
+      "performance marketing",
+      "mainnet launch",
+      "ERC-20 deployment"
+    ]
+  },
+
+  "workstreams": [
+    {
+      "id": "V03-01",
+      "name": "Complete Protocol Time Validation",
+      "priority": "P0",
+      "objective": "Cerrar formalmente TIME-007 y TIME-008.",
+      "requirements": [
+        "Crear máquinas virtuales TEST aisladas con relojes independientes.",
+        "Desactivar sincronización automática del reloj únicamente dentro de las VMs de laboratorio cuando sea requerido.",
+        "No cambiar el reloj del host principal.",
+        "No utilizar claves que puedan reutilizarse fuera de TEST.",
+        "Ejecutar validadores con clock skew positivo y negativo.",
+        "Repetir consenso, restart, partition y recovery."
+      ],
+      "clock_profiles": [
+        "correct time",
+        "+60 seconds",
+        "-60 seconds",
+        "+5 minutes",
+        "-5 minutes",
+        "+30 minutes",
+        "-30 minutes"
+      ],
+      "verify": [
+        "No AppHash divergence.",
+        "No premature reward maturation.",
+        "No retroactive relocking caused by local wall clock.",
+        "Consensus behavior remains explainable.",
+        "All rejected or delayed blocks are preserved as evidence."
+      ],
+      "deliverable": "TIME_FULL_VALIDATION_REPORT.md"
+    },
+
+    {
+      "id": "V03-02",
+      "name": "Native Network Scientific State Machine",
+      "priority": "P0",
+      "objective": "Eliminar el salto conceptual entre scientific API y TOKOIN native network.",
+      "required_flow": [
+        "challenge_created",
+        "hypothesis_registered",
+        "agent_contribution_registered",
+        "evidence_committed",
+        "experiment_registered",
+        "experiment_result_committed",
+        "replication_registered",
+        "review_commit",
+        "review_reveal",
+        "scientific_decision",
+        "challenge_or_appeal",
+        "final_scientific_resolution",
+        "contribution_tree_frozen",
+        "reward_distribution_calculated",
+        "reward_transaction_signed",
+        "reward_transaction_broadcast",
+        "CometBFT inclusion",
+        "reward_locked",
+        "wallet_query_confirms_locked_balance"
+      ],
+      "rules": [
+        "No manual database write may substitute a protocol event.",
+        "No direct SQL balance modification.",
+        "No PostgreSQL balance may be treated as sovereign balance.",
+        "Every transition that affects TOKOIN must produce a verifiable native transaction or native state transition.",
+        "Every scientific object influencing a reward must be referenced by content hash.",
+        "Every reward must reference challenge_id and contribution_tree_root.",
+        "Every transaction must be replayable from evidence."
+      ],
+      "success": "A clean node can reconstruct both the monetary result and the scientific provenance required to explain why the reward exists."
+    },
+
+    {
+      "id": "V03-03",
+      "name": "Autonomous LLM Agent Campaign",
+      "priority": "P0",
+      "objective": "Reemplazar los scripted Python workers en una nueva campaña por agentes LLM autónomos reales.",
+      "minimum_agents": 6,
+      "preferred_agents": 12,
+      "requirements": [
+        "At least two different model families when technically available.",
+        "Each agent must have a persistent AGORA identity.",
+        "Each contribution must identify agent, model/provider class, timestamp, hash and challenge.",
+        "Do not expose private chain-of-thought.",
+        "Preserve prompts, public outputs, tool calls and protocol events required for reproducibility.",
+        "Record model version or model identifier when available.",
+        "Record experiment parameters.",
+        "Human intervention must be logged explicitly."
+      ],
+      "agent_roles": [
+        "proposer",
+        "primary researcher",
+        "rival hypothesis researcher",
+        "replicator",
+        "critic",
+        "adversarial researcher",
+        "reviewer"
+      ],
+      "mandatory_experiments": [
+        {
+          "id": "LLM-SCI-001",
+          "type": "known_ground_truth",
+          "expected_protocol_behavior": "Allow evidence-based convergence."
+        },
+        {
+          "id": "LLM-SCI-002",
+          "type": "persuasive_false_hypothesis",
+          "expected_protocol_behavior": "Evidence must outweigh rhetoric or agent popularity."
+        },
+        {
+          "id": "LLM-SCI-003",
+          "type": "inconclusive",
+          "expected_protocol_behavior": "RESULTADO_INCONCLUSO is considered a valid successful protocol result."
+        },
+        {
+          "id": "LLM-SCI-004",
+          "type": "conflicting_replication",
+          "expected_protocol_behavior": "Contradictory branches remain preserved and auditable."
+        },
+        {
+          "id": "LLM-SCI-005",
+          "type": "adversarial_agent",
+          "expected_protocol_behavior": "Attempted manipulation remains detectable and does not silently modify reward eligibility."
+        }
+      ]
+    },
+
+    {
+      "id": "V03-04",
+      "name": "Scientific and Consensus Correctness Separation",
+      "priority": "P0",
+      "objective": "Evitar que una conclusión científica equivocada sea confundida con un fallo blockchain y viceversa.",
+      "metrics": [
+        "consensus_correctness",
+        "state_machine_correctness",
+        "economic_correctness",
+        "provenance_correctness",
+        "scientific_protocol_correctness",
+        "scientific_result_accuracy"
+      ],
+      "rule": "Cada experimento debe reportar estas métricas de forma independiente.",
+      "example": {
+        "consensus_correctness": "PASS",
+        "economic_correctness": "PASS",
+        "scientific_protocol_correctness": "PASS",
+        "scientific_result_accuracy": "FAIL"
+      },
+      "important_interpretation": "Una conclusión RESULTADO_INCONCLUSO puede obtener PASS en scientific_protocol_correctness."
+    },
+
+    {
+      "id": "V03-05",
+      "name": "Negative Review Compensation",
+      "priority": "P0",
+      "objective": "Eliminar el incentivo económico a aprobar investigaciones.",
+      "constraint": "No modificar el reparto macro 10/10/51/20/9 durante esta iteración.",
+      "principle": "La remuneración del reviewer debe depender de haber realizado una revisión válida y verificable, no de que su verdict sea APPROVE.",
+      "new_object": "ReviewReceipt",
+      "review_receipt_fields": [
+        "review_id",
+        "challenge_id",
+        "reviewer_identity",
+        "institution_identity_if_applicable",
+        "commit_hash",
+        "reveal_hash",
+        "methodology_assessment",
+        "evidence_assessment",
+        "replication_assessment",
+        "verdict",
+        "conflict_of_interest_declaration",
+        "protocol_version",
+        "signature"
+      ],
+      "eligible_verdicts": [
+        "APPROVE",
+        "REJECT",
+        "INCONCLUSIVE",
+        "REQUEST_REPLICATION"
+      ],
+      "reward_rule": "A valid qualifying ReviewReceipt may earn reviewer compensation regardless of positive or negative verdict.",
+      "anti_abuse": [
+        "No self-review.",
+        "No duplicate compensation for identical review.",
+        "Conflict of interest must be declared.",
+        "Review eligibility must be challenge-bound.",
+        "Reviewer reward cannot depend solely on agreement with final outcome."
+      ],
+      "deliverable": "REVIEW_ECONOMICS_ADR.md"
+    },
+
+    {
+      "id": "V03-06",
+      "name": "External Operator Rehearsal Package",
+      "priority": "P1",
+      "objective": "Preparar la primera prueba reproducida por personas que no administran el PC de desarrollo.",
+      "stage_name": "EXTERNAL_OPERATOR_REHEARSAL",
+      "explicitly_not": [
+        "public testnet",
+        "mainnet",
+        "economic launch",
+        "proof of decentralization"
+      ],
+      "minimum_target": {
+        "external_operators": 3,
+        "independent_validator_keys": true,
+        "independent_machines": true,
+        "independent_installations": true
+      },
+      "operator_task": [
+        "Receive documentation and release artifact.",
+        "Verify hashes.",
+        "Generate own validator key.",
+        "Initialize node.",
+        "Join TEST network.",
+        "Sync from genesis or supported mechanism.",
+        "Restart node.",
+        "Recover node.",
+        "Participate in controlled partition scenario.",
+        "Verify AppHash.",
+        "Submit reproducibility report."
+      ],
+      "critical_rule": "Core developers should not silently fix the operator environment. Every ambiguity or missing step in documentation becomes a defect report."
+    },
+
+    {
+      "id": "V03-07",
+      "name": "Paper Evidence Generation",
+      "priority": "P0",
+      "objective": "Generar automáticamente las tablas y artefactos que alimentarán AGORA Paper V0.1.",
+      "paper_datasets": [
+        "test_inventory.json",
+        "consensus_results.csv",
+        "apphash_consistency.csv",
+        "monetary_property_results.csv",
+        "failure_injection_results.csv",
+        "scientific_experiments.csv",
+        "agent_contribution_graph.json",
+        "reward_derivation.json",
+        "limitations.json"
+      ],
+      "figures_required": [
+        "AGORA architecture",
+        "scientific state machine",
+        "TOKOIN transaction path",
+        "four-validator topology",
+        "failure and recovery timeline",
+        "contribution genealogy",
+        "reward derivation",
+        "experiment outcome matrix"
+      ],
+      "rule": "No manual transcription of experimental numbers into the paper when a machine-readable result exists."
+    }
+  ],
+
+  "publication_strategy": {
+    "paper_version": "AGORA PAPER V0.1",
+    "start_drafting": "immediately",
+    "paper_scope": "Architecture, local hardening methodology, scientific protocol and reproducible local experimental evaluation.",
+    "must_not_claim": [
+      "real-world decentralization",
+      "permissionless validator network",
+      "institutional validation",
+      "full Sybil resistance",
+      "economic sustainability",
+      "mainnet readiness",
+      "proven scientific truth generation"
+    ],
+    "may_claim_if_supported": [
+      "reproducible local four-validator experiments",
+      "deterministic state-machine evaluation",
+      "local BFT failure characterization",
+      "cryptographically bound transaction domains",
+      "monetary invariant testing",
+      "scientific protocol execution",
+      "networked autonomous-agent execution after V0.3 passes"
+    ]
+  },
+
+  "promotion_gates": {
+    "V03_GATE_A": {
+      "name": "NETWORKED_SCIENCE_PASS",
+      "requires": [
+        "Scientific cycle completes through TOKOIN native network.",
+        "Reward derivation is reproducible.",
+        "No direct SQL sovereign balance mutation.",
+        "Full provenance survives replay."
+      ]
+    },
+    "V03_GATE_B": {
+      "name": "AUTONOMOUS_AGENT_PASS",
+      "requires": [
+        "Minimum six autonomous agents complete experiments.",
+        "At least one false hypothesis scenario.",
+        "At least one inconclusive scenario.",
+        "At least one conflicting replication scenario.",
+        "No hidden manual intervention."
+      ]
+    },
+    "V03_GATE_C": {
+      "name": "TIME_COMPLETE",
+      "requires": [
+        "TIME-007 closed.",
+        "TIME-008 closed.",
+        "Clock-skew evidence retained."
+      ]
+    },
+    "V03_GATE_D": {
+      "name": "PAPER_CANDIDATE",
+      "requires": [
+        "Evidence tables generated automatically.",
+        "Limitations frozen.",
+        "All quantitative claims trace to evidence.",
+        "Source commit frozen.",
+        "Protocol specification frozen."
+      ]
+    }
+  },
+
+  "automatic_no_go_conditions": [
+    "Different canonical AppHash for honest nodes at the same height.",
+    "Scientific reward can be issued without required scientific state.",
+    "Reward can be manufactured by replay.",
+    "Agent identity can silently change after contribution.",
+    "Challenge or review provenance cannot be reconstructed.",
+    "Local wall clock changes monetary maturity.",
+    "Review reward requires APPROVE verdict.",
+    "Direct SQL balance modification is needed to complete the native workflow.",
+    "Evidence pack cannot reproduce the claimed result."
+  ],
+
+  "final_deliverables": [
+    "AGORA_V03_NETWORKED_SCIENCE_REPORT.md",
+    "AUTONOMOUS_AGENT_EXPERIMENTS.md",
+    "TIME_FULL_VALIDATION_REPORT.md",
+    "REVIEW_ECONOMICS_ADR.md",
+    "EXTERNAL_OPERATOR_REHEARSAL.md",
+    "PAPER_EVIDENCE_INDEX.json",
+    "RELEASE_MANIFEST_V03.json"
+  ],
+
+  "manager_final_decision": {
+    "questions": [
+      "Can autonomous agents complete the complete scientific protocol?",
+      "Can the resulting reward be produced entirely through native TOKOIN network state?",
+      "Can every scientific and economic transition be reproduced?",
+      "Do independent correctness metrics separate scientific errors from protocol errors?",
+      "Are TIME-007 and TIME-008 now closed?",
+      "Can an external operator reproduce a node installation using only documented procedures?"
+    ],
+    "required_outputs": [
+      "GO/NO-GO for Paper V0.1 public preprint candidate",
+      "GO/NO-GO for External Operator Rehearsal",
+      "GO/NO-GO for Closed External Testnet",
+      "Explicitly retain NO-GO for Mainnet unless separately authorized"
+    ]
+  },
+
+  "final_instruction": "V0.3 no debe demostrar que AGORA es perfecto. Debe demostrar que la infraestructura endurecida V0.2 puede ser utilizada por agentes autónomos reales para ejecutar un proceso científico completo, auditable y económicamente reproducible a través de la red TOKOIN. Cualquier fallo descubierto debe preservarse como evidencia y convertirse en una prueba de regresión."
+}

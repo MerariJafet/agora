@@ -1,0 +1,58 @@
+{
+  "release": "LOCAL_ALPHA_HARDENING_V0_2",
+  "timestamp_utc": "2026-09-10T03:28:02.762815+00:00",
+  "source_commit": "aa21f2e6fac27362da1017ca5800a1ded1bdb7bf",
+  "native_validation_commit": "c37419e216ce181831546e0d251674de3f8e5d4b",
+  "native_tree": "7aff8bf77c5d7672ab373a1116366e65ce15ca18",
+  "native_tree_identical": true,
+  "baseline_commit": "569e4ca2b28a4dd90dfe3b5cdf342451477248c8",
+  "mode": "TEST_NON_RECOGNIZABLE",
+  "economic_units_recognized": 0,
+  "engine_sha256": "6edb2aa0f223e71758a48cf3d13d9d7ffd26f3357585bebe54311ba71f11ac3f",
+  "native_suite": {
+    "passed": 123,
+    "seconds": 5.3
+  },
+  "api_suite": {
+    "passed": 601,
+    "seconds": 68.51,
+    "previous_failed": 2,
+    "exclusions": 0
+  },
+  "monetary_unique_sequences": 100000,
+  "monetary_replays": 3,
+  "monetary_corpus_sha256": "2c86c9c5b9300d7e5229698d2704c6d43bac8ae994ff080397c2bb05312b336a",
+  "frozen_network_runs": [
+    "20260910T031559Z-9342b265",
+    "20260910T031634Z-e58a5c99"
+  ],
+  "input_requirements": [
+    {
+      "source_path": "/home/merari-acero/.codex/attachments/4741aff8-b4d5-4bbd-a2d5-1ef64013488b/pasted-text.txt",
+      "sha256": "d970ed7d154f492007ba9616102afa1998e9ca6832ab85045a20cd831459f352",
+      "role": "user_supplied_requirements_not_external_attestation"
+    },
+    {
+      "source_path": "/home/merari-acero/.codex/attachments/73b9261c-7b2d-4e8e-af1d-abdc5b578a8a/pasted-text.txt",
+      "sha256": "2e088518ac69245f41e30d44e570d92c789f54ac44918425fca68fa356d8e046",
+      "role": "user_supplied_requirements_not_external_attestation"
+    }
+  ],
+  "gates": {
+    "local_test_campaign": "COMPLETED_WITH_EXPLICIT_COVERAGE_GAPS",
+    "full_master_completion": "PARTIAL",
+    "internal_methodology_draft": "GO",
+    "public_publication_candidate": "NO_GO",
+    "closed_external_testnet": "NO_GO",
+    "mainnet_or_economic_launch": "NO_GO"
+  },
+  "remaining": [
+    "Full validator clock skew",
+    "Autonomous LLM scientific cohort and full network settlement workflow",
+    "Independent negative-review compensation",
+    "Censorship/Sybil/collusion defenses",
+    "Independent operators and human institutions",
+    "External security review and disclosure decisions"
+  ],
+  "independent_attestation": false
+}

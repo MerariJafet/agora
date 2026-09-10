@@ -1,0 +1,148 @@
+{"context_allowlisted": true, "files": 70, "bytes": 642372, "source_sha256": "504e51a72db8cf53b3f36f25d066d3f4eea440451c4721b191c6175deb861008"}
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  717.3kB
+Step 1/23 : FROM node:20-slim@sha256:c6585df72c34172bebd8d36abed961e231d7d3b5cee2e01294c4495e8a03f687 AS web-build
+ ---> 1096d6b5560f
+Step 2/23 : ENV NEXT_TELEMETRY_DISABLED=1
+ ---> Running in 860f905ca39d
+ ---> Removed intermediate container 860f905ca39d
+ ---> 7cd485eaaea1
+Step 3/23 : WORKDIR /app/apps/web
+ ---> Running in 8c22d9a78ec1
+ ---> Removed intermediate container 8c22d9a78ec1
+ ---> cfbd2025b788
+Step 4/23 : COPY apps/web/package.json apps/web/package-lock.json ./
+ ---> 5a717f5ed422
+Step 5/23 : COPY packages/sdk-typescript /app/packages/sdk-typescript
+ ---> fadc879837be
+Step 6/23 : RUN npm ci --no-audit --no-fund
+ ---> Running in 0409468d782a
+[91mnpm warn deprecated eslint@9.33.0: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+[0m
+added 366 packages in 5s
+[91mnpm notice
+npm notice New major version of npm available! 10.8.2 -> 12.0.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+npm notice To update run: npm install -g npm@12.0.2
+npm notice
+[0m ---> Removed intermediate container 0409468d782a
+ ---> 99206ad5c0ba
+Step 7/23 : COPY apps/web /app/apps/web
+ ---> b5e3cf8ce121
+Step 8/23 : ARG AGORA_API_REWRITE_TARGET=http://api:8700
+ ---> Running in 22c30a51e00e
+ ---> Removed intermediate container 22c30a51e00e
+ ---> a228e71a4184
+Step 9/23 : ARG NEXT_PUBLIC_AGORA_API_URL=/agora-api
+ ---> Running in 526734e996d0
+ ---> Removed intermediate container 526734e996d0
+ ---> b60e590b8976
+Step 10/23 : ARG NEXT_PUBLIC_AGORA_WS_URL=/agora-api/v1/realtime/web
+ ---> Running in e9d176b49c12
+ ---> Removed intermediate container e9d176b49c12
+ ---> 2aa8b47de661
+Step 11/23 : ENV AGORA_API_REWRITE_TARGET=$AGORA_API_REWRITE_TARGET     AGORA_CANONICAL_API_URL=$AGORA_API_REWRITE_TARGET     NEXT_PUBLIC_AGORA_API_URL=$NEXT_PUBLIC_AGORA_API_URL     NEXT_PUBLIC_AGORA_WS_URL=$NEXT_PUBLIC_AGORA_WS_URL
+ ---> Running in d917ff3d1703
+ ---> Removed intermediate container d917ff3d1703
+ ---> 14f7d45538ba
+Step 12/23 : RUN npm run build
+ ---> Running in 9ac9bb3b9af8
+
+> agora-web@0.1.0 build
+> next build
+
+▲ Next.js 16.3.4 (Turbopack)
+✓ Running next.config.mjs took 9ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.2s
+  Running TypeScript ...
+  Finished TypeScript in 2.8s ...
+  Collecting page data using 29 workers ...
+  Generating static pages using 29 workers (0/17) ...
+  Generating static pages using 29 workers (4/17) 
+  Generating static pages using 29 workers (8/17) 
+  Generating static pages using 29 workers (12/17) 
+✓ Generating static pages using 29 workers (17/17) in 452ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /agents/[agentId]
+├ ○ /alpha
+├ ○ /arena
+├ ƒ /arena/challenges/[challengeId]
+├ ○ /challenges
+├ ○ /civic
+├ ƒ /claims/[claimId]
+├ ƒ /debates/[debateId]
+├ ○ /login
+├ ○ /login/callback
+├ ○ /missions
+├ ƒ /missions/[missionId]
+├ ƒ /missions/artifact-versions/[versionId]
+├ ○ /my-agents
+├ ƒ /research/[challengeId]
+├ ƒ /research/[challengeId]/institution
+├ ƒ /spaces/[spaceId]
+├ ○ /tokoins
+├ ○ /world
+├ ○ /world-builder
+├ ○ /world-pulse
+├ ƒ /world/challenge/[challengeId]
+├ ○ /world/command
+├ ƒ /world/district/[districtId]
+└ ○ /world/replay
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+ ---> Removed intermediate container 9ac9bb3b9af8
+ ---> 1c64d9d4b9ab
+Step 13/23 : FROM node:20-slim@sha256:c6585df72c34172bebd8d36abed961e231d7d3b5cee2e01294c4495e8a03f687 AS web
+ ---> 1096d6b5560f
+Step 14/23 : ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOME=/home/agora     AGORA_API_REWRITE_TARGET=http://api:8700 AGORA_CANONICAL_API_URL=http://api:8700
+ ---> Running in 21502da5dd53
+ ---> Removed intermediate container 21502da5dd53
+ ---> 2dad47ba5600
+Step 15/23 : RUN groupadd --gid 10001 agora && useradd --uid 10001 --gid 10001 --create-home agora
+ ---> Running in dd6e8b451a79
+ ---> Removed intermediate container dd6e8b451a79
+ ---> 15b269581f4c
+Step 16/23 : WORKDIR /app/apps/web
+ ---> Running in 8a5d1cdb0dd5
+ ---> Removed intermediate container 8a5d1cdb0dd5
+ ---> 5b535aa5fb6e
+Step 17/23 : COPY --from=web-build --chown=10001:10001 /app /app
+ ---> 40dfb482ce73
+Step 18/23 : ARG AGORA_SOURCE_SHA256
+ ---> Running in 9162f595d436
+ ---> Removed intermediate container 9162f595d436
+ ---> 20499b63513b
+Step 19/23 : LABEL org.agora.source-sha256=$AGORA_SOURCE_SHA256
+ ---> Running in cccb3011130d
+ ---> Removed intermediate container cccb3011130d
+ ---> cebb00f5a562
+Step 20/23 : USER 10001:10001
+ ---> Running in d4d397b84eea
+ ---> Removed intermediate container d4d397b84eea
+ ---> 4b68b0ea32e6
+Step 21/23 : EXPOSE 3000
+ ---> Running in a59a6133c6ec
+ ---> Removed intermediate container a59a6133c6ec
+ ---> 00513bf8efe0
+Step 22/23 : HEALTHCHECK --interval=15s --timeout=8s --start-period=30s --retries=3     CMD node -e "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"
+ ---> Running in 5a04241559cc
+ ---> Removed intermediate container 5a04241559cc
+ ---> ce32d82c46cc
+Step 23/23 : CMD ["npm", "run", "start", "--", "--hostname", "0.0.0.0"]
+ ---> Running in 42e5aae94ff6
+ ---> Removed intermediate container 42e5aae94ff6
+ ---> 4705bd0f773d
+Successfully built 4705bd0f773d
+Successfully tagged agora-pilot-web:20260909-local

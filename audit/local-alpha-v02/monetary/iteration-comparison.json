@@ -1,0 +1,23 @@
+{
+  "iteration_1_pass": true,
+  "iteration_2_pass": true,
+  "same_seed": true,
+  "same_corpus": true,
+  "same_counts": true,
+  "elapsed_seconds": [
+    137.77,
+    139.288
+  ],
+  "source_hashes_iteration_1": {
+    "native/tools/monetary_campaign.py": "b0704dbb6935f7598df81a6915c842989380005616a56e639bc4fb453582f62f",
+    "native/tokoin_native/core.py": "2c2ab7c4438ea09854ebaa2cea7a2b939ce2372bc8e6781fde32b235ba3b5aac",
+    "native/tokoin_native/wallet.py": "dfd02876c08ae0d3c1b091daf4dd80d8863c38d68b89a5559a8ed99415b77d6c"
+  },
+  "source_hashes_iteration_2": {
+    "native/tools/monetary_campaign.py": "0b9fecb15533586f45ef18921cb1809d13198aaef10944d48fb27e0e975fb4c0",
+    "native/tokoin_native/core.py": "2c2ab7c4438ea09854ebaa2cea7a2b939ce2372bc8e6781fde32b235ba3b5aac",
+    "native/tokoin_native/wallet.py": "dfd02876c08ae0d3c1b091daf4dd80d8863c38d68b89a5559a8ed99415b77d6c"
+  },
+  "monetary_execution_errors_total": 0,
+  "note": "Two local runs, not independent machines or a new randomized corpus; same seed verifies exact replay. Tool differs only by local type annotations."
+}

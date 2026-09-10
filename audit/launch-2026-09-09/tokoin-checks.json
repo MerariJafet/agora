@@ -1,0 +1,42 @@
+[
+  {
+    "command": "npx hardhat compile --build-profile production --force",
+    "exit_code": 0,
+    "log": "tokoin-check-1.log"
+  },
+  {
+    "command": "npm run test:contracts",
+    "exit_code": 0,
+    "log": "tokoin-check-2.log"
+  },
+  {
+    "command": "npm run test:preflight",
+    "exit_code": 0,
+    "log": "tokoin-check-3.log"
+  },
+  {
+    "command": "npm run test:bundle",
+    "exit_code": 0,
+    "log": "tokoin-check-4.log"
+  },
+  {
+    "command": "npm run audit:static",
+    "exit_code": 0,
+    "log": "tokoin-check-5.log"
+  },
+  {
+    "command": "npm audit --json",
+    "exit_code": 1,
+    "log": "tokoin-check-6.log"
+  },
+  {
+    "command": "npm run preflight:base-sepolia",
+    "exit_code": 1,
+    "log": "tokoin-check-7.log"
+  },
+  {
+    "command": "npm run bundle:verify -- ../../audit/launch-2026-09-09/tokoin-candidate-bundle.json",
+    "exit_code": 0,
+    "log": "tokoin-bundle-verification.log"
+  }
+]

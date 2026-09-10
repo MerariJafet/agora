@@ -1,0 +1,5 @@
+CONFIRMED result-send failure: same-process redelivery discarded; no resend
+CONFIRMED process restart: same task executes again because inbox is volatile
+CONFIRMED offline backlog 300: initial websocket enqueue retains 256; drops first 44 tasks and welcome
+CONFIRMED repeated messageId generates different tasks; no request-level dedup
+CONFIRMED signed canonical card fails verification if served with a different proxy origin

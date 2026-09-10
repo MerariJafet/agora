@@ -1,0 +1,11 @@
+{
+  "run_id": "agora-alpha-clean-build-2r3r1iw7",
+  "fresh_source_and_go_build_cache": true,
+  "downloaded_inputs_reused": true,
+  "same_physical_machine": true,
+  "started_at": 1789009193.9424877,
+  "exit_code": 0,
+  "elapsed_seconds": 10.1725914478302,
+  "binary_sha256": "6edb2aa0f223e71758a48cf3d13d9d7ffd26f3357585bebe54311ba71f11ac3f",
+  "matches_baseline": true
+}

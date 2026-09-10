@@ -1,0 +1,118 @@
+{
+  "app_hash": "",
+  "app_state": {
+    "chain_id": "tokoin-test-v03-transport-smoke",
+    "consensus_validators": [
+      {
+        "power": 1,
+        "public_key": "514f4ad17f9ce4ce52317023bc988a7b73e0684d13264139a979c16e0ecb6c0e"
+      },
+      {
+        "power": 1,
+        "public_key": "6a3d2c4a821ce8cc89f9c37b9b52485fbeee69ba5fee8f83dc69cbd46bfab75f"
+      },
+      {
+        "power": 1,
+        "public_key": "7fa777976731a3c98985806977a975e23e2ae648feef4be99cdd03d87ef23b17"
+      },
+      {
+        "power": 1,
+        "public_key": "b71a7a525ad27a02896b91edba007abe03404b8ec463aa80972ee5e0726e81b4"
+      }
+    ],
+    "distribution": {
+      "contributors": 51,
+      "infra": 9,
+      "institutions": 20,
+      "proposer": 10,
+      "solver": 10
+    },
+    "infrastructure_address": "tkn153fa6a55333cff260229e0adb52a73bb766b46b08953c7f133d81ed11b05aedd",
+    "institutions": {
+      "47e57639a023271252b7c166995ab1007cc00625841ed039bd90a19b1afdb464": {
+        "controller_group": "TEST-owner-0",
+        "institution_id": "TEST-0",
+        "label": "INSTITUTIONAL_VALIDATOR_TEST",
+        "payout_address": "tkn1d171a94296c215b0c572c360bdd81e59fa71224622debc14a0795572db028177"
+      },
+      "ca32ac4b97b7ecc4795920243e8bba09ec17446221076b8cf64f01421169725e": {
+        "controller_group": "TEST-owner-1",
+        "institution_id": "TEST-1",
+        "label": "INSTITUTIONAL_VALIDATOR_TEST",
+        "payout_address": "tkn1c562944d0b7481ad29a940450c6d064370cb2139b594942fc194feaeb3015dd5"
+      }
+    },
+    "maturity_seconds": 31536000,
+    "max_supply_units": 100000000000000,
+    "mode": "TEST_NON_RECOGNIZABLE",
+    "pilot_cap_units": 50000000000,
+    "reward_units": 100000000,
+    "timestamp": 1789014345,
+    "transaction_version": "TOKOIN_TX_V3",
+    "unit": 100000000,
+    "version": "TOKOIN_NATIVE_REWARD_V2"
+  },
+  "chain_id": "tokoin-test-v03-transport-smoke",
+  "consensus_params": {
+    "abci": {
+      "vote_extensions_enable_height": "0"
+    },
+    "block": {
+      "max_bytes": "1000000",
+      "max_gas": "-1"
+    },
+    "evidence": {
+      "max_age_duration": "172800000000000",
+      "max_age_num_blocks": "100000",
+      "max_bytes": "100000"
+    },
+    "validator": {
+      "pub_key_types": [
+        "ed25519"
+      ]
+    },
+    "version": {
+      "app": "0"
+    }
+  },
+  "genesis_time": "2026-09-10T04:25:45Z",
+  "initial_height": "0",
+  "validators": [
+    {
+      "address": "36673D2A48DE622C96FB4E0A0CCD50157AAE59E1",
+      "name": "node0",
+      "power": "1",
+      "pub_key": {
+        "type": "tendermint/PubKeyEd25519",
+        "value": "aj0sSoIc6MyJ+cN7m1JIX77uabpf7o+D3GnL1Gv6t18="
+      }
+    },
+    {
+      "address": "757BF00F37E9C83ACEFE2D14ED62870D878C3432",
+      "name": "node1",
+      "power": "1",
+      "pub_key": {
+        "type": "tendermint/PubKeyEd25519",
+        "value": "f6d3l2cxo8mJhYBpd6l14j4q5kj+70vpnN0D2H7yOxc="
+      }
+    },
+    {
+      "address": "4FCF84DB3BA51E86E13DB780E99C3C5B75F89A20",
+      "name": "node2",
+      "power": "1",
+      "pub_key": {
+        "type": "tendermint/PubKeyEd25519",
+        "value": "txp6UlrSegKJa5HtugB6vgNAS47EY6qAly7l4HJugbQ="
+      }
+    },
+    {
+      "address": "B5BA62B9D8E0B3D599D407FAF25D96020D51A059",
+      "name": "node3",
+      "power": "1",
+      "pub_key": {
+        "type": "tendermint/PubKeyEd25519",
+        "value": "UU9K0X+c5M5SMXAjvJiKe3PgaE0TJkE5qXnBbg7LbA4="
+      }
+    }
+  ]
+}

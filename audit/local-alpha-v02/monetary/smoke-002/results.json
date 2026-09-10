@@ -1,0 +1,32 @@
+{
+  "mode": "TEST_NON_RECOGNIZABLE",
+  "seed": 20260909,
+  "requested_sequences": 8,
+  "counts": {
+    "transition_attempts": 32,
+    "accepted_transitions": 16,
+    "valid_transfer": 16,
+    "expected_rejections": 16,
+    "replay": 2,
+    "double_finality": 4,
+    "capacity_accepts": 16,
+    "capacity_expected_rejections": 16,
+    "allocation_reference_checks": 8,
+    "completed_sequences": 8,
+    "bad_nonce": 2,
+    "premature_finality": 4,
+    "cannot_spend_locked_supply": 2,
+    "reward_replay": 2,
+    "execution_errors": 0
+  },
+  "corpus_sha256": "bbd08f0e0a913aab2517277b324d58d658ee633033876227ed54d5cd4116fb69",
+  "first_failure": null,
+  "elapsed_seconds": 0.017,
+  "pass": true,
+  "sequence_definition": "2 accepted signed transfers + 2 rejected signed transitions",
+  "source_hashes": {
+    "native/tools/monetary_campaign.py": "2b4def0ce57915f03011d2612b4ad8aa85fe8d795a487e5a144759afeaa79772",
+    "native/tokoin_native/core.py": "2c2ab7c4438ea09854ebaa2cea7a2b939ce2372bc8e6781fde32b235ba3b5aac",
+    "native/tokoin_native/wallet.py": "dfd02876c08ae0d3c1b091daf4dd80d8863c38d68b89a5559a8ed99415b77d6c"
+  }
+}

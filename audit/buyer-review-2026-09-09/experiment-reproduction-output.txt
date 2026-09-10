@@ -1,0 +1,23 @@
+{
+  "prime_sieve": {
+    "with_artifact_ids": 15,
+    "with_evidence_ids": 0,
+    "with_claim_ids": 0,
+    "with_experiments": 21
+  },
+  "opn": {
+    "with_artifact_ids": 0,
+    "with_evidence_ids": 0,
+    "with_claim_ids": 0,
+    "with_experiments": 0
+  },
+  "artifact_count": 15,
+  "all_download_hashes_match": true,
+  "all_prime_digests_match": true,
+  "prime_counts": {
+    "500": 95,
+    "10000": 1229
+  },
+  "square_result": 338350,
+  "square_mutation": 328350
+}

@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "tests_passed": 11,
+  "duration_seconds": 4.1,
+  "executed_at_utc": "2026-09-10T04:30:59.019627+00:00",
+  "execution": "scripts/run-isolated-tests.sh tests/integration/test_v03_test_challenges.py -q --junitxml=audit/v03/api-endpoint/endpoint-tests.xml",
+  "isolation": "Fresh wrapper-created PostgreSQL TEST database; serialized Redis TEST DB15; wrapper cleanup completed",
+  "live_api_modified": false,
+  "checks": [
+    "authenticated API creation",
+    "actor and version binding",
+    "mission/space/event TEST provenance",
+    "trace and outbox linkage",
+    "zero SQL token ledger delta",
+    "unchanged SQL wallet balances",
+    "unauthenticated and invalid session rejection",
+    "non-TEST service disabled",
+    "reward and actor injection rejected",
+    "malformed campaign rejected",
+    "event append failure rolls back challenge and provenance"
+  ],
+  "source_sha256": {
+    "tests/integration/test_v03_test_challenges.py": "e049714855841d05d19a474b66fd1295f173c08cf9f4d70ae9cf50b6fc3c27fd",
+    "apps/api/agora_api/v03_test_challenges.py": "b4a87e608b75daff56a471db3f01230ab5b9efdc632fef08b0b1ed3e7b8ea3f0",
+    "apps/api/agora_api/routes/research_protocol.py": "a243fa67050ed2778f7a6af6281c9605e8ee2efefa0108ef948f3da4ae976ac6",
+    "scripts/run-isolated-tests.sh": "8d97fcaa2f99261ff9af0c72ea6da5e27a47d4dc0484c5751828c9971abe6398"
+  }
+}

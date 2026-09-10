@@ -1,0 +1,60 @@
+{
+  "run_id": "V03_SECURITY_DISCOVERY_002",
+  "status": "FAIL_CONFIRMED",
+  "execution_scope": "isolated deterministic application with actual signed transactions",
+  "total_test_observations": 15,
+  "failed_observations": 7,
+  "passed_observations": 8,
+  "findings": [
+    {
+      "id": "V03-SEC-001",
+      "severity": "P0",
+      "summary": "Registered controller group not used in self-review check",
+      "failing_regressions": 1
+    },
+    {
+      "id": "V03-SEC-002",
+      "severity": "P0",
+      "summary": "Review/result dependency not enforced through challenge, revocation, invalidation or maturity pause",
+      "failing_regressions": 5
+    },
+    {
+      "id": "V03-SEC-003",
+      "severity": "P0",
+      "summary": "Replication accepted without any preceding experiment result",
+      "failing_regressions": 1
+    }
+  ],
+  "files": [
+    {
+      "path": "audit/v03/security/adversarial-first.xml",
+      "sha256": "186834a86350075ff796c7f920b0013bbd1618b040b1bccebf0a0e54e620f188"
+    },
+    {
+      "path": "audit/v03/security/stage-order-first.xml",
+      "sha256": "7670c0f6bfcf99a54d127a68abdb13c28c6c1b2ed6f209bc08cc46ec97b6330d"
+    },
+    {
+      "path": "audit/v03/security/mature-review-first.xml",
+      "sha256": "fda527990618b9d251a20c43352ed335578eef485c9055d76bbae40b10fdb377"
+    },
+    {
+      "path": "audit/v03/security/dependent-pause-first.xml",
+      "sha256": "28ff0f290c8efa802e32a39e14343b7922d4fa4cf497c69e9aa92b882dfa345a"
+    }
+  ],
+  "runtime_modified_by_reviewer": false,
+  "passing_boundaries": [
+    "mixed REJECT/INCONCLUSIVE/REQUEST_REPLICATION pays only20percent",
+    "unresolved objection blocks freeze/settlement",
+    "content hash tampering rejected atomically",
+    "author spoofing rejected",
+    "tree freezes at firstreviewcommit",
+    "newnonce double settlement rejected"
+  ],
+  "limitations": [
+    "This is AI security review, not external human audit",
+    "Arbitrary scientific content truth and artifact quality still depend on scientific reviewers",
+    "Tests are native application transitions, not native network transport"
+  ]
+}

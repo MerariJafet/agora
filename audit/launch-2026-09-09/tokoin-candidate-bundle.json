@@ -1,0 +1,76 @@
+{
+  "schema": "agora.tokoin.contract_release_bundle.v1",
+  "status": "UNDEPLOYED_AUDIT_CANDIDATE",
+  "target": {
+    "network": "BASE_SEPOLIA",
+    "chain_id": 84532,
+    "economic_value": false,
+    "mainnet_authorized": false
+  },
+  "monetary_policy": {
+    "name": "TOKOIN",
+    "symbol": "TOKOIN",
+    "decimals": 8,
+    "total_supply_aceros": "100000000000000",
+    "mintable_after_genesis": false
+  },
+  "toolchain": {
+    "solidity": "0.8.30",
+    "hardhat": "3.15.0",
+    "ethers": "6.17.0",
+    "openzeppelin": "5.6.1",
+    "evm_version": "cancun"
+  },
+  "source_files": {
+    "contracts/AgoraAgentIdentity.sol": "7b5234d56136b3ef238565cc80e59fb6237dbcdff04c08c16d7323cae548a85b",
+    "contracts/TokoinControlPlane.sol": "26fb5e3143990d698f43762075edb93db78f26e58599e9c775e56dd630f00f7d",
+    "contracts/TokoinFixedSupply.sol": "ce47ac22580f802789640e9e42ffd48129d76901ff1e2e203f699d6bd7aaa241",
+    "contracts/TokoinResearchRewards.sol": "a10ba1c5185ee89d448159e2626e307e0ae7869314400fb2ba21d062dff09b97"
+  },
+  "build_inputs": {
+    "hardhat.config.js": "b0d47d45d51f08a8e407fc525abfe163110cebd3c1f70877b5d7e0055a23a17c",
+    "package-lock.json": "f98521d442000011cb2ff9b4c1c3e95b43dfd5b44f36280b61bb6eae06315d79",
+    "package.json": "5d3ac56b53f78711103b4796ceaba177f88e7c062a5aee126e651ddc06e1f5a0",
+    "scripts/build-candidate-bundle.mjs": "b6c223fc8473eeedd1d2ed61ab1e8267dfedaee2d3286411f15b3cfb65bcc406",
+    "scripts/candidate-bundle-lib.mjs": "49573abaaa4cfc8142da106929e23572b0b7b308dfdd4ba734637970f6b73946",
+    "scripts/static-audit.mjs": "6af5b8709ee7e60a7685d87b7aa67107e9f464c6ba1b08d6cf62e10485c887b7",
+    "scripts/deploy-base-sepolia.mjs": "fc535f1705fb8dfe9005b16d4b52a8501bb29039ba325085723c7e25aa055cb1",
+    "scripts/deployment-verifier-lib.mjs": "bb72b1f2e201b691194be6fc0cb658cbaa296c78d4195fc6627a920054826267",
+    "scripts/verify-base-sepolia.mjs": "a217e7fe8491d2e1ff85b4af254d982a987e68c21194bea5023d144d5c79d363",
+    "scripts/release-preflight-lib.mjs": "32677c8737cbd42dcad56a1a61bada6a3866039f9e2f43aba8ec536f4a96875e",
+    "scripts/release-preflight.mjs": "e09f1596c0bcb28a27fbf3e85f2e4574e8550aa5a3dd64f8f9e4fb7cce59539e",
+    "scripts/verify-candidate-bundle.mjs": "bd1de23b336a2ec2cb658008124aad325ced61d802c199a620d0027927ed30bc"
+  },
+  "contracts": {
+    "TokoinFixedSupply": {
+      "source": "contracts/TokoinFixedSupply.sol",
+      "artifact": "artifacts/contracts/TokoinFixedSupply.sol/TokoinFixedSupply.json",
+      "abi_sha256": "bfc9926ad14b1ae3467bee8991b4330a69e1f98d86983a87a90268abf5219de2",
+      "creation_bytecode_sha256": "f0cc7e3bd4e5694fe1c9489d90c8081f78f3612b9b64fe14c1776c52caa0a794",
+      "deployed_bytecode_sha256": "46b71b11c74999afe61a3118c28fba461debd1024d1067bca233c17726f76afd"
+    },
+    "TokoinResearchRewards": {
+      "source": "contracts/TokoinResearchRewards.sol",
+      "artifact": "artifacts/contracts/TokoinResearchRewards.sol/TokoinResearchRewards.json",
+      "abi_sha256": "1b35e9658f5856c08a2e29678ca7e5ba7de2cd09a0edbab1a5f7d9c4e8b034a7",
+      "creation_bytecode_sha256": "088ee34b1ad666376458c5896c836978947dff706a1600becb44742c1febff91",
+      "deployed_bytecode_sha256": "cf6945518330f8065a79cfd501f07c9e0fe1c20ecc97f57658030d27d79ef1a5"
+    },
+    "AgoraAgentIdentity": {
+      "source": "contracts/AgoraAgentIdentity.sol",
+      "artifact": "artifacts/contracts/AgoraAgentIdentity.sol/AgoraAgentIdentity.json",
+      "abi_sha256": "b27a3cf7fdcab3082416a1513734fde92dcae69cee235ff9ed4338ad30de88f9",
+      "creation_bytecode_sha256": "1c92176105a594a74aed9a9f4d7036c2e0eaadf08b233db6623b2a4ea8cf0167",
+      "deployed_bytecode_sha256": "f60b320417a110e8dd3eed46e92f142a3f0080cbf35edbdd09bd685471681e98"
+    }
+  },
+  "trust_boundaries": [
+    "Base and Ethereum provide public-chain consensus",
+    "an external audit is required before deployment",
+    "treasury, settlement authority and identity issuer must be authorized 2-of-3 Safe addresses",
+    "research adjudication selects reward recipients but does not prove factual truth",
+    "settlements expire and release only unclaimed reservations; roots stay immutable",
+    "claim pause and preclaim cancellation are controlled by the settlement Safe"
+  ],
+  "bundle_sha256": "5086bcb6efd63e6758a447e6ed5d7984171f293fa7a4f2c0b2120b49d83cf2b6"
+}

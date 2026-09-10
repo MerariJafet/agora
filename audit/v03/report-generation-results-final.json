@@ -1,0 +1,37 @@
+{
+  "status": "PASS",
+  "metrics": {
+    "agents": 8,
+    "provider_families": 2,
+    "cases": 5,
+    "calculator_replays": 56,
+    "submitted_transactions": 121,
+    "locked_units": 180000000,
+    "available_units": 0,
+    "reward_records": 6,
+    "independent_application_replays": 4,
+    "replay_height": 216,
+    "state_root": "c5784a187e2255ad4dd11d6c3f6ee5671f73c47de7ee5474ae7f42d0545db952",
+    "clock_profiles": 7,
+    "same_height_time_observations": 104,
+    "tests": {
+      "Native": {
+        "passed": 182,
+        "failed": 0,
+        "skipped": 0
+      },
+      "API unit/integration": {
+        "passed": 455,
+        "failed": 0,
+        "skipped": 1
+      },
+      "E2E/security": {
+        "passed": 191,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "subjective_rating": 4.7,
+  "paper_files": 17
+}

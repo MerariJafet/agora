@@ -1,0 +1,1 @@
+{"dependencies": [{"name": "cryptography", "version": "50.0.0", "vulns": []}, {"name": "protobuf", "version": "6.33.6", "vulns": []}, {"name": "cffi", "version": "2.1.1", "vulns": []}, {"name": "pycparser", "version": "3.0", "vulns": []}], "fixes": []}

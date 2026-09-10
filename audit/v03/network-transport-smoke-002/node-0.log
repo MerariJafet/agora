@@ -1,0 +1,15 @@
+E[2026-09-09|22:25:51.242] Error on broadcastTxCommit                   module=rpc err="tx already exists in cache"
+E[2026-09-09|22:25:51.243] Stopping peer for error                      module=p2p peer="Peer{MConn{127.0.0.1:47902} ab504b5222c0d639447ea965ea7ff6aa9652866a in}" err="read tcp 127.0.0.1:53965->127.0.0.1:47902: use of closed network connection"
+E[2026-09-09|22:25:51.243] error while stopping peer                    module=p2p error="already stopped"
+E[2026-09-09|22:25:51.243] Stopping peer for error                      module=p2p peer="Peer{MConn{127.0.0.1:47910} a6b555fc18c2da327feb6cbadfa20686ecaf2a00 in}" err="read tcp 127.0.0.1:53965->127.0.0.1:47910: use of closed network connection"
+E[2026-09-09|22:25:51.243] error while stopping peer                    module=p2p error="already stopped"
+E[2026-09-09|22:25:51.243] Stopping peer for error                      module=p2p peer="Peer{MConn{127.0.0.1:47924} e98c53616f1d0bb5397f6332b6e1bbaeaf92f34c in}" err="read tcp 127.0.0.1:53965->127.0.0.1:47924: use of closed network connection"
+E[2026-09-09|22:25:51.243] error while stopping peer                    module=p2p error="already stopped"
+E[2026-09-09|22:25:51.243] Error stopping pool                          module=blocksync err="already stopped"
+E[2026-09-09|22:25:51.245] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=consensus
+E[2026-09-09|22:25:51.245] consensus connection terminated. Did the application crash? Please restart CometBFT module=proxy err="read message: EOF"
+E[2026-09-09|22:25:51.245] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=query
+E[2026-09-09|22:25:51.245] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=snapshot
+E[2026-09-09|22:25:51.245] Stopping abci.socketClient for error: read message: EOF module=abci-client connection=mempool
+E[2026-09-09|22:25:51.247] Stopped accept routine, as transport is closed module=p2p numPeers=0
+E[2026-09-09|22:25:51.247] Error serving server                         module=main err="accept tcp 127.0.0.1:59185: use of closed network connection"

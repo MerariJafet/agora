@@ -1,0 +1,12 @@
+{
+  "status": "PASS_TEST_ONLY",
+  "combined_tests": 33,
+  "cli_tests": 11,
+  "file_hashes": {
+    "native/tokoin_native/wallet_cli.py": "a6a796ca6a2c58fd9a1d2d8d75149ade4b6bb7b9302e8ff512cb6de51c1208f5",
+    "native/tests/test_wallet_cli.py": "43422436dc63b5645f6e717650e554e1e7c4e958afbbf9a126528b30758c9fbf",
+    "docs/native/ALPHA_WALLET_CLI.md": "07dfb6d8068ced0ac0f1fe7365feb64fdb70a1ebb9dcd0f69a50d4876e929241"
+  },
+  "broadcast": false,
+  "real_funds": false
+}

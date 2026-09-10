@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.166" timestamp="2026-09-09T20:57:33.847119-06:00" hostname="Acero"><testcase classname="tests.test_alpha_fuzz" name="test_seeded_malformed_transactions_fail_closed" time="0.135" /></testsuite></testsuites>
