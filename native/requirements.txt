@@ -1,0 +1,2 @@
+cryptography==50.0.0
+protobuf==6.33.6

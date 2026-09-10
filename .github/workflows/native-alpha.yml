@@ -1,0 +1,46 @@
+name: Native alpha evidence campaign
+on:
+  workflow_dispatch:
+jobs:
+  local-laboratory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      AGORA_ENV: test
+      PYTHONPATH: native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned runtime and test tools
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r native/requirements.txt pytest==9.1.1 ruff==0.16.4 pip-audit
+          mkdir -p /tmp/alpha-evidence
+      - name: Static and consensus-time policy
+        run: |
+          .venv/bin/ruff check native
+          .venv/bin/python native/tools/time_policy.py --output /tmp/alpha-evidence/time.json
+      - name: Unit crypto fuzz crash and invariant tests
+        run: .venv/bin/pytest -c native/pyproject.toml --confcutdir=native native/tests -q --junitxml=/tmp/alpha-evidence/tests.xml
+      - name: Monetary corpus
+        run: .venv/bin/python native/tools/monetary_campaign.py --sequences 100000 --seed 20260909 --output /tmp/alpha-evidence/money
+      - name: Build official engine
+        run: .venv/bin/python native/tools/build_cometbft.py --cache /tmp/alpha-engine --report /tmp/alpha-evidence/build.json
+      - name: Build declared TEST fault injectors reproducibly
+        run: .venv/bin/python native/tools/chaos_build_helpers.py --cache /tmp/alpha-engine --output /tmp/alpha-helpers --report /tmp/alpha-evidence/helpers.json
+      - name: Four-node chaos and synchronization
+        run: .venv/bin/python native/tools/chaos_network.py --engine /tmp/alpha-engine/bin/cometbft --signer /tmp/alpha-helpers/chaos-signer --evidence-tool /tmp/alpha-helpers/chaos-evidence --output-root /tmp/alpha-evidence/chaos --lag-blocks 220
+      - name: Dependency audit
+        run: .venv/bin/pip-audit -r native/requirements.txt --format json --output /tmp/alpha-evidence/dependencies.json
+      - name: Index evidence and reject private key containers
+        id: evidence
+        if: always()
+        run: .venv/bin/python native/tools/evidence_pack.py --root /tmp/alpha-evidence --output /tmp/alpha-evidence/EVIDENCE_INDEX.json --source-commit "$GITHUB_SHA" --engine /tmp/alpha-engine/bin/cometbft
+      - name: Preserve first failures and evidence
+        if: always() && steps.evidence.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-alpha-evidence
+          path: /tmp/alpha-evidence
