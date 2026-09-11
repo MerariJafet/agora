@@ -1,5 +1,7 @@
 import asyncio
+import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 from agora_api.db import session_factory
@@ -255,6 +257,8 @@ def test_reward_payment_requires_resolved_verified_state():
 
 
 def test_repo_contains_no_active_six_hour_release_policy():
+    if shutil.which("rg") is None:
+        pytest.skip("ripgrep not installed on this runner")
     pattern = (
         r"(release|funding|candidate|reward|escrow).*"
         r"(21600|6h|six-hour|six hours|every-six-hours|cada 6 horas)|"
@@ -272,7 +276,7 @@ def test_repo_contains_no_active_six_hour_release_policy():
             "docs",
             "tests",
         ],
-        cwd="/home/merari-acero/agora",
+        cwd=Path(__file__).resolve().parents[2],
         text=True,
         capture_output=True,
         check=False,

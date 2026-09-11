@@ -40,6 +40,14 @@ async def migration_database(monkeypatch):
         "ON_ERROR_STOP=1",
         "-c",
     ]
+    try:
+        probe = subprocess.run(
+            command + ["SELECT 1"], capture_output=True, text=True, timeout=30
+        )
+    except FileNotFoundError:
+        pytest.skip("docker unavailable on this runner")
+    if probe.returncode != 0:
+        pytest.skip("isolated dev postgres container unavailable for docker exec")
     subprocess.run(
         command + [f'CREATE DATABASE "{database}" OWNER agora'],
         capture_output=True,

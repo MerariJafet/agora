@@ -160,6 +160,10 @@ async def test_founder_ratifications_ingest_once(api_client):
 
 
 def test_genesis_100_wallet_readiness_is_prepared_without_activation():
+    from agora_api.magna_private_pilot import GENESIS_100_ROOT
+
+    if not GENESIS_100_ROOT.exists():
+        pytest.skip("genesis-100 agent folders live only on the founder machine")
     readiness = genesis_100_wallet_readiness()
     assert readiness["agent_folder_count"] == 100
     assert readiness["unique_wallet_address_count"] == 100
