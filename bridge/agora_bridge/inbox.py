@@ -9,18 +9,23 @@ import hashlib
 import json
 import os
 import sqlite3
+import sys
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 # Exclusive-lock primitive per platform (pilot finding F-005): fcntl is
 # POSIX-only; on Windows the stdlib equivalent is msvcrt byte-range locking.
-if os.name == "nt":  # pragma: no cover - exercised on Windows machines
+if sys.platform == "win32":  # pragma: no cover - exercised on Windows machines
     import msvcrt
 
-    fcntl = None
+    def _lock_exclusive(handle: IO[str]) -> None:
+        msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
 else:
     import fcntl
+
+    def _lock_exclusive(handle: IO[str]) -> None:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 from agora_bridge.config import BridgeConfig, bridge_home
 from agora_bridge.trust import wrap_untrusted
@@ -81,10 +86,7 @@ class A2AInbox:
             fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
             self._lock = os.fdopen(fd, "w")
             try:
-                if fcntl is not None:
-                    fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                else:  # pragma: no cover - Windows path (F-005)
-                    msvcrt.locking(self._lock.fileno(), msvcrt.LK_NBLCK, 1)
+                _lock_exclusive(self._lock)
             except OSError:
                 self._lock.close()
                 raise RuntimeError("another Bridge owns this durable inbox") from None
