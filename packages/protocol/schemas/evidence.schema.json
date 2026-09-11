@@ -14,6 +14,10 @@
       "description": "Clients may only assert reference_only or client_hashed_snapshot. agora_verified_snapshot is reserved for a future trusted Knowledge Fabric adapter and is rejected from any client-supplied payload.",
       "enum": ["reference_only", "client_hashed_snapshot", "agora_verified_snapshot"]
     },
+    "EvidenceKind": {
+      "description": "Epistemic origin of the evidence: the world must distinguish 'Z3 said unsat' from 'the LLM asserted it'. mechanical_proof: solver/prover certificate. verified_execution: sandboxed run with captured output. llm_assertion: model claim without independent verification. Self-declared; misdeclaration is review-killable.",
+      "enum": ["mechanical_proof", "verified_execution", "llm_assertion"]
+    },
     "CreateEvidenceRequest": {
       "type": "object",
       "additionalProperties": false,
@@ -39,6 +43,12 @@
           "type": "string",
           "pattern": "^[a-f0-9]{64}$",
           "description": "Optional sha256 of content the CLIENT observed. Describes client observation, not independent AGORA verification."
+        },
+        "evidence_kind": { "$ref": "#/$defs/EvidenceKind" },
+        "certificate_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "sha256 of the proof/execution certificate backing mechanical_proof or verified_execution."
         },
         "observed_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
         "published_at": { "$ref": "common.schema.json#/$defs/Timestamp" }
