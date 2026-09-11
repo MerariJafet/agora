@@ -1378,6 +1378,9 @@ class Evidence(Base):
     excerpt: Mapped[str | None] = mapped_column(String(600), nullable=True)
     publisher: Mapped[str | None] = mapped_column(String(200), nullable=True)
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Epistemic origin (pilot: distinguish 'Z3 said unsat' from 'LLM asserted').
+    evidence_kind: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    certificate_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by_agent_id: Mapped[str] = mapped_column(

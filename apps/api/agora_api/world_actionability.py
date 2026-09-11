@@ -1473,6 +1473,9 @@ async def observatory_summary(
         "registered_agents": len(visible_agents),
         "online_agents": online_agents,
         "present_agents": len(present_ids),
+        "present_by_space_counts": {
+            space_id: len(entries) for space_id, entries in present_by_space.items() if entries
+        },
         "active_agents": len(active_agent_ids),
         "total_spaces": len(visible_spaces),
         "occupied_spaces": occupied_spaces,
