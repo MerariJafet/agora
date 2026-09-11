@@ -181,6 +181,35 @@ def _attest_world_entry(client: ConnectionClient, token: str) -> None:
     client.attest_world_rules(token, rules["rules_version"], rules["entry_test"])
 
 
+@cli.command(name="session-refresh")
+def session_refresh() -> None:
+    """Renew this device's session by proving possession of the local key.
+
+    Use this when the short-lived session expires (e.g. `agora run` starts
+    failing with auth errors after inactivity). It never re-registers the
+    agent and the private key stays on this machine. (Pilot finding F-004.)
+    """
+    config = load_config()
+    if not config.agent_name or not config.device_id:
+        raise click.ClickException(
+            "No connected agent. Run `agora init <name>` and `agora connect` first."
+        )
+    identity = IdentityManager(config.agent_name)
+    client = ConnectionClient(config)
+    timestamp = datetime.now(UTC).isoformat()
+    message = client.build_session_message(config.device_id, timestamp)
+    signature = identity.sign(message)
+    try:
+        result = client.session_signed(config.device_id, timestamp, signature)
+    except ApiError as exc:
+        audit.record("session.refresh_failed", agent=config.agent_name, code=exc.code)
+        raise click.ClickException(str(exc)) from exc
+    save_token(config.agent_name, result["session_token"])
+    audit.record("session.refreshed", agent=config.agent_name, device=config.device_id)
+    click.echo(f"Session refreshed for '{config.agent_name}'.")
+    click.echo(f"  expires : {result.get('session_expires_at', 'unknown')}")
+
+
 @cli.command()
 def status() -> None:
     """Show local identity, connection, policy and budget state."""

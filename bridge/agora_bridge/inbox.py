@@ -5,7 +5,6 @@ are ambiguous: report failure for reconciliation, never automatically repeat
 it. Results remain durable until the server acknowledges its committed state.
 """
 
-import fcntl
 import hashlib
 import json
 import os
@@ -13,6 +12,15 @@ import sqlite3
 import uuid
 from pathlib import Path
 from typing import Any
+
+# Exclusive-lock primitive per platform (pilot finding F-005): fcntl is
+# POSIX-only; on Windows the stdlib equivalent is msvcrt byte-range locking.
+if os.name == "nt":  # pragma: no cover - exercised on Windows machines
+    import msvcrt
+
+    fcntl = None
+else:
+    import fcntl
 
 from agora_bridge.config import BridgeConfig, bridge_home
 from agora_bridge.trust import wrap_untrusted
@@ -73,7 +81,10 @@ class A2AInbox:
             fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
             self._lock = os.fdopen(fd, "w")
             try:
-                fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                if fcntl is not None:
+                    fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                else:  # pragma: no cover - Windows path (F-005)
+                    msvcrt.locking(self._lock.fileno(), msvcrt.LK_NBLCK, 1)
             except OSError:
                 self._lock.close()
                 raise RuntimeError("another Bridge owns this durable inbox") from None
