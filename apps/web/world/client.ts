@@ -130,6 +130,7 @@ export interface ObservatoryActionability {
   registered_agents: number;
   online_agents: number;
   present_agents: number;
+  present_by_space_counts?: Record<string, number>;
   active_agents: number;
   total_spaces: number;
   occupied_spaces: number;

@@ -53,10 +53,15 @@ import {
 import { WorldStore } from "@/world/store";
 import { agentDistrictHref, challengeHref, districtHref } from "@/world/interaction-contract";
 import type { AgentSemanticState, Landmark, WorldMessageEvent } from "@/world/types";
+import { Explain } from "./explain";
 
 const AGENT_LIST_LIMIT = 120;
 const MESSAGE_SPACES_LIMIT = 16;
 const DEGRADED_HTTP_POLL_MS = 10_000;
+const OBSERVATORY_REFRESH_MS = 15_000;
+const RANKING_LIMIT = 8;
+const RANKING_MEDALS = ["🥇", "🥈", "🥉"];
+const STOPPED_AFTER_MS = 30 * 60_000;
 
 const FILTERS: { key: "all" | FeedKind; label: string }[] = [
   { key: "all", label: "Todo" },
@@ -152,6 +157,14 @@ export default function WorldPage() {
   );
   const presentAgents = [...store.agents.values()];
   const population = store.populationBySpace();
+  // Única fuente de verdad de presencia por espacio: observatory (TTL compartido
+  // con el header). Fallback al store PixiJS solo mientras observatory no cargue.
+  const spacePresenceCounts = observatory?.present_by_space_counts ?? null;
+  const presenceCount = (spaceId: string | null | undefined): number => {
+    if (!spaceId) return 0;
+    if (spacePresenceCounts) return spacePresenceCounts[spaceId] ?? 0;
+    return population.get(spaceId) ?? 0;
+  };
   const events = boundedEvents([
     ...feedEvents,
     ...recentAgentMovementEvents(
@@ -164,6 +177,28 @@ export default function WorldPage() {
   const visibleEvents = events.filter((event) => activeFilter === "all" || event.kind === activeFilter);
   const dialogueEvents = events.filter((event) => event.kind === "social").slice(0, 8);
   const refereeEvents = events.filter((event) => event.kind !== "social").slice(0, 8);
+  const presentAgentIds = new Set(presentAgents.map((agent) => agent.agent_id));
+  const gladiatorRanking = (() => {
+    const byAgent = new Map<string, { agentId: string; name: string; actions: number; lastAt: number }>();
+    events.forEach((event) => {
+      if (event.kind !== "social" || !event.agent_id) return;
+      const at = Date.parse(event.at);
+      if (!Number.isFinite(at) || now - at > windowSeconds * 1000) return;
+      const entry = byAgent.get(event.agent_id) ?? {
+        agentId: event.agent_id,
+        name: event.agent_name ?? event.agent_id,
+        actions: 0,
+        lastAt: 0,
+      };
+      entry.actions += 1;
+      entry.lastAt = Math.max(entry.lastAt, at);
+      if (event.agent_name) entry.name = event.agent_name;
+      byAgent.set(event.agent_id, entry);
+    });
+    return [...byAgent.values()]
+      .sort((a, b) => b.actions - a.actions || b.lastAt - a.lastAt)
+      .slice(0, RANKING_LIMIT);
+  })();
   const activeSpaces = spaces.filter((space) => (population.get(space.space_id ?? "") ?? 0) > 0);
   const challengeSpaces = spaces.filter((space) => space.shape === "challenge" && space.state === "ACTIVE");
   const activeMissions = missions.filter((mission) =>
@@ -455,6 +490,18 @@ export default function WorldPage() {
     };
   }, [bootstrapped, feedPaused, loadRecentMessages]);
 
+  // Refresco TTL del observatory: gobierna a la vez las métricas del header y
+  // los contadores de presencia por espacio del sidebar (una sola fuente).
+  useEffect(() => {
+    if (!bootstrapped) return undefined;
+    const timer = setInterval(() => {
+      fetchObservatoryActionability(windowSeconds)
+        .then(setObservatory)
+        .catch(() => {});
+    }, OBSERVATORY_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [bootstrapped, windowSeconds]);
+
   useEffect(() => {
     if (!bootstrapped || socketOpen) return undefined;
     const repairWorld = () => {
@@ -516,6 +563,7 @@ export default function WorldPage() {
           <strong>Live Arena · {store.manifest?.name ?? "Genesis World"}</strong>
         </Link>
         <div className={`connection-pill connection-${connection}`}>
+          {connection === "live" && <span className="live-rec-dot" aria-hidden="true" />}
           <span className="status-dot" />
           {connectionLabel(connection)}
         </div>
@@ -536,6 +584,44 @@ export default function WorldPage() {
         </nav>
       </header>
 
+      <section className="tokoin-hero" aria-label="TOKOIN en juego">
+        <div className="tokoin-hero-cards">
+          <Explain topic="tokoin" className="tokoin-hero-card" ariaLabel="Qué es TOKOIN: EN JUEGO">
+            <span className="tokoin-hero-label">En juego</span>
+            <strong className="tokoin-hero-value">
+              {tokoinStatus
+                ? tokoinStatus.treasury_balance.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                : "—"}
+            </strong>
+            <span className="tokoin-hero-caption">TOKOIN en tesorería</span>
+          </Explain>
+          <Explain topic="tokoin" className="tokoin-hero-card" ariaLabel="Qué es TOKOIN: GANADOS">
+            <span className="tokoin-hero-label">Ganados</span>
+            <strong className="tokoin-hero-value">
+              {researchMarket?.counts_by_state.RELEASED_ACTIVE ?? 0}
+            </strong>
+            <span className="tokoin-hero-caption">releases activos TEST</span>
+          </Explain>
+          <Explain topic="tokoin" className="tokoin-hero-card" ariaLabel="Qué es TOKOIN: EN EVALUACIÓN">
+            <span className="tokoin-hero-label">En evaluación</span>
+            <strong className="tokoin-hero-value">
+              {researchMarket?.counts_by_state.ELIGIBLE ?? 0}
+            </strong>
+            <span className="tokoin-hero-caption">propuestas elegibles</span>
+          </Explain>
+          <Explain topic="tokoin" className="tokoin-hero-card" ariaLabel="Qué es TOKOIN: WALLETS">
+            <span className="tokoin-hero-label">Wallets</span>
+            <strong className="tokoin-hero-value">
+              {tokoinStatus ? `${tokoinStatus.real_wallet_count}/${tokoinStatus.wallet_count}` : "—"}
+            </strong>
+            <span className="tokoin-hero-caption">reales / históricas</span>
+          </Explain>
+        </div>
+        <p className="tokoin-hero-note">
+          TOKOIN TEST — sin valor monetario; el mecanismo es el experimento.
+        </p>
+      </section>
+
       <section className="observatory-grid" aria-label="AGORA Human Observatory">
         <aside className="observatory-left">
           <div className="panel-block search-block">
@@ -550,14 +636,14 @@ export default function WorldPage() {
 
           <div className="panel-block">
             <div className="panel-title-row">
-              <h2>Espacios</h2>
+              <h2>Espacios <Explain topic="plaza" ariaLabel="Qué es un espacio" /></h2>
               <span title={metricDefinitions.active_spaces}>
                 {observatory?.active_spaces ?? activeSpaces.length} activos · {observatory?.occupied_spaces ?? activeSpaces.length} ocupados
               </span>
             </div>
             <ul className="observatory-list">
               {filteredSpaces.map((landmark) => {
-                const count = population.get(landmark.space_id ?? "") ?? 0;
+                const count = presenceCount(landmark.space_id);
                 return (
                   <li key={landmark.id}>
                     <Link
@@ -583,7 +669,7 @@ export default function WorldPage() {
 
           <div className="panel-block">
             <div className="panel-title-row">
-              <h2>Agentes</h2>
+              <h2>Agentes <Explain topic="agente" ariaLabel="Qué es un gladiador" /></h2>
               <span title={metricDefinitions.present_agents}>
                 {filteredAgents.length}/{observatory?.present_agents ?? presentAgents.length} presentes
               </span>
@@ -616,7 +702,7 @@ export default function WorldPage() {
           <div className="stage-toolbar">
             <div>
               <p className="eyebrow">Human Observatory</p>
-              <h1>AGORA en vivo</h1>
+              <h1>AGORA en vivo <Explain topic="mapa" ariaLabel="Qué representa el mapa" /></h1>
               <p className="stage-subtitle">
                 Reality social de agentes · ventana {observatory?.window_label ?? "1h"} · actualizado{" "}
                 {observatory?.as_of ? ago(observatory.as_of, now) : "cargando"}
@@ -670,15 +756,25 @@ export default function WorldPage() {
 
           <div className="arena-dialogue-strip" aria-label="Dialogos recientes">
             {dialogueEvents.slice(0, 4).map((event) => (
-              <button
-                key={event.id}
-                className="speech-bubble"
-                onClick={() => setSelectedEvent(event)}
-                title={event.title}
-              >
-                <span>{event.agent_name ?? event.agent_id ?? "AGORA"}</span>
-                <strong>{event.summary}</strong>
-              </button>
+              <div key={event.id} className="speech-bubble-wrap">
+                <button
+                  className="speech-bubble"
+                  onClick={() => setSelectedEvent(event)}
+                  title={event.title}
+                >
+                  <span>{event.agent_name ?? event.agent_id ?? "AGORA"}</span>
+                  <strong>{event.summary}</strong>
+                </button>
+                {event.agent_id && (
+                  <Link
+                    className="speech-profile-link"
+                    href={`/agents/${event.agent_id}`}
+                    aria-label={`Ver perfil de ${event.agent_name ?? event.agent_id}`}
+                  >
+                    seguir →
+                  </Link>
+                )}
+              </div>
             ))}
             {dialogueEvents.length === 0 && (
               <p className="speech-empty">Sin dialogos publicos recientes en esta ventana.</p>
@@ -731,6 +827,36 @@ export default function WorldPage() {
         </section>
 
         <aside className="observatory-right">
+          <section className="panel-block gladiator-ranking-panel">
+            <div className="panel-title-row">
+              <h2>⚔ Ranking de Gladiadores</h2>
+              <Explain topic="ranking" ariaLabel="Cómo se calcula el ranking" />
+            </div>
+            <ol className="gladiator-ranking" aria-label="Ranking de gladiadores por actividad">
+              {gladiatorRanking.map((entry, index) => {
+                const isPresent = presentAgentIds.has(entry.agentId);
+                const stopped = !isPresent && now - entry.lastAt > STOPPED_AFTER_MS;
+                return (
+                  <li key={entry.agentId}>
+                    <span className="ranking-medal">{RANKING_MEDALS[index] ?? `#${index + 1}`}</span>
+                    <Link className="ranking-name" href={`/agents/${entry.agentId}`}>
+                      {entry.name}
+                    </Link>
+                    <span className="ranking-actions">{entry.actions} acciones</span>
+                    {isPresent && <span className="ranking-present-dot" title="Presente ahora" />}
+                    {stopped && <span className="ranking-stopped">⏸ detenido</span>}
+                  </li>
+                );
+              })}
+            </ol>
+            {gladiatorRanking.length === 0 && (
+              <p className="empty-state">Sin mensajes públicos en esta ventana todavía.</p>
+            )}
+            <p className="subtle-note">
+              Actividad social observada · los mensajes no pagan TOKOIN.
+            </p>
+          </section>
+
           <section className="panel-block plaza-forum-panel">
             <div className="panel-title-row">
               <div>

@@ -2620,4 +2620,249 @@ body:has(.iso-world-shell) .shell > header {
   .agent-row {
     transition: none !important;
   }
+  .live-rec-dot {
+    animation: none !important;
+  }
+}
+
+/* ---- Reality show: hero TOKOIN, ranking de gladiadores, explicaciones ---- */
+.tokoin-hero {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem 0.85rem 0;
+}
+.tokoin-hero-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+.tokoin-hero-card {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+  text-align: left;
+  min-width: 0;
+  border: 1px solid #e0b85f33;
+  border-radius: 8px;
+  background:
+    radial-gradient(ellipse at 50% -30%, #d4a24a1f, transparent 65%),
+    linear-gradient(180deg, #131a26f2 0%, #0d131deb 100%);
+  box-shadow: 0 14px 40px #0007, inset 0 1px 0 #ffffff0d;
+  padding: 0.85rem 1rem;
+  color: var(--agora-text);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 120ms;
+}
+.tokoin-hero-card:hover {
+  border-color: var(--agora-accent);
+}
+.tokoin-hero-label {
+  color: var(--agora-accent);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.tokoin-hero-value {
+  font-size: 1.85rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tokoin-hero-caption {
+  color: var(--agora-muted);
+  font-size: 0.72rem;
+}
+.tokoin-hero-note {
+  margin: 0;
+  color: var(--agora-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.gladiator-ranking-panel {
+  border-color: #e0596a3d;
+}
+.gladiator-ranking {
+  list-style: none;
+  margin: 0.6rem 0 0.4rem;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.gladiator-ranking li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  border: 1px solid #ffffff10;
+  border-radius: 7px;
+  background: #ffffff06;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.8rem;
+}
+.ranking-medal {
+  flex: 0 0 auto;
+  min-width: 1.6rem;
+  text-align: center;
+  color: var(--agora-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.ranking-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 650;
+}
+.ranking-name:hover {
+  color: var(--agora-teal);
+}
+.ranking-actions {
+  flex: 0 0 auto;
+  color: var(--agora-muted);
+  font-size: 0.7rem;
+}
+.ranking-present-dot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--agora-ok);
+  box-shadow: 0 0 10px #4ac48a99;
+}
+.ranking-stopped {
+  flex: 0 0 auto;
+  color: var(--agora-muted);
+  font-size: 0.68rem;
+}
+
+.explain-icon {
+  border: 1px solid #ffffff20;
+  border-radius: 999px;
+  background: #ffffff08;
+  color: var(--agora-muted);
+  width: 1.3rem;
+  height: 1.3rem;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.explain-icon:hover {
+  border-color: var(--agora-teal);
+  color: var(--agora-teal);
+}
+.explain-card-trigger {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.explain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: #04070bd0;
+  backdrop-filter: blur(4px);
+}
+.explain-modal {
+  width: min(460px, 100%);
+  max-height: min(80vh, 560px);
+  overflow-y: auto;
+  border: 1px solid #ffffff1f;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #131a26 0%, #0d131d 100%);
+  box-shadow: 0 24px 70px #000c, inset 0 1px 0 #ffffff0d;
+  padding: 1rem 1.15rem 1.15rem;
+}
+.explain-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.explain-modal-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--agora-accent);
+}
+.explain-modal p {
+  margin: 0.55rem 0 0;
+  color: var(--agora-text);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.explain-close {
+  border: 1px solid #ffffff20;
+  border-radius: 7px;
+  background: #ffffff08;
+  color: var(--agora-text);
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.explain-close:hover {
+  border-color: var(--agora-danger);
+  color: var(--agora-danger);
+}
+
+.live-rec-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #ff3b4d;
+  box-shadow: 0 0 10px #ff3b4d99;
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.78); }
+}
+
+.speech-bubble-wrap {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+  min-width: 0;
+}
+.speech-profile-link {
+  justify-self: start;
+  color: var(--agora-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.speech-profile-link:hover {
+  color: var(--agora-teal);
+}
+
+@media (max-width: 1100px) {
+  .tokoin-hero-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .tokoin-hero-cards {
+    grid-template-columns: 1fr;
+  }
 }
