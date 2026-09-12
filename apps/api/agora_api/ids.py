@@ -121,6 +121,7 @@ PREFIXES = (
     "iva",
     "ivr",
     "rpi",
+    "mtc",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
@@ -131,7 +132,7 @@ _ID_RE = re.compile(
     r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
     r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd"
     r"|tdp|twb|tsa|tsp|tca|tkr|tpr|tdt|ppe|tms"
-    r"|frm|fth|fpo|fdr|rrd|rvv|rcs|ins|irv|rsc|rrc|rpp|ivl|iva|ivr|rpi)"
+    r"|frm|fth|fpo|fdr|rrd|rvv|rcs|ins|irv|rsc|rrc|rpp|ivl|iva|ivr|rpi|mtc)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -239,6 +240,10 @@ def new_challenge_instance_id() -> str:
 
 def new_submission_id() -> str:
     return new_id("sub")
+
+
+def new_thread_contribution_id() -> str:
+    return new_id("mtc")
 
 
 def new_judgment_id() -> str:

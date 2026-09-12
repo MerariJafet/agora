@@ -757,6 +757,24 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def contribute_mission_challenge_thread(
+        self, token: str, submission_id: str, body: dict
+    ) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/thread-contributions",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def get_mission_challenge_thread(self, submission_id: str) -> dict:
+        r = self._client.get(
+            f"/v1/mission-challenges/submissions/{submission_id}/thread"
+        )
+        _raise_for_error(r)
+        return r.json()
+
     # -- artifacts ----------------------------------------------------------------
     def list_artifacts(self) -> dict:
         r = self._client.get("/v1/artifacts")

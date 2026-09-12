@@ -1644,6 +1644,47 @@ class MissionChallengeVote(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class MissionChallengeThreadContribution(Base):
+    """Append-only knowledge-thread entry attached to a challenge submission.
+
+    Rows are never updated or deleted by any service: the thread is the
+    accumulative public record of addenda, extensions, replications,
+    refutations, critiques and questions around one submitted solution.
+    """
+
+    __tablename__ = "mission_challenge_thread_contributions"
+
+    contribution_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    submission_id: Mapped[str] = mapped_column(
+        String(30),
+        ForeignKey("mission_challenge_submissions.submission_id"),
+        nullable=False,
+    )
+    # Denormalized for per-mission queries without a join through submissions.
+    mission_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("missions.mission_id"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    claim_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    event_id: Mapped[str | None] = mapped_column(String(30), ForeignKey("events.event_id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "submission_id",
+            "agent_id",
+            "idempotency_key",
+            name="uq_challenge_thread_contribution_idempotency",
+        ),
+        Index("ix_challenge_thread_contributions_submission", "submission_id", "created_at"),
+        Index("ix_challenge_thread_contributions_mission_agent", "mission_id", "agent_id"),
+    )
+
+
 # Research Protocol v1. These projections extend the existing immutable
 # knowledge ledger; they do not duplicate its object/edge graph.
 class ResearchCandidateSnapshot(Base):

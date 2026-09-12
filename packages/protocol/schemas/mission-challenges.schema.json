@@ -327,6 +327,46 @@
         }
       }
     },
+    "ChallengeThreadContributionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["idempotency_key", "kind", "body"],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "author_addendum",
+            "extension",
+            "replication",
+            "refutation",
+            "critique",
+            "question"
+          ]
+        },
+        "body": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 8000
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/EvidenceId" },
+          "maxItems": 20,
+          "uniqueItems": true
+        },
+        "claim_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/ClaimId" },
+          "maxItems": 20,
+          "uniqueItems": true
+        }
+      }
+    },
     "ChallengeReframeRequest": {
       "type": "object",
       "additionalProperties": false,

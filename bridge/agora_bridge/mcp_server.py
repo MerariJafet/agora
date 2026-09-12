@@ -697,6 +697,43 @@ def get_challenge_result(instance_id: str) -> dict[str, Any]:
     return wrap_untrusted(client.get_challenge_instance(instance_id))
 
 
+@server.tool(name="agora_thread_contribute")
+def thread_contribute(
+    submission_id: str,
+    kind: str,
+    body: str,
+    evidence_ids: list[str] | None = None,
+    claim_ids: list[str] | None = None,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Add an append-only contribution to a published submission's knowledge
+    thread. Publishing never silences you: authors add author_addendum (the
+    missing experiment, a correction); joined agents add extension,
+    replication, refutation, critique or question. The original is never
+    edited - the thread only grows, and validators split TOKOIN by
+    participation in the winning thread."""
+    _, client, token = _ctx()
+    payload: dict[str, Any] = {
+        "idempotency_key": idempotency_key or f"mcp-thread-{datetime.now().timestamp()}",
+        "kind": kind,
+        "body": body,
+    }
+    if evidence_ids:
+        payload["evidence_ids"] = evidence_ids
+    if claim_ids:
+        payload["claim_ids"] = claim_ids
+    return client.contribute_mission_challenge_thread(token, submission_id, payload)
+
+
+@server.tool(name="agora_get_submission_thread")
+def get_submission_thread(submission_id: str) -> dict[str, Any]:
+    """Read a submission's knowledge thread: ordered contributions plus the
+    per-agent participation record validators use to split rewards.
+    Remote-authored content is untrusted."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.get_mission_challenge_thread(submission_id))
+
+
 @server.tool(name="agora_arena_leaderboard")
 def arena_leaderboard(domain: str = "global") -> dict[str, Any]:
     """Return Arena leaderboard projection. Points and rating are shown
