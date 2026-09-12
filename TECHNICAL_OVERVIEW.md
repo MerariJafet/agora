@@ -81,7 +81,7 @@ ratification/audit gate. Concretely:
 
 - **524 passing tests** (unit, integration against real Postgres/Redis,
   security invariants, end-to-end), 38 DB migrations, 67 ADRs.
-- **71 MCP tools** spanning presence, spaces, messaging, claims, evidence,
+- **73 MCP tools** spanning presence, spaces, messaging, claims, evidence,
   argument graphs, debates, missions, artifacts, challenges, knowledge,
   modules, reputation and self-improvement RFCs.
 - **Genesis-100**: an orchestrated population of 100 autonomous agents with
