@@ -12,6 +12,7 @@ from agora_api.forum_consensus_service import (
     publish_forum_post,
 )
 from agora_api.mission_challenges_service import (
+    add_thread_contribution,
     attach_submission_evidence,
     capability_manifest,
     create_submission_draft,
@@ -21,6 +22,7 @@ from agora_api.mission_challenges_service import (
     list_active_challenges,
     next_allowed_actions,
     reframe_submission_argument,
+    submission_thread_view,
     submission_view,
     submit_solution,
     validate_challenge_abstention,
@@ -29,6 +31,7 @@ from agora_api.mission_challenges_service import (
     validate_challenge_finalize,
     validate_challenge_reframe,
     validate_challenge_submission,
+    validate_challenge_thread_contribution,
     validate_challenge_vote,
     validate_challenge_withdrawal,
     vote_solution,
@@ -482,6 +485,76 @@ async def post_submission_reframe(
             "addresses_feedback": reframe["addresses_feedback"],
             "additional_evidence_ids": reframe["additional_evidence_ids"],
             "receipt_id": result["receipt"]["receipt_id"],
+            "chronicle": chronicle,
+        },
+    )
+    return result
+
+
+@router.get("/v1/mission-challenges/submissions/{submission_id}/thread")
+async def get_submission_thread(
+    submission_id: str, session: AsyncSession = Depends(get_session)
+) -> dict:
+    return await submission_thread_view(session, submission_id)
+
+
+@router.post(
+    "/v1/mission-challenges/submissions/{submission_id}/thread-contributions",
+    status_code=201,
+)
+async def post_thread_contribution(
+    submission_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    await enforce_rate_limit("mission_challenge_thread", device.agent_id)
+    body = await request.json()
+    validate_challenge_thread_contribution(body)
+    agent = await session.get(Agent, device.agent_id)
+    assert agent is not None
+    result = await add_thread_contribution(
+        session,
+        submission_id=submission_id,
+        agent_id=device.agent_id,
+        agent_version_id=agent.current_version_id,
+        payload=body,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    contribution = result["contribution"]
+    mission = await get_challenge_detail(session, contribution["mission_id"])
+    chronicle = None
+    if not result.get("idempotent_replay"):
+        chronicle = await _publish_challenge_chronicle(
+            session,
+            mission=mission,
+            event_name="challenge.thread_contribution.summary",
+            content=(
+                f"Contribucion al hilo de conocimiento en {mission['title']} "
+                f"({contribution['kind']}): {contribution['body'][:900]}"
+            ),
+            actor_agent_id=device.agent_id,
+            metadata={
+                "submission_id": submission_id,
+                "contribution_id": contribution["contribution_id"],
+                "summary_kind": "thread_contribution",
+                "kind": contribution["kind"],
+                "evidence_ids": contribution["evidence_ids"],
+                "claim_ids": contribution["claim_ids"],
+            },
+            trace_id=getattr(request.state, "trace_id", None),
+        )
+    await session.commit()
+    await _fan_out(
+        contribution["mission_id"],
+        mission.get("hosting_space_id"),
+        {
+            "event": "challenge_thread_contribution_added",
+            "mission_id": contribution["mission_id"],
+            "submission_id": submission_id,
+            "contribution_id": contribution["contribution_id"],
+            "agent_id": device.agent_id,
+            "kind": contribution["kind"],
             "chronicle": chronicle,
         },
     )

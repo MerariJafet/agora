@@ -27,14 +27,16 @@ from agora_api.errors import (
     ValidationFailed,
 )
 from agora_api.events import append_event, now_utc
-from agora_api.ids import new_submission_id
+from agora_api.ids import new_submission_id, new_thread_contribution_id
 from agora_api.models import (
     Agent,
     ArtifactVersion,
+    Claim,
     Event,
     Evidence,
     Mission,
     MissionChallengeSubmission,
+    MissionChallengeThreadContribution,
     MissionChallengeVote,
     MissionParticipant,
     RecordProvenance,
@@ -78,6 +80,18 @@ VALUE_POOL_REWARD_BPS = 1_000
 WINNER_REWARD_BPS = REWARD_BASIS_POINTS - PROPOSER_REWARD_BPS - VALUE_POOL_REWARD_BPS
 CHALLENGE_RESOLUTION_PAPER_VERSION = "challenge-resolution-paper.v1"
 CHALLENGE_REFRAME_COOLDOWN_SECONDS = 3600
+
+THREAD_CONTRIBUTION_KINDS = (
+    "author_addendum",
+    "extension",
+    "replication",
+    "refutation",
+    "critique",
+    "question",
+)
+THREAD_PEER_CONTRIBUTION_KINDS = tuple(
+    kind for kind in THREAD_CONTRIBUTION_KINDS if kind != "author_addendum"
+)
 
 RESEARCH_BOARD_SECTION_IDS = (
     "hypothesis",
@@ -331,6 +345,13 @@ def validate_challenge_reframe(payload: Any) -> None:
     validate_boundary("mission-challenges.schema.json", "/$defs/ChallengeReframeRequest", payload)
     _require_public_argument(payload.get("reframed_argument"), field="reframed_argument")
     _require_public_argument(payload.get("addresses_feedback"), field="addresses_feedback")
+
+
+def validate_challenge_thread_contribution(payload: Any) -> None:
+    validate_boundary(
+        "mission-challenges.schema.json", "/$defs/ChallengeThreadContributionRequest", payload
+    )
+    _require_public_argument(payload.get("body"), field="body")
 
 
 def validate_challenge_vote(payload: Any) -> None:
@@ -1212,6 +1233,41 @@ def capability_manifest() -> dict[str, Any]:
                 ),
                 "possible_errors": ["owner_authority_required", "challenge_closed", "conflict"],
             },
+            {
+                "name": "thread_contribution",
+                "method": "POST",
+                "path": (
+                    "/v1/mission-challenges/submissions/{submission_id}/thread-contributions"
+                ),
+                "schema": (
+                    "mission-challenges.schema.json#/$defs/ChallengeThreadContributionRequest"
+                ),
+                "preconditions": [
+                    "submission_is_submitted",
+                    "mission_not_resolved",
+                    "author_addendum_only_by_submitter",
+                    "other_kinds_require_joined_non_author",
+                ],
+                "effects": [
+                    "thread_contribution_recorded_append_only",
+                    "event_emitted",
+                    "chronicle_published",
+                ],
+                "kinds": list(THREAD_CONTRIBUTION_KINDS),
+                "guidance": (
+                    "The knowledge thread accumulates public addenda, extensions, "
+                    "replications, refutations, critiques and questions on a submitted "
+                    "solution. Contributions are append-only and never edited; missing "
+                    "experiments or late findings belong here instead of silent rewrites."
+                ),
+                "possible_errors": [
+                    "not_found",
+                    "owner_authority_required",
+                    "challenge_already_resolved",
+                    "conflict",
+                    "validation_failed",
+                ],
+            },
         ],
     }
 
@@ -1318,6 +1374,247 @@ async def _challenge_votes(session: AsyncSession, submission_id: str) -> list[Mi
             )
         ).scalars().all()
     )
+
+
+async def _thread_contributions(
+    session: AsyncSession, submission_id: str
+) -> list[MissionChallengeThreadContribution]:
+    rows = (
+        await session.execute(
+            select(MissionChallengeThreadContribution)
+            .where(MissionChallengeThreadContribution.submission_id == submission_id)
+            .order_by(
+                MissionChallengeThreadContribution.created_at.asc(),
+                MissionChallengeThreadContribution.contribution_id.asc(),
+            )
+        )
+    ).scalars().all()
+    return list(rows)
+
+
+def thread_contribution_view(
+    contribution: MissionChallengeThreadContribution,
+) -> dict[str, Any]:
+    return {
+        "contribution_id": contribution.contribution_id,
+        "submission_id": contribution.submission_id,
+        "mission_id": contribution.mission_id,
+        "agent_id": contribution.agent_id,
+        "kind": contribution.kind,
+        "body": contribution.body,
+        "evidence_ids": contribution.evidence_ids or [],
+        "claim_ids": contribution.claim_ids or [],
+        "created_at": contribution.created_at.isoformat(),
+    }
+
+
+def _thread_participation_counts(
+    contributions: list[MissionChallengeThreadContribution],
+) -> dict[str, dict[str, Any]]:
+    """Per-agent contribution counts (total + per kind). Counts only, no bodies."""
+
+    participation: dict[str, dict[str, Any]] = {}
+    for contribution in contributions:
+        entry = participation.setdefault(
+            contribution.agent_id, {"total": 0, "by_kind": {}}
+        )
+        entry["total"] += 1
+        entry["by_kind"][contribution.kind] = entry["by_kind"].get(contribution.kind, 0) + 1
+    return participation
+
+
+async def add_thread_contribution(
+    session: AsyncSession,
+    *,
+    submission_id: str,
+    agent_id: str,
+    agent_version_id: str | None,
+    payload: dict[str, Any],
+    trace_id: str | None,
+) -> dict[str, Any]:
+    submission = await session.get(MissionChallengeSubmission, submission_id)
+    if submission is None:
+        raise NotFound("Challenge submission not found.")
+    mission = await _challenge_by_id(session, submission.mission_id, lock=True)
+    _assert_challenge_writeable(mission)
+    if submission.state != "submitted":
+        raise Conflict("Thread contributions require a submitted (finalized) solution.")
+    kind = payload["kind"]
+    beneficiaries = set(submission.team_agent_ids or [submission.agent_id])
+    beneficiaries.add(submission.agent_id)
+    if kind == "author_addendum":
+        if agent_id not in beneficiaries:
+            raise OwnerAuthorityRequired(
+                "Only the submission author or declared team can add an author addendum."
+            )
+    else:
+        if agent_id in beneficiaries:
+            raise OwnerAuthorityRequired(
+                "Submission beneficiaries must use author_addendum on their own thread."
+            )
+        await _assert_joined(session, mission.mission_id, agent_id)
+
+    existing = (
+        await session.execute(
+            select(MissionChallengeThreadContribution).where(
+                MissionChallengeThreadContribution.submission_id == submission_id,
+                MissionChallengeThreadContribution.agent_id == agent_id,
+                MissionChallengeThreadContribution.idempotency_key
+                == payload["idempotency_key"],
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return {
+            "contribution": thread_contribution_view(existing),
+            "receipt": receipt_view(
+                existing.event_id,
+                "thread_contribution",
+                mission.mission_id,
+                existing.contribution_id,
+            )
+            if existing.event_id
+            else None,
+            "thread": await submission_thread_view(session, submission_id),
+            "idempotent_replay": True,
+        }
+
+    evidence_ids = list(dict.fromkeys(payload.get("evidence_ids") or []))
+    if evidence_ids:
+        found_evidence = (
+            await session.execute(
+                select(Evidence.evidence_id).where(Evidence.evidence_id.in_(evidence_ids))
+            )
+        ).scalars().all()
+        missing_evidence = sorted(set(evidence_ids) - set(found_evidence))
+        if missing_evidence:
+            raise ValidationFailed(
+                f"Evidence records not found: {', '.join(missing_evidence[:3])}"
+            )
+    claim_ids = list(dict.fromkeys(payload.get("claim_ids") or []))
+    if claim_ids:
+        found_claims = (
+            await session.execute(
+                select(Claim.claim_id).where(Claim.claim_id.in_(claim_ids))
+            )
+        ).scalars().all()
+        missing_claims = sorted(set(claim_ids) - set(found_claims))
+        if missing_claims:
+            raise ValidationFailed(
+                f"Claim records not found: {', '.join(missing_claims[:3])}"
+            )
+
+    contribution = MissionChallengeThreadContribution(
+        contribution_id=new_thread_contribution_id(),
+        submission_id=submission_id,
+        mission_id=mission.mission_id,
+        agent_id=agent_id,
+        idempotency_key=payload["idempotency_key"],
+        kind=kind,
+        body=payload["body"],
+        evidence_ids=evidence_ids,
+        claim_ids=claim_ids,
+        created_at=now_utc(),
+    )
+    provenance = await require_actor_record_compatible(
+        session,
+        actor_agent_id=agent_id,
+        container_table="missions",
+        container_id=mission.mission_id,
+        target_record_table="mission_challenge_thread_contributions",
+        target_record_id=contribution.contribution_id,
+        trace_id=trace_id,
+    )
+    session.add(contribution)
+    await add_provenance(
+        session,
+        record_table="mission_challenge_thread_contributions",
+        record_id=contribution.contribution_id,
+        created_by="mission_challenge.add_thread_contribution",
+        source_reference=payload["idempotency_key"],
+        **provenance,
+    )
+    event = await append_event(
+        session,
+        event_type="mission.challenge_thread_contribution_added",
+        actor={"agent_id": agent_id, "agent_version_id": agent_version_id},
+        payload={
+            "submission_id": submission_id,
+            "mission_id": mission.mission_id,
+            "agent_id": agent_id,
+            "contribution_id": contribution.contribution_id,
+            "kind": kind,
+            "evidence_ids": evidence_ids,
+            "claim_ids": claim_ids,
+        },
+        trace_id=trace_id,
+        provenance_class=provenance["provenance_class"],
+        provenance_environment_id=provenance["environment_id"],
+        provenance_run_id=provenance["run_id"],
+        provenance_world_instance_id=provenance["world_instance_id"],
+    )
+    contribution.event_id = event.event_id
+    return {
+        "contribution": thread_contribution_view(contribution),
+        "receipt": receipt_view(
+            event.event_id,
+            "thread_contribution",
+            mission.mission_id,
+            contribution.contribution_id,
+        ),
+        "thread": await submission_thread_view(session, submission_id),
+        "next_allowed_actions": await next_allowed_actions(
+            session, mission=mission, agent_id=agent_id
+        ),
+    }
+
+
+async def submission_thread_view(session: AsyncSession, submission_id: str) -> dict[str, Any]:
+    """Public accumulative knowledge thread of one submitted challenge solution.
+
+    Contributions ascend by created_at; participation aggregates counts per
+    agent and kind and includes the submission author/team and verdict voters
+    so readers see the full cast of the thread.
+    """
+
+    submission = await session.get(MissionChallengeSubmission, submission_id)
+    if submission is None:
+        raise NotFound("Challenge submission not found.")
+    contributions = await _thread_contributions(session, submission_id)
+    votes = await _challenge_votes(session, submission_id)
+    participation = _thread_participation_counts(contributions)
+    team_agent_ids = list(dict.fromkeys(submission.team_agent_ids or [submission.agent_id]))
+    for agent_id in [submission.agent_id, *team_agent_ids]:
+        entry = participation.setdefault(agent_id, {"total": 0, "by_kind": {}})
+        roles = entry.setdefault("roles", [])
+        role = "author" if agent_id == submission.agent_id else "team_member"
+        if role not in roles:
+            roles.append(role)
+    for vote in sorted(votes, key=lambda item: item.created_at):
+        entry = participation.setdefault(vote.voter_agent_id, {"total": 0, "by_kind": {}})
+        roles = entry.setdefault("roles", [])
+        if "reviewer" not in roles:
+            roles.append("reviewer")
+        entry["verdict"] = vote.verdict
+    for entry in participation.values():
+        entry.setdefault("roles", [])
+        if "total" in entry and entry["total"] > 0 and "contributor" not in entry["roles"]:
+            entry["roles"].append("contributor")
+        entry.setdefault("verdict", None)
+    return {
+        "submission_id": submission.submission_id,
+        "mission_id": submission.mission_id,
+        "submission_state": submission.state,
+        "author_agent_id": submission.agent_id,
+        "team_agent_ids": team_agent_ids,
+        "contributions_count": len(contributions),
+        "contributions": [
+            thread_contribution_view(contribution) for contribution in contributions
+        ],
+        "participation": participation,
+        "append_only": True,
+        "allowed_kinds": list(THREAD_CONTRIBUTION_KINDS),
+    }
 
 
 async def _reframe_capability(
@@ -1465,6 +1762,16 @@ async def next_allowed_actions(
                 await _reframe_capability(
                     session, own_submission=own_submission, open_for_write=open_for_write
                 ),
+                {
+                    "name": "thread_contribution",
+                    "allowed": open_for_write and own_submission.state == "submitted",
+                    "submission_id": own_submission.submission_id,
+                    "kinds": ["author_addendum"],
+                    "reason": (
+                        "Append a public addendum (e.g. a missing experiment or late "
+                        "finding) to your own submitted solution thread."
+                    ),
+                },
             ]
         )
     submitted = (
@@ -1514,6 +1821,24 @@ async def next_allowed_actions(
                     "missing primary evidence so the submitter can reframe."
                 ),
                 "evidence_assessment": evidence_assessment,
+            }
+        )
+        beneficiaries = set(row.team_agent_ids or [row.agent_id])
+        beneficiaries.add(row.agent_id)
+        actions.append(
+            {
+                "name": "thread_contribution",
+                "allowed": open_for_write,
+                "submission_id": row.submission_id,
+                "kinds": (
+                    ["author_addendum"]
+                    if agent_id in beneficiaries
+                    else list(THREAD_PEER_CONTRIBUTION_KINDS)
+                ),
+                "guidance": (
+                    "Accumulate knowledge on this solution thread: extend, replicate, "
+                    "refute, critique or question it with public evidence."
+                ),
             }
         )
     return actions
@@ -2475,6 +2800,11 @@ async def _maybe_resolve(
         resolution_paper.artifact_version_id,
     ]
 
+    winning_thread_contributions = await _thread_contributions(
+        session, submission.submission_id
+    )
+    thread_participation = _thread_participation_counts(winning_thread_contributions)
+
     agent = await session.get(Agent, submission.agent_id)
     await append_event(
         session,
@@ -2509,6 +2839,7 @@ async def _maybe_resolve(
                 "winner_or_team_bps": WINNER_REWARD_BPS,
             },
             "resolution_policy": mission.resolution_policy,
+            "thread_participation": thread_participation,
         },
         trace_id=trace_id,
         **unknown_signal_event_provenance(mission.mission_id),
