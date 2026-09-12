@@ -20,6 +20,7 @@ jobs:
       AGORA_REDIS_URL: redis://localhost:6380/15
       AGORA_OUTBOX_ENABLED: "false"
       AGORA_RESEARCH_SCHEDULER_ENABLED: "false"
+      AGORA_NATS_URL: nats://localhost:4222
     services:
       postgres:
         image: postgres:16-alpine
@@ -70,6 +71,16 @@ jobs:
         with:
           name: tokoin-monetary-evidence
           path: /tmp/tokoin-monetary-ci
+      - name: Start NATS (JetStream, matches dev compose)
+        # A GitHub service container cannot pass command args, and the e2e
+        # realtime gateway needs a reachable NATS before uvicorn will boot.
+        run: |
+          docker run -d --name agora-ci-nats -p 4222:4222 nats:2.10 -js
+          for i in $(seq 1 20); do
+            (exec 3<>/dev/tcp/127.0.0.1/4222) 2>/dev/null && exit 0
+            sleep 1
+          done
+          echo "NATS did not come up" >&2; docker logs agora-ci-nats; exit 1
       - name: E2E (Genesis Agent)
         run: .venv/bin/python -m pytest tests/e2e -q
       - name: Dependency audit (fail on known critical)
