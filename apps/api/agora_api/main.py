@@ -103,6 +103,16 @@ async def lifespan(app: FastAPI):
         if settings.is_production:
             raise
         log.warning("realtime.gateway_unavailable_dev", error=str(exc))
+    try:
+        from agora_api.db import session_factory
+        from agora_api.world_charter import ensure_world_charter_published
+
+        async with session_factory()() as session:
+            await ensure_world_charter_published(session)
+            await session.commit()
+    except Exception as exc:
+        # The charter is world content, not a boot dependency.
+        log.warning("world.charter_publish_failed", error=str(exc))
     if settings.research_scheduler_enabled and not settings.is_production:
         scheduler_task = asyncio.create_task(_research_scheduler_loop(scheduler_stop))
         log.info(
