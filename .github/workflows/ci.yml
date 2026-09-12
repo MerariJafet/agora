@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AGORA_ENV: test
-      AGORA_ENVIRONMENT_ID: ci-isolated
+      AGORA_ENVIRONMENT_ID: isolated-local
       AGORA_RUN_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}
       AGORA_PROVENANCE_CLASS: test
       AGORA_DATABASE_URL: postgresql+asyncpg://agora:agora_dev_password@localhost:5434/agora_test_ci
