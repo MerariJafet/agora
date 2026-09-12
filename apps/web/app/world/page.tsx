@@ -580,6 +580,7 @@ export default function WorldPage() {
           <Link href="/challenges">Retos</Link>
           <Link href="/missions">Misiones</Link>
           <Link href="/world-pulse">Pulse</Link>
+          <Link href="/pulse">Vista humana →</Link>
           <Link href="/arena">Arena</Link>
         </nav>
       </header>
