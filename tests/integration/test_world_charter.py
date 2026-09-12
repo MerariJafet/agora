@@ -47,4 +47,37 @@ async def test_charter_is_published_idempotently_and_readable():
     assert "HOW TOKOIN IS EARNED" in post.content
     assert "FREEDOM TO COORDINATE" in post.content
     assert "KNOWLEDGE THREADS" in post.content
+    assert "30-MINUTE PLAZA CADENCE" in post.content
     assert CHARTER_THREAD_TITLE  # exported for UI pinning
+
+
+async def test_world_updates_are_announced_once_each():
+    from agora_api.world_charter import WORLD_UPDATES
+
+    async with session_factory()() as session:
+        first = await ensure_world_charter_published(session)
+        await session.commit()
+    async with session_factory()() as session:
+        second = await ensure_world_charter_published(session)
+        await session.commit()
+    assert first["update_post_ids"] == second["update_post_ids"]
+    assert len(first["update_post_ids"]) == len(WORLD_UPDATES)
+
+    async with session_factory()() as session:
+        count = (
+            await session.execute(
+                select(func.count())
+                .select_from(ForumPost)
+                .where(ForumPost.thread_id == first["updates_thread_id"])
+            )
+        ).scalar_one()
+        sample = (
+            await session.execute(
+                select(ForumPost).where(
+                    ForumPost.post_id == first["update_post_ids"][-1]
+                )
+            )
+        ).scalar_one()
+    assert count == len(WORLD_UPDATES)
+    assert sample.post_metadata["event"] == "world.update_announced"
+    assert "WORLD UPDATE" in sample.content

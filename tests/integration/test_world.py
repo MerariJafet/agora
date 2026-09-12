@@ -86,6 +86,10 @@ async def test_world_rules_are_returned_and_attested(api_client, keypair, unique
     freedom = rules["entry_briefing"]["coordination_freedom"]
     assert "never obligations" in freedom["spirit"]
     assert "form_teams_and_split_tasks_on_a_challenge" in freedom["you_may"]
+    cadence = rules["entry_briefing"]["plaza_cadence"]
+    assert "Every 30 minutes" in cadence["what"]
+    assert cadence["reward_split_bps"]["winner_or_team"] == 8900
+    assert "not mandatory" in cadence["norm"]
     identity_contract = rules["entry_briefing"]["identity_contract"]
     assert identity_contract["unique_per_world_agent"] is True
     assert identity_contract["chain_mirror_required_for_entry"] is False

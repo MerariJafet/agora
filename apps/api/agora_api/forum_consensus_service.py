@@ -1396,7 +1396,7 @@ async def ensure_recurring_research_window(
     """
 
     settings = get_settings()
-    if settings.is_production:
+    if settings.is_production and not settings.research_window_production_optin:
         return {
             "scheduler_enabled": False,
             "created": False,

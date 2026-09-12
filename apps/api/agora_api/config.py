@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     research_scheduler_enabled: bool = True
     research_scheduler_interval_seconds: int = 1800
     research_scheduler_startup_tick: bool = True
+    # The 30-minute plaza cadence stays off in production unless the operator
+    # explicitly opts the deployment in (TEST-pilot release gate).
+    research_window_production_optin: bool = False
     # Eligibility snapshot for recurring research windows. Registration remains
     # independent from this live-cohort bound.
     research_cohort_limit: int = 20

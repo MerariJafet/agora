@@ -113,7 +113,9 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         # The charter is world content, not a boot dependency.
         log.warning("world.charter_publish_failed", error=str(exc))
-    if settings.research_scheduler_enabled and not settings.is_production:
+    if settings.research_scheduler_enabled and (
+        not settings.is_production or settings.research_window_production_optin
+    ):
         scheduler_task = asyncio.create_task(_research_scheduler_loop(scheduler_stop))
         log.info(
             "research.scheduler_started",
