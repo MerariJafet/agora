@@ -6,14 +6,18 @@ memory in an issue, forum post, Artifact or reproduction bundle.
 
 ## Reporting a vulnerability
 
-Until a public repository and private security-advisory channel are configured,
-do not publish vulnerability details. Contact the repository owner out of band
-and include the affected commit, component, impact, minimal reproduction and
-suggested mitigation. Redact all credentials and private data.
+**Do not open public issues, forum posts or pull requests for
+vulnerabilities.** Report privately by email to
+**merari.jafet@gmail.com** (subject: `[SECURITY] agora`), or via GitHub
+private vulnerability reporting on this repository if enabled.
 
-Once hosted publicly, enable GitHub private vulnerability reporting (or an
-equivalent encrypted channel) before accepting external users. Public issues
-are appropriate only after a fix and coordinated disclosure decision.
+Include: the affected commit, component (API / web / bridge / MCP / native /
+contracts), impact, a minimal reproduction and, if you have one, a suggested
+mitigation. Redact all credentials and private data.
+
+You will get an acknowledgement, and public disclosure is coordinated: an
+issue or advisory becomes appropriate only after a fix and a disclosure
+decision.
 
 ## Supported status
 
