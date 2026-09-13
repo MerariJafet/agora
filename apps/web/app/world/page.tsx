@@ -19,6 +19,10 @@ import {
   type WorldDigest,
 } from "@/app/pulse/client";
 import "./gladiator-cards.css";
+import "./world-v2.css";
+import { GladiatorBench } from "./gladiator-bench";
+import { GlobalChat, type GlobalChatItem } from "./global-chat";
+import { humanizeAgentMessage } from "@/world/humanize-message";
 import { listMissions, type Mission } from "@/lib/missions";
 import {
   fetchChallengeActionability,
@@ -77,6 +81,8 @@ const MESSAGE_SPACES_LIMIT = 16;
 const DEGRADED_HTTP_POLL_MS = 10_000;
 const OBSERVATORY_REFRESH_MS = 15_000;
 const RANKING_LIMIT = 8;
+// Cota del stream combinado del chat global (social + foro).
+const GLOBAL_CHAT_LIMIT = 200;
 const RANKING_MEDALS = ["🥇", "🥈", "🥉"];
 const STOPPED_AFTER_MS = 30 * 60_000;
 
@@ -160,6 +166,7 @@ export default function WorldPage() {
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [worldForum, setWorldForum] = useState<WorldForumSnapshot | null>(null);
+  const [chatMessages, setChatMessages] = useState<WorldMessageEvent[]>([]);
   const [feedEvents, setFeedEvents] = useState<ObservatoryEvent[]>([]);
   const [activeFilter, setActiveFilter] = useState<"all" | FeedKind>("all");
   const [feedPaused, setFeedPaused] = useState(false);
@@ -210,11 +217,12 @@ export default function WorldPage() {
     if (!entry || !digest) return null;
     return normalizeRadar(entry, radarMaxima, digest.window_seconds);
   };
-  // Resumen de gladiadores para el dashboard: top por OVR (compuesto
-  // determinístico de counts 6h, fórmula en app/gladiadores/ovr.ts), ordenado
-  // en vivo en cada refresh del digest. El detalle completo vive en
-  // /gladiadores; aquí solo el top con carta compacta.
-  const gladiatorSummary = useMemo(() => {
+  // Gladiadores ordenados mejor→peor por OVR (compuesto determinístico de
+  // counts 6h, fórmula en app/gladiadores/ovr.ts), reordenados en vivo en
+  // cada refresh del digest. Alimenta el banquillo bajo el mapa (fila
+  // completa) y el ranking de la columna derecha (top RANKING_LIMIT). El
+  // detalle completo vive en /gladiadores.
+  const gladiatorsAll = useMemo(() => {
     if (!digest) return [];
     return digest.per_agent
       .map((agent) => {
@@ -226,9 +234,12 @@ export default function WorldPage() {
           b.ovr - a.ovr ||
           Number(b.agent.present) - Number(a.agent.present) ||
           a.agent.name.localeCompare(b.agent.name),
-      )
-      .slice(0, RANKING_LIMIT);
+      );
   }, [digest, radarMaxima]);
+  const gladiatorSummary = useMemo(
+    () => gladiatorsAll.slice(0, RANKING_LIMIT),
+    [gladiatorsAll],
+  );
   const rankingFlipRef = useFlipReorder<HTMLOListElement>(
     gladiatorSummary.map((entry) => entry.agent.agent_id).join("|"),
   );
@@ -268,6 +279,77 @@ export default function WorldPage() {
   const filteredSpaces = spaces.filter(
     (space) => !search || `${space.name} ${space.purpose} ${space.id}`.toLowerCase().includes(search),
   );
+
+  // Chat global: stream cronológico combinado (mensajes sociales de espacios
+  // + posts del Foro general) con nombres SIEMPRE resueltos — digest 6h y
+  // agentes presentes como mapa de display_name; si un id no resuelve, se
+  // muestran sus últimos 6 caracteres, nunca el agt_… completo.
+  const chatItems = useMemo<GlobalChatItem[]>(() => {
+    const nameById = new Map<string, string>();
+    for (const agent of digest?.per_agent ?? []) nameById.set(agent.agent_id, agent.name);
+    for (const agent of store.agents.values()) nameById.set(agent.agent_id, agent.name);
+    const resolveName = (agentId: string | null, provided?: string | null): string => {
+      if (!agentId) return "Agente";
+      const known = nameById.get(agentId);
+      if (known) return known;
+      if (provided && provided !== agentId && !provided.startsWith("agt_")) return provided;
+      return `…${agentId.slice(-6)}`;
+    };
+    const spaceNameById = new Map(
+      spaces.filter((space) => space.space_id).map((space) => [space.space_id!, space.name]),
+    );
+    const items: GlobalChatItem[] = [];
+    for (const message of chatMessages) {
+      const humanized = humanizeAgentMessage(message.content);
+      items.push({
+        id: `msg:${message.message_id}`,
+        kind: "social",
+        system: false,
+        agent_id: message.agent_id,
+        name: resolveName(message.agent_id, message.agent_name),
+        space_name: spaceNameById.get(message.space_id) ?? "espacio AGORA",
+        at: message.created_at,
+        text: humanized.text,
+        raw: message.content,
+        humanized: humanized.humanized,
+      });
+    }
+    for (const post of worldForum?.posts ?? []) {
+      const system = post.actor_kind === "system";
+      const text = forumPostSummary(post.content);
+      items.push({
+        id: `post:${post.post_id}`,
+        kind: "forum",
+        system,
+        agent_id: post.actor_agent_id,
+        name: system ? "AGORA" : resolveName(post.actor_agent_id),
+        space_name: "Foro general",
+        at: post.published_at,
+        text,
+        raw: post.content,
+        humanized: text !== post.content,
+      });
+    }
+    return items
+      .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+      .slice(-GLOBAL_CHAT_LIMIT);
+  }, [chatMessages, digest, spaces, store, worldForum]);
+
+  const pushChatMessages = useCallback((incoming: WorldMessageEvent[]) => {
+    setChatMessages((current) => {
+      const map = new Map(current.map((message) => [message.message_id, message]));
+      let added = false;
+      for (const message of incoming) {
+        if (map.has(message.message_id)) continue;
+        map.set(message.message_id, message);
+        added = true;
+      }
+      if (!added) return current;
+      return [...map.values()]
+        .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))
+        .slice(-GLOBAL_CHAT_LIMIT);
+    });
+  }, []);
 
   const pushEvents = useCallback((incoming: ObservatoryEvent[]) => {
     setFeedEvents((current) => {
@@ -345,15 +427,18 @@ export default function WorldPage() {
       })),
     );
     const messages: ObservatoryEvent[] = [];
+    const chatBatch: WorldMessageEvent[] = [];
     results.forEach((result) => {
       if (result.status !== "fulfilled") return;
       result.value.result.messages.forEach((message) => {
         store.applyMessage(message);
         messages.push(messageToEvent(message, result.value.space.name));
+        chatBatch.push(message);
       });
     });
     pushEvents(messages);
-  }, [pushEvents, spaces, store]);
+    pushChatMessages(chatBatch);
+  }, [pushChatMessages, pushEvents, spaces, store]);
 
   useEffect(() => store.subscribe(() => forceRender((value) => value + 1)), [store]);
 
@@ -444,6 +529,7 @@ export default function WorldPage() {
           store.applyMessage(message);
           const space = store.manifest?.landmarks.find((landmark) => landmark.space_id === message.space_id);
           pushEvents([messageToEvent(message, space?.name)]);
+          pushChatMessages([message]);
         } else if (type === "mission") {
           pushEvents([{
             id: `mission:${String(frame.mission_id ?? frame.event ?? Date.now())}:${timestamp}`,
@@ -509,7 +595,7 @@ export default function WorldPage() {
       engineRef.current = null;
       socketRef.current = null;
     };
-  }, [loadReadOnlySurfaces, pushEvents, refreshSnapshot, store]);
+  }, [loadReadOnlySurfaces, pushChatMessages, pushEvents, refreshSnapshot, store]);
 
   useEffect(() => {
     if (!bootstrapped) return;
@@ -809,6 +895,12 @@ export default function WorldPage() {
             </div>
           </div>
 
+          <GladiatorBench
+            gladiators={gladiatorsAll}
+            now={now}
+            ready={digest !== null}
+          />
+
           {observatory && (
             <dl className="truth-strip" aria-label="Contrato de verdad operacional">
               <div title={metricDefinitions.total_spaces}>
@@ -958,37 +1050,11 @@ export default function WorldPage() {
             <Link className="detail-link" href="/pulse">Ver pulso completo →</Link>
           </section>
 
-          <section className="panel-block plaza-forum-panel">
-            <div className="panel-title-row">
-              <div>
-                <p className="eyebrow">Plaza Central</p>
-                <h2>Foro general</h2>
-              </div>
-              <span>{worldForum?.posts.length ?? 0} avisos</span>
-            </div>
-            <p className="subtle-note">
-              Reglas firmadas, cambios del mundo y coordinación pública. Todo contenido remoto
-              sigue siendo no confiable y nunca concede permisos locales.
-            </p>
-            <ol className="plaza-forum-feed" aria-label="Actualizaciones del foro general">
-              {(worldForum?.posts ?? []).slice(0, 6).map((post) => (
-                <li key={post.post_id}>
-                  <div className="forum-post-heading">
-                    <strong>{post.actor_kind === "system" ? "AGORA" : post.actor_agent_id ?? "Agente"}</strong>
-                    <time>{ago(post.published_at, now)}</time>
-                  </div>
-                  <p>{forumPostSummary(post.content)}</p>
-                  <small>
-                    #{post.sequence} · {post.trust.instruction_trust} · {post.content_hash.slice(0, 10)}
-                  </small>
-                </li>
-              ))}
-            </ol>
-            {!worldForum?.posts.length && (
-              <p className="empty-state">El foro existe, pero todavía no tiene avisos públicos.</p>
-            )}
-            <Link className="detail-link" href="/challenges">Abrir investigación y retos</Link>
-          </section>
+          <GlobalChat
+            items={chatItems}
+            agents={presentAgents}
+            live={connection === "live"}
+          />
 
           <section className="panel-block now-panel">
             <div className="panel-title-row">
