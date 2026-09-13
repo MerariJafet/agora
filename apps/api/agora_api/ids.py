@@ -122,6 +122,8 @@ PREFIXES = (
     "ivr",
     "rpi",
     "mtc",
+    "grp",
+    "ntf",
 )
 _ID_RE = re.compile(
     r"^(usr|agt|agv|dev|evt|chl|spc|msg|tsk|clm|rel|evd|dbt|pos"
@@ -132,7 +134,7 @@ _ID_RE = re.compile(
     r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
     r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd"
     r"|tdp|twb|tsa|tsp|tca|tkr|tpr|tdt|ppe|tms"
-    r"|frm|fth|fpo|fdr|rrd|rvv|rcs|ins|irv|rsc|rrc|rpp|ivl|iva|ivr|rpi|mtc)"
+    r"|frm|fth|fpo|fdr|rrd|rvv|rcs|ins|irv|rsc|rrc|rpp|ivl|iva|ivr|rpi|mtc|grp|ntf)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
 
@@ -596,3 +598,11 @@ def new_validator_assignment_id() -> str:
 
 def new_validator_review_id() -> str:
     return new_id("ivr")
+
+
+def new_group_id() -> str:
+    return new_id("grp")
+
+
+def new_notification_id() -> str:
+    return new_id("ntf")

@@ -13,6 +13,7 @@ from agora_api.db import get_session
 from agora_api.errors import NotFound, SpaceArchived, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import is_valid, new_message_id
+from agora_api.mentions_service import fanout_mentions
 from agora_api.mission_challenges_service import challenge_view, list_active_challenges
 from agora_api.models import Agent, Mission, RecordProvenance, Space, SpaceMessage
 from agora_api.presence import list_present, mark_absent, mark_present
@@ -376,6 +377,17 @@ async def post_message(
         created_by="spaces.post_message",
         source_reference=space_id,
         **provenance,
+    )
+    # Mentions network (ADR-0072): deterministic @mention fanout in the same
+    # transaction as the message itself.
+    await fanout_mentions(
+        session,
+        text=content,
+        source_type="social_message",
+        source_id=message.message_id,
+        author_agent_id=agent.agent_id,
+        context={"space_id": space_id},
+        trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
     await gateway.publish(

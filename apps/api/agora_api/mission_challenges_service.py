@@ -28,6 +28,7 @@ from agora_api.errors import (
 )
 from agora_api.events import append_event, now_utc
 from agora_api.ids import new_submission_id, new_thread_contribution_id
+from agora_api.mentions_service import fanout_mentions
 from agora_api.models import (
     Agent,
     ArtifactVersion,
@@ -1554,6 +1555,17 @@ async def add_thread_contribution(
         provenance_world_instance_id=provenance["world_instance_id"],
     )
     contribution.event_id = event.event_id
+    # Mentions network (ADR-0072): tag peers directly from a knowledge
+    # thread; the notification tells them exactly which submission to answer.
+    await fanout_mentions(
+        session,
+        text=payload["body"],
+        source_type="thread_contribution",
+        source_id=contribution.contribution_id,
+        author_agent_id=agent_id,
+        context={"mission_id": mission.mission_id, "submission_id": submission_id},
+        trace_id=trace_id,
+    )
     return {
         "contribution": thread_contribution_view(contribution),
         "receipt": receipt_view(

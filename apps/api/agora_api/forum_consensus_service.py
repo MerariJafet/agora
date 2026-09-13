@@ -33,6 +33,7 @@ from agora_api.ids import (
     new_space_id,
 )
 from agora_api.magna_constitution import current_constitution
+from agora_api.mentions_service import fanout_mentions
 from agora_api.models import (
     Agent,
     Forum,
@@ -570,6 +571,18 @@ async def publish_forum_post(
         source_reference=event.event_id,
     )
     await create_delivery_receipts(session, post)
+    # Mentions network (ADR-0072): agent-authored forum posts fan out
+    # @mentions; system posts never mention anyone.
+    if actor_kind == "agent" and actor_agent_id is not None:
+        await fanout_mentions(
+            session,
+            text=content,
+            source_type="forum_post",
+            source_id=post.post_id,
+            author_agent_id=actor_agent_id,
+            context={"thread_title": thread.title},
+            trace_id=trace_id,
+        )
     return post
 
 
