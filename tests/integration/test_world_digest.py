@@ -96,6 +96,10 @@ async def test_digest_counts_headlines_and_pipeline_progression(api_client, uniq
         assert facts["votes"] >= 1
         assert facts["votes_by_verdict"].get("not_resolved", 0) >= 1
 
+        # Tight window for headline assertions too: MAX_HEADLINES caps the
+        # list, and on a shared CI database the default window can carry more
+        # than 16 newer headlines from surrounding tests.
+        digest = await _digest(api_client, window_seconds=120)
         headlines = " || ".join(digest["headlines"])
         submitter_name = f"{unique_name}-creator"
         voter_name = f"{unique_name}-digest-voter"
@@ -112,7 +116,11 @@ async def test_digest_counts_headlines_and_pipeline_progression(api_client, uniq
         assert submitter_name in vote_headlines[0]
         assert "con evidencia" in vote_headlines[0]
 
-        per_agent = {row["name"]: row for row in digest["per_agent"]}
+        # Tight window: on a shared CI database the default window can hold
+        # more than MAX_PER_AGENT busier agents from earlier tests; the events
+        # of THIS test are the newest, so a 120s window isolates them.
+        fresh = await _digest(api_client, window_seconds=120)
+        per_agent = {row["name"]: row for row in fresh["per_agent"]}
         assert per_agent[submitter_name]["counts"]["publish"] >= 1
         assert per_agent[voter_name]["counts"]["review"] >= 1
         assert per_agent[voter_name]["counts"]["evidence"] >= 1

@@ -5,6 +5,7 @@ from agora_api.db import session_factory
 from agora_api.events import now_utc
 from agora_api.models import (
     ForumDeliveryReceipt,
+    ForumPost,
     Mission,
     ResearchConsensusRound,
     ResearchProposal,
@@ -397,9 +398,10 @@ async def test_genesis_training_challenges_bootstrap_exactly_ten_with_deferred_t
     ensured = await api_client.post("/v1/forums/research-genesis/ensure-training-challenges")
     assert ensured.status_code == 201, ensured.text
     body = ensured.json()
-    assert body["created_count"] == 10
-    assert body["existing_count"] == 0
-    assert body["upgraded_count"] == 0
+    # Coexistence-robust: another suite (genesis wave 2 tests) may have
+    # bootstrapped wave 1 earlier in the same shared database. The invariant
+    # is the idempotent TOTAL of wave 1, not who created it first.
+    assert body["created_count"] + body["existing_count"] == 10
     assert body["target_count"] == 10
     assert body["training_reward_aceros"] == 100_000_000
     assert body["reward_requires_resolved_verified"] is True
@@ -419,6 +421,7 @@ async def test_genesis_training_challenges_bootstrap_exactly_ten_with_deferred_t
         item
         for item in active["mission_challenges"]
         if item["challenge_kind"] == "genesis_training"
+        and item["challenge_problem"]["genesis_sequence"] <= 10
     ]
     assert len(genesis) == 10
     assert {item["challenge_problem"]["genesis_sequence"] for item in genesis} == set(
@@ -440,12 +443,28 @@ async def test_genesis_training_challenges_bootstrap_exactly_ten_with_deferred_t
         for item in genesis
     )
 
-    feed = await api_client.get("/v1/forums/deliveries/me", headers=first_auth)
-    assert feed.status_code == 200, feed.text
-    assert any(
-        post["metadata"].get("event") == "research.challenge.genesis_training_rewards_enabled"
-        for post in feed.json()["posts"]
-    )
+    if body["created_count"] > 0:
+        # The announcement is delivered when THIS bootstrap created the wave;
+        # in a shared database an earlier suite may have created it before
+        # this test's agents existed, so verify the post at the source instead.
+        feed = await api_client.get("/v1/forums/deliveries/me", headers=first_auth)
+        assert feed.status_code == 200, feed.text
+        assert any(
+            post["metadata"].get("event")
+            == "research.challenge.genesis_training_rewards_enabled"
+            for post in feed.json()["posts"]
+        )
+    else:
+        async with session_factory()() as session:
+            announcement_count = (
+                await session.execute(
+                    select(func.count(ForumPost.post_id)).where(
+                        ForumPost.post_metadata["event"].astext
+                        == "research.challenge.genesis_training_rewards_enabled"
+                    )
+                )
+            ).scalar_one()
+        assert announcement_count >= 1
 
     async with session_factory()() as session:
         ledger_after = (
@@ -477,11 +496,19 @@ async def test_existing_genesis_training_challenges_are_upgraded_to_reward(
     created = await api_client.post("/v1/forums/research-genesis/ensure-training-challenges")
     assert created.status_code == 201, created.text
     async with session_factory()() as session:
-        rows = (
-            await session.execute(
-                select(Mission).where(Mission.challenge_kind == "genesis_training")
+        rows = [
+            row
+            for row in (
+                await session.execute(
+                    select(Mission).where(Mission.challenge_kind == "genesis_training")
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+            # Wave 1 only: genesis wave 2 (sequences 11+) may coexist in a
+            # shared database and is upgraded by its own bootstrap, not this one.
+            if (row.challenge_problem or {}).get("genesis_sequence", 0) <= 10
+        ]
         assert len(rows) == 10
         for row in rows:
             row.reward_aceros = 0
@@ -504,11 +531,17 @@ async def test_existing_genesis_training_challenges_are_upgraded_to_reward(
     assert body["tokoin_moved"] is False
 
     async with session_factory()() as session:
-        rewards = (
-            await session.execute(
-                select(Mission.reward_aceros).where(Mission.challenge_kind == "genesis_training")
+        rewards = [
+            row.reward_aceros
+            for row in (
+                await session.execute(
+                    select(Mission).where(Mission.challenge_kind == "genesis_training")
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+            if (row.challenge_problem or {}).get("genesis_sequence", 0) <= 10
+        ]
         ledger_after = (
             await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
         ).scalar_one()

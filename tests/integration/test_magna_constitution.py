@@ -30,18 +30,31 @@ async def _bootstrap(api_client) -> dict:
 
 
 async def test_magna_gets_do_not_seed_empty_database(api_client):
+    # Invariant: reads NEVER bootstrap MAGNA. On a shared CI database another
+    # suite may already have bootstrapped explicitly, so assert the row counts
+    # are unchanged by the GETs, and only demand 503 when truly un-seeded.
+    async with session_factory()() as session:
+        roots_before = (
+            await session.execute(select(func.count(RootConstitution.constitution_id)))
+        ).scalar_one()
+        charters_before = (
+            await session.execute(select(func.count(WorldCharter.charter_id)))
+        ).scalar_one()
     first = await api_client.get("/v1/world/constitution")
     second = await api_client.get("/v1/worlds/science/charter")
-    assert first.status_code == 503
-    assert second.status_code == 503
-    assert first.json()["error"]["code"] == "magna_not_bootstrapped"
+    if roots_before == 0:
+        assert first.status_code == 503
+        assert second.status_code == 503
+        assert first.json()["error"]["code"] == "magna_not_bootstrapped"
+    else:
+        assert first.status_code == 200
     async with session_factory()() as session:
         roots = (
             await session.execute(select(func.count(RootConstitution.constitution_id)))
         ).scalar_one()
         charters = (await session.execute(select(func.count(WorldCharter.charter_id)))).scalar_one()
-    assert roots == 0
-    assert charters == 0
+    assert roots == roots_before
+    assert charters == charters_before
 
 
 async def test_magna_bootstrap_is_concurrent_safe_and_idempotent(api_client):
