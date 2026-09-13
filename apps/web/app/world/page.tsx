@@ -38,7 +38,9 @@ import type {
   WorldForumSnapshot,
   WorldOpportunityMarket,
 } from "@/world/client";
-import { WorldEngine } from "@/world/engine";
+// Solo el tipo: la clase real se carga con import() dinámico en idle para que
+// PixiJS quede fuera del bundle inicial de la ruta.
+import type { WorldEngine } from "@/world/engine";
 import {
   boundedEvents,
   buildWorldBriefing,
@@ -62,6 +64,11 @@ const OBSERVATORY_REFRESH_MS = 15_000;
 const RANKING_LIMIT = 8;
 const RANKING_MEDALS = ["🥇", "🥈", "🥉"];
 const STOPPED_AFTER_MS = 30 * 60_000;
+// Las derivaciones pesadas (eventos, ranking) solo se recalculan en buckets de
+// 5s aunque el reloj de la UI siga a 1s para las etiquetas "hace Xs".
+const HEAVY_RECOMPUTE_MS = 5_000;
+const FORUM_PAGE_SIZE = 6;
+const ENGINE_IDLE_TIMEOUT_MS = 1_500;
 
 const FILTERS: { key: "all" | FeedKind; label: string }[] = [
   { key: "all", label: "Todo" },
@@ -120,7 +127,9 @@ export default function WorldPage() {
   const engineRef = useRef<WorldEngine | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const [store] = useState(() => new WorldStore());
-  const [, forceRender] = useState(0);
+  // Contador de versión del WorldStore: invalida las useMemo derivadas del
+  // store sin exponer sus estructuras mutables como dependencias.
+  const [storeVersion, setStoreVersion] = useState(0);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [selectedLandmark, setSelectedLandmark] = useState<Landmark | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<ObservatoryEvent | null>(null);
@@ -150,13 +159,33 @@ export default function WorldPage() {
   const [lastEventAt, setLastEventAt] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [windowSeconds, setWindowSeconds] = useState(3600);
+  const [forumShown, setForumShown] = useState(FORUM_PAGE_SIZE);
+
+  // Reloj grueso para memos pesadas: cambia cada HEAVY_RECOMPUTE_MS, así el
+  // tick de 1s solo re-renderiza etiquetas y no recalcula eventos ni ranking.
+  const nowCoarse = now - (now % HEAVY_RECOMPUTE_MS);
 
   const spaces = useMemo(
     () => (store.manifest?.landmarks ?? []).filter((landmark) => landmark.space_id),
     [store.manifest],
   );
-  const presentAgents = [...store.agents.values()];
-  const population = store.populationBySpace();
+  const spaceNameBySpaceId = useMemo(() => {
+    const names = new Map<string, string>();
+    spaces.forEach((space) => {
+      if (space.space_id) names.set(space.space_id, space.name);
+    });
+    return names;
+  }, [spaces]);
+  const presentAgents = useMemo(
+    () => [...store.agents.values()],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- storeVersion invalida la caché cuando el WorldStore muta
+    [store, storeVersion],
+  );
+  const population = useMemo(
+    () => store.populationBySpace(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- storeVersion invalida la caché cuando el WorldStore muta
+    [store, storeVersion],
+  );
   // Única fuente de verdad de presencia por espacio: observatory (TTL compartido
   // con el header). Fallback al store PixiJS solo mientras observatory no cargue.
   const spacePresenceCounts = observatory?.present_by_space_counts ?? null;
@@ -165,25 +194,40 @@ export default function WorldPage() {
     if (spacePresenceCounts) return spacePresenceCounts[spaceId] ?? 0;
     return population.get(spaceId) ?? 0;
   };
-  const events = boundedEvents([
-    ...feedEvents,
-    ...recentAgentMovementEvents(
-      presentAgents,
-      (spaceId) => spaces.find((space) => space.space_id === spaceId)?.name,
-      15 * 60_000,
-      now,
-    ),
-  ]);
-  const visibleEvents = events.filter((event) => activeFilter === "all" || event.kind === activeFilter);
-  const dialogueEvents = events.filter((event) => event.kind === "social").slice(0, 8);
-  const refereeEvents = events.filter((event) => event.kind !== "social").slice(0, 8);
-  const presentAgentIds = new Set(presentAgents.map((agent) => agent.agent_id));
-  const gladiatorRanking = (() => {
+  const events = useMemo(
+    () => boundedEvents([
+      ...feedEvents,
+      ...recentAgentMovementEvents(
+        presentAgents,
+        (spaceId) => spaceNameBySpaceId.get(spaceId),
+        15 * 60_000,
+        nowCoarse,
+      ),
+    ]),
+    [feedEvents, presentAgents, spaceNameBySpaceId, nowCoarse],
+  );
+  const visibleEvents = useMemo(
+    () => events.filter((event) => activeFilter === "all" || event.kind === activeFilter),
+    [events, activeFilter],
+  );
+  const dialogueEvents = useMemo(
+    () => events.filter((event) => event.kind === "social").slice(0, 8),
+    [events],
+  );
+  const refereeEvents = useMemo(
+    () => events.filter((event) => event.kind !== "social").slice(0, 8),
+    [events],
+  );
+  const presentAgentIds = useMemo(
+    () => new Set(presentAgents.map((agent) => agent.agent_id)),
+    [presentAgents],
+  );
+  const gladiatorRanking = useMemo(() => {
     const byAgent = new Map<string, { agentId: string; name: string; actions: number; lastAt: number }>();
     events.forEach((event) => {
       if (event.kind !== "social" || !event.agent_id) return;
       const at = Date.parse(event.at);
-      if (!Number.isFinite(at) || now - at > windowSeconds * 1000) return;
+      if (!Number.isFinite(at) || nowCoarse - at > windowSeconds * 1000) return;
       const entry = byAgent.get(event.agent_id) ?? {
         agentId: event.agent_id,
         name: event.agent_name ?? event.agent_id,
@@ -198,11 +242,18 @@ export default function WorldPage() {
     return [...byAgent.values()]
       .sort((a, b) => b.actions - a.actions || b.lastAt - a.lastAt)
       .slice(0, RANKING_LIMIT);
-  })();
-  const activeSpaces = spaces.filter((space) => (population.get(space.space_id ?? "") ?? 0) > 0);
-  const challengeSpaces = spaces.filter((space) => space.shape === "challenge" && space.state === "ACTIVE");
-  const activeMissions = missions.filter((mission) =>
-    ["open", "forming", "active", "review"].includes(mission.state),
+  }, [events, nowCoarse, windowSeconds]);
+  const activeSpaces = useMemo(
+    () => spaces.filter((space) => (population.get(space.space_id ?? "") ?? 0) > 0),
+    [spaces, population],
+  );
+  const challengeSpaces = useMemo(
+    () => spaces.filter((space) => space.shape === "challenge" && space.state === "ACTIVE"),
+    [spaces],
+  );
+  const activeMissions = useMemo(
+    () => missions.filter((mission) => ["open", "forming", "active", "review"].includes(mission.state)),
+    [missions],
   );
   const latestEvent = events[0] ?? null;
   const arenaHeadline = latestEvent
@@ -218,23 +269,41 @@ export default function WorldPage() {
     staleAfterSeconds: 120,
     now,
   });
-  const briefing = buildWorldBriefing({
-    agents: presentAgents,
-    spaces,
-    events,
-    activeMissions,
-  });
+  const briefing = useMemo(
+    () => buildWorldBriefing({
+      agents: presentAgents,
+      spaces,
+      events,
+      activeMissions,
+    }),
+    [presentAgents, spaces, events, activeMissions],
+  );
   const selectedAgentState = selectedAgent ? store.agents.get(selectedAgent) ?? null : null;
   const selectedSpaceAgents = selectedLandmark?.space_id
     ? store.agentsInSpace(selectedLandmark.space_id)
     : [];
   const search = query.trim().toLowerCase();
-  const filteredAgents = presentAgents
-    .filter((agent) => !search || `${agent.name} ${agent.activity} ${agent.agent_id}`.toLowerCase().includes(search))
-    .slice(0, AGENT_LIST_LIMIT);
-  const filteredSpaces = spaces.filter(
-    (space) => !search || `${space.name} ${space.purpose} ${space.id}`.toLowerCase().includes(search),
+  const filteredAgents = useMemo(
+    () => presentAgents
+      .filter((agent) => !search || `${agent.name} ${agent.activity} ${agent.agent_id}`.toLowerCase().includes(search))
+      .slice(0, AGENT_LIST_LIMIT),
+    [presentAgents, search],
   );
+  const filteredSpaces = useMemo(
+    () => spaces.filter(
+      (space) => !search || `${space.name} ${space.purpose} ${space.id}`.toLowerCase().includes(search),
+    ),
+    [spaces, search],
+  );
+  // El foro se parsea (JSON.parse por post) solo cuando cambian los posts o la
+  // página visible, nunca en cada tick del reloj.
+  const forumPosts = useMemo(
+    () => (worldForum?.posts ?? [])
+      .slice(0, forumShown)
+      .map((post) => ({ post, summary: forumPostSummary(post.content) })),
+    [worldForum, forumShown],
+  );
+  const forumTotal = worldForum?.posts.length ?? 0;
 
   const pushEvents = useCallback((incoming: ObservatoryEvent[]) => {
     setFeedEvents((current) => {
@@ -251,11 +320,13 @@ export default function WorldPage() {
     store.applySnapshot(await fetchPopulation(), options);
   }, [store]);
 
+  // Estable a propósito (deps vacías): el observatory tiene su propio efecto
+  // con TTL; si esta callback dependiera de windowSeconds, cambiar la ventana
+  // destruiría y reconstruiría el engine PixiJS y el socket completos.
   const loadReadOnlySurfaces = useCallback(async () => {
     const [
       missionResult,
       tokoin,
-      obs,
       opportunities,
       formalMarket,
       magna,
@@ -268,7 +339,6 @@ export default function WorldPage() {
     ] = await Promise.allSettled([
       listMissions(),
       fetchTokoinStatus(),
-      fetchObservatoryActionability(windowSeconds),
       fetchWorldOpportunities(),
       fetchWorldMarket(),
       fetchMagnaConstitution(),
@@ -283,7 +353,6 @@ export default function WorldPage() {
       setMissions(missionResult.value.missions);
     }
     if (tokoin.status === "fulfilled") setTokoinStatus(tokoin.value);
-    if (obs.status === "fulfilled") setObservatory(obs.value);
     if (opportunities.status === "fulfilled") setOpportunityMarket(opportunities.value);
     if (formalMarket.status === "fulfilled") setWorldMarket(formalMarket.value);
     if (magna.status === "fulfilled") setConstitution(magna.value);
@@ -295,7 +364,7 @@ export default function WorldPage() {
     if (research.status === "fulfilled") setResearchMarket(research.value);
     if (researchTest.status === "fulfilled") setResearchTest01(researchTest.value);
     if (plazaForum.status === "fulfilled") setWorldForum(plazaForum.value);
-  }, [windowSeconds]);
+  }, []);
 
   const loadRecentMessages = useCallback(async () => {
     const currentPopulation = store.populationBySpace();
@@ -322,7 +391,7 @@ export default function WorldPage() {
     pushEvents(messages);
   }, [pushEvents, spaces, store]);
 
-  useEffect(() => store.subscribe(() => forceRender((value) => value + 1)), [store]);
+  useEffect(() => store.subscribe(() => setStoreVersion((value) => value + 1)), [store]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -347,6 +416,7 @@ export default function WorldPage() {
     let cancelled = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let reconnectAttempt = 0;
+    let cancelEngineIdle: (() => void) | null = null;
 
     const connectSocket = () => {
       if (cancelled || !store.manifest) return;
@@ -426,11 +496,57 @@ export default function WorldPage() {
       };
     };
 
+    // Se carga PixiJS (import dinámico) y se inicializa el engine cuando el
+    // main thread queda libre, con timeout para que nunca tarde más de ~1.5s.
+    const initEngineDeferred = () => {
+      const start = () => {
+        void (async () => {
+          if (cancelled || !hostRef.current) return;
+          const { WorldEngine: Engine } = await import("@/world/engine");
+          if (cancelled || !hostRef.current) return;
+          const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+          engine = new Engine(store, {
+            onSelectAgent: (agentId) => {
+              setSelectedAgent(agentId);
+              setSelectedLandmark(null);
+              setSelectedEvent(null);
+            },
+            onSelectLandmark: (landmarkId) => {
+              const landmark = store.landmark(landmarkId);
+              if (landmark) {
+                setChallengeState(null);
+                setSelectedLandmark(landmark);
+                setSelectedAgent(null);
+                setSelectedEvent(null);
+              }
+            },
+          });
+          engineRef.current = engine;
+          try {
+            await engine.init(hostRef.current, { reducedMotion });
+          } catch {
+            setCanvasOk(false);
+            setStatusText("Graphics unavailable");
+          }
+        })();
+      };
+      if (typeof window.requestIdleCallback === "function") {
+        const handle = window.requestIdleCallback(start, { timeout: ENGINE_IDLE_TIMEOUT_MS });
+        cancelEngineIdle = () => window.cancelIdleCallback(handle);
+      } else {
+        const handle = window.setTimeout(start, 200);
+        cancelEngineIdle = () => window.clearTimeout(handle);
+      }
+    };
+
     (async () => {
       try {
-        store.setManifest(await fetchManifest());
-        await refreshSnapshot();
-        await loadReadOnlySurfaces();
+        // Manifest y snapshot en paralelo: son independientes y juntos bastan
+        // para pintar la página; las 11 superficies read-only llegan después
+        // sin bloquear el primer render.
+        const [manifest, snapshot] = await Promise.all([fetchManifest(), fetchPopulation()]);
+        store.setManifest(manifest);
+        store.applySnapshot(snapshot);
         setHealthOk(true);
         setBootstrapped(true);
         setStatusText("");
@@ -440,37 +556,17 @@ export default function WorldPage() {
         setBootstrapped(true);
         return;
       }
-      if (cancelled || !hostRef.current) return;
-      const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-      engine = new WorldEngine(store, {
-        onSelectAgent: (agentId) => {
-          setSelectedAgent(agentId);
-          setSelectedLandmark(null);
-          setSelectedEvent(null);
-        },
-        onSelectLandmark: (landmarkId) => {
-          const landmark = store.landmark(landmarkId);
-          if (landmark) {
-            setChallengeState(null);
-            setSelectedLandmark(landmark);
-            setSelectedAgent(null);
-            setSelectedEvent(null);
-          }
-        },
-      });
-      engineRef.current = engine;
-      try {
-        await engine.init(hostRef.current, { reducedMotion });
-      } catch {
-        setCanvasOk(false);
-        setStatusText("Graphics unavailable");
-      }
+      // allSettled adentro: nunca rechaza, no necesita bloquear el bootstrap.
+      void loadReadOnlySurfaces();
+      if (cancelled) return;
       connectSocket();
+      initEngineDeferred();
     })();
 
     return () => {
       cancelled = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      cancelEngineIdle?.();
       socket?.close();
       engine?.destroy();
       engineRef.current = null;
@@ -492,14 +588,26 @@ export default function WorldPage() {
 
   // Refresco TTL del observatory: gobierna a la vez las métricas del header y
   // los contadores de presencia por espacio del sidebar (una sola fuente).
+  // Único dueño del fetch de observatory: carga al instante al montar o al
+  // cambiar la ventana y luego cada OBSERVATORY_REFRESH_MS. El setState solo
+  // dispara un re-render barato porque las derivaciones pesadas están
+  // memoizadas y no dependen de `observatory`.
   useEffect(() => {
     if (!bootstrapped) return undefined;
-    const timer = setInterval(() => {
+    let cancelled = false;
+    const load = () => {
       fetchObservatoryActionability(windowSeconds)
-        .then(setObservatory)
+        .then((value) => {
+          if (!cancelled) setObservatory(value);
+        })
         .catch(() => {});
-    }, OBSERVATORY_REFRESH_MS);
-    return () => clearInterval(timer);
+    };
+    load();
+    const timer = setInterval(load, OBSERVATORY_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [bootstrapped, windowSeconds]);
 
   useEffect(() => {
@@ -864,27 +972,35 @@ export default function WorldPage() {
                 <p className="eyebrow">Plaza Central</p>
                 <h2>Foro general</h2>
               </div>
-              <span>{worldForum?.posts.length ?? 0} avisos</span>
+              <span>{forumTotal} avisos</span>
             </div>
             <p className="subtle-note">
               Reglas firmadas, cambios del mundo y coordinación pública. Todo contenido remoto
               sigue siendo no confiable y nunca concede permisos locales.
             </p>
             <ol className="plaza-forum-feed" aria-label="Actualizaciones del foro general">
-              {(worldForum?.posts ?? []).slice(0, 6).map((post) => (
+              {forumPosts.map(({ post, summary }) => (
                 <li key={post.post_id}>
                   <div className="forum-post-heading">
                     <strong>{post.actor_kind === "system" ? "AGORA" : post.actor_agent_id ?? "Agente"}</strong>
                     <time>{ago(post.published_at, now)}</time>
                   </div>
-                  <p>{forumPostSummary(post.content)}</p>
+                  <p>{summary}</p>
                   <small>
                     #{post.sequence} · {post.trust.instruction_trust} · {post.content_hash.slice(0, 10)}
                   </small>
                 </li>
               ))}
             </ol>
-            {!worldForum?.posts.length && (
+            {forumTotal > forumShown && (
+              <button
+                className="text-btn"
+                onClick={() => setForumShown((value) => value + FORUM_PAGE_SIZE)}
+              >
+                Ver más avisos ({forumTotal - forumShown} restantes)
+              </button>
+            )}
+            {forumTotal === 0 && (
               <p className="empty-state">El foro existe, pero todavía no tiene avisos públicos.</p>
             )}
             <Link className="detail-link" href="/challenges">Abrir investigación y retos</Link>
