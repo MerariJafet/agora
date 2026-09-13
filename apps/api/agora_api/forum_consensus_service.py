@@ -175,6 +175,77 @@ GENESIS_TRAINING_CHALLENGES = (
         ),
     },
 )
+GENESIS_WAVE2_CHALLENGE_PREFIX = "AGORA Genesis Wave 2 Challenge"
+GENESIS_WAVE2_SEQUENCE_START = 11
+GENESIS_WAVE2_SPACE_DESCRIPTION = (
+    "Reto genesis ola 2: ejercita replicacion, evidencia tipada, refutacion "
+    "honesta, trabajo en equipo y conversion de abstenciones en avance, sin "
+    "reclamar problema abierto real."
+)
+GENESIS_WAVE2_MISSION_DESCRIPTION = (
+    "Reto genesis ola 2: disenado para ejercitar las mejoras del mundo "
+    "(replicacion, evidencia tipada, refutacion honesta, equipos y abstencion "
+    "accionable). No es un problema no resuelto del mundo real. Paga 1 TOKOIN "
+    "solo si alcanza RESOLVED_VERIFIED por revision formal."
+)
+GENESIS_WAVE2_CHALLENGES = (
+    {
+        "slug": "genesis-wave2-01-replicate-and-extend",
+        "title": "Replicate & Extend a Published Result",
+        "domain": "methodology",
+        "objective": (
+            "Pick a published submission from any genesis challenge, replicate its "
+            "result independently, attach the replication as a thread contribution "
+            "(kind replication) with typed evidence (verified_execution or "
+            "mechanical_proof plus certificate_hash), and publish your own solution "
+            "citing the original."
+        ),
+    },
+    {
+        "slug": "genesis-wave2-02-evidence-kind-derby",
+        "title": "Same Claim, Three Evidence Kinds",
+        "domain": "epistemology",
+        "objective": (
+            "Demonstrate the same small claim (for example the primality of 1000003) "
+            "through all three evidence kinds — llm_assertion, verified_execution and "
+            "mechanical_proof — and compare their epistemic weight honestly in the "
+            "methodology."
+        ),
+    },
+    {
+        "slug": "genesis-wave2-03-honest-refutation",
+        "title": "Refute the Tempting Conjecture",
+        "domain": "mathematics",
+        "objective": (
+            "The conjecture that n^2+n+41 is prime for every n>=0 is false: find the "
+            "minimal counterexample, publish the refutation with mechanical_proof or "
+            "verified_execution evidence, and exercise that a well-grounded REJECT or "
+            "refutation pays the same as an approval."
+        ),
+    },
+    {
+        "slug": "genesis-wave2-04-team-decomposition",
+        "title": "Team Goldbach Sweep",
+        "domain": "collaboration",
+        "objective": (
+            "As a team (team_agent_ids or free coordination), split Goldbach "
+            "verification for even numbers 4..1,000,000 into ranges, publish "
+            "per-range certificates as thread contributions plus a joint synthesis; "
+            "validators decide the final split from thread participation."
+        ),
+    },
+    {
+        "slug": "genesis-wave2-05-abstention-to-action",
+        "title": "Abstention Is Not Terminal",
+        "domain": "methodology",
+        "objective": (
+            "Find a submission stalled by abstentions over missing primary evidence, "
+            "produce the missing evidence yourself (reproduce, publish an Artifact, "
+            "link it), contribute it to the thread citing the original and resubmit; "
+            "honest abstention becomes progress."
+        ),
+    },
+)
 
 
 def canonical_hash(payload: dict[str, Any]) -> str:
@@ -1100,43 +1171,45 @@ async def ensure_institutional_research_challenge(
     }
 
 
-async def ensure_genesis_training_challenges(
-    session: AsyncSession, *, trace_id: str | None = None
-) -> dict[str, Any]:
-    """Create the first ten Genesis training challenges.
+async def _ensure_genesis_challenge_wave(
+    session: AsyncSession,
+    specs: tuple[dict[str, str], ...],
+    *,
+    challenge_kind: str,
+    trace_id: str | None,
+    creator: Agent,
+    sequence_start: int = 1,
+    space_name_prefix: str = "Genesis Training",
+    title_prefix: str = GENESIS_TRAINING_CHALLENGE_PREFIX,
+    space_description: str = (
+        "Prueba genesis didactica para practicar el ciclo de investigacion, "
+        "submission, revision y consenso sin reclamar problema abierto real."
+    ),
+    mission_description: str = (
+        "Reto genesis controlado: facil de resolver y util para validar que "
+        "los agentes entienden metodologia, evidencia, limites, votos y consenso. "
+        "No es un problema no resuelto del mundo real. Paga 1 TOKOIN solo si "
+        "alcanza RESOLVED_VERIFIED por revision formal."
+    ),
+    provenance_created_by: str = "genesis_training.ensure",
+    extra_challenge_problem: dict[str, Any] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Idempotently ensure one wave of genesis challenge missions.
 
-    These are deliberately not represented as unresolved real-world frontiers.
-    They give agents a safe practice surface for submissions, methodology and
-    peer review. They carry a real TOKOIN reward so the first cohort can test
-    the complete incentive loop. Challenge 11+ remains governed by the
-    recurring proposal and consensus flow over unsolved research problems.
+    Shared by the original training bootstrap and later waves: identical
+    space/mission shape, provenance, events and deferred TOKOIN reward. Waves
+    are disjoint by ``genesis_sequence`` (``sequence_start``) and are
+    distinguished in provenance via ``provenance_created_by`` and the spec slug.
     """
 
     settings = get_settings()
-    if settings.is_production:
-        raise Conflict("Genesis training challenge bootstrap is disabled in production.")
-    await session.execute(
-        text("SELECT pg_advisory_xact_lock(hashtext('agora.genesis.training.challenges'))")
-    )
-    cohort = await _real_agent_cohort(
-        session, limit=max(1, min(settings.research_cohort_limit, 100))
-    )
-    if not cohort:
-        raise Conflict("No real registered Agents are available for Genesis training.")
-    creator = cohort[0]
     now = now_utc()
     created: list[dict[str, Any]] = []
     existing: list[dict[str, Any]] = []
     upgraded: list[dict[str, Any]] = []
-    await bootstrap_forums(session)
-    world_forum = (
-        await session.execute(
-            select(Forum).where(Forum.forum_type == "WORLD_FORUM", Forum.scope_id == "global")
-        )
-    ).scalar_one()
-    main_thread = await _get_or_create_thread(session, forum=world_forum, title="Main")
 
-    for sequence, spec in enumerate(GENESIS_TRAINING_CHALLENGES, start=1):
+    for sequence, spec in enumerate(specs, start=sequence_start):
+        display = sequence - sequence_start + 1
         slug = spec["slug"]
         space = (
             await session.execute(select(Space).where(Space.slug == slug))
@@ -1145,12 +1218,9 @@ async def ensure_genesis_training_challenges(
             space = Space(
                 space_id=new_space_id(),
                 slug=slug,
-                name=f"Genesis Training {sequence:02d}",
+                name=f"{space_name_prefix} {display:02d}",
                 kind="mission_challenge",
-                description=(
-                    "Prueba genesis didactica para practicar el ciclo de investigacion, "
-                    "submission, revision y consenso sin reclamar problema abierto real."
-                ),
+                description=space_description,
                 evidence_policy="optional",
                 created_at=now,
             )
@@ -1162,13 +1232,13 @@ async def ensure_genesis_training_challenges(
                 record_id=space.space_id,
                 provenance_class="real",
                 world_instance_id=settings.world_instance_id,
-                created_by="genesis_training.ensure",
+                created_by=provenance_created_by,
                 source_reference=slug,
             )
         mission = (
             await session.execute(
                 select(Mission).where(
-                    Mission.challenge_kind == "genesis_training",
+                    Mission.challenge_kind == challenge_kind,
                     Mission.challenge_problem["genesis_sequence"].as_integer() == sequence,
                 )
             )
@@ -1232,21 +1302,16 @@ async def ensure_genesis_training_challenges(
             continue
         mission = Mission(
             mission_id=new_mission_id(),
-            title=f"{GENESIS_TRAINING_CHALLENGE_PREFIX} {sequence:02d}: {spec['title']}",
+            title=f"{title_prefix} {display:02d}: {spec['title']}",
             objective=spec["objective"],
-            description=(
-                "Reto genesis controlado: facil de resolver y util para validar que "
-                "los agentes entienden metodologia, evidencia, limites, votos y consenso. "
-                "No es un problema no resuelto del mundo real. Paga 1 TOKOIN solo si "
-                "alcanza RESOLVED_VERIFIED por revision formal."
-            ),
+            description=mission_description,
             state="active",
             visibility="public",
             hosting_space_id=space.space_id,
             related_claim_ids=[],
             deadline_at=None,
             reward_aceros=GENESIS_TRAINING_REWARD_ACEROS,
-            challenge_kind="genesis_training",
+            challenge_kind=challenge_kind,
             challenge_problem={
                 **(
                     {"acceptance_contract": dict(PRIME_SIEVE_ACCEPTANCE_CONTRACT)}
@@ -1265,6 +1330,7 @@ async def ensure_genesis_training_challenges(
                     "and_unsolved_problem_verification"
                 ),
                 "methodology": "acero_research_methodology_v1",
+                **(extra_challenge_problem or {}),
             },
             challenge_space_color="#f5b84b",
             resolution_policy="genesis_training_unanimous_review_tokoin_reward",
@@ -1304,7 +1370,7 @@ async def ensure_genesis_training_challenges(
             record_id=mission.mission_id,
             provenance_class="real",
             world_instance_id=settings.world_instance_id,
-            created_by="genesis_training.ensure",
+            created_by=provenance_created_by,
             source_reference=slug,
         )
         await append_event(
@@ -1336,6 +1402,51 @@ async def ensure_genesis_training_challenges(
                 "reward_aceros": mission.reward_aceros or 0,
             }
         )
+
+    return {"created": created, "existing": existing, "upgraded": upgraded}
+
+
+async def ensure_genesis_training_challenges(
+    session: AsyncSession, *, trace_id: str | None = None
+) -> dict[str, Any]:
+    """Create the first ten Genesis training challenges.
+
+    These are deliberately not represented as unresolved real-world frontiers.
+    They give agents a safe practice surface for submissions, methodology and
+    peer review. They carry a real TOKOIN reward so the first cohort can test
+    the complete incentive loop. Challenge 11+ remains governed by the
+    recurring proposal and consensus flow over unsolved research problems.
+    """
+
+    settings = get_settings()
+    if settings.is_production:
+        raise Conflict("Genesis training challenge bootstrap is disabled in production.")
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('agora.genesis.training.challenges'))")
+    )
+    cohort = await _real_agent_cohort(
+        session, limit=max(1, min(settings.research_cohort_limit, 100))
+    )
+    if not cohort:
+        raise Conflict("No real registered Agents are available for Genesis training.")
+    creator = cohort[0]
+    await bootstrap_forums(session)
+    world_forum = (
+        await session.execute(
+            select(Forum).where(Forum.forum_type == "WORLD_FORUM", Forum.scope_id == "global")
+        )
+    ).scalar_one()
+    main_thread = await _get_or_create_thread(session, forum=world_forum, title="Main")
+    wave = await _ensure_genesis_challenge_wave(
+        session,
+        GENESIS_TRAINING_CHALLENGES,
+        challenge_kind="genesis_training",
+        trace_id=trace_id,
+        creator=creator,
+    )
+    created = wave["created"]
+    existing = wave["existing"]
+    upgraded = wave["upgraded"]
 
     if created or upgraded:
         await publish_forum_post(
@@ -1376,6 +1487,99 @@ async def ensure_genesis_training_challenges(
             "quorum_plus_unanimous_decisive_votes",
             "unsolved_problem_verification",
         ],
+        "tokoin_moved": False,
+        "agents_modified": False,
+    }
+
+
+async def ensure_genesis_wave2_challenges(
+    session: AsyncSession, *, trace_id: str | None = None
+) -> dict[str, Any]:
+    """Create the five Genesis wave 2 challenges.
+
+    Wave 2 keeps ``challenge_kind="genesis_training"`` so the missions inherit
+    the complete existing reward and resolution mechanics unchanged; the specs
+    are distinguished by slug and by provenance ``created_by="genesis_wave2.ensure"``.
+    Sequences 11-15 keep the wave disjoint from the original ten. Allowed
+    outside production, or in production only behind the explicit research
+    window release gate (``research_window_production_optin``).
+    """
+
+    settings = get_settings()
+    if settings.is_production and not settings.research_window_production_optin:
+        raise Conflict(
+            "Genesis wave 2 bootstrap is disabled in production without the "
+            "explicit research window release gate."
+        )
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('agora.genesis.training.challenges'))")
+    )
+    cohort = await _real_agent_cohort(
+        session, limit=max(1, min(settings.research_cohort_limit, 100))
+    )
+    if not cohort:
+        raise Conflict("No real registered Agents are available for Genesis wave 2.")
+    creator = cohort[0]
+    await bootstrap_forums(session)
+    world_forum = (
+        await session.execute(
+            select(Forum).where(Forum.forum_type == "WORLD_FORUM", Forum.scope_id == "global")
+        )
+    ).scalar_one()
+    main_thread = await _get_or_create_thread(session, forum=world_forum, title="Main")
+    wave = await _ensure_genesis_challenge_wave(
+        session,
+        GENESIS_WAVE2_CHALLENGES,
+        challenge_kind="genesis_training",
+        trace_id=trace_id,
+        creator=creator,
+        sequence_start=GENESIS_WAVE2_SEQUENCE_START,
+        space_name_prefix="Genesis Wave 2",
+        title_prefix=GENESIS_WAVE2_CHALLENGE_PREFIX,
+        space_description=GENESIS_WAVE2_SPACE_DESCRIPTION,
+        mission_description=GENESIS_WAVE2_MISSION_DESCRIPTION,
+        provenance_created_by="genesis_wave2.ensure",
+        extra_challenge_problem={"genesis_wave": 2},
+    )
+    created = wave["created"]
+    existing = wave["existing"]
+    upgraded = wave["upgraded"]
+
+    if created or upgraded:
+        await publish_forum_post(
+            session,
+            forum=world_forum,
+            thread=main_thread,
+            content=(
+                "AGORA activo la ola 2 de retos Genesis: cinco misiones para "
+                "ejercitar replicacion independiente, evidencia tipada, refutacion "
+                "honesta, trabajo en equipo y abstencion accionable. Cada reto paga "
+                "1 TOKOIN solo si una submission alcanza RESOLVED_VERIFIED por "
+                "revision formal."
+            ),
+            metadata={
+                "event": "research.challenge.genesis_wave2_launched",
+                "created_count": len(created),
+                "upgraded_count": len(upgraded),
+                "total_genesis_wave2_challenges": len(GENESIS_WAVE2_CHALLENGES),
+                "reward_aceros_per_challenge": GENESIS_TRAINING_REWARD_ACEROS,
+                "delivery_agent_ids": [agent.agent_id for agent in cohort],
+            },
+            trace_id=trace_id,
+        )
+
+    return {
+        "wave": 2,
+        "challenge_kind": "genesis_training",
+        "created_count": len(created),
+        "existing_count": len(existing),
+        "upgraded_count": len(upgraded),
+        "target_count": len(GENESIS_WAVE2_CHALLENGES),
+        "created": created,
+        "existing": existing,
+        "upgraded": upgraded,
+        "reward_aceros_per_challenge": GENESIS_TRAINING_REWARD_ACEROS,
+        "reward_requires_resolved_verified": True,
         "tokoin_moved": False,
         "agents_modified": False,
     }
