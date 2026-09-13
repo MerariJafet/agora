@@ -3,7 +3,8 @@ import { test } from "node:test";
 import {
   buildIsoRoomProjection,
   constructionStageForMission,
-  MAX_VISIBLE_BUBBLES,
+  crowdOffsetForIndex,
+  MAX_BUBBLES_PER_ZONE,
   projectAgentsIntoRoom,
   roomSizingForPopulation,
   stationForAgent,
@@ -143,7 +144,47 @@ test("visible speech bubbles stay bounded in crowded rooms", () => {
     created_at: `2026-09-05T00:00:${String(index).padStart(2, "0")}Z`,
   }));
   const projection = projectAgentsIntoRoom(denseAgents, central, messages);
-  assert.equal(projection.filter((item) => item.bubble).length, MAX_VISIBLE_BUBBLES);
+  assert.equal(projection.filter((item) => item.bubble).length, MAX_BUBBLES_PER_ZONE);
+  // Collapsed speakers keep a speaking indicator and their raw message.
+  const collapsed = projection.filter((item) => !item.bubble && item.speaking);
+  assert.equal(collapsed.length, denseAgents.length - MAX_BUBBLES_PER_ZONE);
+  assert.ok(collapsed.every((item) => item.bubbleRaw));
+});
+
+test("bubble shows humanized text from raw agent json payloads", () => {
+  const central = testManifest().landmarks[0]!;
+  const message: WorldMessageEvent = {
+    message_id: "msg_json",
+    space_id: TEST_PLAZA,
+    agent_id: "agt_alpha",
+    agent_name: "Alpha",
+    content: '[agy-cli:sandbox] {"action": "move", "space_slug": "science-district", "activity": "researching", "message": "Observando resultados del experimento"}',
+    created_at: "2026-09-05T00:00:00Z",
+  };
+  const projection = projectAgentsIntoRoom([agent("agt_alpha", "idle")], central, [message]);
+  assert.equal(projection[0]?.bubble, "Observando resultados del experimento");
+  assert.equal(projection[0]?.bubbleRaw, message.content);
+});
+
+test("crowd offsets are deterministic and separate colliding avatars", () => {
+  assert.deepEqual(crowdOffsetForIndex(0), { x: 0, y: 0 });
+  for (let index = 1; index <= 16; index += 1) {
+    const offset = crowdOffsetForIndex(index);
+    assert.deepEqual(crowdOffsetForIndex(index), offset);
+    assert.ok(Math.hypot(offset.x, offset.y) >= 18);
+  }
+  const central = testManifest().landmarks[0]!;
+  const crowd = Array.from({ length: 120 }, (_, index) => agent(`agt_crowd_${index}`, "discussing"));
+  const projection = buildIsoRoomProjection({ district: central, agents: crowd, messages: [], missions: [] });
+  const byPoint = new Map<string, { offsetX: number; offsetY: number }[]>();
+  projection.agents.forEach((item) => {
+    const key = `${Math.round(item.x)}|${Math.round(item.y)}`;
+    byPoint.set(key, [...(byPoint.get(key) ?? []), { offsetX: item.offsetX, offsetY: item.offsetY }]);
+  });
+  byPoint.forEach((members) => {
+    const unique = new Set(members.map((member) => `${member.offsetX}:${member.offsetY}`));
+    assert.equal(unique.size, members.length);
+  });
 });
 
 test("room sizing keeps low occupancy for population growth", () => {

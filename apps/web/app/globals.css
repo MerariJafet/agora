@@ -2426,6 +2426,161 @@ body:has(.iso-world-shell) .shell > header {
   font-size: 0.76rem;
   line-height: 1.4;
 }
+.iso-avatar {
+  left: calc(var(--x, 50%) + var(--crowd-dx, 0px));
+  top: calc(var(--y, 50%) + var(--crowd-dy, 0px));
+}
+.avatar-speaking-dot {
+  position: absolute;
+  left: 50%;
+  bottom: 100px;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #f2f8ff;
+  border: 1px solid #42d6bf99;
+  box-shadow: 0 0 10px #42d6bf88;
+  animation: avatar-pulse 1.4s ease-in-out infinite;
+}
+.district-chat-dock {
+  position: absolute;
+  z-index: 40;
+  right: 1rem;
+  top: 5.2rem;
+  width: min(360px, calc(100vw - 2rem));
+  max-height: min(72vh, 680px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  background: #0b121ee8;
+  box-shadow: 0 24px 70px #000b;
+  overflow: hidden;
+}
+.district-chat-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.3rem;
+  padding: 0.45rem;
+  border-bottom: 1px solid #ffffff14;
+  background: #070d15;
+}
+.district-chat-tabs button {
+  height: 32px;
+  border: 1px solid #ffffff17;
+  border-radius: 8px;
+  background: #101825;
+  color: var(--agora-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.district-chat-tabs button.active {
+  color: #061015;
+  background: var(--agora-teal, #42d6bf);
+  border-color: var(--agora-teal, #42d6bf);
+}
+.district-chat-tabs .district-chat-collapse {
+  width: 32px;
+  font-weight: 900;
+}
+.district-chat-open {
+  position: absolute;
+  z-index: 40;
+  right: 1rem;
+  top: 5.2rem;
+  height: 34px;
+  padding: 0 0.75rem;
+  border: 1px solid #42d6bf66;
+  border-radius: 999px;
+  background: #071019d9;
+  color: #8ef5e6;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 14px 40px #0008;
+}
+.district-chat-dock .iso-inspector {
+  position: static;
+  width: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  overflow-y: auto;
+}
+.district-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.district-chat-search {
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid #ffffff10;
+}
+.district-chat-search input {
+  width: 100%;
+  height: 30px;
+  padding: 0 0.55rem;
+  border: 1px solid #ffffff1c;
+  border-radius: 8px;
+  background: #0a1220;
+  color: var(--agora-text);
+  font-size: 0.74rem;
+}
+.district-chat-search input:focus {
+  outline: none;
+  border-color: #42d6bf88;
+}
+.district-chat-list {
+  flex: 1;
+  min-height: 180px;
+  margin: 0;
+  padding: 0.55rem;
+  list-style: none;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.district-chat-entry {
+  border: 1px solid #ffffff10;
+  border-radius: 10px 10px 10px 4px;
+  background: #0e1726;
+  padding: 0.42rem 0.55rem;
+}
+.district-chat-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.district-chat-meta strong {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.74rem;
+}
+.district-chat-meta time {
+  flex: none;
+  color: var(--agora-muted);
+  font-size: 0.64rem;
+}
+.district-chat-entry p {
+  margin: 0.18rem 0 0;
+  color: var(--agora-text);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.district-chat-empty {
+  color: var(--agora-muted);
+  font-size: 0.76rem;
+  padding: 0.4rem 0.2rem;
+}
 .command-shell {
   min-height: 100vh;
   background: #060a10;
@@ -2538,6 +2693,21 @@ body:has(.iso-world-shell) .shell > header {
   .iso-social-caption {
     width: calc(100% - 1.5rem);
     grid-template-columns: 1fr;
+  }
+  .district-chat-dock {
+    position: fixed;
+    left: 0.5rem;
+    right: 0.5rem;
+    top: auto;
+    bottom: 0.5rem;
+    width: auto;
+    max-height: 54vh;
+  }
+  .district-chat-open {
+    position: fixed;
+    top: auto;
+    bottom: 0.75rem;
+    right: 0.75rem;
   }
 }
 
