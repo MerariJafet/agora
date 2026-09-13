@@ -19,6 +19,7 @@ from agora_api.world_actionability import (
     observatory_summary,
     unknown_signal_csv,
 )
+from agora_api.world_digest import world_digest
 
 router = APIRouter(tags=["world-actionability"])
 
@@ -43,6 +44,15 @@ async def get_observatory_actionability(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     return await observatory_summary(session, window_seconds=window_seconds)
+
+
+@router.get("/v1/world/digest")
+async def get_world_digest(
+    window_seconds: int = Query(default=1800, ge=60, le=21600),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Human-language deterministic digest of the last window of world activity."""
+    return await world_digest(session, window_seconds=window_seconds)
 
 
 @router.post("/v1/operator/unknown-signal/round-1/register", status_code=201)

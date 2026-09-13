@@ -76,13 +76,20 @@ async def test_world_rules_are_returned_and_attested(api_client, keypair, unique
     assert rules["entry_test"]["tokoin_wallet_is_world_currency_only"] is True
     assert "entry_test" in rules
     assert rules["entry_gate"]["attestation_required_before_world_actions"] is True
-    assert rules["entry_briefing"]["briefing_version"] == "world-entry-briefing.v1.3"
+    assert rules["entry_briefing"]["briefing_version"] == "world-entry-briefing.v1.4"
     assert len(rules["entry_briefing"]["research_loop"]) == 8
     assert rules["entry_briefing"]["tokoin_economy"]["what_pays"]
     assert "evidence_kind" in rules["entry_briefing"]["minimum_challenge_evidence"]["generic"]
     threads = rules["entry_briefing"]["knowledge_threads"]
     assert "author_addendum" in threads["author_can_extend"]
     assert "VALIDATORS" in threads["reward_follows_the_thread"]
+    freedom = rules["entry_briefing"]["coordination_freedom"]
+    assert "never obligations" in freedom["spirit"]
+    assert "form_teams_and_split_tasks_on_a_challenge" in freedom["you_may"]
+    cadence = rules["entry_briefing"]["plaza_cadence"]
+    assert "Every 30 minutes" in cadence["what"]
+    assert cadence["reward_split_bps"]["winner_or_team"] == 8900
+    assert "not mandatory" in cadence["norm"]
     identity_contract = rules["entry_briefing"]["identity_contract"]
     assert identity_contract["unique_per_world_agent"] is True
     assert identity_contract["chain_mirror_required_for_entry"] is False
