@@ -1,0 +1,490 @@
+/* /gladiadores — cartas de gladiador estilo FUT sobre el tema oscuro AGORA.
+   Archivo propio (globals.css está en edición por otro flujo).
+   Reglas: 8px-grid, radios consistentes, hover states, transiciones 150–200ms,
+   grid 4/2/1 columnas y prefers-reduced-motion respetado. */
+
+/* Igual que el Observatorio: la página escapa del contenedor de 960px del
+   layout raíz y oculta (accesible) el header global, porque trae el suyo. */
+body:has(.glad-shell) .shell {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+body:has(.glad-shell) .shell > header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.glad-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+/* ---------- Header ---------- */
+
+.glad-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.glad-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.glad-kicker a { color: var(--agora-muted); transition: color 150ms ease; }
+.glad-kicker a:hover { color: var(--agora-teal); }
+
+.glad-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--agora-accent);
+  letter-spacing: 0.06em;
+}
+
+.glad-sub {
+  margin: 0.4rem 0 0;
+  max-width: 46rem;
+  color: var(--agora-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.glad-header-actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.5rem;
+}
+
+.glad-meta {
+  color: var(--agora-muted);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.glad-btn {
+  border: 1px solid var(--agora-border);
+  border-radius: 8px;
+  background: var(--agora-surface-2);
+  color: var(--agora-text);
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+.glad-btn:hover { border-color: var(--agora-teal); color: var(--agora-teal); }
+.glad-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.glad-btn-primary {
+  border-color: var(--agora-accent);
+  color: var(--agora-accent);
+  background: var(--agora-accent-soft);
+}
+.glad-btn-primary:hover:not(:disabled) {
+  border-color: var(--agora-accent);
+  color: #0a0d12;
+  background: var(--agora-accent);
+}
+
+.glad-compare-hint {
+  margin: 0;
+  color: var(--agora-teal);
+  font-size: 0.82rem;
+}
+
+.glad-error { margin: 0; color: var(--agora-danger); font-size: 0.85rem; }
+.glad-loading { margin: 0; color: var(--agora-muted); font-size: 0.85rem; }
+
+/* ---------- Grid de cartas: 4 / 2 / 1 columnas ---------- */
+
+.glad-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .glad-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .glad-grid { grid-template-columns: 1fr; }
+  .glad-shell { padding: 1.25rem 1rem 3rem; }
+}
+
+/* ---------- Carta ---------- */
+
+.glad-card {
+  position: relative;
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--agora-border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--agora-surface-2) 0%, var(--agora-surface) 100%);
+  cursor: pointer;
+  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+.glad-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px #0009;
+}
+.glad-card:focus-visible {
+  outline: 2px solid var(--agora-teal);
+  outline-offset: 2px;
+}
+
+/* Gradiente sutil por rango (percentil de OVR): oro / plata / bronce. */
+.glad-rank-oro {
+  border-color: color-mix(in srgb, var(--agora-accent) 55%, var(--agora-border));
+  background:
+    radial-gradient(ellipse at 50% -20%, color-mix(in srgb, var(--agora-accent) 16%, transparent), transparent 62%),
+    linear-gradient(180deg, var(--agora-surface-2) 0%, var(--agora-surface) 100%);
+}
+.glad-rank-oro:hover { border-color: var(--agora-accent); }
+.glad-rank-plata {
+  border-color: color-mix(in srgb, #aab7c8 45%, var(--agora-border));
+  background:
+    radial-gradient(ellipse at 50% -20%, #aab7c81f, transparent 62%),
+    linear-gradient(180deg, var(--agora-surface-2) 0%, var(--agora-surface) 100%);
+}
+.glad-rank-plata:hover { border-color: #aab7c8; }
+.glad-rank-bronce {
+  border-color: color-mix(in srgb, #b0795a 40%, var(--agora-border));
+  background:
+    radial-gradient(ellipse at 50% -20%, #b0795a1c, transparent 62%),
+    linear-gradient(180deg, var(--agora-surface-2) 0%, var(--agora-surface) 100%);
+}
+.glad-rank-bronce:hover { border-color: #b0795a; }
+
+/* Banda superior: OVR + rango + presencia. */
+.glad-band {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #ffffff14;
+}
+
+.glad-ovr {
+  display: grid;
+  justify-items: center;
+  line-height: 1;
+}
+.glad-ovr strong {
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.glad-ovr span {
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
+  color: var(--agora-muted);
+}
+.glad-rank-oro .glad-ovr strong { color: var(--agora-accent); }
+.glad-rank-plata .glad-ovr strong { color: #c7d3e2; }
+.glad-rank-bronce .glad-ovr strong { color: #cf9a76; }
+
+.glad-rank-chip {
+  margin-left: auto;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+}
+.chip-oro { color: var(--agora-accent); border-color: #e0b85f66; background: #e0b85f14; }
+.chip-plata { color: #c7d3e2; border-color: #aab7c866; background: #aab7c814; }
+.chip-bronce { color: #cf9a76; border-color: #b0795a66; background: #b0795a14; }
+
+.glad-presence {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #55607080;
+  flex: none;
+}
+.glad-presence.on {
+  background: var(--agora-ok);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--agora-ok) 70%, transparent);
+}
+
+.glad-name {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.glad-last {
+  margin: -0.25rem 0 0;
+  color: var(--agora-muted);
+  font-size: 0.72rem;
+}
+
+.glad-radar {
+  display: grid;
+  justify-items: center;
+}
+.glad-radar .pulse-radar-svg { width: min(150px, 100%); }
+
+/* Stats destacados con barras. */
+.glad-stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.glad-stats li {
+  display: grid;
+  grid-template-columns: 5.25rem 2rem 1fr;
+  align-items: center;
+  gap: 0.5rem;
+}
+.glad-stat-label {
+  color: var(--agora-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.glad-stat-value {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.glad-stat-track {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--agora-surface-3);
+  border: 1px solid #ffffff10;
+  overflow: hidden;
+}
+.glad-stat-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--agora-teal), var(--agora-accent));
+  transition: width 200ms ease;
+}
+
+/* Pie de carta: wallet + eventos. */
+.glad-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid #ffffff14;
+}
+.glad-foot div { display: grid; gap: 0.1rem; min-width: 0; }
+.glad-foot div:last-child { text-align: right; }
+.glad-foot dt {
+  color: var(--agora-muted);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.glad-foot dd {
+  margin: 0;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Detalle expandido (click en carta fuera del modo comparar). */
+.glad-detail {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #ffffff1f;
+}
+.glad-detail-link {
+  justify-self: start;
+  border: 1px solid #ffffff18;
+  border-radius: 7px;
+  background: #ffffff08;
+  color: var(--agora-text);
+  padding: 0.4rem 0.65rem;
+  font-size: 0.78rem;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+.glad-detail-link:hover { border-color: var(--agora-teal); color: var(--agora-teal); }
+.glad-card-expanded { border-color: var(--agora-teal); }
+
+/* Selección en modo comparar. */
+.glad-card-picked {
+  border-color: var(--agora-teal);
+  box-shadow: 0 0 0 1px var(--agora-teal), 0 14px 34px #0009;
+}
+.glad-compare-slot {
+  position: absolute;
+  top: -0.55rem;
+  right: -0.55rem;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--agora-teal);
+  color: #06251f;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* ---------- Vista de comparación ---------- */
+
+.glad-compare {
+  border: 1px solid var(--agora-border);
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at 50% -30%, var(--agora-accent-soft), transparent 55%),
+    var(--agora-surface);
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.glad-compare-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.glad-compare-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+}
+.glad-compare-head h2 span {
+  color: var(--agora-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  padding: 0 0.35rem;
+}
+
+.glad-compare-body {
+  display: grid;
+  grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: center;
+}
+@media (max-width: 900px) {
+  .glad-compare-body { grid-template-columns: 1fr; }
+}
+
+.glad-compare-radar {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+}
+.glad-compare-radar .pulse-radar-svg { width: min(330px, 100%); }
+
+.glad-compare-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  color: var(--agora-muted);
+  font-size: 0.75rem;
+}
+.glad-compare-legend li { display: flex; align-items: center; gap: 0.4rem; }
+.swatch { width: 0.7rem; height: 0.7rem; border-radius: 3px; }
+.swatch-a { background: var(--agora-accent); }
+.swatch-b { background: var(--agora-teal); }
+
+/* Polígonos superpuestos del radar (A dorado, B teal). */
+.skill-radar-area-a {
+  fill: color-mix(in srgb, var(--agora-accent) 26%, transparent);
+  stroke: var(--agora-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.skill-radar-area-b {
+  fill: color-mix(in srgb, var(--agora-teal) 26%, transparent);
+  stroke: var(--agora-teal);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+/* Tabla de diferencias por eje. */
+.glad-compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.glad-compare-table th,
+.glad-compare-table td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid #ffffff12;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.glad-compare-table thead th {
+  color: var(--agora-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.glad-compare-table thead .col-a { color: var(--agora-accent); }
+.glad-compare-table thead .col-b { color: var(--agora-teal); }
+.glad-compare-table tbody th {
+  text-align: left;
+  color: var(--agora-muted);
+  font-weight: 500;
+}
+.glad-compare-table td.wins { color: var(--agora-text); font-weight: 700; }
+.glad-compare-table td:not(.wins):not(.arrow) { color: var(--agora-muted); }
+.glad-compare-table td.arrow { color: var(--agora-accent); width: 2.25rem; }
+.glad-compare-ovr-row th,
+.glad-compare-ovr-row td { border-bottom: 2px solid #ffffff24; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.glad-footer {
+  color: var(--agora-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+/* ---------- Accesibilidad de movimiento ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .glad-card,
+  .glad-btn,
+  .glad-stat-fill,
+  .glad-detail-link,
+  .glad-kicker a {
+    transition: none;
+  }
+  .glad-card:hover { transform: none; }
+}

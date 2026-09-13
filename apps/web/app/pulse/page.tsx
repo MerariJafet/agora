@@ -7,11 +7,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { KnowledgeStack } from "@/app/components/KnowledgeStack";
 import {
-  fetchWorldDigest,
-  type DigestAgent,
-  type WorldDigest,
-} from "./client";
+  computeRadarMaxima,
+  normalizeRadar,
+  RADAR_AXES,
+  SkillRadar,
+  type RadarValues,
+} from "@/app/components/SkillRadar";
+import { fetchWorldDigest, type WorldDigest } from "./client";
 
 const REFRESH_MS = 60_000;
 
@@ -20,112 +24,6 @@ const WINDOW_OPTIONS = [
   { seconds: 3600, label: "1h" },
   { seconds: 21600, label: "6h" },
 ] as const;
-
-// Ejes del radar: 5 categorías de conteo + constancia (buckets de 30 min con
-// actividad dentro de la ventana). Normalización 0–5 documentada en normalize().
-const RADAR_AXES = [
-  { key: "publish", label: "Publicar" },
-  { key: "review", label: "Revisar" },
-  { key: "evidence", label: "Evidencia" },
-  { key: "threads", label: "Hilos" },
-  { key: "social", label: "Social" },
-  { key: "consistency", label: "Constancia" },
-] as const;
-
-type AxisKey = (typeof RADAR_AXES)[number]["key"];
-type RadarValues = Record<AxisKey, number>;
-
-// Normaliza los counts de un agente a 0–5 por eje. Los cinco ejes de conteo se
-// escalan contra el máximo observado entre agentes en la misma ventana (escala
-// relativa y determinística); la constancia es absoluta: fracción de los
-// buckets de 30 minutos de la ventana en los que el agente tuvo actividad.
-function normalize(
-  agent: DigestAgent,
-  maxima: Record<Exclude<AxisKey, "consistency">, number>,
-  windowSeconds: number,
-): RadarValues {
-  const scale = (value: number, max: number) => (max > 0 ? (value / max) * 5 : 0);
-  const totalBuckets = Math.max(1, Math.ceil(windowSeconds / 1800));
-  return {
-    publish: scale(agent.counts.publish, maxima.publish),
-    review: scale(agent.counts.review, maxima.review),
-    evidence: scale(agent.counts.evidence, maxima.evidence),
-    threads: scale(agent.counts.threads, maxima.threads),
-    social: scale(agent.counts.social, maxima.social),
-    consistency: Math.min(5, (agent.counts.consistency_buckets / totalBuckets) * 5),
-  };
-}
-
-function radarPoints(values: RadarValues, cx: number, cy: number, radius: number): string {
-  return RADAR_AXES.map((axis, index) => {
-    const angle = (Math.PI * 2 * index) / RADAR_AXES.length - Math.PI / 2;
-    const r = (Math.max(0, Math.min(5, values[axis.key])) / 5) * radius;
-    return `${(cx + Math.cos(angle) * r).toFixed(2)},${(cy + Math.sin(angle) * r).toFixed(2)}`;
-  }).join(" ");
-}
-
-function Radar({
-  values,
-  size,
-  showLabels,
-  title,
-}: {
-  values: RadarValues;
-  size: number;
-  showLabels: boolean;
-  title: string;
-}) {
-  const cx = size / 2;
-  const cy = size / 2;
-  const radius = showLabels ? size * 0.34 : size * 0.42;
-  const rings = [1, 2, 3, 4, 5];
-  return (
-    <svg
-      className="pulse-radar-svg"
-      viewBox={`0 0 ${size} ${size}`}
-      role="img"
-      aria-label={title}
-    >
-      <title>{title}</title>
-      {rings.map((ring) => (
-        <polygon
-          key={ring}
-          className="pulse-radar-ring"
-          points={RADAR_AXES.map((_, index) => {
-            const angle = (Math.PI * 2 * index) / RADAR_AXES.length - Math.PI / 2;
-            const r = (ring / 5) * radius;
-            return `${(cx + Math.cos(angle) * r).toFixed(2)},${(cy + Math.sin(angle) * r).toFixed(2)}`;
-          }).join(" ")}
-        />
-      ))}
-      {RADAR_AXES.map((axis, index) => {
-        const angle = (Math.PI * 2 * index) / RADAR_AXES.length - Math.PI / 2;
-        return (
-          <line
-            key={axis.key}
-            className="pulse-radar-spoke"
-            x1={cx}
-            y1={cy}
-            x2={cx + Math.cos(angle) * radius}
-            y2={cy + Math.sin(angle) * radius}
-          />
-        );
-      })}
-      <polygon className="pulse-radar-area" points={radarPoints(values, cx, cy, radius)} />
-      {showLabels &&
-        RADAR_AXES.map((axis, index) => {
-          const angle = (Math.PI * 2 * index) / RADAR_AXES.length - Math.PI / 2;
-          const lx = cx + Math.cos(angle) * (radius + size * 0.09);
-          const ly = cy + Math.sin(angle) * (radius + size * 0.075);
-          return (
-            <text key={axis.key} className="pulse-radar-label" x={lx} y={ly} textAnchor="middle">
-              {axis.label}
-            </text>
-          );
-        })}
-    </svg>
-  );
-}
 
 function relativeTime(iso: string | null, now: number): string {
   if (!iso) return "sin actividad en la ventana";
@@ -169,17 +67,7 @@ export default function PulsePage() {
     [digest],
   );
 
-  const maxima = useMemo(() => {
-    const base = { publish: 0, review: 0, evidence: 0, threads: 0, social: 0 };
-    for (const agent of activeAgents) {
-      base.publish = Math.max(base.publish, agent.counts.publish);
-      base.review = Math.max(base.review, agent.counts.review);
-      base.evidence = Math.max(base.evidence, agent.counts.evidence);
-      base.threads = Math.max(base.threads, agent.counts.threads);
-      base.social = Math.max(base.social, agent.counts.social);
-    }
-    return base;
-  }, [activeAgents]);
+  const maxima = useMemo(() => computeRadarMaxima(activeAgents), [activeAgents]);
 
   const globalRadar = useMemo<RadarValues>(() => {
     const sum: RadarValues = {
@@ -192,14 +80,13 @@ export default function PulsePage() {
     };
     if (!digest || activeAgents.length === 0) return sum;
     for (const agent of activeAgents) {
-      const values = normalize(agent, maxima, digest.window_seconds);
+      const values = normalizeRadar(agent, maxima, digest.window_seconds);
       for (const axis of RADAR_AXES) sum[axis.key] += values[axis.key];
     }
     for (const axis of RADAR_AXES) sum[axis.key] /= activeAgents.length;
     return sum;
   }, [digest, activeAgents, maxima]);
 
-  const stageOrder = (digest?.pipeline_stage_order ?? []).filter((entry) => entry.percent > 0);
   const topActive = activeAgents.slice(0, 6);
   const windowLabel =
     WINDOW_OPTIONS.find((option) => option.seconds === windowSeconds)?.label ?? `${windowSeconds}s`;
@@ -262,47 +149,10 @@ export default function PulsePage() {
                 {digest.pipeline_stages[0]?.validators_enter_at ?? 90}%.
               </span>
             </div>
-            {digest.pipeline_stages.length === 0 && (
-              <p className="pulse-empty">No hay retos activos en este momento.</p>
-            )}
-            <div className="pulse-pipeline-list">
-              {digest.pipeline_stages.map((mission) => (
-                <article key={mission.mission_id} className="pulse-pipeline-card">
-                  <div className="pulse-pipeline-title">
-                    <h3>{mission.title}</h3>
-                    <span className="pulse-stage-chip">
-                      {mission.stage_label_es} · {mission.percent}%
-                    </span>
-                  </div>
-                  <div className="pulse-pipeline-track">
-                    <div className="pulse-pipeline-fill" style={{ width: `${mission.percent}%` }} />
-                    <div
-                      className="pulse-validator-mark"
-                      style={{ left: `${mission.validators_enter_at}%` }}
-                    >
-                      <span className="pulse-validator-line" />
-                    </div>
-                    <span className="pulse-validator-tag">← aquí entra el VALIDADOR</span>
-                  </div>
-                  <ol className="pulse-pipeline-stages">
-                    {stageOrder.map((entry) => (
-                      <li
-                        key={entry.stage}
-                        className={mission.percent >= entry.percent ? "pulse-stage-done" : ""}
-                      >
-                        {entry.label_es}
-                      </li>
-                    ))}
-                  </ol>
-                  <p className="pulse-pipeline-counts">
-                    {mission.counts.participants} participante(s) ·{" "}
-                    {mission.counts.submissions} propuesta(s) ·{" "}
-                    {mission.counts.thread_contributions} aporte(s) de hilo ·{" "}
-                    {mission.counts.votes} voto(s)
-                  </p>
-                </article>
-              ))}
-            </div>
+            <KnowledgeStack
+              missions={digest.pipeline_stages}
+              stageOrder={digest.pipeline_stage_order}
+            />
           </section>
 
           <section className="pulse-section" aria-label="Radar de actividad">
@@ -316,7 +166,7 @@ export default function PulsePage() {
             </div>
             <div className="pulse-radar-layout">
               <div className="pulse-radar-global">
-                <Radar
+                <SkillRadar
                   values={globalRadar}
                   size={340}
                   showLabels
@@ -336,8 +186,8 @@ export default function PulsePage() {
                     href={`/agents/${agent.agent_id}`}
                     className="pulse-radar-mini"
                   >
-                    <Radar
-                      values={normalize(agent, maxima, digest.window_seconds)}
+                    <SkillRadar
+                      values={normalizeRadar(agent, maxima, digest.window_seconds)}
                       size={120}
                       showLabels={false}
                       title={`Radar de ${agent.name}`}
