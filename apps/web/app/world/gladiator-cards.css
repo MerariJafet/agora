@@ -1,0 +1,239 @@
+/* Estilos nuevos de /world: radar de habilidades en el inspector y pila del
+   conocimiento en la columna derecha. Archivo propio para no tocar
+   globals.css (en edición por otro flujo). 8px-grid, tema oscuro AGORA. */
+
+/* Al retirar la fila de burbujas duplicadas bajo el mapa, re-mapeamos las
+   filas del stage para que la fila flexible (mínimo 420px) siga siendo la del
+   canvas y no caiga sobre el truth-strip. (Override local: globals.css está
+   en edición por otro flujo y no se toca.) */
+.observatory-shell .observatory-stage {
+  grid-template-rows: auto auto minmax(420px, 1fr);
+  grid-auto-rows: auto;
+}
+
+/* ---------- Radar de habilidades en el inspector ---------- */
+
+.inspector-radar {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 1rem 0.75rem 0.75rem;
+  border: 1px solid var(--agora-border);
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 50% -30%, var(--agora-accent-soft), transparent 60%),
+    var(--agora-surface-2);
+}
+
+.inspector-radar h4 {
+  margin: 0;
+  justify-self: start;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--agora-accent);
+}
+
+.inspector-radar .pulse-radar-svg {
+  width: min(250px, 100%);
+}
+
+.inspector-radar-caption {
+  margin: 0;
+  color: var(--agora-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+/* ---------- Resumen de gladiadores (Ranking del dashboard) ---------- */
+/* Filas tipo carta compacta: medalla, mini-radar, nombre, presencia y OVR.
+   Se reordenan en vivo (FLIP) al refrescar el digest. */
+
+.glad-summary-list {
+  list-style: none;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.glad-summary-list li {
+  position: relative;
+}
+
+.glad-summary-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.6rem 3rem minmax(0, 1fr) 0.75rem 2.6rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #ffffff12;
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--agora-surface-2) 0%, var(--agora-surface) 100%);
+  color: var(--agora-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.glad-summary-row:hover {
+  border-color: var(--agora-accent);
+}
+
+.glad-summary-radar {
+  display: grid;
+  place-items: center;
+}
+.glad-summary-radar .pulse-radar-svg { width: 48px; }
+
+.glad-summary-main {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.glad-summary-main strong {
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.glad-summary-main small {
+  color: var(--agora-muted);
+  font-size: 0.68rem;
+}
+
+.glad-summary-presence {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #55607080;
+}
+.glad-summary-presence.on {
+  background: var(--agora-ok);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--agora-ok) 70%, transparent);
+}
+
+.glad-summary-ovr {
+  display: grid;
+  justify-items: center;
+  line-height: 1;
+}
+.glad-summary-ovr strong {
+  font-size: 1.05rem;
+  color: var(--agora-accent);
+  font-variant-numeric: tabular-nums;
+}
+.glad-summary-ovr small {
+  font-size: 0.5rem;
+  letter-spacing: 0.2em;
+  color: var(--agora-muted);
+}
+
+.glad-summary-card-link {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--agora-border);
+  border-radius: 999px;
+  background: var(--agora-surface-3);
+  color: var(--agora-text);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.glad-summary-list li:hover .glad-summary-card-link,
+.glad-summary-card-link:focus-visible {
+  opacity: 1;
+}
+.glad-summary-card-link:hover { color: var(--agora-teal); }
+
+.gladiator-ranking-panel .detail-link {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glad-summary-row,
+  .glad-summary-card-link {
+    transition: none;
+  }
+}
+
+/* ---------- Pila del conocimiento (columna derecha) ---------- */
+
+.knowledge-stack-panel {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.knowledge-stack-panel .panel-title-row h2 {
+  color: var(--agora-accent);
+}
+
+.knowledge-stack-meta {
+  color: var(--agora-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.knowledge-stack-panel .detail-link {
+  justify-self: start;
+}
+
+/* Versión compacta de la pila para la columna estrecha (330–390px). */
+.knowledge-stack-compact.pulse-pipeline-list {
+  gap: 0.75rem;
+}
+
+.knowledge-stack-compact .pulse-pipeline-card {
+  padding: 0.75rem 0.75rem 0.65rem;
+  transition: border-color 180ms ease;
+}
+
+.knowledge-stack-compact .pulse-pipeline-card:hover {
+  border-color: var(--agora-accent);
+}
+
+.knowledge-stack-compact .pulse-pipeline-title {
+  margin-bottom: 1.75rem;
+}
+
+.knowledge-stack-compact .pulse-pipeline-title h3 {
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.knowledge-stack-compact .pulse-stage-chip {
+  font-size: 0.66rem;
+}
+
+.knowledge-stack-compact .pulse-validator-tag {
+  font-size: 0.62rem;
+}
+
+.knowledge-stack-compact .pulse-pipeline-stages {
+  gap: 0.25rem 0.55rem;
+}
+
+.knowledge-stack-compact .pulse-pipeline-stages li {
+  font-size: 0.66rem;
+}
+
+.knowledge-stack-compact .pulse-pipeline-counts {
+  font-size: 0.7rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .knowledge-stack-compact .pulse-pipeline-card,
+  .knowledge-stack-compact .pulse-pipeline-fill {
+    transition: none;
+  }
+}

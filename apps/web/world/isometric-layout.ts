@@ -1,8 +1,14 @@
 import type { Mission } from "@/lib/missions";
+import { humanizeAgentMessage } from "./humanize-message.ts";
 import type { AgentSemanticState, Landmark, WorldMessageEvent } from "./types";
 
 export const VISUAL_SCHEMA_VERSION = "visual-world-manifest.v3.iso-room";
-export const MAX_VISIBLE_BUBBLES = 4;
+/** Max simultaneous bubbles per station zone; extras collapse to a speaking dot. */
+export const MAX_BUBBLES_PER_ZONE = 3;
+export const BUBBLE_MAX_CHARS = 90;
+/** Pixel separation between avatars that would otherwise collide on screen. */
+export const CROWD_RING_SPACING_X = 32;
+export const CROWD_RING_SPACING_Y = 20;
 export const TARGET_OCCUPANCY_RATIO = 0.16;
 export const MIN_ROOM_COLUMNS = 18;
 export const MIN_ROOM_ROWS = 14;
@@ -35,7 +41,15 @@ export interface IsoAgentProjection {
   y: number;
   z: number;
   facing: "left" | "right";
+  /** Humanized, truncated bubble text (max one bubble per agent: its latest message). */
   bubble: string | null;
+  /** Original message content backing the bubble/dot, for transparency tooltips. */
+  bubbleRaw: string | null;
+  /** True when the agent has a recent message but its bubble collapsed (zone crowded). */
+  speaking: boolean;
+  /** Deterministic pixel offsets separating avatars that collide on screen. */
+  offsetX: number;
+  offsetY: number;
   motion: "idle" | "walk" | "talk" | "think" | "vote" | "work" | "review" | "submit";
   tileX: number;
   tileY: number;
@@ -175,6 +189,42 @@ function clampTile(value: number, max: number): number {
   return Math.max(1, Math.min(max - 2, value));
 }
 
+/**
+ * Deterministic pixel offset for the Nth member (stable order) of a group of
+ * avatars that landed on the same screen point: member 0 stays at the center,
+ * the rest spread over concentric iso-flattened rings (8 slots per ring,
+ * ~32px horizontal / ~20px vertical separation).
+ */
+export function crowdOffsetForIndex(index: number): { x: number; y: number } {
+  if (index <= 0) return { x: 0, y: 0 };
+  const ring = Math.floor((index - 1) / 8) + 1;
+  const slot = (index - 1) % 8;
+  const angle = (Math.PI * 2 * slot) / 8 + (ring - 1) * (Math.PI / 8);
+  return {
+    x: Math.round(Math.cos(angle) * CROWD_RING_SPACING_X * ring),
+    y: Math.round(Math.sin(angle) * CROWD_RING_SPACING_Y * ring),
+  };
+}
+
+/** Group agents that resolved to (almost) the same screen point and spread them. */
+function applyCrowdOffsets(projections: IsoAgentProjection[]): IsoAgentProjection[] {
+  const groups = new Map<string, IsoAgentProjection[]>();
+  projections.forEach((item) => {
+    const key = `${Math.round(item.x)}|${Math.round(item.y)}`;
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  });
+  groups.forEach((members) => {
+    if (members.length < 2) return;
+    const stable = [...members].sort((a, b) => a.agent.agent_id.localeCompare(b.agent.agent_id));
+    stable.forEach((item, index) => {
+      const offset = crowdOffsetForIndex(index);
+      item.offsetX = offset.x;
+      item.offsetY = offset.y;
+    });
+  });
+  return projections;
+}
+
 function stationAnchorForAgent(
   station: IsoStation,
   stationKind: IsoStationKind,
@@ -208,15 +258,33 @@ export function projectAgentsIntoRoom(
   sizing: IsoRoomSizing = roomSizingForPopulation(agents.length),
 ): IsoAgentProjection[] {
   const byStation = new Map<IsoStationKind, AgentSemanticState[]>();
-  const bubbleAgentIds = new Set(
-    [...messages]
-      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
-      .slice(0, MAX_VISIBLE_BUBBLES)
-      .map((message) => message.agent_id),
-  );
   agents.forEach((agent) => {
     const station = stationForAgent(agent, messages);
     byStation.set(station, [...(byStation.get(station) ?? []), agent]);
+  });
+
+  // One bubble candidate per agent (its latest message). Per zone, only the
+  // most recent MAX_BUBBLES_PER_ZONE speakers keep a visible bubble; the rest
+  // collapse to a "speaking" dot. Every message stays in the chat history.
+  const bubbleAgentIds = new Set<string>();
+  const speakingAgentIds = new Set<string>();
+  byStation.forEach((stationAgents) => {
+    const speakers = stationAgents
+      .map((member) => ({
+        member,
+        message: latestMessageForAgent(member.agent_id, messages),
+      }))
+      .filter((entry): entry is { member: AgentSemanticState; message: WorldMessageEvent } =>
+        Boolean(entry.message),
+      )
+      .sort((a, b) =>
+        (Date.parse(b.message.created_at) - Date.parse(a.message.created_at))
+        || a.member.agent_id.localeCompare(b.member.agent_id),
+      );
+    speakers.forEach((entry, index) => {
+      if (index < MAX_BUBBLES_PER_ZONE) bubbleAgentIds.add(entry.member.agent_id);
+      else speakingAgentIds.add(entry.member.agent_id);
+    });
   });
 
   const occupied = new Set<string>();
@@ -225,7 +293,7 @@ export function projectAgentsIntoRoom(
     - stableHash(`${VISUAL_SCHEMA_VERSION}|${district.id}|${b.agent_id}`),
   );
 
-  return sortedAgents.map((agent) => {
+  const projected = sortedAgents.map((agent): IsoAgentProjection => {
     const stationKind = stationForAgent(agent, messages);
     const station = stations.find((item) => item.kind === stationKind) ?? stations[1]!;
     const stationPeers = byStation.get(stationKind) ?? [];
@@ -256,10 +324,14 @@ export function projectAgentsIntoRoom(
       }
     }
     const point = isoToScreen(tileX, tileY, anchor.elevation ?? 0, sizing);
-    const message = bubbleAgentIds.has(agent.agent_id)
+    const hasBubble = bubbleAgentIds.has(agent.agent_id);
+    const speaking = speakingAgentIds.has(agent.agent_id);
+    const message = hasBubble || speaking
       ? latestMessageForAgent(agent.agent_id, messages)
       : undefined;
-    const bubble = message ? message.content.replace(/\s+/g, " ").slice(0, 112) : null;
+    const bubble = hasBubble && message
+      ? humanizeAgentMessage(message.content).text.replace(/\s+/g, " ").slice(0, BUBBLE_MAX_CHARS)
+      : null;
     const x = Math.min(92, Math.max(8, point.x));
     const y = Math.min(86, Math.max(12, point.y));
     const facing: IsoAgentProjection["facing"] = hash % 2 === 0 ? "right" : "left";
@@ -271,11 +343,17 @@ export function projectAgentsIntoRoom(
       z: tileX + tileY + index,
       facing,
       bubble,
-      motion: motionForStation(stationKind, Boolean(bubble)),
+      bubbleRaw: message?.content ?? null,
+      speaking,
+      offsetX: 0,
+      offsetY: 0,
+      motion: motionForStation(stationKind, Boolean(bubble) || speaking),
       tileX,
       tileY,
     };
-  }).sort((a, b) => a.z - b.z);
+  });
+
+  return applyCrowdOffsets(projected).sort((a, b) => a.z - b.z);
 }
 
 export function constructionStageForMission(mission: Mission): ChallengeConstructionProjection["stage"] {

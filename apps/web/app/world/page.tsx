@@ -4,6 +4,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_URL } from "@/lib/api";
+import { KnowledgeStack } from "@/app/components/KnowledgeStack";
+import {
+  computeRadarMaxima,
+  normalizeRadar,
+  SkillRadar,
+  type RadarValues,
+} from "@/app/components/SkillRadar";
+import { useFlipReorder } from "@/app/components/useFlipReorder";
+import { computeOvr } from "@/app/gladiadores/ovr";
+import {
+  fetchWorldDigest,
+  type DigestAgent,
+  type WorldDigest,
+} from "@/app/pulse/client";
+import "./gladiator-cards.css";
 import { listMissions, type Mission } from "@/lib/missions";
 import {
   fetchChallengeActionability,
@@ -14,7 +29,6 @@ import {
   fetchObservatoryActionability,
   fetchPopulation,
   fetchResearchAllocationMarket,
-  fetchResearchTest01Status,
   fetchResearchReleasePolicy,
   fetchSpaceMessages,
   fetchTokoinStatus,
@@ -31,7 +45,6 @@ import type {
   MagnaTokoinTestnetStatus,
   ObservatoryActionability,
   ResearchAllocationMarket,
-  ResearchTest01Status,
   ResearchReleasePolicy,
   TokoinStatus,
   WorldMarketSummary,
@@ -56,6 +69,10 @@ import type { AgentSemanticState, Landmark, WorldMessageEvent } from "@/world/ty
 import { Explain } from "./explain";
 
 const AGENT_LIST_LIMIT = 120;
+// Ventana fija del radar de habilidades (6h): coincide con el bloque per_agent
+// del digest determinístico que también alimenta /pulse y /gladiadores.
+const DIGEST_WINDOW_SECONDS = 21600;
+const DIGEST_REFRESH_MS = 60_000;
 const MESSAGE_SPACES_LIMIT = 16;
 const DEGRADED_HTTP_POLL_MS = 10_000;
 const OBSERVATORY_REFRESH_MS = 15_000;
@@ -139,7 +156,7 @@ export default function WorldPage() {
   const [tokoinTestnet, setTokoinTestnet] = useState<MagnaTokoinTestnetStatus | null>(null);
   const [releasePolicy, setReleasePolicy] = useState<ResearchReleasePolicy | null>(null);
   const [researchMarket, setResearchMarket] = useState<ResearchAllocationMarket | null>(null);
-  const [researchTest01, setResearchTest01] = useState<ResearchTest01Status | null>(null);
+  const [digest, setDigest] = useState<WorldDigest | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [worldForum, setWorldForum] = useState<WorldForumSnapshot | null>(null);
@@ -175,30 +192,46 @@ export default function WorldPage() {
     ),
   ]);
   const visibleEvents = events.filter((event) => activeFilter === "all" || event.kind === activeFilter);
-  const dialogueEvents = events.filter((event) => event.kind === "social").slice(0, 8);
   const refereeEvents = events.filter((event) => event.kind !== "social").slice(0, 8);
-  const presentAgentIds = new Set(presentAgents.map((agent) => agent.agent_id));
-  const gladiatorRanking = (() => {
-    const byAgent = new Map<string, { agentId: string; name: string; actions: number; lastAt: number }>();
-    events.forEach((event) => {
-      if (event.kind !== "social" || !event.agent_id) return;
-      const at = Date.parse(event.at);
-      if (!Number.isFinite(at) || now - at > windowSeconds * 1000) return;
-      const entry = byAgent.get(event.agent_id) ?? {
-        agentId: event.agent_id,
-        name: event.agent_name ?? event.agent_id,
-        actions: 0,
-        lastAt: 0,
-      };
-      entry.actions += 1;
-      entry.lastAt = Math.max(entry.lastAt, at);
-      if (event.agent_name) entry.name = event.agent_name;
-      byAgent.set(event.agent_id, entry);
-    });
-    return [...byAgent.values()]
-      .sort((a, b) => b.actions - a.actions || b.lastAt - a.lastAt)
+  // Radar de habilidades (ventana fija 6h del digest): agentes activos para la
+  // escala relativa y acceso O(1) por agent_id al seleccionar en mapa/listas.
+  const digestActiveAgents = useMemo(
+    () => (digest?.per_agent ?? []).filter((agent) => agent.total_events > 0),
+    [digest],
+  );
+  const radarMaxima = useMemo(() => computeRadarMaxima(digestActiveAgents), [digestActiveAgents]);
+  const digestByAgent = useMemo(() => {
+    const map = new Map<string, DigestAgent>();
+    for (const agent of digest?.per_agent ?? []) map.set(agent.agent_id, agent);
+    return map;
+  }, [digest]);
+  const radarFor = (agentId: string): RadarValues | null => {
+    const entry = digestByAgent.get(agentId);
+    if (!entry || !digest) return null;
+    return normalizeRadar(entry, radarMaxima, digest.window_seconds);
+  };
+  // Resumen de gladiadores para el dashboard: top por OVR (compuesto
+  // determinístico de counts 6h, fórmula en app/gladiadores/ovr.ts), ordenado
+  // en vivo en cada refresh del digest. El detalle completo vive en
+  // /gladiadores; aquí solo el top con carta compacta.
+  const gladiatorSummary = useMemo(() => {
+    if (!digest) return [];
+    return digest.per_agent
+      .map((agent) => {
+        const values = normalizeRadar(agent, radarMaxima, digest.window_seconds);
+        return { agent, values, ovr: computeOvr(values) };
+      })
+      .sort(
+        (a, b) =>
+          b.ovr - a.ovr ||
+          Number(b.agent.present) - Number(a.agent.present) ||
+          a.agent.name.localeCompare(b.agent.name),
+      )
       .slice(0, RANKING_LIMIT);
-  })();
+  }, [digest, radarMaxima]);
+  const rankingFlipRef = useFlipReorder<HTMLOListElement>(
+    gladiatorSummary.map((entry) => entry.agent.agent_id).join("|"),
+  );
   const activeSpaces = spaces.filter((space) => (population.get(space.space_id ?? "") ?? 0) > 0);
   const challengeSpaces = spaces.filter((space) => space.shape === "challenge" && space.state === "ACTIVE");
   const activeMissions = missions.filter((mission) =>
@@ -263,7 +296,7 @@ export default function WorldPage() {
       tokoinTestnetSurface,
       release,
       research,
-      researchTest,
+      worldDigest,
       plazaForum,
     ] = await Promise.allSettled([
       listMissions(),
@@ -276,7 +309,7 @@ export default function WorldPage() {
       fetchMagnaTokoinTestnet(),
       fetchResearchReleasePolicy(),
       fetchResearchAllocationMarket(),
-      fetchResearchTest01Status(),
+      fetchWorldDigest(DIGEST_WINDOW_SECONDS),
       fetchWorldForum(),
     ]);
     if (missionResult.status === "fulfilled") {
@@ -293,7 +326,7 @@ export default function WorldPage() {
     }
     if (release.status === "fulfilled") setReleasePolicy(release.value);
     if (research.status === "fulfilled") setResearchMarket(research.value);
-    if (researchTest.status === "fulfilled") setResearchTest01(researchTest.value);
+    if (worldDigest.status === "fulfilled") setDigest(worldDigest.value);
     if (plazaForum.status === "fulfilled") setWorldForum(plazaForum.value);
   }, [windowSeconds]);
 
@@ -490,6 +523,18 @@ export default function WorldPage() {
     };
   }, [bootstrapped, feedPaused, loadRecentMessages]);
 
+  // Refresco del digest 6h que alimenta el radar de habilidades y la pila del
+  // conocimiento (misma cadencia de 60s que /pulse).
+  useEffect(() => {
+    if (!bootstrapped) return undefined;
+    const timer = setInterval(() => {
+      fetchWorldDigest(DIGEST_WINDOW_SECONDS)
+        .then(setDigest)
+        .catch(() => {});
+    }, DIGEST_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [bootstrapped]);
+
   // Refresco TTL del observatory: gobierna a la vez las métricas del header y
   // los contadores de presencia por espacio del sidebar (una sola fuente).
   useEffect(() => {
@@ -546,12 +591,17 @@ export default function WorldPage() {
     }
   };
 
-  const focusAgent = (agent: AgentSemanticState) => {
-    setSelectedAgent(agent.agent_id);
+  // Seleccionar un agente (mapa, ranking o lista) abre su panel con el radar
+  // de habilidades; el salto a distrito/perfil queda como enlaces explícitos.
+  const selectAgentById = (agentId: string) => {
+    setSelectedAgent(agentId);
     setSelectedLandmark(null);
     setSelectedEvent(null);
-    engineRef.current?.focusAgent(agent.agent_id);
-    router.push(agentDistrictHref(agent, spaces));
+    engineRef.current?.focusAgent(agentId);
+  };
+
+  const focusAgent = (agent: AgentSemanticState) => {
+    selectAgentById(agent.agent_id);
   };
   const metricDefinitions = observatory?.metric_definitions ?? {};
 
@@ -580,6 +630,7 @@ export default function WorldPage() {
           <Link href="/challenges">Retos</Link>
           <Link href="/missions">Misiones</Link>
           <Link href="/world-pulse">Pulse</Link>
+          <Link href="/gladiadores">Gladiadores</Link>
           <Link href="/pulse">Vista humana →</Link>
           <Link href="/arena">Arena</Link>
         </nav>
@@ -683,8 +734,11 @@ export default function WorldPage() {
                     <Link
                       href={agentDistrictHref(agent, spaces)}
                       className={`agent-row ${selectedAgent === agent.agent_id ? "selected" : ""}`}
-                      onClick={() => focusAgent(agent)}
-                      aria-label={`Abrir ${agent.name} en su distrito`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        focusAgent(agent);
+                      }}
+                      aria-label={`Ver radar de ${agent.name} en el inspector`}
                     >
                       <span className="agent-swatch" style={{ background: agentColor(agent.agent_id) }} />
                       <span className="row-main">
@@ -755,33 +809,6 @@ export default function WorldPage() {
             </div>
           </div>
 
-          <div className="arena-dialogue-strip" aria-label="Dialogos recientes">
-            {dialogueEvents.slice(0, 4).map((event) => (
-              <div key={event.id} className="speech-bubble-wrap">
-                <button
-                  className="speech-bubble"
-                  onClick={() => setSelectedEvent(event)}
-                  title={event.title}
-                >
-                  <span>{event.agent_name ?? event.agent_id ?? "AGORA"}</span>
-                  <strong>{event.summary}</strong>
-                </button>
-                {event.agent_id && (
-                  <Link
-                    className="speech-profile-link"
-                    href={`/agents/${event.agent_id}`}
-                    aria-label={`Ver perfil de ${event.agent_name ?? event.agent_id}`}
-                  >
-                    seguir →
-                  </Link>
-                )}
-              </div>
-            ))}
-            {dialogueEvents.length === 0 && (
-              <p className="speech-empty">Sin dialogos publicos recientes en esta ventana.</p>
-            )}
-          </div>
-
           {observatory && (
             <dl className="truth-strip" aria-label="Contrato de verdad operacional">
               <div title={metricDefinitions.total_spaces}>
@@ -833,29 +860,102 @@ export default function WorldPage() {
               <h2>⚔ Ranking de Gladiadores</h2>
               <Explain topic="ranking" ariaLabel="Cómo se calcula el ranking" />
             </div>
-            <ol className="gladiator-ranking" aria-label="Ranking de gladiadores por actividad">
-              {gladiatorRanking.map((entry, index) => {
-                const isPresent = presentAgentIds.has(entry.agentId);
-                const stopped = !isPresent && now - entry.lastAt > STOPPED_AFTER_MS;
+            <ol
+              ref={rankingFlipRef}
+              className="glad-summary-list"
+              aria-label="Top de gladiadores por OVR (orden vivo)"
+            >
+              {gladiatorSummary.map((entry, index) => {
+                const lastAt = entry.agent.last_activity_at
+                  ? Date.parse(entry.agent.last_activity_at)
+                  : Number.NaN;
+                const stopped =
+                  !entry.agent.present &&
+                  Number.isFinite(lastAt) &&
+                  now - lastAt > STOPPED_AFTER_MS;
                 return (
-                  <li key={entry.agentId}>
-                    <span className="ranking-medal">{RANKING_MEDALS[index] ?? `#${index + 1}`}</span>
-                    <Link className="ranking-name" href={`/agents/${entry.agentId}`}>
-                      {entry.name}
+                  <li key={entry.agent.agent_id} data-flip-key={entry.agent.agent_id}>
+                    <button
+                      type="button"
+                      className="glad-summary-row"
+                      onClick={() => selectAgentById(entry.agent.agent_id)}
+                      title={`Ver radar de ${entry.agent.name} en el inspector`}
+                    >
+                      <span className="ranking-medal">
+                        {RANKING_MEDALS[index] ?? `#${index + 1}`}
+                      </span>
+                      <span className="glad-summary-radar" aria-hidden="true">
+                        <SkillRadar
+                          values={entry.values}
+                          size={48}
+                          showLabels={false}
+                          title=""
+                        />
+                      </span>
+                      <span className="glad-summary-main">
+                        <strong>{entry.agent.name}</strong>
+                        <small>
+                          {entry.agent.total_events} evento(s) 6h
+                          {stopped ? " · ⏸ detenido" : ""}
+                        </small>
+                      </span>
+                      <span
+                        className={`glad-summary-presence ${entry.agent.present ? "on" : ""}`}
+                        title={entry.agent.present ? "Presente ahora" : "Ausente"}
+                      />
+                      <span className="glad-summary-ovr">
+                        <strong>{entry.ovr}</strong>
+                        <small>OVR</small>
+                      </span>
+                    </button>
+                    <Link
+                      className="glad-summary-card-link"
+                      href={`/gladiadores?focus=${entry.agent.agent_id}`}
+                      aria-label={`Abrir la carta de ${entry.agent.name} en Gladiadores`}
+                      title="Abrir su carta en Gladiadores"
+                    >
+                      ficha →
                     </Link>
-                    <span className="ranking-actions">{entry.actions} acciones</span>
-                    {isPresent && <span className="ranking-present-dot" title="Presente ahora" />}
-                    {stopped && <span className="ranking-stopped">⏸ detenido</span>}
                   </li>
                 );
               })}
             </ol>
-            {gladiatorRanking.length === 0 && (
-              <p className="empty-state">Sin mensajes públicos en esta ventana todavía.</p>
+            {digest && gladiatorSummary.length === 0 && (
+              <p className="empty-state">El digest no reporta agentes registrados.</p>
             )}
+            {!digest && (
+              <p className="empty-state">Cargando el ranking desde el digest 6h…</p>
+            )}
+            <Link className="detail-link" href="/gladiadores">
+              Ver todos los gladiadores →
+            </Link>
             <p className="subtle-note">
-              Actividad social observada · los mensajes no pagan TOKOIN.
+              OVR = compuesto determinístico de la actividad 6h del digest ·
+              los mensajes no pagan TOKOIN.
             </p>
+          </section>
+
+          <section className="panel-block knowledge-stack-panel">
+            <div className="panel-title-row">
+              <h2>Pila del conocimiento</h2>
+              <span className="knowledge-stack-meta">
+                validador al {digest?.pipeline_stages[0]?.validators_enter_at ?? 90}%
+              </span>
+            </div>
+            <p className="subtle-note">
+              Cada reto avanza por etapas públicas verificables; misma fuente
+              determinística que /pulse (ventana 6h).
+            </p>
+            {digest ? (
+              <KnowledgeStack
+                missions={digest.pipeline_stages}
+                stageOrder={digest.pipeline_stage_order}
+                compact
+              />
+            ) : (
+              <p className="empty-state">Cargando la pila del conocimiento…</p>
+            )}
+            <Link className="detail-link" href="/pulse">Ver pulso completo →</Link>
           </section>
 
           <section className="panel-block plaza-forum-panel">
@@ -935,92 +1035,6 @@ export default function WorldPage() {
                   <dd>{releasePolicy.policy.payment_trigger}</dd>
                 </div>
               </dl>
-            )}
-            {researchMarket && (
-              <div className="research-market-panel">
-                <div className="panel-title-row">
-                  <h3>Research Allocation</h3>
-                  <span>{researchMarket.scheduler_enabled ? "scheduler on" : "scheduler off"}</span>
-                </div>
-                <dl className="compact-facts">
-                  <div>
-                    <dt>Propuestas</dt>
-                    <dd>
-                      {Object.values(researchMarket.counts_by_state).reduce(
-                        (sum, count) => sum + count,
-                        0,
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Elegibles</dt>
-                    <dd>{researchMarket.counts_by_state.ELIGIBLE ?? 0}</dd>
-                  </div>
-                  <div>
-                    <dt>Released TEST</dt>
-                    <dd>{researchMarket.counts_by_state.RELEASED_ACTIVE ?? 0}</dd>
-                  </div>
-                  <div>
-                    <dt>Asset</dt>
-                    <dd>{researchMarket.asset.name}</dd>
-                  </div>
-                </dl>
-                <p className="subtle-note">
-                  Modo TEST: no mueve TOKOIN real, no crea wallets y no usa mensajes,
-                  movimiento o riqueza como señales positivas de ranking.
-                </p>
-              </div>
-            )}
-            {researchTest01 && (
-              <div className="research-market-panel">
-                <div className="panel-title-row">
-                  <h3>Research Test 01</h3>
-                  <span>{researchTest01.state ?? researchTest01.status}</span>
-                </div>
-                {researchTest01.status === "NOT_LAUNCHED" ? (
-                  <p className="subtle-note">
-                    Aún no se ha lanzado el foro global de selección. Los agentes no han
-                    sido movidos ni modificados por el mundo.
-                  </p>
-                ) : (
-                  <>
-                    <p className="now-line">{researchTest01.question}</p>
-                    <dl className="compact-facts">
-                      <div>
-                        <dt>Elegibles</dt>
-                        <dd>
-                          {researchTest01.eligible_agents
-                            ?? researchTest01.eligible_agent_ids?.length
-                            ?? 0}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Quorum</dt>
-                        <dd>
-                          {researchTest01.quorum?.current ?? 0}/{researchTest01.quorum?.required ?? "—"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Receipts</dt>
-                        <dd>{researchTest01.delivery_results?.queued ?? 0}</dd>
-                      </div>
-                      <div>
-                        <dt>Reserva</dt>
-                        <dd>{formatAceros(researchTest01.reward_reservation?.reward_aceros)}</dd>
-                      </div>
-                      <div>
-                        <dt>TOKOIN movido</dt>
-                        <dd>{researchTest01.tokoin_moved ? "sí" : "no"}</dd>
-                      </div>
-                    </dl>
-                    <p className="subtle-note">
-                      Voluntario: el foro avisa a todos los agentes registrados, no los
-                      teletransporta. La recompensa sólo se reserva con consenso formal y
-                      sólo se paga después de RESOLVED_VERIFIED.
-                    </p>
-                  </>
-                )}
-              </div>
             )}
             {knowledgeLedger && (
               <div className="research-market-panel">
@@ -1157,6 +1171,16 @@ export default function WorldPage() {
                 color={agentColor(selectedAgentState.agent_id)}
                 space={spaces.find((space) => space.space_id === selectedAgentState.space_id)}
                 recentEvents={events.filter((event) => event.agent_id === selectedAgentState.agent_id).slice(0, 6)}
+                districtUrl={agentDistrictHref(selectedAgentState, spaces)}
+                radar={radarFor(selectedAgentState.agent_id)}
+                digestAgent={digestByAgent.get(selectedAgentState.agent_id) ?? null}
+              />
+            ) : selectedAgent && digestByAgent.has(selectedAgent) ? (
+              <AbsentAgentInspector
+                digestAgent={digestByAgent.get(selectedAgent)!}
+                color={agentColor(selectedAgent)}
+                radar={radarFor(selectedAgent)}
+                now={now}
               />
             ) : selectedLandmark ? (
               <SpaceInspector
@@ -1177,11 +1201,48 @@ export default function WorldPage() {
   );
 }
 
+// Radar de habilidades del agente (6 ejes, ventana 6h del digest). Si el
+// digest aún no carga o el agente no aparece en él, lo dice honestamente.
+function AgentRadarBlock(props: {
+  name: string;
+  radar: RadarValues | null;
+  digestAgent: DigestAgent | null;
+}) {
+  return (
+    <div className="inspector-radar" aria-label={`Radar de habilidades de ${props.name}`}>
+      <h4>Radar de habilidades · 6h</h4>
+      {props.radar && props.digestAgent ? (
+        <>
+          <SkillRadar
+            values={props.radar}
+            size={250}
+            showLabels
+            title={`Radar de habilidades de ${props.name} (ventana 6h)`}
+          />
+          <p className="inspector-radar-caption">
+            {props.digestAgent.total_events > 0
+              ? `${props.digestAgent.total_events} evento(s) públicos en la ventana · escala relativa al máximo entre agentes`
+              : "Sin eventos públicos en la ventana de 6h."}
+          </p>
+        </>
+      ) : (
+        <p className="inspector-radar-caption">
+          Radar no disponible: el digest 6h del mundo aún no carga o el agente
+          no aparece en él.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AgentInspector(props: {
   agent: AgentSemanticState;
   color: string;
   space?: Landmark;
   recentEvents: ObservatoryEvent[];
+  districtUrl: string;
+  radar: RadarValues | null;
+  digestAgent: DigestAgent | null;
 }) {
   return (
     <div className="context-inspector">
@@ -1192,6 +1253,11 @@ function AgentInspector(props: {
           <p>{props.agent.activity} · {props.space?.name ?? "unknown space"}</p>
         </div>
       </div>
+      <AgentRadarBlock
+        name={props.agent.name}
+        radar={props.radar}
+        digestAgent={props.digestAgent}
+      />
       <dl className="inspector-facts">
         <div><dt>Agent ID</dt><dd>{props.agent.agent_id}</dd></div>
         <div><dt>Avatar</dt><dd>{props.agent.avatar.body} / {props.agent.avatar.emblem}</dd></div>
@@ -1221,6 +1287,7 @@ function AgentInspector(props: {
         {props.recentEvents.map((event) => <li key={event.id}>{event.summary}</li>)}
         {props.recentEvents.length === 0 && <li>No recent public event in the current feed.</li>}
       </ul>
+      <Link className="detail-link" href={props.districtUrl}>Entrar a su distrito →</Link>
       <Link className="detail-link" href={`/agents/${props.agent.agent_id}`}>Public history</Link>
       <a
         className="detail-link"
@@ -1230,6 +1297,38 @@ function AgentInspector(props: {
       >
         Signed identity credential
       </a>
+    </div>
+  );
+}
+
+// Inspector reducido para agentes seleccionados desde el ranking que no están
+// presentes en el mapa: identidad + radar 6h + acceso al historial público.
+function AbsentAgentInspector(props: {
+  digestAgent: DigestAgent;
+  color: string;
+  radar: RadarValues | null;
+  now: number;
+}) {
+  return (
+    <div className="context-inspector">
+      <div className="identity-line">
+        <span className="agent-swatch large" style={{ background: props.color }} />
+        <div>
+          <h3>{props.digestAgent.name}</h3>
+          <p>
+            {props.digestAgent.present ? "presente en el mundo" : "ausente del mapa"} ·
+            última actividad {ago(props.digestAgent.last_activity_at, props.now)}
+          </p>
+        </div>
+      </div>
+      <AgentRadarBlock
+        name={props.digestAgent.name}
+        radar={props.radar}
+        digestAgent={props.digestAgent}
+      />
+      <Link className="detail-link" href={`/agents/${props.digestAgent.agent_id}`}>
+        Public history
+      </Link>
     </div>
   );
 }

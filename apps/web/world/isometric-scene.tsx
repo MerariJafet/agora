@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { listMissions, type Mission } from "@/lib/missions";
 import { avatarStatusFor, AVATAR_LIMITS } from "@/world/avatar-contract";
 import {
@@ -23,8 +23,30 @@ import {
   type IsoRoomSizing,
   type IsoStation,
 } from "@/world/isometric-layout";
+import { DistrictChat } from "@/world/district-chat";
+import { humanizeAgentMessage } from "@/world/humanize-message";
 import { challengeHref, encodeFocus, parseFocus } from "@/world/interaction-contract";
 import type { AgentSemanticState, Landmark, WorldManifest, WorldMessageEvent } from "@/world/types";
+
+/** Rolling window of district messages kept for bubbles, pulse and chat history. */
+const MESSAGE_WINDOW = 100;
+
+const NARROW_QUERY = "(max-width: 860px)";
+
+function subscribeNarrowViewport(onChange: () => void): () => void {
+  const media = window.matchMedia(NARROW_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+/** True on narrow viewports; false during SSR so the map renders expanded. */
+function useNarrowViewport(): boolean {
+  return useSyncExternalStore(
+    subscribeNarrowViewport,
+    () => window.matchMedia(NARROW_QUERY).matches,
+    () => false,
+  );
+}
 
 const FALLBACK_DISTRICT: Landmark = {
   id: "central",
@@ -92,6 +114,8 @@ function avatarStyle(agent: IsoAgentProjection): CSSProperties {
   return {
     "--x": `${agent.x}%`,
     "--y": `${agent.y}%`,
+    "--crowd-dx": `${agent.offsetX}px`,
+    "--crowd-dy": `${agent.offsetY}px`,
     "--avatar-tint": tintFor(agent.agent),
   } as CSSProperties;
 }
@@ -141,7 +165,16 @@ function Avatar({ item, selected, onSelect }: {
         <span className={`avatar-emblem emblem-${item.agent.avatar.emblem}`} />
       </span>
       <span className="avatar-name">{item.agent.name}</span>
-      {item.bubble && <span className="avatar-bubble">{item.bubble}</span>}
+      {item.bubble && (
+        <span className="avatar-bubble" title={item.bubbleRaw ?? undefined}>{item.bubble}</span>
+      )}
+      {!item.bubble && item.speaking && (
+        <span
+          className="avatar-speaking-dot"
+          title={item.bubbleRaw ? humanizeAgentMessage(item.bubbleRaw).text : "hablando"}
+          aria-label={`${item.agent.name} esta hablando`}
+        />
+      )}
     </button>
   );
 }
@@ -172,7 +205,16 @@ function RoomInspector({ agent, district, challenge }: {
   district: Landmark;
   challenge: ChallengeConstructionProjection | null;
 }) {
-  if (!agent && !challenge) return null;
+  if (!agent && !challenge) {
+    return (
+      <aside className="iso-inspector" aria-label="Inspector">
+        <p className="eyebrow">Agente seleccionado</p>
+        <p className="iso-note">
+          Selecciona un agente o construccion en el mapa para inspeccionarlo.
+        </p>
+      </aside>
+    );
+  }
   return (
     <aside className="iso-inspector" aria-label="Inspector">
       {agent && (
@@ -231,10 +273,10 @@ function SocialPulse({ messages, agents }: {
       <p className="eyebrow">Pulso social</p>
       <div className="pulse-lines">
         {speakers.map(({ message, agent }) => (
-          <div key={message.message_id}>
+          <div key={message.message_id} title={message.content}>
             <span style={{ background: tintFor(agent!.agent) }} />
             <strong>{compactName(message.agent_name ?? agent!.agent.name)}</strong>
-            <small>{message.content.slice(0, 82)}</small>
+            <small>{humanizeAgentMessage(message.content).text.slice(0, 82)}</small>
           </div>
         ))}
         {speakers.length === 0 && <small>Sin dialogos publicos recientes en esta sala.</small>}
@@ -271,6 +313,12 @@ export function IsometricWorldScene({ targetId, mode }: {
   const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [camera, setCamera] = useState({ x: 0, y: 0 });
+  const [dockTab, setDockTab] = useState<"agent" | "chat">("chat");
+  // Narrow screens start with the side dock collapsed; the user can override.
+  const narrowViewport = useNarrowViewport();
+  const [dockOverride, setDockOverride] = useState<boolean | null>(null);
+  const dockCollapsed = dockOverride ?? narrowViewport;
+  const setDockCollapsed = setDockOverride;
 
   const district = useMemo(() => {
     if (mode === "challenge") {
@@ -327,7 +375,7 @@ export function IsometricWorldScene({ targetId, mode }: {
       setMissions(nextMissions.missions);
       setObservatory(nextObs);
       if (nextDistrict.space_id) {
-        fetchSpaceMessages(nextDistrict.space_id, 18)
+        fetchSpaceMessages(nextDistrict.space_id, MESSAGE_WINDOW)
           .then((result) => {
             if (!cancelled) setMessages(result.messages.slice().reverse());
           })
@@ -353,7 +401,7 @@ export function IsometricWorldScene({ targetId, mode }: {
           content: String(frame.content ?? ""),
           created_at: String(frame.created_at ?? new Date().toISOString()),
         };
-        setMessages((current) => [message, ...current.filter((item) => item.message_id !== message.message_id)].slice(0, 18));
+        setMessages((current) => [message, ...current.filter((item) => item.message_id !== message.message_id)].slice(0, MESSAGE_WINDOW));
       } else if (frame.type === "activity") {
         setAgents((current) => current.map((agent) =>
           agent.agent_id === frame.agent_id ? { ...agent, activity: frame.activity as never } : agent,
@@ -474,6 +522,8 @@ export function IsometricWorldScene({ targetId, mode }: {
                 onSelect={() => {
                   setSelectedChallengeId(item.id);
                   setSelectedAgentId(null);
+                  setDockTab("agent");
+                  setDockCollapsed(false);
                   replaceFocus({ kind: "challenge", id: item.id });
                 }}
               />
@@ -486,14 +536,16 @@ export function IsometricWorldScene({ targetId, mode }: {
                 onSelect={() => {
                   setSelectedAgentId(item.agent.agent_id);
                   setSelectedChallengeId(null);
+                  setDockTab("agent");
+                  setDockCollapsed(false);
                   replaceFocus({ kind: "agent", id: item.agent.agent_id });
                 }}
               />
             ))}
           </div>
-          <div className="iso-social-caption" aria-live="polite">
+          <div className="iso-social-caption" aria-live="polite" title={latestMessage?.content}>
             <strong>{latestMessage?.agent_name ?? latestMessage?.agent_id ?? "AGORA Brain"}</strong>
-            <span>{latestMessage?.content?.slice(0, 138) ?? "La sala proyecta solo presencia, mensajes y eventos confirmados por AGORA."}</span>
+            <span>{latestMessage ? humanizeAgentMessage(latestMessage.content).text.slice(0, 138) : "La sala proyecta solo presencia, mensajes y eventos confirmados por AGORA."}</span>
           </div>
           <SocialPulse messages={messages} agents={projection.agents} />
         </section>
@@ -502,16 +554,61 @@ export function IsometricWorldScene({ targetId, mode }: {
           <summary>Eventos visibles y metodologia</summary>
           <ol>
             {messages.slice(0, 8).map((message) => (
-              <li key={message.message_id}>
+              <li key={message.message_id} title={message.content}>
                 <strong>{message.agent_name ?? message.agent_id}</strong>
-                <span>{message.content.slice(0, 160)}</span>
+                <span>{humanizeAgentMessage(message.content).text.slice(0, 160)}</span>
               </li>
             ))}
             {messages.length === 0 && <li>Sin mensajes recientes en este distrito.</li>}
           </ol>
         </details>
 
-        <RoomInspector agent={selectedAgent} district={district} challenge={selectedChallenge} />
+        {dockCollapsed ? (
+          <button
+            type="button"
+            className="district-chat-open"
+            onClick={() => setDockCollapsed(false)}
+            aria-expanded={false}
+          >
+            Chat del distrito
+          </button>
+        ) : (
+          <aside className="district-chat-dock" aria-label="Panel lateral del distrito">
+            <div className="district-chat-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={dockTab === "agent"}
+                className={dockTab === "agent" ? "active" : ""}
+                onClick={() => setDockTab("agent")}
+              >
+                Agente
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={dockTab === "chat"}
+                className={dockTab === "chat" ? "active" : ""}
+                onClick={() => setDockTab("chat")}
+              >
+                Chat
+              </button>
+              <button
+                type="button"
+                className="district-chat-collapse"
+                onClick={() => setDockCollapsed(true)}
+                aria-label="Colapsar panel lateral"
+              >
+                ✕
+              </button>
+            </div>
+            {dockTab === "agent" ? (
+              <RoomInspector agent={selectedAgent} district={district} challenge={selectedChallenge} />
+            ) : (
+              <DistrictChat messages={messages} agents={agents} districtName={district.name} />
+            )}
+          </aside>
+        )}
       </section>
     </main>
   );
