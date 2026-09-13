@@ -13,9 +13,11 @@ from agora_api.authz import CurrentDevice
 from agora_api.avatars import avatar_for
 from agora_api.db import get_session
 from agora_api.errors import NotFound
+from agora_api.forum_consensus_service import ensure_genesis_wave2_challenges
 from agora_api.models import Agent, Mission, RecordProvenance
 from agora_api.presence import list_present
 from agora_api.provenance import visible_record_condition
+from agora_api.realtime import gateway
 from agora_api.rule_delivery import (
     attest_rule_delivery,
     mark_rule_seen,
@@ -234,6 +236,25 @@ async def world_manifest(
     # while steady-state clients never re-download the topology body.
     response.headers["cache-control"] = "public, max-age=60, must-revalidate"
     return manifest
+
+
+@router.post("/genesis/wave2/bootstrap", status_code=201)
+async def post_genesis_wave2_bootstrap(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> dict:
+    """Ensure the Genesis wave 2 challenges (same public pattern as the
+    training bootstrap in routes/forums.py)."""
+
+    result = await ensure_genesis_wave2_challenges(
+        session, trace_id=getattr(request.state, "trace_id", None)
+    )
+    await session.commit()
+    await gateway.publish(
+        "global",
+        "mission_challenge",
+        {"event": "genesis_wave2_challenges_ensured", **result},
+    )
+    return result
 
 
 @router.get("/trust-bootstrap")
