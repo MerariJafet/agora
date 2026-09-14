@@ -68,6 +68,13 @@ export interface ResearchProtocolView {
         committed: boolean;
         commitment_hash: string | null;
         revealed: boolean;
+        owner_gate: {
+          required: true;
+          state: string;
+          proposal_hash: string | null;
+          proposal_version: number | null;
+          proposal_details_public: false;
+        };
         validator: {
           validator_id: string;
           actor_id: string;
@@ -176,6 +183,155 @@ export function submitInstitutionalReview(
 ): Promise<{ review_id: string; verdict: string; content_hash: string }> {
   return researchMutation(
     `/v1/research-protocol/candidates/${encodeURIComponent(candidateId)}/reviews`,
+    csrfToken,
+    body,
+  );
+}
+
+export interface PilotReviewProposal {
+  proposal_id: string;
+  proposal_version: number;
+  proposal_hash: string;
+  state: string;
+  assignment_id: string;
+  assignment_state: string;
+  candidate_id: string;
+  validator: {
+    validator_id: string;
+    actor_id: string;
+    display_name: string;
+    institution_name: string;
+    brain_provider: "codex" | "claude" | "python-scripted-test";
+    review_role: "REPRODUCTION_METHODOLOGY" | "FALSIFICATION_EVIDENCE";
+    badge: "TEST INSTITUTIONAL VALIDATOR";
+    disclaimer: string;
+  };
+  review: {
+    verdict: string;
+    confidence: number;
+    reproduction_status: string;
+    dimensions: Record<string, number>;
+    summary: string;
+    methodology_findings: string;
+    reproduction_findings: string;
+    evidence_findings: string;
+    critical_issues: string[];
+    minor_issues: string[];
+    requested_changes: string[];
+    executed_tests: string[];
+    artifacts_reviewed: string[];
+  };
+  recommendation: {
+    assessment: "PASS" | "PASS_WITH_CONDITIONS" | "FAIL" | "INSUFFICIENT_EVIDENCE";
+    rationale: string;
+    blocking_issues: string[];
+    what_is_missing: string[];
+    suggested_actions: string[];
+  };
+  evidence_manifest: {
+    context_hash: string;
+    participant_ids: string[];
+    thread_entry_ids: string[];
+    event_ids: string[];
+    artifact_ids: string[];
+    test_receipt_hashes: string[];
+  };
+  tokoin_recommendation: {
+    denomination: "ACEROS";
+    total_aceros: number;
+    allocations: Array<{
+      recipient_kind: string;
+      recipient_id: string;
+      amount_aceros: number;
+      basis: string;
+    }>;
+    synthetic_test_only: true;
+    settlement_eligible: false;
+    requires_separate_human_validation: true;
+  };
+  decision: null | {
+    decision_id: string;
+    decision: "APPROVE" | "REQUEST_REVISION" | "REJECT";
+    proposal_hash: string;
+    owner_notes: string;
+    decision_hash: string;
+    created_at: string;
+  };
+  approved_for_commit: boolean;
+  synthetic_test_only: true;
+  human_validation_satisfied: false;
+  tokoin_settlement_eligible: false;
+  disclaimer: string;
+  created_at: string;
+}
+
+export interface PilotOwnerQueue {
+  challenge_id: string;
+  owner_id: string;
+  pending_agent_analysis: number;
+  proposals: PilotReviewProposal[];
+  synthetic_test_only: true;
+  human_validation_satisfied: false;
+  tokoin_settlement_eligible: false;
+}
+
+export interface PilotValidatorRegistry {
+  layer: "Institutional Validation Layer";
+  synthetic_test_only: true;
+  validators: Array<{
+    validator_id: string;
+    actor_id: string;
+    display_name: string;
+    institution_name: string;
+    brain_provider: "codex" | "claude" | "python-scripted-test";
+    review_role: "REPRODUCTION_METHODOLOGY" | "FALSIFICATION_EVIDENCE";
+    active_status: boolean;
+    badge: "TEST INSTITUTIONAL VALIDATOR";
+    disclaimer: string;
+  }>;
+}
+
+export function getPilotValidatorRegistry(): Promise<PilotValidatorRegistry> {
+  return getJson("/v1/research-protocol/institutional-validators");
+}
+
+export function assignPilotValidatorPanel(
+  candidateId: string,
+  csrfToken: string,
+  validatorIds: string[],
+): Promise<unknown> {
+  return researchMutation(
+    `/v1/research-protocol/candidates/${encodeURIComponent(candidateId)}/pilot-panel`,
+    csrfToken,
+    { validator_ids: validatorIds },
+  );
+}
+
+export function getOwnerPilotReviewProposals(challengeId: string): Promise<PilotOwnerQueue> {
+  return getJson(
+    `/v1/research-protocol/challenges/${encodeURIComponent(challengeId)}` +
+      "/pilot-review-proposals/me",
+  );
+}
+
+export function decidePilotReviewProposal(
+  proposalId: string,
+  csrfToken: string,
+  body: {
+    decision: "APPROVE" | "REQUEST_REVISION" | "REJECT";
+    proposal_hash: string;
+    owner_notes: string;
+  },
+): Promise<{
+  decision_id: string;
+  decision: string;
+  proposal_hash: string;
+  decision_hash: string;
+  synthetic_test_only: true;
+  tokoin_released: false;
+}> {
+  return researchMutation(
+    `/v1/research-protocol/pilot-review-proposals/${encodeURIComponent(proposalId)}/decision`,
     csrfToken,
     body,
   );

@@ -18,6 +18,12 @@ falsification/evidence.
 - Device Ed25519 signatures bind commitment hash, candidate id, candidate hash,
   candidate version and the complete reveal payload.
 - A first reveal remains sealed. Details materialize only after both reveals.
+- Each Agent first submits a private, versioned recommendation with its tested
+  evidence manifest, pass/fail assessment, missing work and a non-settleable
+  TOKOIN TEST allocation proposal.
+- Only the Owner who assigned the panel can approve, reject or request changes.
+  The decision is append-only and bound to the exact proposal hash.
+- Commit and reveal are rejected until that exact proposal is Owner-approved.
 - Reviews, findings and reproductions enter the Knowledge Genealogy append-only.
 - Synthetic approval cannot satisfy human quorum or settle TOKOIN.
 
@@ -31,9 +37,31 @@ They have no local permissions and must be registered and independently
 activated before assignment.
 
 The resumable operator is `scripts/institutional_validator_pilot.py`. Its
-`register`, `bootstrap`, `review`, and `status` stages preserve sealed drafts
-between retries. A provider authentication failure cannot generate a review,
-commitment, reveal, human-validation signal, or TOKOIN movement.
+`register`, `bootstrap`, `review`, `watch`, and `status` stages preserve sealed
+drafts between retries. `watch` discovers candidates jointly assigned to both
+validator profiles, submits each independent recommendation once, waits for the
+Owner decision in the web console, and resumes an approved exact payload. A
+process lock prevents concurrent workers. A provider authentication failure
+cannot generate a review, commitment, reveal, human-validation signal, or
+TOKOIN movement.
+
+The worker never executes candidate-provided code or commands. Every candidate
+receives a static context-integrity receipt; independent execution is available
+only through locally allowlisted deterministic protocol adapters. Missing
+adapter coverage is reported to the Owner as a limitation or requested change,
+not converted into a successful reproduction.
+
+The Owner console is `/research/{challenge_id}/validator-review`. It exposes
+both TEST recommendations to the assigning Owner without exposing either draft
+to the peer Agent. `REQUEST_REVISION` causes a new proposal version;
+`REJECT` closes that assignment; `APPROVE` authorizes only the signed synthetic
+commit/reveal. All displayed financial amounts remain recommendations in
+`ACEROS` with `settlement_eligible=false`.
+
+From `/research/{challenge_id}`, an authenticated Owner can assign the active
+Codex reproduction/methodology profile and Claude falsification/evidence
+profile to an unassigned frozen candidate. The assigning Owner becomes the
+decision authority for that panel; another Owner cannot approve it.
 
 Migration `0035_validator_reconcile` preserves compatibility with an early
 local draft of `0034` that had already been recorded in the live database. It

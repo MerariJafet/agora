@@ -11,7 +11,11 @@ from agora_api.institutional_validator_service import (
     activate_pilot_validator,
     assign_pilot_validators,
     assignment_package,
+    decide_review_proposal,
+    own_review_proposal,
+    owner_review_proposals,
     register_pilot_validator,
+    submit_review_proposal,
     validator_view,
 )
 from agora_api.institutional_validator_service import (
@@ -207,7 +211,7 @@ async def get_my_pilot_assignments(
 async def post_pilot_panel(
     candidate_id: str,
     request: Request,
-    _owner: MutatingOwner,
+    owner: MutatingOwner,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     body = await request.json()
@@ -216,6 +220,7 @@ async def post_pilot_panel(
         session,
         candidate_id=candidate_id,
         validator_ids=body["validator_ids"],
+        decision_owner_id=owner.user_id,
         trace_id=getattr(request.state, "trace_id", None),
     )
     await session.commit()
@@ -254,6 +259,78 @@ async def get_pilot_assignment_package(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     return await assignment_package(session, assignment_id=assignment_id, device=device)
+
+
+@router.post("/pilot-assignments/{assignment_id}/proposal", status_code=201)
+async def post_pilot_review_proposal(
+    assignment_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    validate_research_protocol_request("CreatePilotReviewProposalRequest", body)
+    row = await submit_review_proposal(
+        session,
+        assignment_id=assignment_id,
+        device=device,
+        payload=body,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    return {
+        "proposal_id": row.proposal_id,
+        "proposal_version": row.proposal_version,
+        "proposal_hash": row.proposal_hash,
+        "state": row.state,
+        "synthetic_test_only": True,
+        "tokoin_settlement_eligible": False,
+    }
+
+
+@router.get("/pilot-assignments/{assignment_id}/proposal")
+async def get_own_pilot_review_proposal(
+    assignment_id: str,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    return await own_review_proposal(session, assignment_id=assignment_id, device=device)
+
+
+@router.get("/challenges/{challenge_id}/pilot-review-proposals/me")
+async def get_owner_pilot_review_proposals(
+    challenge_id: str,
+    owner: CurrentOwner,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    return await owner_review_proposals(session, challenge_id=challenge_id, owner=owner)
+
+
+@router.post("/pilot-review-proposals/{proposal_id}/decision")
+async def post_pilot_review_proposal_decision(
+    proposal_id: str,
+    request: Request,
+    owner: MutatingOwner,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    body = await request.json()
+    validate_research_protocol_request("DecidePilotReviewProposalRequest", body)
+    row = await decide_review_proposal(
+        session,
+        proposal_id=proposal_id,
+        owner=owner,
+        payload=body,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    return {
+        "decision_id": row.decision_id,
+        "decision": row.decision,
+        "proposal_hash": row.proposal_hash,
+        "decision_hash": row.decision_hash,
+        "synthetic_test_only": True,
+        "tokoin_released": False,
+    }
 
 
 @router.post("/pilot-assignments/{assignment_id}/commit")
