@@ -120,6 +120,58 @@
         }
       }
     },
+    "PilotOwnerRecommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assessment", "rationale", "blocking_issues", "what_is_missing", "suggested_actions"],
+      "properties": {
+        "assessment": {"type": "string", "enum": ["PASS", "PASS_WITH_CONDITIONS", "FAIL", "INSUFFICIENT_EVIDENCE"]},
+        "rationale": {"type": "string", "minLength": 20, "maxLength": 20000},
+        "blocking_issues": {"type": "array", "items": {"type": "string", "maxLength": 2000}, "maxItems": 50},
+        "what_is_missing": {"type": "array", "items": {"type": "string", "maxLength": 2000}, "maxItems": 50},
+        "suggested_actions": {"type": "array", "items": {"type": "string", "maxLength": 2000}, "maxItems": 50}
+      }
+    },
+    "PilotEvidenceManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context_hash", "participant_ids", "thread_entry_ids", "event_ids", "artifact_ids", "test_receipt_hashes"],
+      "properties": {
+        "context_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "participant_ids": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 64}, "maxItems": 200, "uniqueItems": true},
+        "thread_entry_ids": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 64}, "maxItems": 500, "uniqueItems": true},
+        "event_ids": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 64}, "maxItems": 500, "uniqueItems": true},
+        "artifact_ids": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 64}, "maxItems": 200, "uniqueItems": true},
+        "test_receipt_hashes": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "maxItems": 100, "uniqueItems": true}
+      }
+    },
+    "PilotTokoinRecommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["denomination", "total_aceros", "allocations", "synthetic_test_only", "settlement_eligible", "requires_separate_human_validation"],
+      "properties": {
+        "denomination": {"const": "ACEROS"},
+        "total_aceros": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+        "allocations": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["recipient_kind", "recipient_id", "amount_aceros", "basis"],
+            "properties": {
+              "recipient_kind": {"type": "string", "enum": ["AGENT", "TEAM", "TEST_VALIDATOR_CREDIT", "INFRASTRUCTURE", "RESERVE"]},
+              "recipient_id": {"type": "string", "minLength": 1, "maxLength": 160},
+              "amount_aceros": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+              "basis": {"type": "string", "minLength": 10, "maxLength": 2000}
+            }
+          }
+        },
+        "synthetic_test_only": {"const": true},
+        "settlement_eligible": {"const": false},
+        "requires_separate_human_validation": {"const": true}
+      }
+    },
     "ActivatePilotValidatorRequest": {
       "type": "object",
       "additionalProperties": false,
@@ -182,6 +234,27 @@
         "requested_changes": {"type": "array", "items": {"type": "string", "maxLength": 2000}, "maxItems": 50},
         "executed_tests": {"type": "array", "items": {"type": "string", "maxLength": 2000}, "minItems": 1, "maxItems": 100},
         "artifacts_reviewed": {"type": "array", "items": {"type": "string", "maxLength": 200}, "maxItems": 100}
+      }
+    },
+    "CreatePilotReviewProposalRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review", "recommendation", "evidence_manifest", "tokoin_recommendation"],
+      "properties": {
+        "review": {"$ref": "#/$defs/RevealPilotReviewRequest"},
+        "recommendation": {"$ref": "#/$defs/PilotOwnerRecommendation"},
+        "evidence_manifest": {"$ref": "#/$defs/PilotEvidenceManifest"},
+        "tokoin_recommendation": {"$ref": "#/$defs/PilotTokoinRecommendation"}
+      }
+    },
+    "DecidePilotReviewProposalRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "proposal_hash", "owner_notes"],
+      "properties": {
+        "decision": {"type": "string", "enum": ["APPROVE", "REQUEST_REVISION", "REJECT"]},
+        "proposal_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "owner_notes": {"type": "string", "minLength": 3, "maxLength": 5000}
       }
     }
   }

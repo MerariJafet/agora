@@ -28,7 +28,10 @@ from sqlalchemy import func, select
 
 from tests.conftest import SigningKeypair, register_agent
 from tests.integration.test_research_protocol import _join, _login, _seed_challenge
-from tests.integration.test_research_protocol_institutional_validators import _review_payload
+from tests.integration.test_research_protocol_institutional_validators import (
+    _proposal_payload,
+    _review_payload,
+)
 
 pytestmark = pytest.mark.integration
 ROOT = Path(__file__).resolve().parents[2]
@@ -443,7 +446,7 @@ async def _campaign(api_client, unique_name, scenario, destination, report):
     assignments = {
         t["validator"]["actor_id"]: t["assignment_id"] for t in response.json()["tracks"]
     }
-    payloads, hashes = [], []
+    payloads, hashes, packages = [], [], []
     for i, reviewer in enumerate(reviewers):
         package = await api_client.get(
             f"/v1/research-protocol/pilot-assignments/{assignments[reviewer['agent_id']]}/package",
@@ -451,6 +454,7 @@ async def _campaign(api_client, unique_name, scenario, destination, report):
         )
         assert package.status_code == 200, package.text
         assert not package.json()["peer_review_data_disclosed"]
+        packages.append(package.json())
         destination.joinpath(f"review-package-{i}.json").write_text(
             json.dumps(package.json(), indent=2)
         )
@@ -483,6 +487,23 @@ async def _campaign(api_client, unique_name, scenario, destination, report):
             profile = await session.get(InstitutionalValidator, profiles[i]["validator_id"])
             snapshot = await session.get(ResearchCandidateSnapshot, candidate["candidate_id"])
             hashes.append(review_commitment(assignment, profile, snapshot, payload))
+    for i, reviewer in enumerate(reviewers):
+        proposed = await api_client.post(
+            f"/v1/research-protocol/pilot-assignments/{assignments[reviewer['agent_id']]}/proposal",
+            json=_proposal_payload(packages[i], payloads[i]),
+            headers=_auth(reviewer),
+        )
+        assert proposed.status_code == 201, proposed.text
+        decision = await api_client.post(
+            f"/v1/research-protocol/pilot-review-proposals/{proposed.json()['proposal_id']}/decision",
+            json={
+                "decision": "APPROVE",
+                "proposal_hash": proposed.json()["proposal_hash"],
+                "owner_notes": "Approved exact TEST recommendation for isolated science run.",
+            },
+            headers=operator,
+        )
+        assert decision.status_code == 200, decision.text
     for i, reviewer in enumerate(reviewers):
         response = await api_client.post(
             f"/v1/research-protocol/pilot-assignments/{assignments[reviewer['agent_id']]}/commit",

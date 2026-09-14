@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { use, useEffect, useMemo, useState } from "react";
 
+import { whoAmI } from "@/lib/owner";
 import {
+  assignPilotValidatorPanel,
+  getPilotValidatorRegistry,
   getResearchProtocol,
   type ResearchProtocolView,
 } from "@/lib/research-protocol";
@@ -24,6 +27,8 @@ export default function ResearchChallengePage({
   const { challengeId } = use(params);
   const [data, setData] = useState<ResearchProtocolView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState(false);
+  const [assignmentStatus, setAssignmentStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,10 +69,60 @@ export default function ResearchChallengePage({
   }
 
   const latestReward = data.rewards.at(-1);
-  const pilotPanel = data.institutional_validator_layer?.panels.at(-1);
+  const pilotPanels = data.institutional_validator_layer?.panels ?? [];
+  const pilotPanel = pilotPanels.at(-1);
+  const candidateToAssign = data.candidates.find(
+    (candidate) =>
+      candidate.state === "INSTITUTIONAL_REVIEW_PENDING" &&
+      !pilotPanels.some((panel) => panel.candidate_id === candidate.candidate_id),
+  );
+
+  async function assignTestValidators() {
+    if (!candidateToAssign) return;
+    setAssigning(true);
+    setAssignmentStatus(null);
+    try {
+      const [owner, registry] = await Promise.all([whoAmI(), getPilotValidatorRegistry()]);
+      const codex = registry.validators.find(
+        (validator) =>
+          validator.active_status &&
+          validator.brain_provider === "codex" &&
+          validator.review_role === "REPRODUCTION_METHODOLOGY",
+      );
+      const claude = registry.validators.find(
+        (validator) =>
+          validator.active_status &&
+          validator.brain_provider === "claude" &&
+          validator.review_role === "FALSIFICATION_EVIDENCE",
+      );
+      if (!codex || !claude) {
+        throw new Error("No están activos los dos perfiles TEST requeridos.");
+      }
+      await assignPilotValidatorPanel(candidateToAssign.candidate_id, owner.csrf_token, [
+        codex.validator_id,
+        claude.validator_id,
+      ]);
+      setData(await getResearchProtocol(challengeId));
+      setAssignmentStatus(
+        "Panel asignado. Los dos agentes analizarán el candidato de forma independiente.",
+      );
+    } catch (cause) {
+      setAssignmentStatus(
+        cause instanceof Error ? cause.message : "No se pudo asignar el panel TEST.",
+      );
+    } finally {
+      setAssigning(false);
+    }
+  }
   const validationSteps = [
     ["Candidate freeze", Boolean(pilotPanel?.candidate_id)],
     ["Tracks ciegos", (pilotPanel?.tracks.length ?? 0) === 2],
+    [
+      "Decisión humana",
+      (pilotPanel?.tracks.filter((track) =>
+        ["OWNER_APPROVED", "OWNER_REJECTED"].includes(track.owner_gate.state)
+      ).length ?? 0) === 2,
+    ],
     ["Commit hashes", Boolean(pilotPanel?.all_committed)],
     ["Reveal simultáneo", Boolean(pilotPanel?.all_revealed)],
     ["Comparación", Boolean(pilotPanel?.all_revealed)],
@@ -88,6 +143,11 @@ export default function ResearchChallengePage({
           {data.candidates.length > 0 && (
             <Link href={`/research/${encodeURIComponent(challengeId)}/institution`}>
               Portal institucional
+            </Link>
+          )}
+          {pilotPanel && (
+            <Link href={`/research/${encodeURIComponent(challengeId)}/validator-review`}>
+              Decidir validadores TEST
             </Link>
           )}
           <Link href="/challenges">Retos</Link>
@@ -125,6 +185,18 @@ export default function ResearchChallengePage({
           </div>
           <span className="synthetic-badge">TEST · NO LIQUIDABLE</span>
         </header>
+        {candidateToAssign && (
+          <div className="validator-panel-assignment">
+            <div>
+              <strong>Candidato pendiente de revisión TEST</strong>
+              <code title={candidateToAssign.candidate_id}>{short(candidateToAssign.candidate_id)}</code>
+            </div>
+            <button type="button" disabled={assigning} onClick={() => void assignTestValidators()}>
+              {assigning ? "Asignando…" : "Asignar Codex + Claude"}
+            </button>
+          </div>
+        )}
+        {assignmentStatus && <p className="validator-assignment-status" role="status">{assignmentStatus}</p>}
         <ol className="blind-review-flow" aria-label="Secuencia commit reveal">
           {validationSteps.map(([label, complete], index) => (
             <li className={complete ? "complete" : "pending"} key={label}>
@@ -147,6 +219,7 @@ export default function ResearchChallengePage({
                 <dl>
                   <div><dt>Cerebro</dt><dd>{track.validator.brain_provider}</dd></div>
                   <div><dt>Especialidad</dt><dd>{track.validator.review_role.replaceAll("_", " ")}</dd></div>
+                  <div><dt>Decisión humana</dt><dd>{track.owner_gate.state.replaceAll("_", " ")}</dd></div>
                   <div>
                     <dt>Compromiso</dt>
                     <dd><code title={track.commitment_hash ?? undefined}>{track.commitment_hash ? short(track.commitment_hash) : "PENDIENTE"}</code></dd>
