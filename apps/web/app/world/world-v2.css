@@ -2,6 +2,21 @@
    columna derecha. Archivo propio de /world (globals.css no se toca). Tema
    oscuro AGORA, misma gramática visual que gladiator-cards.css. */
 
+/* El stage es tan alto como su columna hermana, y la fila 1fr del canvas se
+   comía TODO ese excedente (mapa de 3384px empujando el banquillo fuera de
+   pantalla). El mapa se acota y el sobrante ya no infla ninguna fila:
+   la columna derecha puede crecer sin deformar el centro.
+   Cargado después de gladiator-cards.css, misma especificidad -> este gana. */
+.observatory-shell .observatory-stage {
+  grid-template-rows: auto auto minmax(420px, min(68vh, 760px));
+  grid-auto-rows: auto;
+  align-content: start;
+}
+
+.observatory-shell .observatory-canvas-wrap {
+  max-height: min(68vh, 760px);
+}
+
 /* ---------- Banquillo de gladiadores (fila bajo el mapa) ---------- */
 
 .glad-bench-panel {
