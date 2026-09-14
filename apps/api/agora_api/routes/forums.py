@@ -188,7 +188,8 @@ async def get_research_window_status(session: AsyncSession = Depends(get_session
     settings = get_settings()
     status = await research_test_status(session)
     return {
-        "scheduler_enabled": settings.research_scheduler_enabled and not settings.is_production,
+        "scheduler_enabled": settings.research_scheduler_enabled
+        and (not settings.is_production or settings.research_window_production_optin),
         "cadence_seconds": settings.research_scheduler_interval_seconds,
         "latest_round": status,
         "tokoin_moved_by_scheduler": False,

@@ -3,6 +3,7 @@
 // per event and never per frame.
 
 import { API_URL, realtimeWsUrl } from "@/lib/api";
+import type { WorldCadence } from "./cadence";
 import type { WorldSnapshot } from "./store";
 import type { WorldManifest, WorldMessageEvent } from "./types";
 
@@ -437,6 +438,16 @@ export async function fetchWorldForum(): Promise<WorldForumSnapshot> {
     description: worldForum.description,
     posts: postResults.flat().sort((a, b) => b.sequence - a.sequence),
   };
+}
+
+/**
+ * Cadencia de la plaza (fase, countdown, propuestas y votos del ledger).
+ * Endpoint público y de sólo lectura: consultarlo nunca abre ni cierra ronda.
+ */
+export async function fetchWorldCadence(): Promise<WorldCadence> {
+  const res = await fetch(`${API_URL}/v1/world/cadence`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`world cadence ${res.status}`);
+  return (await res.json()) as WorldCadence;
 }
 
 export async function fetchWorldOpportunities(): Promise<WorldOpportunityMarket> {

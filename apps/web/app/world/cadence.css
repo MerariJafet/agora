@@ -1,0 +1,420 @@
+/* Cadencia visual de AGORA — banner de fase sobre el mapa, panel de propuestas
+   con barras de voto y tonos de cadencia en el chat global. Stylesheet propio
+   de /world: globals.css NO se toca. Se importa DESPUÉS de gladiator-cards.css
+   y world-v2.css, así que gana los empates de especificidad. */
+
+/* ---------- Tonos por fase (una sola fuente de color) ---------- */
+
+.cadence-phase-proposal {
+  --cadence-tone: #3fc8e6;        /* cian: la mesa está abierta */
+  --cadence-tone-ink: #0a1a20;
+}
+.cadence-phase-deliberation {
+  --cadence-tone: #a98cff;        /* violeta: se argumenta */
+}
+.cadence-phase-voting {
+  --cadence-tone: #e0b85f;        /* ámbar: se decide */
+}
+.cadence-phase-closed {
+  --cadence-tone: #7b8798;        /* gris neutro: ya pasó */
+}
+.cadence-phase-none {
+  --cadence-tone: #5c6878;
+}
+
+/* ---------- El stage gana una fila: el banner ----------
+   .observatory-stage tenía `auto auto minmax(420px, min(68vh,760px))` en
+   world-v2.css, con el mapa en la 3ª fila. El banner se inserta como primer
+   hijo, así que la fila acotada del canvas pasa a ser la 4ª. Sin este ajuste
+   el canvas heredaría `auto` y la caja del mapa volvería a crecer sin tope
+   (el bug de los 3384px). El max-height de world-v2.css sigue vigente. */
+.observatory-shell .observatory-stage {
+  grid-template-rows: auto auto auto minmax(420px, min(68vh, 760px));
+}
+
+/* ---------- Banner de cadencia ---------- */
+
+.cadence-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.25rem 0.85rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--cadence-tone) 42%, transparent);
+  border-left: 3px solid var(--cadence-tone);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--cadence-tone) 13%, transparent) 0%, transparent 58%),
+    linear-gradient(180deg, #101723f2 0%, #0d131df2 100%);
+  box-shadow: 0 14px 40px #0007, inset 0 1px 0 #ffffff0d;
+}
+
+.cadence-banner.cadence-quiet {
+  border-color: #ffffff14;
+  border-left-color: color-mix(in srgb, var(--cadence-tone) 55%, transparent);
+  background: linear-gradient(180deg, #101723eb 0%, #0d131deb 100%);
+}
+
+.cadence-pulse {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--cadence-tone);
+}
+.cadence-live .cadence-pulse {
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--cadence-tone) 60%, transparent);
+  animation: cadence-beacon 2.2s ease-out infinite;
+}
+.cadence-quiet .cadence-pulse {
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+@keyframes cadence-beacon {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--cadence-tone) 55%, transparent); }
+  70% { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.cadence-headline {
+  min-width: 0;
+}
+
+.cadence-eyebrow {
+  margin: 0;
+  color: var(--agora-muted);
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.cadence-banner h2 {
+  margin: 0.05rem 0 0;
+  font-size: 1.18rem;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  color: var(--cadence-tone);
+}
+.cadence-quiet h2 {
+  font-size: 1rem;
+  color: var(--agora-text);
+}
+
+.cadence-hint {
+  margin: 0.15rem 0 0;
+  color: var(--agora-muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+  /* Dos líneas como techo: la señal no puede empujar el mapa fuera de vista. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.cadence-clock {
+  display: grid;
+  justify-items: end;
+  gap: 0.1rem;
+  text-align: right;
+}
+
+.cadence-countdown {
+  font-size: 1.75rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--cadence-tone);
+}
+.cadence-countdown-idle {
+  color: var(--agora-muted);
+}
+
+.cadence-clock small {
+  color: var(--agora-muted);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cadence-progress {
+  grid-column: 1 / -1;
+  height: 4px;
+  margin-top: 0.15rem;
+  border-radius: 999px;
+  background: #ffffff12;
+  overflow: hidden;
+}
+
+.cadence-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--cadence-tone) 45%, transparent) 0%,
+    var(--cadence-tone) 100%
+  );
+  transition: width 900ms linear;
+}
+
+/* ---------- Panel de propuestas (columna derecha, arriba de todo) ---------- */
+
+.cadence-proposals-panel {
+  display: grid;
+  gap: 0.5rem;
+  border-color: color-mix(in srgb, var(--cadence-tone) 34%, transparent);
+}
+
+.cadence-panel-phase {
+  color: var(--cadence-tone);
+  font-size: 0.64rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.cadence-vote-chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+}
+
+.cadence-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.16rem 0.42rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+.cadence-chip strong {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+.cadence-chip-approve { color: var(--agora-ok); }
+.cadence-chip-reject { color: var(--agora-danger); }
+.cadence-chip-abstain { color: var(--agora-muted); }
+.cadence-chip-needs_revision { color: var(--agora-accent); }
+
+.cadence-quorum-line {
+  margin: 0;
+  color: var(--agora-muted);
+  font-size: 0.68rem;
+}
+.cadence-quorum-line strong {
+  color: var(--agora-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cadence-proposal-list {
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  /* Una ronda con muchas propuestas no puede empujar el resto de la columna. */
+  max-height: 19rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #2a3850 transparent;
+}
+
+.cadence-proposal {
+  padding: 0.42rem 0.5rem;
+  border: 1px solid #ffffff10;
+  border-radius: 8px;
+  background: #0e1726;
+}
+.cadence-proposal.is-leader {
+  border-color: color-mix(in srgb, var(--cadence-tone) 55%, transparent);
+}
+.cadence-proposal.is-selected {
+  border-color: var(--agora-accent);
+  background: linear-gradient(180deg, #1a1712 0%, #0f1420 100%);
+}
+
+.cadence-proposal-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.32rem;
+  min-width: 0;
+}
+
+.cadence-crown {
+  flex: none;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.cadence-proposal-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.76rem;
+  color: var(--agora-text);
+}
+
+.cadence-selected-badge {
+  flex: none;
+  padding: 0.06rem 0.3rem;
+  border: 1px solid var(--agora-accent);
+  border-radius: 4px;
+  color: var(--agora-accent);
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.cadence-proposal-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0.12rem 0 0.3rem;
+  min-width: 0;
+  color: var(--agora-muted);
+  font-size: 0.62rem;
+}
+.cadence-proposal-meta > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cadence-proposal-state {
+  flex: none;
+  margin-left: auto;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+.cadence-bar {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: #ffffff10;
+  overflow: hidden;
+}
+
+.cadence-bar-fill {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--cadence-tone) 50%, transparent) 0%,
+    var(--cadence-tone) 100%
+  );
+  transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Marca de quórum: línea punteada vertical sobre la barra. */
+.cadence-bar-quorum {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 0;
+  border-left: 2px dashed var(--agora-text);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.cadence-bar-legend {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0.22rem 0 0;
+  color: var(--agora-muted);
+  font-size: 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+.cadence-bar-legend strong {
+  color: var(--cadence-tone);
+}
+.cadence-bar-legend span {
+  margin-left: auto;
+}
+
+/* ---------- Tonos de cadencia en el chat global ---------- */
+
+.global-chat-entry.chat-tone-proposal { --cadence-tone: #74a7ff; }   /* propuesta: azul */
+.global-chat-entry.chat-tone-vote { --cadence-tone: #e0b85f; }        /* voto: ámbar */
+.global-chat-entry.chat-tone-activated { --cadence-tone: #4ac48a; }   /* reto activado: verde */
+.global-chat-entry.chat-tone-resolution { --cadence-tone: #f5d580; }  /* resolución: oro */
+
+.global-chat-entry[class*="chat-tone-"] {
+  border-left: 3px solid var(--cadence-tone);
+  border-radius: 10px 10px 10px 4px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--cadence-tone) 11%, transparent) 0%,
+    transparent 55%
+  ),
+  #0e1726;
+}
+
+.global-chat-tone-tag {
+  flex: none;
+  padding: 0.02rem 0.28rem;
+  border: 1px solid color-mix(in srgb, var(--cadence-tone) 60%, transparent);
+  border-radius: 4px;
+  color: var(--cadence-tone);
+  font-size: 0.48rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Menciones @handle: violeta, mismo léxico que el backend de menciones. */
+.chat-mention {
+  color: #c4aeff;
+  background: #a98cff1f;
+  border-radius: 3px;
+  padding: 0 0.12rem;
+  font-weight: 500;
+}
+
+/* ---------- Responsive: en móvil el banner colapsa a una línea ---------- */
+
+@media (max-width: 760px) {
+  .cadence-banner {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.15rem 0.55rem;
+    padding: 0.55rem 0.65rem;
+  }
+  .cadence-banner h2 {
+    font-size: 0.95rem;
+  }
+  /* La pista se esconde: en una pantalla estrecha manda la fase + el reloj. */
+  .cadence-hint {
+    display: none;
+  }
+  .cadence-countdown {
+    font-size: 1.25rem;
+  }
+  .cadence-clock small {
+    display: none;
+  }
+  .cadence-proposal-list {
+    max-height: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cadence-live .cadence-pulse {
+    animation: none;
+  }
+  .cadence-progress-fill,
+  .cadence-bar-fill {
+    transition: none;
+  }
+}
