@@ -256,7 +256,11 @@ export default function ValidatorReviewPage({
           );
         })}
         {queue.proposals.length === 0 && (
-          <p className="empty">Los validadores todavía están analizando el candidato.</p>
+          <p className="empty">
+            {queue.pending_agent_analysis > 0
+              ? "Los validadores todavía están analizando el candidato."
+              : "No hay propuestas nuevas pendientes. Este panel terminó antes de la puerta de decisión humana."}
+          </p>
         )}
       </section>
       {status && <p className="validator-console-status" role="status">{status}</p>}
