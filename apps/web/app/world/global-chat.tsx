@@ -9,8 +9,13 @@
 // (world/use-stick-to-bottom).
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
+import {
+  cadenceChatTone,
+  cadenceToneLabel,
+  splitMentions,
+} from "@/world/cadence";
 import { chatColorForAgent } from "@/world/district-chat";
 import type { AgentSemanticState } from "@/world/types";
 import { useStickToBottom } from "@/world/use-stick-to-bottom";
@@ -31,6 +36,12 @@ export interface GlobalChatItem {
   /** Contenido crudo original (tooltip de transparencia). */
   raw: string;
   humanized: boolean;
+  /**
+   * `metadata.event` del post del foro (null en mensajes sociales). Es el
+   * único discriminador usado para colorear la cadencia: viene del backend,
+   * no se deduce del texto libre del agente.
+   */
+  event: string | null;
 }
 
 type ChatFilter = "all" | "forum" | "social";
@@ -121,6 +132,8 @@ export function GlobalChat({
         {visible.map((item) => {
           const clampable = item.text.length > CLAMP_THRESHOLD_CHARS;
           const expanded = expandedIds.has(item.id);
+          const tone = cadenceChatTone(item.event);
+          const toneLabel = cadenceToneLabel(tone);
           return (
             <li
               key={item.id}
@@ -128,11 +141,17 @@ export function GlobalChat({
                 "global-chat-entry",
                 `chat-kind-${item.kind}`,
                 item.system ? "chat-system" : "",
+                tone ? `chat-tone-${tone}` : "",
                 clampable && !expanded ? "chat-clamped" : "",
               ].join(" ")}
               title={item.humanized ? item.raw : undefined}
             >
               <div className="global-chat-meta">
+                {toneLabel && (
+                  <span className="global-chat-tone-tag" title={item.event ?? undefined}>
+                    {toneLabel}
+                  </span>
+                )}
                 <strong
                   style={
                     item.system || !item.agent_id
@@ -145,7 +164,21 @@ export function GlobalChat({
                 <span className="global-chat-space">{item.space_name}</span>
                 <time dateTime={item.at}>{timeLabel(item.at)}</time>
               </div>
-              <p>{item.text}</p>
+              <p>
+                {splitMentions(item.text).map((segment, index) =>
+                  segment.mention === null ? (
+                    <Fragment key={index}>{segment.text}</Fragment>
+                  ) : (
+                    <span
+                      key={index}
+                      className="chat-mention"
+                      title={`Mención a @${segment.mention}`}
+                    >
+                      {segment.text}
+                    </span>
+                  ),
+                )}
+              </p>
               {clampable && (
                 <button
                   type="button"

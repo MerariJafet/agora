@@ -20,10 +20,16 @@ import {
 } from "@/app/pulse/client";
 import "./gladiator-cards.css";
 import "./world-v2.css";
+// Importado DESPUÉS de world-v2.css a propósito: cadence.css reajusta el
+// grid-template-rows del stage porque el banner añade una fila antes del mapa.
+import "./cadence.css";
+import { CadenceBanner } from "./cadence-banner";
+import { CadenceProposals } from "./cadence-proposals";
 import { GladiatorBench } from "./gladiator-bench";
 import { GlobalChat, type GlobalChatItem } from "./global-chat";
 import { humanizeAgentMessage } from "@/world/humanize-message";
 import { listMissions, type Mission } from "@/lib/missions";
+import { remainingSeconds, type WorldCadence } from "@/world/cadence";
 import {
   fetchChallengeActionability,
   fetchMagnaConstitution,
@@ -36,6 +42,7 @@ import {
   fetchResearchReleasePolicy,
   fetchSpaceMessages,
   fetchTokoinStatus,
+  fetchWorldCadence,
   fetchWorldForum,
   fetchWorldMarket,
   fetchWorldOpportunities,
@@ -80,6 +87,9 @@ const DIGEST_REFRESH_MS = 60_000;
 const MESSAGE_SPACES_LIMIT = 16;
 const DEGRADED_HTTP_POLL_MS = 10_000;
 const OBSERVATORY_REFRESH_MS = 15_000;
+// La cadencia se consulta cada 20s; el countdown corre en cliente entre polls y
+// dispara un refetch inmediato cuando llega a cero (una vez por fase).
+const CADENCE_REFRESH_MS = 20_000;
 const RANKING_LIMIT = 8;
 // Cota del stream combinado del chat global (social + foro).
 const GLOBAL_CHAT_LIMIT = 200;
@@ -166,6 +176,11 @@ export default function WorldPage() {
   const [challengeState, setChallengeState] = useState<ChallengeActionability | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [worldForum, setWorldForum] = useState<WorldForumSnapshot | null>(null);
+  // `receivedAt` ancla el countdown al instante del fetch: así la cuenta no se
+  // descuadra si el reloj del navegador va corrido respecto al del servidor.
+  const [cadence, setCadence] = useState<{ data: WorldCadence; receivedAt: number } | null>(null);
+  const [cadenceStatus, setCadenceStatus] = useState<"loading" | "ready" | "unavailable">("loading");
+  const cadenceExpiredKeyRef = useRef<string | null>(null);
   const [chatMessages, setChatMessages] = useState<WorldMessageEvent[]>([]);
   const [feedEvents, setFeedEvents] = useState<ObservatoryEvent[]>([]);
   const [activeFilter, setActiveFilter] = useState<"all" | FeedKind>("all");
@@ -312,6 +327,8 @@ export default function WorldPage() {
         text: humanized.text,
         raw: message.content,
         humanized: humanized.humanized,
+        // Los mensajes sociales no llevan metadata de evento formal: sin tono.
+        event: null,
       });
     }
     for (const post of worldForum?.posts ?? []) {
@@ -328,12 +345,34 @@ export default function WorldPage() {
         text,
         raw: post.content,
         humanized: text !== post.content,
+        // Discriminador determinístico de la cadencia: cada publish_forum_post
+        // del backend escribe metadata.event (research.*, challenge.*, world.*).
+        event: typeof post.metadata?.event === "string" ? post.metadata.event : null,
       });
     }
     return items
       .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
       .slice(-GLOBAL_CHAT_LIMIT);
   }, [chatMessages, digest, spaces, store, worldForum]);
+
+  // Segundos restantes de la fase, recalculados con el mismo tick de 1s que ya
+  // mueve el resto del observatorio (`now`): ningún temporizador adicional.
+  const cadenceSecondsLeft = cadence
+    ? remainingSeconds(cadence.data.seconds_remaining, cadence.receivedAt, now)
+    : null;
+
+  const loadCadence = useCallback(async () => {
+    try {
+      const data = await fetchWorldCadence();
+      setCadence({ data, receivedAt: Date.now() });
+      setCadenceStatus("ready");
+    } catch {
+      // Sin endpoint (API antigua) o sin red: se declara no disponible en vez
+      // de dejar un "cargando" eterno o dibujar una fase inventada.
+      setCadence((current) => current);
+      setCadenceStatus((current) => (current === "ready" ? "ready" : "unavailable"));
+    }
+  }, []);
 
   const pushChatMessages = useCallback((incoming: WorldMessageEvent[]) => {
     setChatMessages((current) => {
@@ -649,6 +688,30 @@ export default function WorldPage() {
     return () => clearInterval(repair);
   }, [bootstrapped, loadReadOnlySurfaces, loadRecentMessages, refreshSnapshot, socketOpen]);
 
+  // Poll de la cadencia (20s). Es independiente del resto de superficies: si
+  // el mundo va degradado la fase sigue siendo la información más urgente.
+  useEffect(() => {
+    // Mismo patrón que el arranque del feed de mensajes: la primera carga sale
+    // del cuerpo del efecto para no encadenar renders en el montaje.
+    const initial = setTimeout(() => void loadCadence(), 0);
+    const timer = setInterval(() => void loadCadence(), CADENCE_REFRESH_MS);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
+    };
+  }, [loadCadence]);
+
+  // Al llegar el countdown a 0 la fase ya cambió en el servidor: se refetchea
+  // una sola vez por (ronda, fase) para no martillear si el backend tarda.
+  useEffect(() => {
+    if (cadenceSecondsLeft !== 0 || !cadence) return undefined;
+    const key = `${cadence.data.round?.round_id ?? "none"}:${cadence.data.phase}`;
+    if (cadenceExpiredKeyRef.current === key) return undefined;
+    cadenceExpiredKeyRef.current = key;
+    const timer = setTimeout(() => void loadCadence(), 1_000);
+    return () => clearTimeout(timer);
+  }, [cadence, cadenceSecondsLeft, loadCadence]);
+
   useEffect(() => {
     if (!selectedLandmark?.mission_id) return;
     let cancelled = false;
@@ -840,6 +903,14 @@ export default function WorldPage() {
         </aside>
 
         <section className="observatory-stage">
+          {/* Primera fila del stage: la señal de fase manda sobre el mapa sin
+              tapar el hero TOKOIN (que vive fuera del grid, más arriba). */}
+          <CadenceBanner
+            cadence={cadence?.data ?? null}
+            secondsLeft={cadenceSecondsLeft}
+            status={cadenceStatus}
+          />
+
           <div className="stage-toolbar">
             <div>
               <p className="eyebrow">Human Observatory</p>
@@ -947,6 +1018,13 @@ export default function WorldPage() {
         </section>
 
         <aside className="observatory-right">
+          {/* Arriba de la columna derecha (por encima del ranking y de la Pila
+              del conocimiento): queda a la misma altura visual que el banner de
+              la columna central, así "es hora de proponer" y "esto hay sobre la
+              mesa" se leen de un vistazo. Además caduca — el ranking y la pila
+              son ambientales y siguen ahí cuando la ventana cierra. */}
+          <CadenceProposals cadence={cadence?.data ?? null} status={cadenceStatus} />
+
           <section className="panel-block gladiator-ranking-panel">
             <div className="panel-title-row">
               <h2>⚔ Ranking de Gladiadores</h2>
