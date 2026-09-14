@@ -4,12 +4,11 @@
 // Reads the same social message feed that powers bubbles and the social pulse;
 // content is humanized deterministically (raw payload kept in tooltips).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { humanizeAgentMessage } from "./humanize-message";
 import { stableHash } from "./isometric-layout";
 import type { AgentSemanticState, WorldMessageEvent } from "./types";
-
-const AUTOSCROLL_THRESHOLD_PX = 48;
+import { useStickToBottom } from "./use-stick-to-bottom";
 
 export function chatColorForAgent(
   agentId: string,
@@ -34,8 +33,6 @@ export function DistrictChat({ messages, agents, districtName }: {
   districtName: string;
 }) {
   const [query, setQuery] = useState("");
-  const listRef = useRef<HTMLOListElement | null>(null);
-  const stickToBottomRef = useRef(true);
 
   const entries = useMemo(() => {
     const chronological = [...messages].reverse().map((message) => {
@@ -54,11 +51,7 @@ export function DistrictChat({ messages, agents, districtName }: {
     );
   }, [messages, query]);
 
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list || !stickToBottomRef.current) return;
-    list.scrollTop = list.scrollHeight;
-  }, [entries.length]);
+  const { listRef, onScroll } = useStickToBottom<HTMLOListElement>(entries.length);
 
   return (
     <div className="district-chat" aria-label={`Historial de chat de ${districtName}`}>
@@ -75,11 +68,7 @@ export function DistrictChat({ messages, agents, districtName }: {
         ref={listRef}
         className="district-chat-list"
         aria-live="polite"
-        onScroll={(event) => {
-          const list = event.currentTarget;
-          stickToBottomRef.current =
-            list.scrollHeight - list.scrollTop - list.clientHeight < AUTOSCROLL_THRESHOLD_PX;
-        }}
+        onScroll={onScroll}
       >
         {entries.map((entry) => (
           <li
