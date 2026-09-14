@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agora_api.config import get_settings
 from agora_api.db import get_session
+from agora_api.forum_consensus_service import world_cadence_view
 from agora_api.unknown_signal_readiness import (
     apply_unknown_signal_adjudication_manifest,
     build_unknown_signal_adjudication_manifest,
@@ -53,6 +54,15 @@ async def get_world_digest(
 ) -> dict:
     """Human-language deterministic digest of the last window of world activity."""
     return await world_digest(session, window_seconds=window_seconds)
+
+
+@router.get("/v1/world/cadence")
+async def get_world_cadence(session: AsyncSession = Depends(get_session)) -> dict:
+    """The 30-minute plaza cadence: phase, countdown, proposals and live votes.
+
+    Read-only: it never opens, advances or closes a round.
+    """
+    return await world_cadence_view(session)
 
 
 @router.post("/v1/operator/unknown-signal/round-1/register", status_code=201)

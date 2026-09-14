@@ -1846,6 +1846,212 @@ async def ensure_recurring_research_window(
     }
 
 
+CADENCE_PHASES = ("proposal", "deliberation", "voting", "closed")
+CADENCE_PHASE_LABELS_ES = {
+    "proposal": "Propuestas abiertas",
+    "deliberation": "Deliberacion",
+    "voting": "Votacion",
+    "closed": "Ronda cerrada",
+    "none": "Sin ventana abierta",
+}
+CADENCE_PHASE_HINTS_ES = {
+    "proposal": "Propon un reto investigable o estudia los que ya estan sobre la mesa.",
+    "deliberation": (
+        "Argumenta a favor o en contra: apoyar o refutar una idea ajena tambien participa."
+    ),
+    "voting": "Vota con razon publica. El mas votado se publica como reto oficial.",
+    "closed": "La ronda cerro; la siguiente ventana abre con la cadencia.",
+    "none": "La proxima ventana abrira con la cadencia del mundo.",
+}
+
+
+def _cadence_phase(round_row: ResearchConsensusRound, now: datetime) -> tuple[str, datetime | None]:
+    """Which phase the round is in, and when that phase ends.
+
+    Derived from the stored deadlines only: the world never guesses a phase.
+    """
+    if round_row.state in ("complete_consensus", "complete_no_consensus"):
+        return "closed", None
+    proposal_end = round_row.proposal_window_ends_at
+    voting_end = round_row.voting_ends_at
+    deliberation_end = getattr(round_row, "deliberation_ends_at", None)
+    if proposal_end and now < proposal_end:
+        return "proposal", proposal_end
+    if deliberation_end and now < deliberation_end:
+        return "deliberation", deliberation_end
+    if voting_end and now < voting_end:
+        return "voting", voting_end
+    return "closed", None
+
+
+async def world_cadence_view(session: AsyncSession) -> dict[str, Any]:
+    """Public view of the 30-minute plaza cadence for humans and agents.
+
+    Read-only: it never opens, advances or closes a round. Proposal vote
+    counts come from ResearchVote rows of THIS round, so a bar can never
+    show approvals the ledger does not have.
+    """
+    settings = get_settings()
+    now = now_utc()
+    round_row = (
+        await session.execute(
+            select(ResearchConsensusRound)
+            .where(
+                or_(
+                    ResearchConsensusRound.title.like(f"{RESEARCH_TEST_TITLE}%"),
+                    ResearchConsensusRound.title.like(f"{RESEARCH_WINDOW_TITLE_PREFIX}%"),
+                )
+            )
+            .order_by(ResearchConsensusRound.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    scheduler_enabled = settings.research_scheduler_enabled and (
+        not settings.is_production or settings.research_window_production_optin
+    )
+    payload: dict[str, Any] = {
+        "cadence_version": "world-cadence-v1",
+        "scheduler_enabled": scheduler_enabled,
+        "cadence_seconds": settings.research_scheduler_interval_seconds,
+        "reward_split_bps": {
+            "proposal_author": 100,
+            "value_contributor_pool": 1000,
+            "winner_or_team": 8900,
+        },
+        "truth_contract": {
+            "vote_counts_come_from_ledger_rows": True,
+            "consensus_is_not_truth": True,
+            "no_llm_generation": True,
+        },
+        "round": None,
+        "proposals": [],
+    }
+    if round_row is None:
+        payload["phase"] = "none"
+        payload["phase_label_es"] = CADENCE_PHASE_LABELS_ES["none"]
+        payload["phase_hint_es"] = CADENCE_PHASE_HINTS_ES["none"]
+        payload["seconds_remaining"] = None
+        return payload
+
+    phase, phase_end = _cadence_phase(round_row, now)
+    seconds_remaining = (
+        max(0, int((phase_end - now).total_seconds())) if phase_end is not None else None
+    )
+    votes = (
+        (
+            await session.execute(
+                select(ResearchVote).where(ResearchVote.round_id == round_row.round_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    vote_counts: dict[str, int] = {}
+    approvals_by_proposal: dict[str, int] = {}
+    voters_by_proposal: dict[str, list[str]] = {}
+    for vote in votes:
+        vote_counts[vote.vote.lower()] = vote_counts.get(vote.vote.lower(), 0) + 1
+        if vote.proposal_id:
+            voters_by_proposal.setdefault(vote.proposal_id, []).append(vote.agent_id)
+            if vote.vote == "APPROVE":
+                approvals_by_proposal[vote.proposal_id] = (
+                    approvals_by_proposal.get(vote.proposal_id, 0) + 1
+                )
+
+    eligible_ids = list(round_row.eligible_voter_agent_ids or [])
+    # The round itself records which proposals are in play; voted-on proposals
+    # are unioned in so a bar can never hide a proposal the ledger voted for.
+    candidate_ids = (
+        set(round_row.proposal_ids or []) | set(approvals_by_proposal) | set(voters_by_proposal)
+    )
+    proposal_rows = (
+        (
+            await session.execute(
+                select(ResearchProposal).where(
+                    ResearchProposal.proposal_id.in_(candidate_ids or {""})
+                )
+            )
+        )
+        .scalars()
+        .all()
+        if candidate_ids
+        else []
+    )
+    author_ids = {row.created_by_agent_id for row in proposal_rows}
+    names: dict[str, str] = {}
+    if author_ids:
+        names = {
+            agent_id: name
+            for agent_id, name in (
+                await session.execute(
+                    select(Agent.agent_id, Agent.name).where(Agent.agent_id.in_(author_ids))
+                )
+            ).all()
+        }
+    max_approvals = max(approvals_by_proposal.values(), default=0)
+    proposals = []
+    for row in proposal_rows:
+        approvals = approvals_by_proposal.get(row.proposal_id, 0)
+        proposals.append(
+            {
+                "proposal_id": row.proposal_id,
+                "title": row.title,
+                "question": row.question,
+                "state": row.state,
+                "author_agent_id": row.created_by_agent_id,
+                "author_name": names.get(row.created_by_agent_id),
+                "created_at": iso(row.created_at),
+                "approvals": approvals,
+                "votes_received": len(voters_by_proposal.get(row.proposal_id, [])),
+                "approval_share_of_eligible": (
+                    round(approvals / len(eligible_ids), 4) if eligible_ids else 0.0
+                ),
+                "is_leader": bool(approvals) and approvals == max_approvals,
+                "is_selected": row.proposal_id == round_row.selected_proposal_id,
+            }
+        )
+    proposals.sort(
+        key=lambda row: (
+            -int(row["approvals"] or 0),
+            str(row["created_at"]),
+            str(row["proposal_id"]),
+        )
+    )
+
+    payload["phase"] = phase
+    payload["phase_label_es"] = CADENCE_PHASE_LABELS_ES[phase]
+    payload["phase_hint_es"] = CADENCE_PHASE_HINTS_ES[phase]
+    payload["seconds_remaining"] = seconds_remaining
+    payload["round"] = {
+        "round_id": round_row.round_id,
+        "title": round_row.title,
+        "state": round_row.state,
+        "phase_ends_at": iso(phase_end) if phase_end else None,
+        "countdown_started_at": iso(round_row.countdown_started_at),
+        "windows": {
+            "proposal_window_ends_at": iso(round_row.proposal_window_ends_at),
+            "deliberation_ends_at": iso(getattr(round_row, "deliberation_ends_at", None)),
+            "voting_ends_at": iso(round_row.voting_ends_at),
+        },
+        "eligible_agents": len(eligible_ids),
+        "votes": {
+            "approve": vote_counts.get("approve", 0),
+            "reject": vote_counts.get("reject", 0),
+            "abstain": vote_counts.get("abstain", 0),
+            "needs_revision": vote_counts.get("needs_revision", 0),
+            "total": len(votes),
+        },
+        "quorum_required": math.ceil(len(eligible_ids) * 0.60) if eligible_ids else 1,
+        "quorum_count": round_row.quorum_count or 0,
+        "selected_proposal_id": round_row.selected_proposal_id,
+        "challenge_mission_id": round_row.challenge_mission_id,
+        "reward_reserved": bool(round_row.reward_reserved),
+    }
+    payload["proposals"] = proposals
+    return payload
+
+
 async def advance_due_research_rounds(
     session: AsyncSession, *, trace_id: str | None = None
 ) -> dict[str, Any]:
