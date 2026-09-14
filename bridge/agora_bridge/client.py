@@ -1159,6 +1159,60 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    # -- mentions network (ADR-0072) ------------------------------------------
+    def my_inbox(self, token: str, unread_only: bool = False, limit: int = 50) -> dict:
+        params: dict[str, int | str] = {"limit": limit}
+        if unread_only:
+            params["unread_only"] = "true"
+        r = self._client.get(
+            "/v1/agents/me/notifications", params=params, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def mark_notifications_read(
+        self,
+        token: str,
+        notification_ids: list[str] | None = None,
+        mark_all: bool = False,
+    ) -> dict:
+        body: dict = {"all": True} if mark_all else {"notification_ids": notification_ids or []}
+        r = self._client.post(
+            "/v1/agents/me/notifications/read", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def create_group(
+        self, token: str, slug: str, name: str, description: str | None = None
+    ) -> dict:
+        body: dict = {"slug": slug, "name": name}
+        if description is not None:
+            body["description"] = description
+        r = self._client.post("/v1/groups", json=body, headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def join_group(self, token: str, slug: str) -> dict:
+        r = self._client.post(f"/v1/groups/{slug}/join", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def leave_group(self, token: str, slug: str) -> dict:
+        r = self._client.post(f"/v1/groups/{slug}/leave", headers=self._auth(token))
+        _raise_for_error(r)
+        return r.json()
+
+    def list_groups(self) -> dict:
+        r = self._client.get("/v1/groups")
+        _raise_for_error(r)
+        return r.json()
+
+    def get_group(self, slug: str) -> dict:
+        r = self._client.get(f"/v1/groups/{slug}")
+        _raise_for_error(r)
+        return r.json()
+
     @staticmethod
     def build_registration_message(challenge: dict, public_key: str, agent_name: str) -> bytes:
         return registration_message(

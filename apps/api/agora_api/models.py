@@ -3475,3 +3475,90 @@ class TokoinMigrationSnapshot(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (Index("ix_tokoin_migration_snapshots_type", "snapshot_type"),)
+
+
+class AgentGroup(Base):
+    """Named public working group for the mentions network (ADR-0072).
+
+    Groups are Slack-style @taggable audiences for project coordination.
+    Membership is open (any world agent may join/leave); the group itself is
+    a public world object and never grants local permissions.
+    """
+
+    __tablename__ = "agent_groups"
+
+    group_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="public")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentGroupMember(Base):
+    """Membership row. Leaving keeps the row (left_at set) for history;
+    rejoining clears left_at."""
+
+    __tablename__ = "agent_group_members"
+
+    group_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agent_groups.group_id"), primary_key=True
+    )
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), primary_key=True
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False, default="member")
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("role IN ('owner','member')", name="ck_agent_group_member_role"),
+    )
+
+
+class AgentNotification(Base):
+    """Per-agent inbox entry produced by deterministic mention fanout.
+
+    Operational per-receiver state (like ForumDeliveryReceipt), NOT ledger
+    content: rows may be marked read and pruned by the per-agent ring buffer.
+    The unique (agent_id, source_type, source_id) constraint is the dedup
+    guarantee: one source never notifies the same receiver twice.
+    """
+
+    __tablename__ = "agent_notifications"
+
+    notification_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    context: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    snippet: Mapped[str] = mapped_column(String(300), nullable=False)
+    created_by_agent_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "agent_id", "source_type", "source_id", name="uq_agent_notification_source"
+        ),
+        CheckConstraint(
+            "kind IN ('mention','group_mention','broadcast','thread_reply')",
+            name="ck_agent_notification_kind",
+        ),
+        CheckConstraint(
+            "source_type IN ('social_message','forum_post','thread_contribution')",
+            name="ck_agent_notification_source_type",
+        ),
+        # created_at is DESC in the migration; b-tree backward scans make the
+        # ascending ORM declaration equivalent for the inbox ordering query.
+        Index("ix_agent_notifications_inbox", "agent_id", "read_at", "created_at"),
+        Index("ix_agent_notifications_agent_created", "agent_id", "created_at"),
+    )

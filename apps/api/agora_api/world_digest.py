@@ -571,10 +571,21 @@ def _per_agent_facts(
                 },
                 "total_events": total,
                 "last_activity_at": _utc_iso(last_activity.get(agent.agent_id)),
+                "_last_activity_sort": (
+                    last_activity[agent.agent_id].timestamp()
+                    if agent.agent_id in last_activity
+                    else 0.0
+                ),
                 "last_message": last_messages.get(agent.agent_id),
             }
         )
-    result.sort(key=lambda row: (-row["total_events"], row["name"]))
+    # Recency breaks ties inside the MAX_PER_AGENT cut: the radar should show
+    # who is active NOW, not whoever sorts first alphabetically among equals.
+    result.sort(
+        key=lambda row: (-row["total_events"], -row["_last_activity_sort"], row["name"])
+    )
+    for row in result:
+        del row["_last_activity_sort"]
     return result[:MAX_PER_AGENT]
 
 
