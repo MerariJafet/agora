@@ -1,0 +1,300 @@
+/* World Layout v2 — banquillo de gladiadores bajo el mapa + chat global en la
+   columna derecha. Archivo propio de /world (globals.css no se toca). Tema
+   oscuro AGORA, misma gramática visual que gladiator-cards.css. */
+
+/* ---------- Banquillo de gladiadores (fila bajo el mapa) ---------- */
+
+.glad-bench-panel {
+  /* min-width 0: sin esto, la fila max-content del banquillo infla el
+     min-content del grid item y ensancha toda la columna central. */
+  min-width: 0;
+  padding-bottom: 0.55rem;
+}
+
+/* Scroll horizontal con fades en los bordes (mask, sin JS). */
+.glad-bench-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #2a3850 transparent;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 20px,
+    #000 calc(100% - 20px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 20px,
+    #000 calc(100% - 20px),
+    transparent 100%
+  );
+}
+
+.glad-bench-row {
+  list-style: none;
+  display: flex;
+  gap: 0.45rem;
+  margin: 0.6rem 0 0.15rem;
+  padding: 0 0.35rem 0.35rem;
+}
+
+.glad-bench-row li {
+  flex: none;
+}
+
+/* Mini-carta densidad "banquillo": OVR + presencia, mini-radar, nombre y
+   última acción relativa. Click → ficha completa en /gladiadores. */
+.glad-bench-card {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: center;
+  width: 96px;
+  padding: 0.4rem 0.35rem 0.45rem;
+  border: 1px solid #ffffff12;
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--agora-surface-2) 0%, var(--agora-surface) 100%);
+  color: var(--agora-text);
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+.glad-bench-card:hover,
+.glad-bench-card:focus-visible {
+  border-color: var(--agora-accent);
+  transform: translateY(-2px);
+}
+
+.glad-bench-top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+}
+
+.glad-bench-ovr {
+  display: flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  line-height: 1;
+}
+.glad-bench-ovr strong {
+  font-size: 0.95rem;
+  color: var(--agora-accent);
+  font-variant-numeric: tabular-nums;
+}
+.glad-bench-ovr small {
+  font-size: 0.44rem;
+  letter-spacing: 0.16em;
+  color: var(--agora-muted);
+}
+
+.glad-bench-rank {
+  color: var(--agora-muted);
+  font-size: 0.56rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.glad-bench-presence {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #55607080;
+}
+.glad-bench-presence.on {
+  background: var(--agora-ok);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--agora-ok) 70%, transparent);
+}
+
+.glad-bench-radar {
+  display: grid;
+  place-items: center;
+}
+.glad-bench-radar .pulse-radar-svg {
+  width: 44px;
+}
+
+.glad-bench-name {
+  max-width: 100%;
+  font-size: 0.68rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.glad-bench-last {
+  max-width: 100%;
+  color: var(--agora-muted);
+  font-size: 0.58rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Chat global (columna derecha) ---------- */
+
+.global-chat-panel {
+  display: grid;
+  gap: 0.55rem;
+  border-color: #e0b85f44;
+  background: linear-gradient(180deg, #171b24f2 0%, #101720f2 100%);
+}
+
+.global-chat-panel .eyebrow {
+  margin: 0 0 0.1rem;
+}
+
+.global-chat-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--agora-muted);
+}
+.global-chat-live.on {
+  color: var(--agora-ok);
+}
+.global-chat-live-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.global-chat-live.on .global-chat-live-dot {
+  box-shadow: 0 0 8px color-mix(in srgb, var(--agora-ok) 75%, transparent);
+  animation: global-chat-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes global-chat-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.global-chat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  height: clamp(300px, 42vh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #2a3850 transparent;
+  border: 1px solid #ffffff10;
+  border-radius: 10px;
+  background: #0a111c;
+}
+
+/* Burbuja messenger: [color estable] Nombre · espacio · HH:MM + texto. */
+.global-chat-entry {
+  border: 1px solid #ffffff10;
+  border-radius: 10px 10px 10px 4px;
+  background: #0e1726;
+  padding: 0.42rem 0.55rem;
+}
+
+.global-chat-entry.chat-kind-forum {
+  background: #101a2b;
+}
+
+/* Avisos del sistema/AGORA: acento dorado sutil, sin gritar. */
+.global-chat-entry.chat-system {
+  border-color: #e0b85f4d;
+  background: linear-gradient(180deg, #191b1a 0%, #131511 100%);
+}
+.global-chat-entry.chat-system .global-chat-meta strong {
+  color: var(--agora-accent);
+  letter-spacing: 0.08em;
+}
+
+.global-chat-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.global-chat-meta strong {
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.74rem;
+}
+.global-chat-space {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--agora-muted);
+  font-size: 0.62rem;
+}
+.global-chat-space::before {
+  content: "· ";
+}
+.global-chat-meta time {
+  margin-left: auto;
+  flex: none;
+  color: var(--agora-muted);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.global-chat-entry p {
+  margin: 0.2rem 0 0;
+  color: var(--agora-text);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* Mensajes largos (charter, reglas) colapsados a 6 líneas con toggle. */
+.global-chat-entry.chat-clamped p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
+}
+
+.global-chat-expand {
+  margin-top: 0.25rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--agora-teal);
+  font-size: 0.64rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.global-chat-expand:hover {
+  text-decoration: underline;
+}
+
+.global-chat-empty {
+  color: var(--agora-muted);
+  font-size: 0.76rem;
+  padding: 0.4rem 0.2rem;
+}
+
+.global-chat-panel .detail-link {
+  justify-self: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glad-bench-card {
+    transition: none;
+  }
+  .glad-bench-card:hover,
+  .glad-bench-card:focus-visible {
+    transform: none;
+  }
+  .global-chat-live.on .global-chat-live-dot {
+    animation: none;
+  }
+}
