@@ -391,7 +391,7 @@ body:has(.observatory-shell) .shell > header {
 .blind-review-board > footer strong { color: var(--agora-teal); }
 .blind-review-flow {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   margin: 0;
   padding: 0;
   border-bottom: 1px solid #ffffff12;
@@ -591,6 +591,9 @@ body:has(.observatory-shell) .shell > header {
 .topnav { display: flex; gap: 1.2rem; margin: -1rem 0 1.5rem; font-size: 0.8rem; }
 .topnav a { color: var(--agora-muted); letter-spacing: 0.06em; }
 .topnav a:hover { color: var(--agora-accent); }
+@media (max-width: 760px) {
+  .topnav { flex-wrap: wrap; gap: 0.55rem 0.85rem; margin-top: -0.5rem; }
+}
 
 .plaza-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 @media (max-width: 760px) { .plaza-columns { grid-template-columns: 1fr; } }
