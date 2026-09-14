@@ -12,7 +12,7 @@ from typing import Any
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,21 +22,36 @@ from agora_api.events import append_event, now_utc
 from agora_api.ids import (
     new_institutional_validator_id,
     new_validator_assignment_id,
+    new_validator_owner_decision_id,
     new_validator_review_id,
+    new_validator_review_proposal_id,
 )
 from agora_api.magna_knowledge_ledger import canonical_json_hash, create_edge, create_object
 from agora_api.models import (
     Agent,
+    ArtifactVersion,
     Device,
+    Event,
+    Evidence,
+    Forum,
+    ForumPost,
+    ForumThread,
     InstitutionalValidator,
+    MagnaKnowledgeEdge,
     MagnaKnowledgeObject,
     Mission,
     MissionChallengeSubmission,
+    MissionChallengeThreadContribution,
+    MissionChallengeVote,
+    MissionParticipant,
     ResearchCandidateSnapshot,
     ResearchRewardCalculation,
+    SpaceMessage,
     User,
     ValidatorAssignment,
+    ValidatorOwnerDecision,
     ValidatorReview,
+    ValidatorReviewProposal,
 )
 from agora_api.provenance import SYSTEM_ACTOR_ID
 
@@ -103,9 +118,16 @@ def _assignment_view(
     row: ValidatorAssignment,
     validator: InstitutionalValidator,
     review: ValidatorReview | None,
+    proposal: ValidatorReviewProposal | None,
     *,
     reveal_details: bool,
 ) -> dict[str, Any]:
+    if proposal is not None:
+        owner_gate_state = proposal.state
+    elif row.revealed_at is not None:
+        owner_gate_state = "LEGACY_COMPLETED_BEFORE_OWNER_GATE"
+    else:
+        owner_gate_state = "AGENT_ANALYSIS_PENDING"
     result: dict[str, Any] = {
         "assignment_id": row.assignment_id,
         "candidate_id": row.candidate_id,
@@ -117,6 +139,13 @@ def _assignment_view(
         "assigned_at": row.assigned_at.isoformat(),
         "committed_at": row.committed_at.isoformat() if row.committed_at else None,
         "revealed_at": row.revealed_at.isoformat() if row.revealed_at else None,
+        "owner_gate": {
+            "required": True,
+            "state": owner_gate_state,
+            "proposal_hash": proposal.proposal_hash if proposal else None,
+            "proposal_version": proposal.proposal_version if proposal else None,
+            "proposal_details_public": False,
+        },
     }
     if reveal_details and review is not None:
         result["review"] = {
@@ -294,6 +323,7 @@ async def assign_pilot_validators(
     *,
     candidate_id: str,
     validator_ids: list[str],
+    decision_owner_id: str,
     trace_id: str | None,
 ) -> list[ValidatorAssignment]:
     _require_pilot_control_plane()
@@ -368,6 +398,7 @@ async def assign_pilot_validators(
             assignment_id=new_validator_assignment_id(),
             validator_id=validator.validator_id,
             candidate_id=candidate_id,
+            decision_owner_id=decision_owner_id,
             state="ASSIGNED",
             assigned_at=now,
         )
@@ -427,6 +458,307 @@ async def assignment_package(
     solution = await session.get(MagnaKnowledgeObject, candidate.final_solution_object_id)
     assert mission is not None and submission is not None and solution is not None
     solution_payload = solution.payload if solution.visibility_lane == "OPEN" else None
+    participant_rows = list(
+        (
+            await session.execute(
+                select(MissionParticipant, Agent)
+                .join(Agent, Agent.agent_id == MissionParticipant.agent_id)
+                .where(MissionParticipant.mission_id == candidate.challenge_id)
+                .order_by(MissionParticipant.joined_at, MissionParticipant.agent_id)
+            )
+        ).all()
+    )
+    vote_rows = list(
+        (
+            await session.execute(
+                select(MissionChallengeVote, Agent)
+                .join(Agent, Agent.agent_id == MissionChallengeVote.voter_agent_id)
+                .where(MissionChallengeVote.submission_id == candidate.submission_id)
+                .order_by(MissionChallengeVote.created_at, MissionChallengeVote.voter_agent_id)
+            )
+        ).all()
+    )
+    thread_rows = list(
+        (
+            await session.execute(
+                select(MissionChallengeThreadContribution, Agent)
+                .join(Agent, Agent.agent_id == MissionChallengeThreadContribution.agent_id)
+                .where(MissionChallengeThreadContribution.mission_id == candidate.challenge_id)
+                .order_by(
+                    MissionChallengeThreadContribution.created_at,
+                    MissionChallengeThreadContribution.contribution_id,
+                )
+                .limit(500)
+            )
+        ).all()
+    )
+    space_messages: list[SpaceMessage] = []
+    if mission.hosting_space_id:
+        space_messages = list(
+            (
+                await session.execute(
+                    select(SpaceMessage)
+                    .where(SpaceMessage.space_id == mission.hosting_space_id)
+                    .order_by(SpaceMessage.created_at.desc(), SpaceMessage.message_id.desc())
+                    .limit(200)
+                )
+            ).scalars()
+        )
+        space_messages.reverse()
+    forum_ids = list(
+        (
+            await session.execute(
+                select(Forum.forum_id).where(Forum.scope_id == candidate.challenge_id)
+            )
+        ).scalars()
+    )
+    forum_posts: list[tuple[ForumPost, ForumThread]] = []
+    if forum_ids:
+        forum_posts = list(
+            (
+                await session.execute(
+                    select(ForumPost, ForumThread)
+                    .join(ForumThread, ForumThread.thread_id == ForumPost.thread_id)
+                    .where(ForumPost.forum_id.in_(forum_ids))
+                    .order_by(ForumPost.sequence)
+                    .limit(300)
+                )
+            )
+            .tuples()
+            .all()
+        )
+    knowledge_objects = list(
+        (
+            await session.execute(
+                select(MagnaKnowledgeObject)
+                .where(
+                    MagnaKnowledgeObject.challenge_id == candidate.challenge_id,
+                    MagnaKnowledgeObject.visibility_lane == "OPEN",
+                )
+                .order_by(MagnaKnowledgeObject.created_at, MagnaKnowledgeObject.object_id)
+                .limit(500)
+            )
+        ).scalars()
+    )
+    object_ids = [row.object_id for row in knowledge_objects]
+    knowledge_edges: list[MagnaKnowledgeEdge] = []
+    if object_ids:
+        knowledge_edges = list(
+            (
+                await session.execute(
+                    select(MagnaKnowledgeEdge)
+                    .where(
+                        MagnaKnowledgeEdge.source_object_id.in_(object_ids),
+                        MagnaKnowledgeEdge.target_object_id.in_(object_ids),
+                        MagnaKnowledgeEdge.retracted_at.is_(None),
+                    )
+                    .order_by(MagnaKnowledgeEdge.created_at, MagnaKnowledgeEdge.edge_id)
+                    .limit(800)
+                )
+            ).scalars()
+        )
+    artifact_ids = list(
+        dict.fromkeys(
+            [*(submission.artifact_version_ids or [])]
+            + ([submission.artifact_version_id] if submission.artifact_version_id else [])
+            + (
+                [candidate.manuscript_artifact_version_id]
+                if candidate.manuscript_artifact_version_id
+                else []
+            )
+        )
+    )
+    artifacts: list[ArtifactVersion] = []
+    if artifact_ids:
+        artifacts = list(
+            (
+                await session.execute(
+                    select(ArtifactVersion).where(
+                        ArtifactVersion.artifact_version_id.in_(artifact_ids)
+                    )
+                )
+            ).scalars()
+        )
+    evidence_ids = list(dict.fromkeys(submission.evidence_ids or []))
+    evidence_rows: list[Evidence] = []
+    if evidence_ids:
+        evidence_rows = list(
+            (await session.execute(select(Evidence).where(Evidence.evidence_id.in_(evidence_ids))))
+            .scalars()
+        )
+    event_rows = list(
+        (
+            await session.execute(
+                select(Event)
+                .where(
+                    ~Event.event_type.like("institution.%"),
+                    or_(
+                        Event.payload.contains({"candidate_id": candidate.candidate_id}),
+                        Event.payload.contains({"challenge_id": candidate.challenge_id}),
+                        Event.payload.contains({"mission_id": candidate.challenge_id}),
+                        Event.payload.contains({"submission_id": candidate.submission_id}),
+                    )
+                )
+                .order_by(Event.occurred_at, Event.event_id)
+                .limit(500)
+            )
+        ).scalars()
+    )
+    reward = (
+        await session.execute(
+            select(ResearchRewardCalculation).where(
+                ResearchRewardCalculation.candidate_id == candidate.candidate_id
+            )
+        )
+    ).scalar_one_or_none()
+    review_context: dict[str, Any] = {
+        "participants": [
+            {
+                "agent_id": participant.agent_id,
+                "name": agent.name,
+                "roles": participant.roles,
+                "joined_at": participant.joined_at.isoformat(),
+                "left_at": participant.left_at.isoformat() if participant.left_at else None,
+            }
+            for participant, agent in participant_rows
+        ],
+        "candidate_votes": [
+            {
+                "voter_agent_id": vote.voter_agent_id,
+                "voter_name": agent.name,
+                "verdict": vote.verdict,
+                "resolved": vote.resolved,
+                "abstained": vote.abstained,
+                "rationale": vote.rationale,
+                "review_evidence_ids": vote.review_evidence_ids or [],
+                "conflict_declaration": vote.conflict_of_interest_declaration,
+                "created_at": vote.created_at.isoformat(),
+            }
+            for vote, agent in vote_rows
+        ],
+        "challenge_thread": [
+            {
+                "entry_id": row.contribution_id,
+                "submission_id": row.submission_id,
+                "agent_id": row.agent_id,
+                "agent_name": agent.name,
+                "kind": row.kind,
+                "body": row.body,
+                "evidence_ids": row.evidence_ids or [],
+                "claim_ids": row.claim_ids or [],
+                "created_at": row.created_at.isoformat(),
+            }
+            for row, agent in thread_rows
+        ],
+        "world_conversation": [
+            {
+                "message_id": row.message_id,
+                "agent_id": row.agent_id,
+                "content": row.content,
+                "reply_to": row.reply_to,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in space_messages
+        ],
+        "forum_conversation": [
+            {
+                "post_id": post.post_id,
+                "thread_id": post.thread_id,
+                "thread_title": thread.title,
+                "actor_agent_id": post.actor_agent_id,
+                "content": post.content,
+                "content_hash": post.content_hash,
+                "published_at": post.published_at.isoformat(),
+            }
+            for post, thread in forum_posts
+        ],
+        "audit_events": [
+            {
+                "event_id": row.event_id,
+                "event_type": row.event_type,
+                "actor": row.actor,
+                "payload": row.payload,
+                "occurred_at": row.occurred_at.isoformat(),
+            }
+            for row in event_rows
+        ],
+        "genealogy": {
+            "nodes": [
+                {
+                    "object_id": row.object_id,
+                    "object_type": row.object_type,
+                    "author_agent_id": row.author_agent_id,
+                    "content_hash": row.canonical_content_hash,
+                    "state": row.state,
+                    "summary": row.public_summary,
+                }
+                for row in knowledge_objects
+            ],
+            "edges": [
+                {
+                    "edge_id": row.edge_id,
+                    "source": row.source_object_id,
+                    "target": row.target_object_id,
+                    "relation": row.relation_type,
+                }
+                for row in knowledge_edges
+            ],
+        },
+        "artifacts": [
+            {
+                "artifact_version_id": row.artifact_version_id,
+                "state": row.state,
+                "content_hash": row.content_hash,
+                "content_size": row.content_size,
+                "media_type": row.media_type,
+                "display_filename": row.display_filename,
+                "provenance_hash": row.provenance_hash,
+            }
+            for row in artifacts
+        ],
+        "evidence": [
+            {
+                "evidence_id": row.evidence_id,
+                "source_type": row.source_type,
+                "provenance_level": row.provenance_level,
+                "title": row.title,
+                "content_hash": row.content_hash,
+                "evidence_kind": row.evidence_kind,
+                "certificate_hash": row.certificate_hash,
+            }
+            for row in evidence_rows
+        ],
+        "reward_context": (
+            {
+                "reward_id": reward.reward_id,
+                "state": reward.state,
+                "total_aceros": reward.total_aceros,
+                "allocation": reward.allocation,
+                "algorithm_version": reward.algorithm_version,
+                "advisory_only_for_synthetic_validator": True,
+            }
+            if reward
+            else {
+                "reward_id": None,
+                "state": "NOT_CALCULATED",
+                "total_aceros": 0,
+                "allocation": {},
+                "advisory_only_for_synthetic_validator": True,
+            }
+        ),
+        "coverage_limits": {
+            "challenge_thread": 500,
+            "world_conversation": 200,
+            "forum_conversation": 300,
+            "audit_events": 500,
+            "genealogy_nodes": 500,
+            "genealogy_edges": 800,
+        },
+        "private_service_logs_disclosed": False,
+    }
+    review_context["context_hash"] = canonical_json_hash(
+        review_context, domain="agora.institutional.validator.context.v1"
+    )
     return {
         "assignment_id": assignment.assignment_id,
         "validator_id": validator.validator_id,
@@ -450,6 +782,8 @@ async def assignment_package(
         },
         "submission": {
             "submission_id": submission.submission_id,
+            "author_agent_id": submission.agent_id,
+            "team_agent_ids": submission.team_agent_ids or [],
             "solution_summary": submission.solution_summary,
             "reasoning_outline": submission.reasoning_outline,
             "experiments": submission.experiments,
@@ -465,6 +799,7 @@ async def assignment_package(
             "visibility_lane": solution.visibility_lane,
             "payload": solution_payload,
         },
+        "review_context": review_context,
     }
 
 
@@ -509,6 +844,367 @@ def review_commitment(
     return canonical_json_hash(body, domain="agora.institutional.validator.review.v1")
 
 
+def review_proposal_hash(
+    assignment: ValidatorAssignment,
+    validator: InstitutionalValidator,
+    candidate: ResearchCandidateSnapshot,
+    *,
+    proposal_version: int,
+    payload: dict[str, Any],
+) -> str:
+    body = {
+        "assignment_id": assignment.assignment_id,
+        "validator_id": validator.validator_id,
+        "candidate_id": candidate.candidate_id,
+        "candidate_content_hash": candidate.content_hash,
+        "candidate_version": candidate.candidate_version,
+        "proposal_version": proposal_version,
+        **payload,
+    }
+    return canonical_json_hash(body, domain="agora.institutional.validator.proposal.v1")
+
+
+async def _latest_proposal(
+    session: AsyncSession, assignment_id: str, *, lock: bool = False
+) -> ValidatorReviewProposal | None:
+    statement = (
+        select(ValidatorReviewProposal)
+        .where(ValidatorReviewProposal.assignment_id == assignment_id)
+        .order_by(ValidatorReviewProposal.proposal_version.desc())
+        .limit(1)
+    )
+    if lock:
+        statement = statement.with_for_update()
+    return (await session.execute(statement)).scalar_one_or_none()
+
+
+def _validate_proposal_consistency(
+    validator: InstitutionalValidator,
+    review: dict[str, Any],
+    recommendation: dict[str, Any],
+    tokoin_recommendation: dict[str, Any],
+    *,
+    expected_total_aceros: int,
+) -> None:
+    _validate_review_consistency(validator, review)
+    expected_assessment = {
+        "APPROVED": "PASS",
+        "APPROVED_WITH_MINOR_CHANGES": "PASS_WITH_CONDITIONS",
+        "REQUIRES_REVISION": "PASS_WITH_CONDITIONS",
+        "REJECTED": "FAIL",
+        "INSUFFICIENT_EVIDENCE": "INSUFFICIENT_EVIDENCE",
+    }[review["verdict"]]
+    if recommendation["assessment"] != expected_assessment:
+        raise ValidationFailed("Owner recommendation must agree with the proposed verdict.")
+    if expected_assessment == "PASS" and recommendation["blocking_issues"]:
+        raise ValidationFailed("A PASS recommendation cannot contain blocking issues.")
+    total = int(tokoin_recommendation["total_aceros"])
+    if total != expected_total_aceros:
+        raise ValidationFailed("TOKOIN recommendation must use the frozen provisional total.")
+    if sum(int(row["amount_aceros"]) for row in tokoin_recommendation["allocations"]) != total:
+        raise ValidationFailed("TOKOIN recommendation allocations must sum to total_aceros.")
+
+
+def _proposal_view(
+    proposal: ValidatorReviewProposal,
+    assignment: ValidatorAssignment,
+    validator: InstitutionalValidator,
+    decision: ValidatorOwnerDecision | None,
+) -> dict[str, Any]:
+    return {
+        "proposal_id": proposal.proposal_id,
+        "proposal_version": proposal.proposal_version,
+        "proposal_hash": proposal.proposal_hash,
+        "state": proposal.state,
+        "assignment_id": proposal.assignment_id,
+        "assignment_state": assignment.state,
+        "candidate_id": proposal.candidate_id,
+        "validator": validator_view(validator),
+        "review": proposal.review_payload,
+        "recommendation": proposal.recommendation,
+        "evidence_manifest": proposal.evidence_manifest,
+        "tokoin_recommendation": proposal.tokoin_recommendation,
+        "decision": (
+            {
+                "decision_id": decision.decision_id,
+                "decision": decision.decision,
+                "proposal_hash": decision.proposal_hash,
+                "owner_notes": decision.owner_notes,
+                "decision_hash": decision.decision_hash,
+                "created_at": decision.created_at.isoformat(),
+            }
+            if decision
+            else None
+        ),
+        "approved_for_commit": proposal.state == "OWNER_APPROVED",
+        "synthetic_test_only": True,
+        "human_validation_satisfied": False,
+        "tokoin_settlement_eligible": False,
+        "disclaimer": PILOT_DISCLAIMER,
+        "created_at": proposal.created_at.isoformat(),
+    }
+
+
+async def submit_review_proposal(
+    session: AsyncSession,
+    *,
+    assignment_id: str,
+    device: Device,
+    payload: dict[str, Any],
+    trace_id: str | None,
+) -> ValidatorReviewProposal:
+    _require_pilot_control_plane()
+    assignment, validator, candidate = await _owned_assignment(
+        session, assignment_id, device, lock=True
+    )
+    if assignment.committed_at is not None:
+        raise Conflict("A committed review cannot be replaced by an Owner proposal.")
+    if assignment.state in {"CONFLICT_DECLARED", "OWNER_REJECTED"}:
+        raise Conflict("This assignment cannot accept a review proposal.")
+    package = await assignment_package(session, assignment_id=assignment_id, device=device)
+    manifest = payload["evidence_manifest"]
+    context = package["review_context"]
+    if manifest["context_hash"] != context["context_hash"]:
+        raise ValidationFailed("Evidence manifest does not match the frozen review context.")
+    allowed_participants = {row["agent_id"] for row in context["participants"]}
+    allowed_threads = {
+        *[row["entry_id"] for row in context["challenge_thread"]],
+        *[row["message_id"] for row in context["world_conversation"]],
+        *[row["post_id"] for row in context["forum_conversation"]],
+    }
+    allowed_events = {row["event_id"] for row in context["audit_events"]}
+    allowed_artifacts = {
+        *[row["artifact_version_id"] for row in context["artifacts"]],
+        *[row["evidence_id"] for row in context["evidence"]],
+        package["final_solution"]["object_id"],
+    }
+    if not set(manifest["participant_ids"]) <= allowed_participants:
+        raise ValidationFailed("Evidence manifest cites an unknown participant.")
+    if not set(manifest["thread_entry_ids"]) <= allowed_threads:
+        raise ValidationFailed("Evidence manifest cites an unknown conversation entry.")
+    if not set(manifest["event_ids"]) <= allowed_events:
+        raise ValidationFailed("Evidence manifest cites an unknown audit event.")
+    if not set(manifest["artifact_ids"]) <= allowed_artifacts:
+        raise ValidationFailed("Evidence manifest cites an unknown artifact or evidence item.")
+    reward_total = int(context["reward_context"]["total_aceros"])
+    _validate_proposal_consistency(
+        validator,
+        payload["review"],
+        payload["recommendation"],
+        payload["tokoin_recommendation"],
+        expected_total_aceros=reward_total,
+    )
+    previous = await _latest_proposal(session, assignment_id, lock=True)
+    if previous is not None and previous.state != "REVISION_REQUESTED":
+        existing_hash = review_proposal_hash(
+            assignment,
+            validator,
+            candidate,
+            proposal_version=previous.proposal_version,
+            payload=payload,
+        )
+        if previous.proposal_hash == existing_hash:
+            return previous
+        raise Conflict("Current proposal must be decided before a new version is submitted.")
+    next_version = 1 if previous is None else previous.proposal_version + 1
+    computed = review_proposal_hash(
+        assignment,
+        validator,
+        candidate,
+        proposal_version=next_version,
+        payload=payload,
+    )
+    proposal = ValidatorReviewProposal(
+        proposal_id=new_validator_review_proposal_id(),
+        assignment_id=assignment.assignment_id,
+        validator_id=validator.validator_id,
+        candidate_id=candidate.candidate_id,
+        proposal_version=next_version,
+        review_payload=payload["review"],
+        recommendation=payload["recommendation"],
+        evidence_manifest=payload["evidence_manifest"],
+        tokoin_recommendation=payload["tokoin_recommendation"],
+        proposal_hash=computed,
+        state="AWAITING_OWNER_DECISION",
+        supersedes_proposal_id=previous.proposal_id if previous else None,
+        created_at=now_utc(),
+    )
+    session.add(proposal)
+    assignment.state = "AWAITING_OWNER_DECISION"
+    await session.flush()
+    await append_event(
+        session,
+        event_type="institution.review.proposal_submitted",
+        actor={"agent_id": device.agent_id},
+        payload={
+            "assignment_id": assignment.assignment_id,
+            "candidate_id": candidate.candidate_id,
+            "validator_id": validator.validator_id,
+            "proposal_id": proposal.proposal_id,
+            "proposal_version": proposal.proposal_version,
+            "proposal_hash": proposal.proposal_hash,
+            "verdict_disclosed": False,
+            "synthetic_test_only": True,
+        },
+        trace_id=trace_id,
+    )
+    return proposal
+
+
+async def own_review_proposal(
+    session: AsyncSession, *, assignment_id: str, device: Device
+) -> dict[str, Any]:
+    assignment, validator, _ = await _owned_assignment(session, assignment_id, device)
+    proposal = await _latest_proposal(session, assignment_id)
+    if proposal is None:
+        raise NotFound("Review proposal not found.")
+    decision = (
+        await session.execute(
+            select(ValidatorOwnerDecision).where(
+                ValidatorOwnerDecision.proposal_id == proposal.proposal_id
+            )
+        )
+    ).scalar_one_or_none()
+    return _proposal_view(proposal, assignment, validator, decision)
+
+
+async def owner_review_proposals(
+    session: AsyncSession, *, challenge_id: str, owner: User
+) -> dict[str, Any]:
+    rows = list(
+        (
+            await session.execute(
+                select(ValidatorAssignment, InstitutionalValidator)
+                .join(
+                    InstitutionalValidator,
+                    InstitutionalValidator.validator_id == ValidatorAssignment.validator_id,
+                )
+                .join(
+                    ResearchCandidateSnapshot,
+                    ResearchCandidateSnapshot.candidate_id == ValidatorAssignment.candidate_id,
+                )
+                .where(
+                    ValidatorAssignment.decision_owner_id == owner.user_id,
+                    ResearchCandidateSnapshot.challenge_id == challenge_id,
+                )
+                .order_by(ValidatorAssignment.assigned_at, ValidatorAssignment.assignment_id)
+            )
+        ).all()
+    )
+    proposals: list[dict[str, Any]] = []
+    pending_analysis = 0
+    for assignment, validator in rows:
+        proposal = await _latest_proposal(session, assignment.assignment_id)
+        if proposal is None:
+            if assignment.revealed_at is None:
+                pending_analysis += 1
+            continue
+        decision = (
+            await session.execute(
+                select(ValidatorOwnerDecision).where(
+                    ValidatorOwnerDecision.proposal_id == proposal.proposal_id
+                )
+            )
+        ).scalar_one_or_none()
+        proposals.append(_proposal_view(proposal, assignment, validator, decision))
+    return {
+        "challenge_id": challenge_id,
+        "owner_id": owner.user_id,
+        "pending_agent_analysis": pending_analysis,
+        "proposals": proposals,
+        "synthetic_test_only": True,
+        "human_validation_satisfied": False,
+        "tokoin_settlement_eligible": False,
+    }
+
+
+async def decide_review_proposal(
+    session: AsyncSession,
+    *,
+    proposal_id: str,
+    owner: User,
+    payload: dict[str, Any],
+    trace_id: str | None,
+) -> ValidatorOwnerDecision:
+    _require_pilot_control_plane()
+    proposal = await session.get(ValidatorReviewProposal, proposal_id, with_for_update=True)
+    if proposal is None:
+        raise NotFound("Review proposal not found.")
+    assignment = await session.get(
+        ValidatorAssignment, proposal.assignment_id, with_for_update=True
+    )
+    assert assignment is not None
+    if assignment.decision_owner_id != owner.user_id:
+        raise OwnerAuthorityRequired("Only the panel operator may decide this proposal.")
+    if payload["proposal_hash"] != proposal.proposal_hash:
+        raise Conflict("Proposal changed; refresh before recording an Owner decision.")
+    existing = (
+        await session.execute(
+            select(ValidatorOwnerDecision).where(
+                ValidatorOwnerDecision.proposal_id == proposal.proposal_id
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        if (
+            existing.decision == payload["decision"]
+            and existing.proposal_hash == payload["proposal_hash"]
+            and existing.owner_notes == payload["owner_notes"]
+        ):
+            return existing
+        raise Conflict("Owner decision is append-only and cannot be replaced.")
+    decision_body = {
+        "proposal_id": proposal.proposal_id,
+        "assignment_id": assignment.assignment_id,
+        "owner_id": owner.user_id,
+        "decision": payload["decision"],
+        "proposal_hash": proposal.proposal_hash,
+        "owner_notes": payload["owner_notes"],
+    }
+    decision = ValidatorOwnerDecision(
+        decision_id=new_validator_owner_decision_id(),
+        proposal_id=proposal.proposal_id,
+        assignment_id=assignment.assignment_id,
+        owner_id=owner.user_id,
+        decision=payload["decision"],
+        proposal_hash=proposal.proposal_hash,
+        owner_notes=payload["owner_notes"],
+        decision_hash=canonical_json_hash(
+            decision_body, domain="agora.institutional.validator.owner-decision.v1"
+        ),
+        created_at=now_utc(),
+    )
+    if decision.decision == "APPROVE":
+        proposal.state = "OWNER_APPROVED"
+        assignment.state = "OWNER_APPROVED_AWAITING_COMMIT"
+    elif decision.decision == "REQUEST_REVISION":
+        proposal.state = "REVISION_REQUESTED"
+        assignment.state = "AWAITING_VALIDATOR_REVISION"
+    else:
+        proposal.state = "OWNER_REJECTED"
+        assignment.state = "OWNER_REJECTED"
+    session.add(decision)
+    await session.flush()
+    await append_event(
+        session,
+        event_type="institution.review.owner_decision_recorded",
+        actor={"agent_id": SYSTEM_ACTOR_ID},
+        payload={
+            "assignment_id": assignment.assignment_id,
+            "candidate_id": proposal.candidate_id,
+            "proposal_id": proposal.proposal_id,
+            "proposal_hash": proposal.proposal_hash,
+            "owner_id": owner.user_id,
+            "decision": decision.decision,
+            "decision_hash": decision.decision_hash,
+            "synthetic_test_only": True,
+            "tokoin_released": False,
+        },
+        trace_id=trace_id,
+    )
+    return decision
+
+
 async def commit_review(
     session: AsyncSession,
     *,
@@ -537,6 +1233,16 @@ async def commit_review(
         ):
             return assignment
         raise Conflict("Review commitment is immutable.")
+    proposal = await _latest_proposal(session, assignment.assignment_id, lock=True)
+    if proposal is None or proposal.state != "OWNER_APPROVED":
+        raise OwnerAuthorityRequired(
+            "The assigned Owner must approve the exact validator proposal before commit."
+        )
+    expected_commitment = review_commitment(
+        assignment, validator, candidate, proposal.review_payload
+    )
+    if payload["commitment_hash"] != expected_commitment:
+        raise Conflict("Commitment does not match the Owner-approved proposal hash.")
     assignment.commitment_hash = payload["commitment_hash"]
     assignment.commitment_signature = payload["commitment_signature"]
     assignment.conflict_declaration = payload["conflict_declaration"]
@@ -779,6 +1485,14 @@ async def reveal_review(
     )
     if assignment.committed_at is None or assignment.commitment_hash is None:
         raise Conflict("Commit the blind review hash before revealing it.")
+    proposal = await _latest_proposal(session, assignment.assignment_id)
+    if proposal is None or proposal.state != "OWNER_APPROVED":
+        raise OwnerAuthorityRequired("Owner approval is missing for this revealed review.")
+    approved_hash = review_commitment(
+        assignment, validator, candidate, proposal.review_payload
+    )
+    if approved_hash != assignment.commitment_hash:
+        raise Conflict("Committed review no longer matches the Owner-approved proposal.")
     panel = list(
         (
             await session.execute(
@@ -925,6 +1639,21 @@ async def panel_view(session: AsyncSession, candidate_id: str) -> dict[str, Any]
             )
         ).scalars()
     }
+    proposal_rows = list(
+        (
+            await session.execute(
+                select(ValidatorReviewProposal)
+                .where(ValidatorReviewProposal.candidate_id == candidate_id)
+                .order_by(
+                    ValidatorReviewProposal.assignment_id,
+                    ValidatorReviewProposal.proposal_version.desc(),
+                )
+            )
+        ).scalars()
+    )
+    proposals: dict[str, ValidatorReviewProposal] = {}
+    for proposal in proposal_rows:
+        proposals.setdefault(proposal.assignment_id, proposal)
     all_committed = len(assignments) == 2 and all(
         row.committed_at is not None for row, _ in assignments
     )
@@ -944,12 +1673,21 @@ async def panel_view(session: AsyncSession, candidate_id: str) -> dict[str, Any]
         credit = (
             int(reward.allocation.get("pools", {}).get("institutional_validation_pool", 0)) // 2
         )
+    proposal_states = {row.state for row in proposals.values()}
     if all_revealed:
         status = _panel_result({row.verdict for row in reviews.values()})
     elif all_committed:
         status = "COMMITTED_AWAITING_REVEAL"
+    elif any(row.state == "OWNER_REJECTED" for row, _ in assignments):
+        status = "OWNER_REJECTED"
+    elif "REVISION_REQUESTED" in proposal_states:
+        status = "AWAITING_VALIDATOR_REVISION"
+    elif len(proposals) == 2 and proposal_states == {"OWNER_APPROVED"}:
+        status = "OWNER_APPROVED_AWAITING_COMMIT"
+    elif proposals:
+        status = "AWAITING_OWNER_DECISION"
     elif assignments:
-        status = "BLIND_REVIEW_IN_PROGRESS"
+        status = "AGENT_ANALYSIS_IN_PROGRESS"
     else:
         status = "UNASSIGNED"
     return {
@@ -967,7 +1705,11 @@ async def panel_view(session: AsyncSession, candidate_id: str) -> dict[str, Any]
         "pilot_credit_is_non_settleable": True,
         "tracks": [
             _assignment_view(
-                row, validator, reviews.get(row.assignment_id), reveal_details=all_revealed
+                row,
+                validator,
+                reviews.get(row.assignment_id),
+                proposals.get(row.assignment_id),
+                reveal_details=all_revealed,
             )
             for row, validator in assignments
         ],
