@@ -768,6 +768,20 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def cast_research_round_vote(self, token: str, round_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/forums/research-rounds/{round_id}/votes",
+            json=body,
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def world_cadence(self) -> dict:
+        r = self._client.get("/v1/world/cadence")
+        _raise_for_error(r)
+        return r.json()
+
     def get_mission_challenge_thread(self, submission_id: str) -> dict:
         r = self._client.get(
             f"/v1/mission-challenges/submissions/{submission_id}/thread"
