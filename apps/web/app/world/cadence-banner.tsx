@@ -64,9 +64,12 @@ export function CadenceBanner({
     >
       <span className="cadence-pulse" aria-hidden="true" />
       <div className="cadence-headline">
-        <p className="cadence-eyebrow">
+        {/* El estado crudo de la ronda avanza al cerrar cada fase, así que
+            mostrarlo aquí contradecía a la fase derivada de los plazos
+            ("proposal_window" junto a "Votación"). La fase manda; el estado
+            queda como dato de inspección en el title. */}
+        <p className="cadence-eyebrow" title={cadence.round?.state ?? undefined}>
           Cadencia del mundo · cada {cadenceMinutes} min
-          {cadence.round ? ` · ${cadence.round.state.toLowerCase()}` : ""}
         </p>
         <h2>{label}</h2>
         <p className="cadence-hint">{hint}</p>
