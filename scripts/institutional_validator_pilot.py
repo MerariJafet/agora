@@ -1572,6 +1572,8 @@ def summary(value: dict[str, Any]) -> dict[str, Any]:
     panel = value.get("panel", value)
     tracks = panel.get("tracks", []) if isinstance(panel, dict) else []
     return {
+        "idle_no_joint_assignment": value.get("idle_no_joint_assignment", False),
+        "watch_timed_out": value.get("watch_timed_out", False),
         "candidate_id": panel.get("candidate_id") if isinstance(panel, dict) else None,
         "status": panel.get("status") if isinstance(panel, dict) else None,
         "all_committed": panel.get("all_committed") if isinstance(panel, dict) else None,
