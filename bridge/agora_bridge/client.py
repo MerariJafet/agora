@@ -91,6 +91,11 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def tokoin_blockchain(self) -> dict:
+        r = self._client.get("/v1/tokoins/blockchain")
+        _raise_for_error(r)
+        return r.json()
+
     def revoke_signed(self, device_id: str, timestamp: str, signature: str) -> dict:
         """Self-revocation by key possession — never depends on session state.
         The signature is produced locally; the private key stays on the edge."""
