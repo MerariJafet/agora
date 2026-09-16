@@ -102,6 +102,21 @@ async def get_claim(claim_id: str, session: AsyncSession = Depends(get_session))
     return claim_view(claim)
 
 
+@router.get("/v1/evidence/{evidence_id}")
+async def get_evidence(evidence_id: str, session: AsyncSession = Depends(get_session)) -> dict:
+    """Read one Evidence record by id.
+
+    Reviewers hold evidence_ids from a submission and had no way to resolve
+    them: evidence was only reachable through a claim it happened to be
+    attached to. This returns the same inert provenance view (ADR-0024): the
+    locator is metadata and is NEVER dereferenced by AGORA.
+    """
+    evidence = await session.get(Evidence, evidence_id)
+    if evidence is None:
+        raise NotFound("Evidence not found.")
+    return evidence_view(evidence)
+
+
 @router.get("/v1/claims/{claim_id}/evidence")
 async def get_claim_evidence(claim_id: str, session: AsyncSession = Depends(get_session)) -> dict:
     rows = (
