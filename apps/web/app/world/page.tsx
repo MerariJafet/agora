@@ -23,6 +23,10 @@ import "./world-v2.css";
 // Importado DESPUÉS de world-v2.css a propósito: cadence.css reajusta el
 // grid-template-rows del stage porque el banner añade una fila antes del mapa.
 import "./cadence.css";
+// World Layout v3 — importado DESPUÉS de todos los demás: el mapa se acota,
+// "Espacios" baja al stage y el chat sube al rail izquierdo. Al ir último gana
+// los empates de especificidad sin tocar globals.css.
+import "./world-v3.css";
 import { CadenceBanner } from "./cadence-banner";
 import { CadenceProposals } from "./cadence-proposals";
 import { GladiatorBench } from "./gladiator-bench";
@@ -835,38 +839,15 @@ export default function WorldPage() {
             />
           </div>
 
-          <div className="panel-block">
-            <div className="panel-title-row">
-              <h2>Espacios <Explain topic="plaza" ariaLabel="Qué es un espacio" /></h2>
-              <span title={metricDefinitions.active_spaces}>
-                {observatory?.active_spaces ?? activeSpaces.length} activos · {observatory?.occupied_spaces ?? activeSpaces.length} ocupados
-              </span>
-            </div>
-            <ul className="observatory-list">
-              {filteredSpaces.map((landmark) => {
-                const count = presenceCount(landmark.space_id);
-                return (
-                  <li key={landmark.id}>
-                    <Link
-                      href={landmark.shape === "challenge" || landmark.mission_id
-                        ? challengeHref(landmark.mission_id ?? landmark.id)
-                        : districtHref(landmark)}
-                      className={`space-row ${selectedLandmark?.id === landmark.id ? "selected" : ""}`}
-                      onClick={() => focusLandmark(landmark)}
-                      aria-label={`Entrar a ${landmark.name}`}
-                    >
-                      <span className={`space-state state-${landmark.state.toLowerCase()}`} />
-                      <span className="row-main">
-                        <strong>{landmark.name}</strong>
-                        <small>{landmark.state}</small>
-                      </span>
-                      <span className="row-count">{count}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          {/* El chat es lo que más se beneficia del alto disponible, así que
+              ocupa la fila flexible del rail (search arriba, agentes abajo).
+              El rail queda pegajoso a la altura de la ventana: el chat sigue
+              visible mientras el stage central se desplaza. */}
+          <GlobalChat
+            items={chatItems}
+            agents={presentAgents}
+            live={connection === "live"}
+          />
 
           <div className="panel-block">
             <div className="panel-title-row">
@@ -965,6 +946,49 @@ export default function WorldPage() {
               <span>Topology {store.manifest?.world_version ?? "loading"}</span>
             </div>
           </div>
+
+          {/* Espacios pegados al lienzo: son el índice del mapa (un click
+              enfoca el landmark que está justo encima), así que van antes que
+              el banquillo — primero los lugares, después sus habitantes. Ya no
+              es una columna estrecha: franja de fichas en dos filas con scroll
+              horizontal, misma gramática que el banquillo. */}
+          <section className="panel-block spaces-strip-panel" aria-label="Espacios del mundo">
+            <div className="panel-title-row">
+              <h2>Espacios <Explain topic="plaza" ariaLabel="Qué es un espacio" /></h2>
+              <span title={metricDefinitions.active_spaces}>
+                {observatory?.active_spaces ?? activeSpaces.length} activos · {observatory?.occupied_spaces ?? activeSpaces.length} ocupados
+              </span>
+            </div>
+            <div className="spaces-strip-scroll">
+              <ul className="observatory-list spaces-strip">
+                {filteredSpaces.map((landmark) => {
+                  const count = presenceCount(landmark.space_id);
+                  return (
+                    <li key={landmark.id}>
+                      <Link
+                        href={landmark.shape === "challenge" || landmark.mission_id
+                          ? challengeHref(landmark.mission_id ?? landmark.id)
+                          : districtHref(landmark)}
+                        className={`space-row ${selectedLandmark?.id === landmark.id ? "selected" : ""}`}
+                        onClick={() => focusLandmark(landmark)}
+                        aria-label={`Entrar a ${landmark.name}`}
+                      >
+                        <span className={`space-state state-${landmark.state.toLowerCase()}`} />
+                        <span className="row-main">
+                          <strong>{landmark.name}</strong>
+                          <small>{landmark.state}</small>
+                        </span>
+                        <span className="row-count" title={`${count} presentes`}>{count}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+                {filteredSpaces.length === 0 && (
+                  <li className="spaces-strip-empty">Ningún espacio coincide con la búsqueda.</li>
+                )}
+              </ul>
+            </div>
+          </section>
 
           <GladiatorBench
             gladiators={gladiatorsAll}
@@ -1127,12 +1151,6 @@ export default function WorldPage() {
             )}
             <Link className="detail-link" href="/pulse">Ver pulso completo →</Link>
           </section>
-
-          <GlobalChat
-            items={chatItems}
-            agents={presentAgents}
-            live={connection === "live"}
-          />
 
           <section className="panel-block now-panel">
             <div className="panel-title-row">
