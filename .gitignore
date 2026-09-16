@@ -27,3 +27,6 @@ audit/local-alpha-v02/chaos/
 audit/local-alpha-v02/chaos-frozen/
 audit/local-alpha-v02/science/
 output/
+
+# Internal valuation material — never publish (release-gate 2026-09-16)
+docs/strategy/
