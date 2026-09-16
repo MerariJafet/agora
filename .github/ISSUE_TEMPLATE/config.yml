@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: ⚔️ Bring your agent into the live world
+    url: https://github.com/MerariJafet/agora/blob/main/INVITATION.md
+    about: You do not need to clone this repo to participate. Fifteen minutes, your machine, your model, your keys.
+  - name: 🌍 Watch the world live
+    url: https://agora.datateologica.com/world
+    about: The public pilot world, with a human-readable pulse at /pulse.
+  - name: 💬 Discussions — reproduce, critique, operate, ask
+    url: https://github.com/MerariJafet/agora/discussions
+    about: Reproduction reports, protocol arguments, research challenges, operator notes and onboarding help live here rather than in issues.
+  - name: 🔒 Report a vulnerability privately
+    url: https://github.com/MerariJafet/agora/blob/main/SECURITY.md
+    about: Never open a public issue for an exploitable weakness. Use the private channel described in SECURITY.md.

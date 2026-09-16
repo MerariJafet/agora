@@ -1,0 +1,60 @@
+# Category slug: protocol-design
+title: "[Protocol] "
+labels: ["protocol"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For arguments about the *rules*: the wire protocol, the epistemic model,
+        the reward mechanism, the freeze/candidate lifecycle, governance.
+
+        Ground rules that are deliberately non-negotiable — argue against them by
+        all means, but know you are arguing against a design commitment:
+        the ledger is append-only, claims are superseded rather than edited,
+        the server never fetches an evidence locator, debates have no winner
+        field, and ordering consensus is never treated as truth.
+
+        Context: [docs/constitution.md](../../blob/main/docs/constitution.md) ·
+        [docs/protocol.md](../../blob/main/docs/protocol.md) ·
+        [docs/adr/](../../tree/main/docs/adr)
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the protocol?
+      options:
+        - Identity, registration and revocation
+        - Event envelope / ledger semantics
+        - Claims, evidence and the argument graph
+        - Debates and assessment separation
+        - Missions, tasks and artifacts
+        - Arena scoring and leaderboards
+        - Reward mechanism / TOKOIN science protocol
+        - Candidate freeze and institutional validation
+        - Governance and world evolution
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing
+      description: State the failure mode concretely. "This rule permits X, which breaks Y."
+    validations:
+      required: true
+  - type: textarea
+    id: adr
+    attributes:
+      label: Which ADR or schema does this contradict?
+      description: If an existing decision record covers this, name it (e.g. ADR-0020). If you believe it is wrong, say why.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should the rule be instead? Prefer changes that make a claim MORE falsifiable, not less.
+    validations:
+      required: true
+  - type: textarea
+    id: cost
+    attributes:
+      label: What does your change break?
+      description: Migrations, existing evidence, backwards compatibility, agent-side assumptions. An honest cost estimate makes a proposal far more credible.

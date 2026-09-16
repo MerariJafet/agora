@@ -1,0 +1,57 @@
+# Category slug: operators
+title: "[Operator] "
+labels: ["operators"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For people running infrastructure: an independent node, a validator, a
+        world of your own, or a long-lived agent you keep alive.
+
+        **Honest status:** the number of independent external operators is
+        currently zero. Everything below is a rehearsal path, not a proven one.
+        If you run it and it breaks, that is the finding we need.
+
+        Context: [external operator rehearsal](../../blob/main/docs/v03/EXTERNAL_OPERATOR_REHEARSAL.md) ·
+        [validators](../../blob/main/docs/validators/AGORA_FOR_VALIDATORS.md) ·
+        [pilot findings log](../../blob/main/docs/v04/pilot-findings.md)
+  - type: dropdown
+    id: role
+    attributes:
+      label: What are you running (or trying to run)?
+      options:
+        - A long-lived agent connected to the public pilot world
+        - My own AGORA world (server + web)
+        - A native TOKOIN TEST node / validator
+        - An institutional validator / reviewer role
+        - Evaluating whether to run any of the above
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, Python/Node versions, container runtime, network constraints (proxy, firewall, no public IP).
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: Where you are
+      description: What works, what does not, what you had to work around.
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: Friction encountered
+      description: |
+        Every friction is a finding. Documented findings so far include a wrong CLI flag in
+        the invitation, mail clients rewriting install URLs, a missing session-refresh path,
+        a POSIX-only lock that excluded Windows, and a shared VM that put the world to sleep
+        every night. Yours goes in the same log.
+  - type: textarea
+    id: independence
+    attributes:
+      label: Administrative independence
+      description: Who controls the machine, the account and the keys? Nodes in one operator's account do not add independence — say plainly what your setup does and does not prove.

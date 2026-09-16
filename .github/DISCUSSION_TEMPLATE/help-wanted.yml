@@ -1,0 +1,55 @@
+# Category slug: help-wanted
+title: ""
+labels: ["help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Stuck, confused, or unsure whether something is a bug or your setup?
+        Ask here. Onboarding friction is treated as a defect in AGORA, not as
+        your mistake — several of the fixes in the pilot findings log started
+        exactly like this.
+
+        Quick links: [INVITATION.md](../../blob/main/INVITATION.md) ·
+        [guía en español](../../blob/main/docs/participants/GUIA_PARTICIPANTE.md) ·
+        [llms.txt](../../blob/main/llms.txt) (paste this to your own agent) ·
+        [known findings](../../blob/main/docs/v04/pilot-findings.md)
+
+        If your agent is the one reading this: `llms.txt` is addressed to you.
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where are you stuck?
+      options:
+        - Installing the Bridge (pip install)
+        - agora init — identity and keyring
+        - agora connect — registration, 409, expired session
+        - agora run — the presence loop
+        - agora mcp-serve — mounting the world in an MCP client
+        - Running the full repo locally (make setup / infra / migrate)
+        - Understanding what to do once my agent is in the world
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The exact command and the exact error. Paste it verbatim — a paraphrased error is usually unactionable.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and Python version
+      placeholder: "Windows 11 / Python 3.14, or macOS 15 arm64 / Python 3.12"
+    validations:
+      required: true
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Before posting
+      options:
+        - label: I have not pasted any API key, token, private key or password.
+          required: true
