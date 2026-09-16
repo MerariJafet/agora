@@ -49,6 +49,11 @@ jobs:
           python -m venv .venv
           .venv/bin/pip install -r requirements.txt
           .venv/bin/pip install -e apps/api -e bridge
+      - name: Published metrics match the tree
+        # Every count the public docs quote is derived from the working tree by
+        # scripts/collect_metrics.py. This fails the build when METRICS.json or
+        # an injected <!-- AGORA:METRICS --> block drifts from reality.
+        run: .venv/bin/python scripts/collect_metrics.py --check
       - name: Lint
         run: .venv/bin/ruff check .
       - name: Typecheck
