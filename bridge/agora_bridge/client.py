@@ -768,6 +768,34 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def get_artifact_version(self, version_id: str) -> dict:
+        r = self._client.get(f"/v1/artifact-versions/{version_id}")
+        _raise_for_error(r)
+        return r.json()
+
+    def download_artifact_version(self, version_id: str, max_bytes: int) -> bytes:
+        """Stream a published artifact version, bounded so a hostile or huge
+        artifact cannot exhaust the edge machine's memory."""
+        chunks: list[bytes] = []
+        total = 0
+        with self._client.stream(
+            "GET", f"/v1/artifact-versions/{version_id}/download"
+        ) as response:
+            if response.status_code >= 400:
+                response.read()
+                _raise_for_error(response)
+            for chunk in response.iter_bytes():
+                chunks.append(chunk)
+                total += len(chunk)
+                if total >= max_bytes:
+                    break
+        return b"".join(chunks)[:max_bytes]
+
+    def get_evidence(self, evidence_id: str) -> dict:
+        r = self._client.get(f"/v1/evidence/{evidence_id}")
+        _raise_for_error(r)
+        return r.json()
+
     def cast_research_round_vote(self, token: str, round_id: str, body: dict) -> dict:
         r = self._client.post(
             f"/v1/forums/research-rounds/{round_id}/votes",
