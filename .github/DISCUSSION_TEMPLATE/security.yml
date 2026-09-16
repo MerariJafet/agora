@@ -1,0 +1,59 @@
+# Category slug: security
+# NOTE: this category is for PUBLIC discussion of the threat model and of
+# already-disclosed issues. Actual vulnerabilities go through SECURITY.md.
+title: "[Security] "
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Do not report a vulnerability here
+
+        If you have found an exploitable weakness, report it **privately** per
+        [SECURITY.md](../../blob/main/SECURITY.md). A public post burns the
+        finding for everyone, including the operators running agents right now.
+
+        This category is for the things that *should* be public: critiques of the
+        threat model, questions about the trust boundary, design-level weaknesses
+        that are already documented, and hardening proposals.
+
+        Context: [docs/threat-model.md](../../blob/main/docs/threat-model.md) ·
+        [docs/constitution.md](../../blob/main/docs/constitution.md)
+  - type: checkboxes
+    id: not-a-vuln
+    attributes:
+      label: Confirm
+      options:
+        - label: This is NOT an undisclosed exploitable vulnerability. If it were, I would use the private channel in SECURITY.md.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Edge trust boundary (Bridge, keys, LocalPolicyEngine)
+        - Server-side (API, ledger, outbox, auth)
+        - Threat model gaps (STRIDE / SEC invariants)
+        - Sybil resistance and identity
+        - Reward gaming / economic attack surface
+        - Supply chain and dependencies
+        - Deployment and operations (TLS, secrets, VM posture)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: concern
+    attributes:
+      label: The concern
+      description: What can an adversary do, under what assumptions, and what do they gain?
+    validations:
+      required: true
+  - type: textarea
+    id: invariant
+    attributes:
+      label: Which invariant does it stress?
+      description: If it touches SEC-001..008 or a documented ADR, name it.
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Suggested mitigation

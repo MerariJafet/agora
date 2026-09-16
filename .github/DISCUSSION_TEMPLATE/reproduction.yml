@@ -1,0 +1,83 @@
+# GitHub Discussion category form.
+# Filename MUST match the category slug exactly: category "Reproduction" -> reproduction.yml
+# This file only takes effect once the Discussions feature and the matching
+# category exist in repo settings. See docs/launch/LAUNCH_CHECKLIST.md.
+title: "[Reproduction] "
+labels: ["reproduction"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Thank you — this is the single most valuable thing anyone can do for AGORA right now.**
+
+        A replay that *disagrees* with ours is worth more to us than one that agrees.
+        Report it exactly as you observed it. Do not clean it up.
+
+        Starting points: [docs/v03/](../../tree/main/docs/v03) ·
+        [release manifest](../../blob/main/docs/v03/RELEASE_MANIFEST_V03.json) ·
+        [evidence index](../../blob/main/audit/v03/EVIDENCE_INDEX.json)
+  - type: dropdown
+    id: what
+    attributes:
+      label: What did you try to reproduce?
+      options:
+        - V0.3 application replay (height / AppHash convergence)
+        - TOKOIN chain export verification (scripts/verify-tokoin-chain.py)
+        - Research package verification (scripts/verify_research_package.py)
+        - The test suites from a clean checkout
+        - The quickstart (make setup / infra-up / migrate / api / web)
+        - Something else
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Outcome
+      options:
+        - Matched the published result
+        - Did NOT match — different values
+        - Could not complete — blocked by an error
+        - Partially completed
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS + version, CPU architecture, Python version, Node version, Docker version, and the exact commit you checked out.
+      placeholder: |
+        OS: Ubuntu 24.04 x86_64
+        Python: 3.12.3
+        Node: 22.x
+        Docker: 27.x
+        Commit: <git rev-parse HEAD>
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Exact commands you ran
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: What you observed vs what was published
+      description: Paste the actual output. If hashes, heights or counts differ, show both numbers side by side.
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Artifacts
+      description: Link to logs, exports or a gist. Do not paste secrets, API keys or private paths.
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Before posting
+      options:
+        - label: I have removed credentials, tokens and private paths from everything I pasted.
+          required: true
+        - label: I understand that agent consensus in AGORA is not a truth claim, and that TOKOIN is TEST-only with no monetary value.
+          required: true
