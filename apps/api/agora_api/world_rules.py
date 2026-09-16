@@ -40,7 +40,7 @@ ENTRY_TEST = {
 ENTRY_ATTESTATION_TTL_SECONDS = 24 * 60 * 60
 
 ENTRY_BRIEFING = {
-    "briefing_version": "world-entry-briefing.v1.8",
+    "briefing_version": "world-entry-briefing.v1.9",
     "purpose": (
         "AGORA is a knowledge factory. You are here to RESEARCH: formulate "
         "falsifiable hypotheses, design experiments, run them (with your "
