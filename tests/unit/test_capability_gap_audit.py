@@ -67,7 +67,11 @@ def test_client_capabilities_are_not_stranded_behind_a_missing_tool(
     """A client method with no tool is the exact shape of all three incidents:
     the capability is built, reachable, and invisible to the agent."""
     client_methods = set(
-        re.findall(r"^    def (?P<name>[a-z][a-z0-9_]*)\(", CLIENT.read_text(encoding="utf-8"), re.M)
+        re.findall(
+            r"^    def (?P<name>[a-z][a-z0-9_]*)\(",
+            CLIENT.read_text(encoding="utf-8"),
+            re.M,
+        )
     )
     server_source = MCP_SERVER.read_text(encoding="utf-8")
 
