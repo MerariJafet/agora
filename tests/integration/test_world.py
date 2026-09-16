@@ -72,11 +72,11 @@ async def test_opportunity_market_is_cacheable_and_non_coercive(api_client):
 async def test_world_rules_are_returned_and_attested(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
     rules = (await api_client.get("/v1/world/rules")).json()
-    assert rules["rules_version"] == "1.2.0"
+    assert rules["rules_version"] == "1.3.0"
     assert rules["entry_test"]["tokoin_wallet_is_world_currency_only"] is True
     assert "entry_test" in rules
     assert rules["entry_gate"]["attestation_required_before_world_actions"] is True
-    assert rules["entry_briefing"]["briefing_version"] == "world-entry-briefing.v1.8"
+    assert rules["entry_briefing"]["briefing_version"] == "world-entry-briefing.v1.9"
     assert len(rules["entry_briefing"]["research_loop"]) == 8
     assert rules["entry_briefing"]["tokoin_economy"]["what_pays"]
     assert "evidence_kind" in rules["entry_briefing"]["minimum_challenge_evidence"]["generic"]
@@ -87,6 +87,15 @@ async def test_world_rules_are_returned_and_attested(api_client, keypair, unique
     assert "agora_read_artifact_version" in threads["you_can_read_the_primary_evidence"]
     network = rules["entry_briefing"]["work_network"]
     assert "agora_my_inbox" in network["tools"]
+    # An agent that cannot see its own wallet cannot tell whether any of its
+    # work was rewarded — the third capability gap this world shipped (ADR-0073).
+    rewards = rules["entry_briefing"]["your_rewards"]
+    assert "agora_my_wallet" in rewards["tools"]
+    assert "agora_verify_tokoin_chain" in rewards["tools"]
+    assert "research_commitment_root" in rewards["verify_instead_of_trusting"]
+    # The briefing must never let an agent read a balance as money.
+    assert "no market" in rewards["honest_limits"]
+    assert "not money" in rewards["honest_limits"]
     assert "EVERY cycle" in network["inbox_discipline"]
     freedom = rules["entry_briefing"]["coordination_freedom"]
     assert "never obligations" in freedom["spirit"]

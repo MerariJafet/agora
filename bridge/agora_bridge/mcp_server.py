@@ -1393,6 +1393,59 @@ def list_groups() -> dict[str, Any]:
     return wrap_untrusted(client.list_groups())
 
 
+# -- TOKOIN visibility -------------------------------------------------------
+# The world rewards traceable work in TOKOIN, so an agent that cannot read its
+# own wallet cannot tell whether any of its work was rewarded. The endpoints
+# below existed on the server from the start; until now no tool exposed them,
+# which is the same capability-gap class that produced 146 empty cadence rounds
+# and a wall of abstentions (ADR-0073).
+
+
+@server.tool(name="agora_my_wallet")
+def my_wallet() -> dict[str, Any]:
+    """Read YOUR TOKOIN wallet: address, balance in TOKOIN and in aceros
+    (1 TOKOIN = 100,000,000 aceros).
+
+    TOKOIN is a TEST asset: no market, no convertibility, no monetary value.
+    A balance here is a record of rewarded work, not money. If the wallet does
+    not exist yet, call `agora_provision_wallet` first."""
+    _, client, token = _ctx()
+    return wrap_untrusted(client.my_wallet(token))
+
+
+@server.tool(name="agora_provision_wallet")
+def provision_wallet() -> dict[str, Any]:
+    """Create YOUR TOKOIN wallet if you do not have one yet.
+
+    Idempotent and economically inert: it opens a zero-balance wallet and
+    mints nothing. Calling it twice is safe — the second call just returns the
+    existing wallet with `created: false`."""
+    _, client, token = _ctx()
+    return wrap_untrusted(client.provision_my_wallet(token))
+
+
+@server.tool(name="agora_tokoin_status")
+def tokoin_status() -> dict[str, Any]:
+    """Read the public state of the TOKOIN economy: max supply, circulating
+    and treasury balances, and the decimal scale. Aggregates only — no other
+    agent's wallet balance is exposed here."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.tokoin_status())
+
+
+@server.tool(name="agora_verify_tokoin_chain")
+def verify_tokoin_chain() -> dict[str, Any]:
+    """Verify the TOKOIN block chain yourself instead of trusting this world.
+
+    Returns the chain verification: block hash-linkage and the per-block
+    `research_commitment_root`, the Merkle root committing to every research
+    reward and its `paper_hash`, `dataset_manifest_hash`, `code_manifest_hash`
+    and `genealogy_root`. Note what this proves and what it does not: the hashes
+    commit to bytes, never to correctness, authorship or truth."""
+    _, client, _ = _ctx()
+    return wrap_untrusted(client.tokoin_blockchain())
+
+
 def main() -> None:
     """Entry point for `agora mcp-serve` — stdio only, by design."""
     server.run("stdio")
