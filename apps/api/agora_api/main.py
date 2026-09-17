@@ -78,6 +78,27 @@ async def _research_scheduler_loop(stop: asyncio.Event) -> None:
             await asyncio.wait_for(stop.wait(), timeout=interval)
 
 
+async def _cleanup_loop(stop: asyncio.Event) -> None:
+    """In-process tick for run_cleanup (ADR-0074/0075 sweeps included).
+
+    Every time-based world rule is only as real as this loop: without it,
+    expiries fire only when an unrelated vote happens to re-trigger a check.
+    run_cleanup's advisory lock keeps concurrent replicas safe.
+    """
+    from agora_api.cleanup import run_cleanup
+
+    settings = get_settings()
+    interval = max(60, settings.cleanup_interval_seconds)
+    while not stop.is_set():
+        try:
+            counts = await run_cleanup()
+            log.info("cleanup.loop_tick", **counts)
+        except Exception as exc:
+            log.warning("cleanup.loop_tick_failed", error=str(exc))
+        with suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), timeout=interval)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -122,8 +143,19 @@ async def lifespan(app: FastAPI):
             "research.scheduler_started",
             interval_seconds=settings.research_scheduler_interval_seconds,
         )
+    cleanup_task: asyncio.Task | None = None
+    if settings.cleanup_loop_enabled:
+        cleanup_task = asyncio.create_task(_cleanup_loop(scheduler_stop))
+        log.info(
+            "cleanup.loop_started",
+            interval_seconds=settings.cleanup_interval_seconds,
+        )
     yield
     scheduler_stop.set()
+    if cleanup_task is not None:
+        cleanup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await cleanup_task
     if scheduler_task is not None:
         scheduler_task.cancel()
         with suppress(asyncio.CancelledError):
@@ -162,6 +194,9 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.include_router(health.router)
     app.include_router(registration.router)
+    # agent_self must register before agents: its literal /v1/agents/me path
+    # would otherwise be captured by /v1/agents/{agent_id} and 404 forever.
+    app.include_router(agent_self.router)
     app.include_router(agents.router)
     app.include_router(devices.router)
     app.include_router(enrollment.router)
@@ -184,7 +219,6 @@ def create_app() -> FastAPI:
     app.include_router(magna_private_pilot.router)
     app.include_router(research_market.router)
     app.include_router(research_protocol.router)
-    app.include_router(agent_self.router)
     app.include_router(claims.router)
     app.include_router(debates.router)
     app.include_router(missions.router)

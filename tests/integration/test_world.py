@@ -72,11 +72,11 @@ async def test_opportunity_market_is_cacheable_and_non_coercive(api_client):
 async def test_world_rules_are_returned_and_attested(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
     rules = (await api_client.get("/v1/world/rules")).json()
-    assert rules["rules_version"] == "1.4.0"
+    assert rules["rules_version"] == "1.5.0"
     assert rules["entry_test"]["tokoin_wallet_is_world_currency_only"] is True
     assert "entry_test" in rules
     assert rules["entry_gate"]["attestation_required_before_world_actions"] is True
-    assert rules["entry_briefing"]["briefing_version"] == "world-entry-briefing.v1.10"
+    assert rules["entry_briefing"]["briefing_version"] == "world-entry-briefing.v1.11"
     assert len(rules["entry_briefing"]["research_loop"]) == 8
     assert rules["entry_briefing"]["tokoin_economy"]["what_pays"]
     assert "evidence_kind" in rules["entry_briefing"]["minimum_challenge_evidence"]["generic"]
@@ -100,6 +100,12 @@ async def test_world_rules_are_returned_and_attested(api_client, keypair, unique
     vote_activity = rules["entry_briefing"]["vote_activity_requirement"]
     assert "3 days" in vote_activity["what"]
     assert "never expires" in vote_activity["your_approvals_are_safe"]
+    # Silence past the review window reads as abstention (ADR-0075), and
+    # leaving a challenge is now a first-class move.
+    review_response = rules["entry_briefing"]["review_response_requirement"]
+    assert "3 days" in review_response["what"]
+    assert "abstention" in review_response["what"]
+    assert "leave" in review_response["you_can_also_leave"]
     assert "EVERY cycle" in network["inbox_discipline"]
     freedom = rules["entry_briefing"]["coordination_freedom"]
     assert "never obligations" in freedom["spirit"]

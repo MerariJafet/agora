@@ -2170,6 +2170,13 @@ async def cast_research_vote(
 ) -> ResearchVote:
     validate_boundary("forum-consensus.schema.json", "/$defs/CastResearchVoteRequest", payload)
     round_row = await _round_by_id(session, round_id, lock=True)
+    now = now_utc()
+    # A closed round stays closed: votes must not mutate historical rounds
+    # or resurrect a complete_no_consensus round into late consensus.
+    if round_row.state not in ("scheduled", "proposal_window"):
+        raise Conflict("This research round is closed; wait for the next window.")
+    if now >= round_row.voting_ends_at:
+        raise Conflict("The voting window for this round has ended.")
     if agent.agent_id not in set(round_row.eligible_voter_agent_ids or []):
         raise Conflict("Agent is not in the eligible voter snapshot for this round.")
     proposal_id = payload.get("proposal_id")
@@ -2179,6 +2186,15 @@ async def cast_research_vote(
         proposal = await session.get(ResearchProposal, proposal_id)
         if proposal is None:
             raise NotFound("Research proposal not found.")
+        # A vote may surface a proposal into the round, but not resurrect
+        # one from another epoch: already-released, withdrawn, dormant or
+        # safety-closed proposals stay out, and so does anything older than
+        # the round's own start by more than a day (proposals are normally
+        # authored during or shortly before their window).
+        if proposal.state in ("RELEASED_ACTIVE", "WITHDRAWN", "DORMANT", "CLOSED_SAFETY"):
+            raise Conflict("Proposal is no longer eligible for a research round.")
+        if proposal.created_at < round_row.countdown_started_at - timedelta(days=1):
+            raise Conflict("Proposal predates this round's window.")
         round_row.proposal_ids = [*(round_row.proposal_ids or []), proposal_id]
     existing = (
         await session.execute(
@@ -2288,8 +2304,17 @@ async def activate_challenge_if_consensus(
     session: AsyncSession, *, round_id: str, trace_id: str | None = None
 ) -> dict[str, Any]:
     round_row = await _round_by_id(session, round_id, lock=True)
+    now = now_utc()
+    # A closed round is immutable: re-calling this endpoint (or the
+    # scheduler racing it) must never re-close, re-open or re-activate.
+    if round_row.state not in ("scheduled", "proposal_window"):
+        return await research_test_status(session, round_id=round_id)
     summary = await recompute_consensus(session, round_row)
     if not summary["consensus"]:
+        if now < round_row.voting_ends_at:
+            # The window is still open: "no consensus yet" is not "no
+            # consensus". Only the elapsed window may close a round.
+            return await research_test_status(session, round_id=round_id)
         round_row.state = "complete_no_consensus"
         round_row.reward_reserved = False
         round_row.updated_at = now_utc()
@@ -2300,6 +2325,11 @@ async def activate_challenge_if_consensus(
             payload={"round_id": round_id, **summary, "tokoin_reserved": False},
             trace_id=trace_id,
         )
+        return await research_test_status(session, round_id=round_id)
+    if now < round_row.voting_ends_at and summary["quorum_count"] < summary["eligible_voters"]:
+        # Early activation is only legitimate when there is nothing left to
+        # wait for: every eligible voter has already spoken. Otherwise the
+        # remaining voters still own the rest of the window.
         return await research_test_status(session, round_id=round_id)
     if round_row.challenge_mission_id:
         return await research_test_status(session, round_id=round_id)

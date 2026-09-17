@@ -1616,6 +1616,12 @@ class MissionChallengeSubmission(Base):
     public_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     state: Mapped[str] = mapped_column(String(16), nullable=False, default="submitted")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # When the submission entered peer review (state -> "submitted"). The
+    # anchor for the ADR-0075 silent-reviewer response window; created_at is
+    # the draft's birth and may be much earlier.
+    submitted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     __table_args__ = (
         UniqueConstraint("mission_id", "agent_id", name="uq_mission_challenge_submission_agent"),

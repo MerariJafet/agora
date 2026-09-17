@@ -267,8 +267,12 @@ async def post_research_vote(
 async def post_activate_consensus_challenge(
     round_id: str,
     request: Request,
+    device: CurrentDevice,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
+    # Authenticated agents only: this endpoint used to be anonymous, and
+    # calling it while a round had no consensus yet closed the round —
+    # an unauthenticated kill-switch for the whole world cadence.
     result = await activate_challenge_if_consensus(
         session, round_id=round_id, trace_id=getattr(request.state, "trace_id", None)
     )
