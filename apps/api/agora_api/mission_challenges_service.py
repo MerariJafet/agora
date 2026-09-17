@@ -33,6 +33,7 @@ from agora_api.models import (
     Agent,
     ArtifactVersion,
     Claim,
+    Device,
     Event,
     Evidence,
     Mission,
@@ -58,6 +59,13 @@ from agora_api.unknown_signal_readiness import unknown_signal_event_provenance
 
 COLLATZ_MISSION_ID = "mis_000000000000000000C011ATZ0"
 COLLATZ_SPACE_ID = "spc_000000000000000000C011ATZ0"
+
+# ADR-0074: a blocking vote (not resolved, not abstained) must be confirmed by
+# the voter reconnecting to the world within this window of casting it, or it
+# stops counting toward the unanimity requirement. Prevents a bot swarm that
+# votes once and vanishes from permanently deadlocking a challenge; requires
+# genuine activity to keep earning a TOKOIN share for participating.
+VOTE_ACTIVITY_GRACE = timedelta(days=3)
 
 
 class ChallengeClosed(AgoraError):
@@ -1964,6 +1972,41 @@ async def expire_due_challenges(session: AsyncSession, *, trace_id: str | None =
     return expired
 
 
+async def advance_stalled_challenge_resolutions(
+    session: AsyncSession, *, trace_id: str | None = None
+) -> int:
+    """Periodic sweep companion to ADR-0074: a blocking vote's 3-day deadline
+    only gets checked when `_maybe_resolve` runs, and that normally only runs
+    when a NEW vote is cast. Without this sweep, a submission whose last
+    remaining blocker went dark — and nobody else ever votes on it again —
+    would stay stuck forever even after its deadline passed, because nothing
+    would trigger a fresh check. Called from the same cleanup tick as
+    `expire_due_challenges` (agora_api.cleanup.run_cleanup).
+    """
+    pending = (
+        await session.execute(
+            select(MissionChallengeSubmission)
+            .join(Mission, Mission.mission_id == MissionChallengeSubmission.mission_id)
+            .where(
+                MissionChallengeSubmission.state == "submitted",
+                Mission.challenge_kind.is_not(None),
+                Mission.state.in_(["forming", "active", "review"]),
+                Mission.winning_submission_id.is_(None),
+                Mission.resolved_at.is_(None),
+            )
+            .with_for_update(of=MissionChallengeSubmission, skip_locked=True)
+        )
+    ).scalars().all()
+    resolved = 0
+    for submission in pending:
+        mission = await _challenge_by_id(session, submission.mission_id, lock=True)
+        if await _maybe_resolve(
+            session, mission=mission, submission=submission, trace_id=trace_id
+        ):
+            resolved += 1
+    return resolved
+
+
 async def get_challenge_detail(session: AsyncSession, mission_id: str) -> dict[str, Any]:
     mission = await _challenge_by_id(session, mission_id)
     participants = await _active_participants(session, mission_id)
@@ -2631,6 +2674,56 @@ async def vote_solution(
     }
 
 
+async def _confirm_and_expire_stale_votes(
+    session: AsyncSession, votes: list[MissionChallengeVote]
+) -> set[str]:
+    """Apply ADR-0074 to a batch of votes on one submission.
+
+    Returns the set of voter_agent_ids whose blocking vote (not resolved, not
+    abstained) has expired: cast, never confirmed by a reconnect within
+    VOTE_ACTIVITY_GRACE, and the deadline has passed. Callers must treat those
+    agents exactly like an abstention — they stop counting toward unanimity.
+
+    Confirmation is lazy and permanent: the first time this function observes
+    a qualifying vote whose voter reconnected (any device ping) after casting
+    and before the deadline, it writes `confirmed_active_at` once. That write
+    never gets undone by later inactivity, so a vote confirmed once stays
+    valid for the rest of the challenge's life.
+    """
+    blocking = [
+        v for v in votes
+        if not v.abstained and not v.resolved and v.confirmed_active_at is None
+    ]
+    if not blocking:
+        return set()
+
+    now = now_utc()
+    voter_ids = [v.voter_agent_id for v in blocking]
+    last_seen_rows = (
+        await session.execute(
+            select(Device.agent_id, func.max(Device.last_seen_at))
+            .where(Device.agent_id.in_(voter_ids))
+            .group_by(Device.agent_id)
+        )
+    ).all()
+    last_seen_by_agent = {agent_id: last_seen for agent_id, last_seen in last_seen_rows}
+
+    expired: set[str] = set()
+    for vote in blocking:
+        deadline = vote.created_at + VOTE_ACTIVITY_GRACE
+        last_seen = last_seen_by_agent.get(vote.voter_agent_id)
+        reconnected_in_window = (
+            last_seen is not None and vote.created_at < last_seen <= deadline
+        )
+        if reconnected_in_window:
+            vote.confirmed_active_at = now
+        elif now >= deadline:
+            expired.add(vote.voter_agent_id)
+        # else: still within the grace period and unconfirmed — counts as
+        # blocking for now, exactly as before this ADR, until the deadline.
+    return expired
+
+
 async def _maybe_resolve(
     session: AsyncSession,
     *,
@@ -2655,16 +2748,20 @@ async def _maybe_resolve(
             )
         )
     ).scalars().all()
+    expired_voter_ids = await _confirm_and_expire_stale_votes(session, list(votes))
     vote_by_agent = {vote.voter_agent_id: vote for vote in votes}
     active_reviewer_ids = [
         agent_id
         for agent_id in participant_ids
-        if not (vote_by_agent.get(agent_id) and vote_by_agent[agent_id].abstained)
+        if agent_id not in expired_voter_ids
+        and not (vote_by_agent.get(agent_id) and vote_by_agent[agent_id].abstained)
     ]
     active_votes = [
         vote
         for vote in vote_by_agent.values()
-        if not vote.abstained and vote.voter_agent_id in active_reviewer_ids
+        if not vote.abstained
+        and vote.voter_agent_id not in expired_voter_ids
+        and vote.voter_agent_id in active_reviewer_ids
     ]
     if not active_reviewer_ids:
         return False

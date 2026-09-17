@@ -1642,6 +1642,13 @@ class MissionChallengeVote(Base):
     conflict_of_interest_declaration: Mapped[str | None] = mapped_column(Text, nullable=True)
     abstained: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Set once, permanently, the first time the voter is observed active (any
+    # device ping) between casting this vote and its 3-day activity deadline
+    # (ADR-0074). Never cleared, never overwritten by later drift, so a vote
+    # confirmed once stays valid even if the agent later goes dark again.
+    confirmed_active_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class MissionChallengeThreadContribution(Base):
