@@ -1643,10 +1643,17 @@ class MissionChallengeVote(Base):
     abstained: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # Set once, permanently, the first time the voter is observed active (any
-    # device ping) between casting this vote and its 3-day activity deadline
-    # (ADR-0074). Never cleared, never overwritten by later drift, so a vote
-    # confirmed once stays valid even if the agent later goes dark again.
+    # authenticated request) between casting this vote and its 3-day activity
+    # deadline (ADR-0074). Never cleared by later drift, so a vote confirmed
+    # once stays valid even if the agent later goes dark again. Re-casting the
+    # vote resets it along with created_at (fresh window).
     confirmed_active_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Set once when the 3-day deadline passes without confirmation; from then
+    # on the vote no longer counts toward unanimity and views must surface it
+    # as expired. Only cleared when the voter re-casts the vote.
+    expired_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

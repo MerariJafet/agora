@@ -455,7 +455,10 @@ def _branch_status(
     blockers = _submission_evidence_assessment(mission, submission)["blockers"]
     if blockers:
         return "blocked_primary_evidence"
-    if any(not vote.resolved and not vote.abstained for vote in votes):
+    if any(
+        not vote.resolved and not vote.abstained and vote.expired_at is None
+        for vote in votes
+    ):
         return "needs_reframe"
     if votes:
         return "under_peer_review"
@@ -811,6 +814,10 @@ def submission_view(
                 "public_rationale": vote.rationale,
                 "review_evidence_ids": vote.review_evidence_ids or [],
                 "created_at": vote.created_at.isoformat(),
+                "expired_at": (
+                    vote.expired_at.isoformat() if vote.expired_at else None
+                ),
+                "counts_toward_unanimity": vote.expired_at is None,
             }
             for vote in sorted(votes or [], key=lambda item: item.created_at)
         ],
@@ -1985,7 +1992,10 @@ async def advance_stalled_challenge_resolutions(
     """
     pending = (
         await session.execute(
-            select(MissionChallengeSubmission)
+            select(
+                MissionChallengeSubmission.submission_id,
+                MissionChallengeSubmission.mission_id,
+            )
             .join(Mission, Mission.mission_id == MissionChallengeSubmission.mission_id)
             .where(
                 MissionChallengeSubmission.state == "submitted",
@@ -1994,12 +2004,27 @@ async def advance_stalled_challenge_resolutions(
                 Mission.winning_submission_id.is_(None),
                 Mission.resolved_at.is_(None),
             )
-            .with_for_update(of=MissionChallengeSubmission, skip_locked=True)
         )
-    ).scalars().all()
+    ).all()
     resolved = 0
-    for submission in pending:
-        mission = await _challenge_by_id(session, submission.mission_id, lock=True)
+    for submission_id, mission_id in pending:
+        # Lock ordering must match vote_solution (mission first, then the
+        # submission row) or concurrent votes and sweeps can deadlock.
+        mission = await _challenge_by_id(session, mission_id, lock=True)
+        if mission.winning_submission_id or mission.resolved_at:
+            continue
+        submission = (
+            await session.execute(
+                select(MissionChallengeSubmission)
+                .where(
+                    MissionChallengeSubmission.submission_id == submission_id,
+                    MissionChallengeSubmission.state == "submitted",
+                )
+                .with_for_update(skip_locked=True)
+            )
+        ).scalar_one_or_none()
+        if submission is None:
+            continue
         if await _maybe_resolve(
             session, mission=mission, submission=submission, trace_id=trace_id
         ):
@@ -2636,6 +2661,11 @@ async def vote_solution(
         vote.conflict_of_interest_declaration = conflict_of_interest_declaration
         vote.abstained = abstained
         vote.created_at = now
+        # Re-casting starts a fresh ADR-0074 activity window: an expired vote
+        # comes back to life (the agent is demonstrably here), and a confirmed
+        # one must re-earn confirmation for its new content.
+        vote.confirmed_active_at = None
+        vote.expired_at = None
     await append_event(
         session,
         event_type="mission.challenge_vote_cast",
@@ -2675,7 +2705,11 @@ async def vote_solution(
 
 
 async def _confirm_and_expire_stale_votes(
-    session: AsyncSession, votes: list[MissionChallengeVote]
+    session: AsyncSession,
+    *,
+    mission: Mission,
+    votes: list[MissionChallengeVote],
+    trace_id: str | None,
 ) -> set[str]:
     """Apply ADR-0074 to a batch of votes on one submission.
 
@@ -2685,17 +2719,28 @@ async def _confirm_and_expire_stale_votes(
     agents exactly like an abstention — they stop counting toward unanimity.
 
     Confirmation is lazy and permanent: the first time this function observes
-    a qualifying vote whose voter reconnected (any device ping) after casting
-    and before the deadline, it writes `confirmed_active_at` once. That write
-    never gets undone by later inactivity, so a vote confirmed once stays
-    valid for the rest of the challenge's life.
+    a qualifying vote whose voter reconnected (any authenticated request)
+    after casting and before the deadline, it writes `confirmed_active_at`
+    once. That write never gets undone by later inactivity, so a vote
+    confirmed once stays valid for the rest of the challenge's life.
+
+    Expiry is equally permanent and public: `expired_at` is written once and
+    a `mission.challenge_vote_expired` event lands in the ledger, so the
+    unanimity math never changes invisibly. Both fields reset only when the
+    voter re-casts the vote (vote_solution), which starts a fresh window.
     """
+    expired: set[str] = {
+        v.voter_agent_id for v in votes if v.expired_at is not None
+    }
     blocking = [
         v for v in votes
-        if not v.abstained and not v.resolved and v.confirmed_active_at is None
+        if not v.abstained
+        and not v.resolved
+        and v.confirmed_active_at is None
+        and v.expired_at is None
     ]
     if not blocking:
-        return set()
+        return expired
 
     now = now_utc()
     voter_ids = [v.voter_agent_id for v in blocking]
@@ -2708,7 +2753,6 @@ async def _confirm_and_expire_stale_votes(
     ).all()
     last_seen_by_agent = {agent_id: last_seen for agent_id, last_seen in last_seen_rows}
 
-    expired: set[str] = set()
     for vote in blocking:
         deadline = vote.created_at + VOTE_ACTIVITY_GRACE
         last_seen = last_seen_by_agent.get(vote.voter_agent_id)
@@ -2717,8 +2761,44 @@ async def _confirm_and_expire_stale_votes(
         )
         if reconnected_in_window:
             vote.confirmed_active_at = now
+            await append_event(
+                session,
+                event_type="mission.challenge_vote_activity_confirmed",
+                actor={"agent_id": SYSTEM_ACTOR_ID},
+                payload={
+                    "mission_id": mission.mission_id,
+                    "submission_id": vote.submission_id,
+                    "voter_agent_id": vote.voter_agent_id,
+                    "vote_created_at": vote.created_at.isoformat(),
+                    "confirmed_active_at": now.isoformat(),
+                    "event_class": "lifecycle_system",
+                    "actor_kind": "system",
+                },
+                trace_id=trace_id,
+                **unknown_signal_event_provenance(mission.mission_id),
+            )
         elif now >= deadline:
+            vote.expired_at = now
             expired.add(vote.voter_agent_id)
+            await append_event(
+                session,
+                event_type="mission.challenge_vote_expired",
+                actor={"agent_id": SYSTEM_ACTOR_ID},
+                payload={
+                    "mission_id": mission.mission_id,
+                    "submission_id": vote.submission_id,
+                    "voter_agent_id": vote.voter_agent_id,
+                    "vote_created_at": vote.created_at.isoformat(),
+                    "activity_deadline": deadline.isoformat(),
+                    "expired_at": now.isoformat(),
+                    "treated_as": "abstention_for_unanimity",
+                    "recast_restores_vote": True,
+                    "event_class": "lifecycle_system",
+                    "actor_kind": "system",
+                },
+                trace_id=trace_id,
+                **unknown_signal_event_provenance(mission.mission_id),
+            )
         # else: still within the grace period and unconfirmed — counts as
         # blocking for now, exactly as before this ADR, until the deadline.
     return expired
@@ -2748,7 +2828,9 @@ async def _maybe_resolve(
             )
         )
     ).scalars().all()
-    expired_voter_ids = await _confirm_and_expire_stale_votes(session, list(votes))
+    expired_voter_ids = await _confirm_and_expire_stale_votes(
+        session, mission=mission, votes=list(votes), trace_id=trace_id
+    )
     vote_by_agent = {vote.voter_agent_id: vote for vote in votes}
     active_reviewer_ids = [
         agent_id
