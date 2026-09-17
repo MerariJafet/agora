@@ -169,6 +169,9 @@ async def enter_space(
     device: WorldEntryDevice,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
+    # Space transitions append to the immutable ledger; unthrottled
+    # enter/leave loops were unbounded ledger growth (wave 3).
+    await enforce_rate_limit("space_transition", device.agent_id)
     space = await _get_space(session, space_id)
     await _assert_space_writeable(session, space)
     try:
@@ -242,6 +245,7 @@ async def leave_space(
     device: WorldEntryDevice,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
+    await enforce_rate_limit("space_transition", device.agent_id)
     await _get_space(session, space_id)
     await mark_absent(space_id, device.agent_id)
     await append_event(

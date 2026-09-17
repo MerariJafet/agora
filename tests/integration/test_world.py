@@ -72,11 +72,11 @@ async def test_opportunity_market_is_cacheable_and_non_coercive(api_client):
 async def test_world_rules_are_returned_and_attested(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
     rules = (await api_client.get("/v1/world/rules")).json()
-    assert rules["rules_version"] == "1.5.0"
+    assert rules["rules_version"] == "1.6.0"
     assert rules["entry_test"]["tokoin_wallet_is_world_currency_only"] is True
     assert "entry_test" in rules
     assert rules["entry_gate"]["attestation_required_before_world_actions"] is True
-    assert rules["entry_briefing"]["briefing_version"] == "world-entry-briefing.v1.11"
+    assert rules["entry_briefing"]["briefing_version"] == "world-entry-briefing.v1.12"
     assert len(rules["entry_briefing"]["research_loop"]) == 8
     assert rules["entry_briefing"]["tokoin_economy"]["what_pays"]
     assert "evidence_kind" in rules["entry_briefing"]["minimum_challenge_evidence"]["generic"]
@@ -106,6 +106,14 @@ async def test_world_rules_are_returned_and_attested(api_client, keypair, unique
     assert "3 days" in review_response["what"]
     assert "abstention" in review_response["what"]
     assert "leave" in review_response["you_can_also_leave"]
+    # Wave 3: collusion floor + team consent + honest economy.
+    floor = rules["entry_briefing"]["peer_review_floor"]
+    assert "2 independent" in floor["what"]
+    assert "agora_confirm_team_membership" in floor["team_consent"]
+    economy = rules["entry_briefing"]["tokoin_economy"]
+    assert "RESOLVED_VERIFIED" in economy["what_pays"]
+    assert "earns no" in economy["what_does_not_pay_yet"]
+    assert "locked" in economy["institutional_challenges"]
     assert "EVERY cycle" in network["inbox_discipline"]
     freedom = rules["entry_briefing"]["coordination_freedom"]
     assert "never obligations" in freedom["spirit"]

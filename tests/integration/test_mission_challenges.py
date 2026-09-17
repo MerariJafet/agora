@@ -543,6 +543,9 @@ async def test_deadline_elapsed_does_not_block_late_resolution(
     assert deadline_view["deadline_closes_challenge"] is False
 
     submission = await _submit(api_client, challenge["mission_id"], submitter)
+    await _second_approval(
+        api_client, challenge["mission_id"], submission["submission_id"], unique_name, "late-2"
+    )
     vote = await api_client.post(
         f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
         json={
@@ -646,6 +649,15 @@ async def test_resolved_challenge_splits_one_percent_to_proposer_and_team_winner
         worker,
         team_agent_ids=[worker["agent_id"], teammate["agent_id"]],
     )
+    # Wave 3: a declared teammate shares the settlement only after consenting.
+    confirmed = await api_client.post(
+        f"/v1/mission-challenges/submissions/{submission['submission_id']}/team-confirmations",
+        headers=_auth(teammate),
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    await _second_approval(
+        api_client, challenge["mission_id"], submission["submission_id"], unique_name, "team-2"
+    )
     vote = await api_client.post(
         f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
         json={
@@ -708,6 +720,9 @@ async def test_zero_reward_challenge_resolution_does_not_default_to_tokoin(
         await api_client.get(f"/v1/agents/{submitter['agent_id']}/wallet")
     ).json()["balance_aceros"]
     submission = await _submit(api_client, challenge["mission_id"], submitter)
+    await _second_approval(
+        api_client, challenge["mission_id"], submission["submission_id"], unique_name, "zero-2"
+    )
     vote = await api_client.post(
         f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
         json={
@@ -909,6 +924,9 @@ async def test_formal_draft_evidence_finalize_and_test_reward_provenance(
         assert finalized.json()["submission"]["state"] == "submitted"
         assert finalized.json()["receipt"]["action"] == "finalize_submission"
 
+        await _second_approval(
+            api_client, challenge["mission_id"], submission_id, unique_name, "formal-2"
+        )
         vote = await api_client.post(
             f"/v1/mission-challenges/submissions/{submission_id}/votes",
             json={
@@ -1015,6 +1033,13 @@ async def test_abstention_does_not_deadlock_unanimous_resolution(api_client, uni
             }
         ]
 
+        await _second_approval(
+            api_client,
+            challenge["mission_id"],
+            submission["submission_id"],
+            unique_name,
+            "abstain-2",
+        )
         accepted = await api_client.post(
             f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
             json={
@@ -1294,6 +1319,24 @@ async def _cast_vote(
     assert response.status_code == 200, response.text
 
 
+async def _second_approval(
+    api_client, mission_id: str, submission_id: str, unique_name: str, tag: str
+):
+    """Wave 3: resolution needs >= 2 independent resolved reviews. Register,
+    join and approve with an extra reviewer so single-reviewer test flows
+    still reach the collusion floor legitimately."""
+    extra = await register_agent(api_client, SigningKeypair(), f"{unique_name}-{tag}")
+    await _join(api_client, mission_id, extra)
+    await _cast_vote(
+        api_client,
+        submission_id,
+        extra,
+        verdict="resolved",
+        rationale="Independent second review: the argument and evidence hold.",
+    )
+    return extra
+
+
 async def _age_vote_past_deadline(submission_id: str, voter_agent_id: str) -> None:
     """Backdate a vote's created_at so it is already past VOTE_ACTIVITY_GRACE,
     the way it would be after three real days without a reconnect."""
@@ -1341,6 +1384,13 @@ async def test_stale_negative_vote_expires_and_unblocks_resolution(api_client, u
             approver,
             verdict="resolved",
             rationale="The argument and evidence are sufficient.",
+        )
+        await _second_approval(
+            api_client,
+            challenge["mission_id"],
+            submission["submission_id"],
+            unique_name,
+            "stale-2",
         )
         challenge_state = (
             await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
@@ -1426,19 +1476,20 @@ async def test_stale_resolved_vote_never_expires(api_client, unique_name):
             await _join(api_client, challenge["mission_id"], reg)
         submission = await _submit(api_client, challenge["mission_id"], submitter)
 
-        vote = await api_client.post(
-            f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
-            json={
-                "idempotency_key": f"vote-{approver['agent_id']}",
-                "verdict": "resolved",
-                "review_evidence_ids": [],
-                "public_rationale": "The argument and evidence are sufficient.",
-                "conflict_of_interest_declaration": "none",
-            },
-            headers=_auth(approver),
+        await _cast_vote(
+            api_client,
+            submission["submission_id"],
+            approver,
+            verdict="resolved",
+            rationale="The argument and evidence are sufficient.",
         )
-        assert vote.status_code == 200, vote.text
-        assert vote.json()["resolved"] is True
+        await _second_approval(
+            api_client,
+            challenge["mission_id"],
+            submission["submission_id"],
+            unique_name,
+            "approve-2",
+        )
 
         challenge_state = (
             await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
@@ -1652,6 +1703,13 @@ async def test_silent_participant_lapses_and_unblocks_resolution(api_client, uni
             verdict="resolved",
             rationale="The argument and evidence are sufficient.",
         )
+        await _second_approval(
+            api_client,
+            challenge["mission_id"],
+            submission["submission_id"],
+            unique_name,
+            "silent-2",
+        )
         challenge_state = (
             await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
         ).json()
@@ -1729,6 +1787,13 @@ async def test_leave_challenge_frees_census_and_rejoin_reuses_row(api_client, un
             verdict="resolved",
             rationale="The argument and evidence are sufficient.",
         )
+        await _second_approval(
+            api_client,
+            challenge["mission_id"],
+            submission["submission_id"],
+            unique_name,
+            "leave-2",
+        )
         challenge_state = (
             await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
         ).json()
@@ -1774,5 +1839,85 @@ async def test_vote_with_fabricated_evidence_ids_is_rejected(api_client, unique_
             headers=_auth(voter),
         )
         assert response.status_code == 422, response.text
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+async def test_single_approver_cannot_resolve(api_client, unique_name):
+    """Wave 3 collusion floor: unanimity of one is not peer review. One
+    resolved vote — even with no objections — must not settle the reward."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    approver = await register_agent(api_client, SigningKeypair(), f"{unique_name}-solo")
+    try:
+        for reg in (submitter, approver):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+        await _cast_vote(
+            api_client,
+            submission["submission_id"],
+            approver,
+            verdict="resolved",
+            rationale="The argument and evidence are sufficient.",
+        )
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "active"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_unconfirmed_team_declaration_does_not_silence_a_reviewer(
+    api_client, unique_name
+):
+    """Wave 3 team consent: declaring a critic in team_agent_ids used to
+    strip their reviewer vote without their consent — a review-bypass. Now
+    the declaration is inert until the named agent confirms; after
+    confirming, they are a beneficiary and lose the vote."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    critic = await register_agent(api_client, SigningKeypair(), f"{unique_name}-critic")
+    try:
+        for reg in (submitter, critic):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(
+            api_client,
+            challenge["mission_id"],
+            submitter,
+            team_agent_ids=[submitter["agent_id"], critic["agent_id"]],
+        )
+
+        # Unconfirmed: the declared critic still votes freely.
+        blocked_vote = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+            json={
+                "idempotency_key": f"vote-{critic['agent_id']}",
+                "verdict": "not_resolved",
+                "review_evidence_ids": [],
+                "public_rationale": "Being declared without consent must not mute me.",
+                "conflict_of_interest_declaration": "declared in team without my consent",
+            },
+            headers=_auth(critic),
+        )
+        assert blocked_vote.status_code == 200, blocked_vote.text
+
+        # After confirming membership, the same agent is a beneficiary and
+        # can no longer review the submission.
+        confirmed = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/team-confirmations",
+            headers=_auth(critic),
+        )
+        assert confirmed.status_code == 200, confirmed.text
+        assert critic["agent_id"] in confirmed.json()["team_confirmed_agent_ids"]
+        muted_vote = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+            json={
+                "idempotency_key": f"vote2-{critic['agent_id']}",
+                "verdict": "resolved",
+                "review_evidence_ids": [],
+                "public_rationale": "As a confirmed team member this must be rejected.",
+                "conflict_of_interest_declaration": "confirmed team member",
+            },
+            headers=_auth(critic),
+        )
+        assert muted_vote.status_code == 403
     finally:
         await _cancel_test_challenge(challenge["mission_id"])

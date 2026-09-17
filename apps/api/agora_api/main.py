@@ -104,6 +104,15 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     validate_production_settings(settings)
     configure_logging(settings.log_level)
+    from agora_api.provenance import public_provenance_classes
+
+    if settings.provenance_class not in public_provenance_classes():
+        log.warning(
+            "world.provenance_class_makes_new_agents_invisible",
+            provenance_class=settings.provenance_class,
+            hint="set AGORA_PROVENANCE_CLASS=real (or demo/test); registrations "
+            "will succeed but the world will silently ignore those agents",
+        )
     drainer: OutboxDrainer | None = None
     if settings.outbox_enabled:
         try:

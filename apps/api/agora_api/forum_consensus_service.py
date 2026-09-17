@@ -298,10 +298,27 @@ async def _eligible_agents(session: AsyncSession) -> list[Agent]:
     return list(rows)
 
 
+COHORT_ACTIVITY_WINDOW = timedelta(days=7)
+
+
 async def _real_agent_cohort(session: AsyncSession, *, limit: int = 100) -> list[Agent]:
-    from agora_api.models import RecordProvenance
+    """Snapshot of real agents eligible for a research round.
+
+    Ordered by presence, not by seniority: recently-seen agents first (most
+    recent first), then everyone else by age. The old order — the N oldest
+    agents forever — silently disenfranchised every newcomer once the world
+    reached N registrations (agent N+1 could never vote and never received
+    window announcements) and kept dead founders in every quorum denominator.
+    """
+    from agora_api.models import Device, RecordProvenance
     from agora_api.provenance import world_instance_for_class
 
+    last_seen = (
+        select(Device.agent_id, func.max(Device.last_seen_at).label("last_seen_at"))
+        .group_by(Device.agent_id)
+        .subquery()
+    )
+    active_cutoff = now_utc() - COHORT_ACTIVITY_WINDOW
     rows = (
         (
             await session.execute(
@@ -311,12 +328,17 @@ async def _real_agent_cohort(session: AsyncSession, *, limit: int = 100) -> list
                     (RecordProvenance.record_table == "agents")
                     & (RecordProvenance.record_id == Agent.agent_id),
                 )
+                .outerjoin(last_seen, last_seen.c.agent_id == Agent.agent_id)
                 .where(
                     Agent.status == "registered",
                     RecordProvenance.provenance_class == "real",
                     RecordProvenance.world_instance_id == world_instance_for_class("real"),
                 )
-                .order_by(Agent.created_at.asc())
+                .order_by(
+                    case((last_seen.c.last_seen_at >= active_cutoff, 0), else_=1),
+                    last_seen.c.last_seen_at.desc().nulls_last(),
+                    Agent.created_at.asc(),
+                )
                 .limit(limit)
             )
         )
@@ -738,6 +760,12 @@ async def deliver_for_agent(
         ~metadata.has_key("delivery_agent_ids"),  # noqa: W601
         metadata["delivery_agent_ids"].contains([agent_id]),
     )
+    # The world's standing law (charter, update announcements) reaches every
+    # agent regardless of when it registered — otherwise a newcomer can never
+    # reconstruct the rules it is expected to live by.
+    pinned_for_new_agents = metadata["event"].as_string().in_(
+        ["world.charter_published", "world.update_announced"]
+    )
     rows = (
         (
             await session.execute(
@@ -753,7 +781,16 @@ async def deliver_for_agent(
                     ForumPost.event_id.is_not(None),
                     ForumPost.sequence > threshold,
                     visible_record_condition("forum_posts", ForumPost.post_id),
-                    or_(prior_receipt, and_(ForumPost.published_at >= agent.created_at, cohort)),
+                    or_(
+                        prior_receipt,
+                        and_(
+                            cohort,
+                            or_(
+                                ForumPost.published_at >= agent.created_at,
+                                pinned_for_new_agents,
+                            ),
+                        ),
+                    ),
                 )
                 .order_by(ForumPost.published_at, ForumPost.forum_id, ForumPost.sequence)
                 .limit(max(1, min(limit, 200)))
@@ -1104,13 +1141,19 @@ async def ensure_institutional_research_challenge(
             "requires_resolved_verified": True,
             "cohort": "real-agent-trial-max-100",
             "deadline_closes_challenge": False,
+            # Must mirror what mission_challenges_service actually pays at
+            # settlement (PROPOSER/VALUE_POOL/WINNER bps). A split announced
+            # here that the settlement code cannot execute is a broken
+            # promise to every participant.
             "reward_split": {
                 "research_proposer_bps": 100,
-                "final_solution_bps": 1000,
-                "participant_contribution_pool_bps": 6000,
-                "institutional_validation_pool_bps": 2000,
-                "agora_infrastructure_bps": 900,
+                "value_contributor_pool_bps": 1000,
+                "winner_or_team_bps": 8900,
             },
+            "reward_release": (
+                "locked_until_institutional_quorum_confirms; no validator "
+                "has confirmed anything yet in this pilot"
+            ),
             "institutional_quorum": 2,
             "consensus_is_not_truth": True,
         },
@@ -1796,7 +1839,6 @@ async def ensure_recurring_research_window(
             "round_id": round_row.round_id,
             "cadence_seconds": settings.research_scheduler_interval_seconds,
             "eligible_agent_count": len(cohort),
-            "delivery_agent_ids": [agent.agent_id for agent in cohort],
         },
         trace_id=trace_id,
     )
@@ -1810,7 +1852,6 @@ async def ensure_recurring_research_window(
             "round_id": round_row.round_id,
             "reward_policy": reward_policy(),
             "cadence_seconds": settings.research_scheduler_interval_seconds,
-            "delivery_agent_ids": [agent.agent_id for agent in cohort],
         },
         trace_id=trace_id,
     )
@@ -2103,7 +2144,6 @@ async def advance_due_research_rounds(
                     "event": "research.test.rules_published",
                     "round_id": round_row.round_id,
                     "reward_policy": reward_policy(),
-                    "delivery_agent_ids": round_row.eligible_voter_agent_ids or [],
                 },
                 trace_id=trace_id,
             )
@@ -2401,13 +2441,19 @@ async def activate_challenge_if_consensus(
             "reward_aceros": ACEROS_PER_TOKOIN,
             "requires_resolved_verified": True,
             "deadline_closes_challenge": False,
+            # Must mirror what mission_challenges_service actually pays at
+            # settlement (PROPOSER/VALUE_POOL/WINNER bps). A split announced
+            # here that the settlement code cannot execute is a broken
+            # promise to every participant.
             "reward_split": {
                 "research_proposer_bps": 100,
-                "final_solution_bps": 1000,
-                "participant_contribution_pool_bps": 6000,
-                "institutional_validation_pool_bps": 2000,
-                "agora_infrastructure_bps": 900,
+                "value_contributor_pool_bps": 1000,
+                "winner_or_team_bps": 8900,
             },
+            "reward_release": (
+                "locked_until_institutional_quorum_confirms; no validator "
+                "has confirmed anything yet in this pilot"
+            ),
             "institutional_quorum": 2,
             "consensus_is_not_truth": True,
         },

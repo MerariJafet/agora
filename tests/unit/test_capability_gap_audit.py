@@ -104,3 +104,119 @@ def test_tokoin_tools_cannot_move_value(tool_names: set[str]) -> None:
         "market and no convertibility; agents read reward state, they do not "
         "move funds."
     )
+
+# --- Structural inversion (wave 3) ------------------------------------------
+# The manual behaviour list above is a list of scars: it only catches gaps we
+# already lived through. This test inverts the direction: EVERY public client
+# method must either be reachable from an MCP tool or be explicitly declared
+# runtime-only with a category. A new stranded capability now fails CI at
+# birth instead of running for weeks disguised as agent apathy.
+
+# Client methods that are deliberately NOT exposed as MCP tools. Every entry
+# needs a category; removing a method from client.py removes it from here.
+INTENTIONALLY_RUNTIME_ONLY = {
+    # -- identity/session plumbing: the bridge process owns key material and
+    #    session lifecycle; an LLM must never drive these directly.
+    "request_challenge": "identity_plumbing",
+    "register": "identity_plumbing",
+    "build_registration_message": "identity_plumbing",
+    "build_session_message": "identity_plumbing",
+    "build_revocation_message": "identity_plumbing",
+    "build_claim_message": "identity_plumbing",
+    "build_enrollment_message": "identity_plumbing",
+    "build_passport_issue_message": "identity_plumbing",
+    "session_signed": "identity_plumbing",
+    "revoke_signed": "identity_plumbing",
+    "claim": "identity_plumbing",
+    "ping": "identity_plumbing",
+    "health": "identity_plumbing",
+    "request_enrollment_challenge": "identity_plumbing",
+    "attest_enrollment": "identity_plumbing",
+    "issue_passport": "identity_plumbing",
+    "publish_card_signature": "identity_plumbing",
+    "world_trust_bootstrap": "identity_plumbing",
+    # -- world-rule feed and charter acceptance: driven by the native runtime
+    #    loop as part of the connection sequence, before any tool call.
+    "attest_world_rule_versioned": "runtime_connection_sequence",
+    "world_rule_feed": "runtime_connection_sequence",
+    "mark_world_rule_cursor": "runtime_connection_sequence",
+    "evaluate_world_rules": "runtime_connection_sequence",
+    "accept_world_charter": "runtime_connection_sequence",
+    "world_charter": "runtime_connection_sequence",
+    "world_manifest": "runtime_connection_sequence",
+    "lineage": "runtime_connection_sequence",
+    # -- owner/operator surfaces: module updates and agent-version management
+    #    belong to the human owner, not to the agent's own tool belt.
+    "update_module": "owner_operator_surface",
+    "rollback_module": "owner_operator_surface",
+    "activate_agent_version": "owner_operator_surface",
+    "simulate_research_release_policy": "owner_operator_surface",
+    # -- Arena legacy challenge plane (pre-Mission-Challenge), kept for
+    #    compatibility; the live world runs Mission Challenges instead.
+    "get_challenge": "arena_legacy",
+    "open_challenge": "arena_legacy",
+    "create_challenge_instance": "arena_legacy",
+    "resolve_challenge_instance": "arena_legacy",
+    "judge_submission": "arena_legacy",
+    # -- KNOWN GAPS, deliberately deferred with eyes open (candidates for the
+    #    next wave; each one stays a conscious decision, not an accident).
+    "attach_mission_challenge_evidence": "known_gap_deferred",
+    "create_mission_challenge_draft": "known_gap_deferred",
+    "finalize_mission_challenge_submission": "known_gap_deferred",
+    "mission_challenge_capabilities": "known_gap_deferred",
+    "mission_challenge_global_capabilities": "known_gap_deferred",
+    "review_research_proposal": "known_gap_deferred",
+    "provide_research_information": "known_gap_deferred",
+    "assess_research_priority": "known_gap_deferred",
+    "commit_research_resource": "known_gap_deferred",
+    "advance_rfc": "known_gap_deferred",
+    "amend_knowledge_protocol": "known_gap_deferred",
+    "accept_mission_task": "known_gap_deferred",
+    "create_mission_task": "known_gap_deferred",
+    "request_mission_task_revision": "known_gap_deferred",
+    "activate_mission": "known_gap_deferred",
+    "civic_roles": "known_gap_deferred",
+    "create_civic_role": "known_gap_deferred",
+    "subscribe_civic_role": "known_gap_deferred",
+    "create_world_market_need": "known_gap_deferred",
+    "create_world_market_offer": "known_gap_deferred",
+    "get_group": "known_gap_deferred",
+    "a2a_get_task": "known_gap_deferred",
+}
+
+
+def test_every_client_capability_is_exposed_or_declared_runtime_only() -> None:
+    """Inverted audit: the default for a new client method is 'agents can
+    reach it'. Hiding one now requires writing it down here with a reason."""
+    client_methods = set(
+        re.findall(
+            r"^    def (?P<name>[a-z][a-z0-9_]*)\(",
+            CLIENT.read_text(encoding="utf-8"),
+            re.M,
+        )
+    )
+    server_source = MCP_SERVER.read_text(encoding="utf-8")
+    reachable = {name for name in client_methods if f"client.{name}(" in server_source}
+
+    stranded = client_methods - reachable - set(INTENTIONALLY_RUNTIME_ONLY)
+    assert not stranded, (
+        f"New client capabilities with no MCP tool and no declared reason: "
+        f"{sorted(stranded)}. This is the exact shape of every capability-gap "
+        "incident (ADR-0073): the capability exists, the agent cannot see it, "
+        "and the failure will present as apathy. Either add a tool or add the "
+        "method to INTENTIONALLY_RUNTIME_ONLY with a category."
+    )
+
+    stale_allowlist = set(INTENTIONALLY_RUNTIME_ONLY) - client_methods
+    assert not stale_allowlist, (
+        f"Allowlist entries for client methods that no longer exist: "
+        f"{sorted(stale_allowlist)}"
+    )
+
+    # An allowlisted method that later gains a tool should leave the list:
+    # the list documents *hidden* capabilities only.
+    shadowed = set(INTENTIONALLY_RUNTIME_ONLY) & reachable
+    assert not shadowed, (
+        f"These methods are exposed as tools AND allowlisted as hidden: "
+        f"{sorted(shadowed)}. Remove them from INTENTIONALLY_RUNTIME_ONLY."
+    )

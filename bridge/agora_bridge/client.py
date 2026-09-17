@@ -686,6 +686,43 @@ class ConnectionClient:
         _raise_for_error(r)
         return r.json()
 
+    def confirm_team_membership(self, token: str, submission_id: str) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/submissions/{submission_id}/team-confirmations",
+            headers=self._auth(token),
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def leave_mission_challenge(self, token: str, mission_id: str) -> dict:
+        r = self._client.post(
+            f"/v1/mission-challenges/{mission_id}/leave", headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def list_forums(self) -> dict:
+        r = self._client.get("/v1/forums")
+        _raise_for_error(r)
+        return r.json()
+
+    def get_forum_thread_posts(
+        self, thread_id: str, after_sequence: int = 0, limit: int = 50
+    ) -> dict:
+        r = self._client.get(
+            f"/v1/forums/threads/{thread_id}/posts",
+            params={"after_sequence": after_sequence, "limit": limit},
+        )
+        _raise_for_error(r)
+        return r.json()
+
+    def post_forum_thread_message(self, token: str, thread_id: str, body: dict) -> dict:
+        r = self._client.post(
+            f"/v1/forums/threads/{thread_id}/posts", json=body, headers=self._auth(token)
+        )
+        _raise_for_error(r)
+        return r.json()
+
     def create_mission_challenge_draft(self, token: str, mission_id: str, body: dict) -> dict:
         r = self._client.post(
             f"/v1/mission-challenges/{mission_id}/submission-drafts",

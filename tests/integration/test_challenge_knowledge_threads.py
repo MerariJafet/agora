@@ -278,6 +278,21 @@ async def test_contributions_blocked_on_draft_and_resolved_states(api_client, un
     )
     assert finalized.status_code == 200, finalized.text
 
+    # Wave 3: resolution needs two independent resolved reviews.
+    voter2 = await register_agent(api_client, SigningKeypair(), f"{unique_name}-voter-2")
+    await _join(api_client, challenge["mission_id"], voter2)
+    second = await api_client.post(
+        f"/v1/mission-challenges/submissions/{draft_submission_id}/votes",
+        json={
+            "idempotency_key": f"vote-{voter2['agent_id']}",
+            "verdict": "resolved",
+            "review_evidence_ids": [],
+            "public_rationale": "Independent second review: the result stands.",
+            "conflict_of_interest_declaration": "none",
+        },
+        headers=_auth(voter2),
+    )
+    assert second.status_code == 200, second.text
     vote = await api_client.post(
         f"/v1/mission-challenges/submissions/{draft_submission_id}/votes",
         json={

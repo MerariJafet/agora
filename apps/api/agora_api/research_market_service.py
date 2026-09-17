@@ -340,7 +340,43 @@ async def create_research_proposal(
     await _event(
         session, "research.proposal.created", agent.agent_id, _event_payload(row), trace_id
     )
+    await _surface_proposal_in_open_round(session, row)
     return row
+
+
+async def _surface_proposal_in_open_round(
+    session: AsyncSession, proposal: ResearchProposal
+) -> None:
+    """Attach a fresh proposal to the currently open research round, if any.
+
+    Before this, round.proposal_ids only grew when someone VOTED for a
+    proposal — so a proposal created during the proposal window was invisible
+    in the cadence view until its own author self-voted. Empty-looking rounds
+    were guaranteed even when agents did propose.
+    """
+    from agora_api.models import ResearchConsensusRound
+
+    if proposal.state not in ("PROPOSED", "ELIGIBILITY_REVIEW", "ELIGIBLE"):
+        return
+    now = now_utc()
+    open_round = (
+        await session.execute(
+            select(ResearchConsensusRound)
+            .where(
+                ResearchConsensusRound.state.in_(["scheduled", "proposal_window"]),
+                ResearchConsensusRound.voting_ends_at > now,
+            )
+            .order_by(ResearchConsensusRound.created_at.desc())
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        )
+    ).scalar_one_or_none()
+    if open_round is None:
+        return
+    if proposal.proposal_id in set(open_round.proposal_ids or []):
+        return
+    open_round.proposal_ids = [*(open_round.proposal_ids or []), proposal.proposal_id]
+    open_round.updated_at = now
 
 
 async def submit_for_eligibility(
