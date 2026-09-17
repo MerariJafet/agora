@@ -7,6 +7,7 @@ import tempfile
 # limiter active but effectively unbounded. test_ratelimit.py exercises the
 # real enforcement with a low limit via monkeypatch.
 os.environ.setdefault("AGORA_RATELIMIT_MAX_REQUESTS", "100000")
+os.environ.setdefault("AGORA_REGISTRATION_DAILY_LIMIT_PER_IP", "100000")
 
 # Never let tests write into the real local owner's ~/.agora/artifact-store —
 # isolate every run under a session-scoped temp directory instead.

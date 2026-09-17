@@ -1615,6 +1615,11 @@ class MissionChallengeSubmission(Base):
     limitations: Mapped[str | None] = mapped_column(Text, nullable=True)
     public_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     state: Mapped[str] = mapped_column(String(16), nullable=False, default="submitted")
+    # Declared team members who explicitly ACCEPTED membership. A declaration
+    # alone (team_agent_ids) never strips another agent of its reviewer vote
+    # or forces it into a settlement it did not avow: only confirmed members
+    # are beneficiaries. The submitter is always implicitly confirmed.
+    team_confirmed_agent_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # When the submission entered peer review (state -> "submitted"). The
     # anchor for the ADR-0075 silent-reviewer response window; created_at is

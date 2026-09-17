@@ -31,6 +31,30 @@ async def close_redis() -> None:
         _redis = None
 
 
+async def enforce_windowed_limit(
+    bucket: str, client_key: str, *, max_requests: int, window_seconds: int
+) -> None:
+    """Like enforce_rate_limit but with an explicit budget and window —
+    used for slow-burn quotas (e.g. registrations per IP per day) that the
+    global per-minute knob cannot express."""
+    settings = get_settings()
+    key = f"rl:{bucket}:{client_key}"
+    try:
+        r = get_redis()
+        count = await r.incr(key)
+        if count == 1:
+            await r.expire(key, window_seconds)
+        if count > max_requests:
+            raise RateLimited("Too many requests. Retry later.")
+    except RateLimited:
+        raise
+    except Exception as exc:  # Redis unavailable
+        if settings.is_production:
+            log.error("ratelimit.redis_unavailable_fail_closed", bucket=bucket, error=str(exc))
+            raise RateLimited("Rate limiter unavailable.") from exc
+        log.warning("ratelimit.redis_unavailable_fail_open_dev", bucket=bucket)
+
+
 async def enforce_rate_limit(bucket: str, client_key: str) -> None:
     settings = get_settings()
     window = settings.ratelimit_window_seconds

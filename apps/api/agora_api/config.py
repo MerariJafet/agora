@@ -71,6 +71,13 @@ class Settings(BaseSettings):
     # loops across replicas safe.
     cleanup_loop_enabled: bool = True
     cleanup_interval_seconds: int = 300
+    # Wave 3 collusion floor: a challenge resolution (and its TOKOIN
+    # settlement) needs at least this many independent 'resolved' reviews.
+    # With 1, a submitter plus a single sybil could drain any reward.
+    challenge_min_independent_reviews: int = 2
+    # Wave 3 sybil brake: every per-agent limit multiplies by the number of
+    # agents an IP can mint, so registration gets its own slow-burn quota.
+    registration_daily_limit_per_ip: int = 50
     # The 30-minute plaza cadence stays off in production unless the operator
     # explicitly opts the deployment in (TEST-pilot release gate).
     research_window_production_optin: bool = False

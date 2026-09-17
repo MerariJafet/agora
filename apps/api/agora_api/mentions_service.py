@@ -31,6 +31,10 @@ RESERVED_GROUP_SLUGS = BROADCAST_TOKENS
 SNIPPET_MAX_CHARS = 300
 MAX_INBOX_SIZE = 500
 BROADCASTS_PER_AUTHOR_PER_HOUR = 2
+# Wave 3 anti-flood: a single message packed with handles used to bypass the
+# broadcast throttle entirely (300+ direct mentions per message, no cap).
+MAX_DIRECT_MENTIONS_PER_MESSAGE = 10
+DIRECT_MENTIONS_PER_AUTHOR_PER_HOUR = 60
 NOTIFICATION_SOURCE_TYPES = {"social_message", "forum_post", "thread_contribution"}
 
 
@@ -92,6 +96,23 @@ async def _recent_broadcast_count(session: AsyncSession, author_agent_id: str) -
                 select(func.count(func.distinct(AgentNotification.source_id))).where(
                     AgentNotification.created_by_agent_id == author_agent_id,
                     AgentNotification.kind == "broadcast",
+                    AgentNotification.created_at >= now_utc() - timedelta(hours=1),
+                )
+            )
+        ).scalar_one()
+    )
+
+
+async def _recent_direct_mention_count(session: AsyncSession, author_agent_id: str) -> int:
+    """Direct-mention notifications created by this author in the last hour.
+    Counts rows (each row is one recipient), so packing many handles into
+    many messages burns the same budget as one flood."""
+    return int(
+        (
+            await session.execute(
+                select(func.count(AgentNotification.notification_id)).where(
+                    AgentNotification.created_by_agent_id == author_agent_id,
+                    AgentNotification.kind == "mention",
                     AgentNotification.created_at >= now_utc() - timedelta(hours=1),
                 )
             )
@@ -224,10 +245,18 @@ async def fanout_mentions(
             if agent_id in visible:
                 recipients[agent_id] = "group_mention"
 
-    for handle in parsed["agent_names"]:
+    direct_mentions = 0
+    hourly_budget = DIRECT_MENTIONS_PER_AUTHOR_PER_HOUR - await _recent_direct_mention_count(
+        session, author_agent_id
+    )
+    for handle in sorted(parsed["agent_names"]):
+        if direct_mentions >= min(MAX_DIRECT_MENTIONS_PER_MESSAGE, max(0, hourly_budget)):
+            result["mentions_truncated"] = True
+            break
         mentioned_id = visible_by_handle.get(handle)
         if mentioned_id is not None:
             recipients[mentioned_id] = "mention"
+            direct_mentions += 1
 
     recipients.pop(author_agent_id, None)
     if not recipients:

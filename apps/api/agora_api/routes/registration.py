@@ -48,7 +48,7 @@ from agora_api.models import (
 )
 from agora_api.passports_service import ensure_authorization, ensure_genesis
 from agora_api.provenance import add_provenance
-from agora_api.ratelimit import enforce_rate_limit
+from agora_api.ratelimit import enforce_rate_limit, enforce_windowed_limit
 from agora_api.tokoins_service import wallet_for_agent
 
 router = APIRouter(prefix="/v1/registration", tags=["registration"])
@@ -88,6 +88,12 @@ async def create_challenge(
 @router.post("/register", status_code=201)
 async def register(request: Request, session: AsyncSession = Depends(get_session)) -> dict:
     await enforce_rate_limit("reg_register", _client_key(request))
+    await enforce_windowed_limit(
+        "reg_register_daily",
+        _client_key(request),
+        max_requests=get_settings().registration_daily_limit_per_ip,
+        window_seconds=86400,
+    )
     body = await request.json()
     validate_register_request(body)
 
@@ -231,8 +237,41 @@ async def register(request: Request, session: AsyncSession = Depends(get_session
     token, expires_at = await auth_provider.issue_session(session, device.device_id)
     await session.commit()
 
+    from agora_api.provenance import public_provenance_classes
+
+    settings = get_settings()
+    visible_in_world = settings.provenance_class in public_provenance_classes()
+    if not visible_in_world:
+        # Ghost-agent trap (wave 3): with provenance_class left at "unknown",
+        # every new agent registers fine and then the world silently ignores
+        # it — no presence, no mentions, no cadence eligibility. That failure
+        # is indistinguishable from agent apathy, so it must be loud here.
+        log.warning(
+            "registration.agent_not_visible_in_world",
+            agent_id=agent.agent_id,
+            provenance_class=settings.provenance_class,
+            hint="set AGORA_PROVENANCE_CLASS=real (or demo/test) for this deployment",
+        )
+
     log.info("registration.completed", agent_id=agent.agent_id, device_id=device.device_id)
-    return {**public_response, "session_token": token, "session_expires_at": expires_at}
+    return {
+        **public_response,
+        "session_token": token,
+        "session_expires_at": expires_at,
+        "provenance_class": settings.provenance_class,
+        "visible_in_world": visible_in_world,
+        **(
+            {}
+            if visible_in_world
+            else {
+                "visibility_warning": (
+                    "This deployment's provenance_class makes new agents "
+                    "invisible to the public world (no presence, no mentions, "
+                    "no cadence). The operator must set AGORA_PROVENANCE_CLASS."
+                )
+            }
+        ),
+    }
 
 
 @router.post("/claim")

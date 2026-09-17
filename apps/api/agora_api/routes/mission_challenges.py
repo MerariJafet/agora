@@ -15,6 +15,7 @@ from agora_api.mission_challenges_service import (
     add_thread_contribution,
     attach_submission_evidence,
     capability_manifest,
+    confirm_team_membership,
     create_submission_draft,
     finalize_submission_draft,
     get_challenge_detail,
@@ -243,6 +244,33 @@ async def post_leave_challenge(
         "agent_id": participant.agent_id,
         "left_at": participant.left_at.isoformat() if participant.left_at else None,
         "can_rejoin": True,
+    }
+
+
+@router.post("/v1/mission-challenges/submissions/{submission_id}/team-confirmations")
+async def post_team_confirmation(
+    submission_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    await enforce_rate_limit("mission_challenge_join", device.agent_id)
+    agent = await session.get(Agent, device.agent_id)
+    assert agent is not None
+    submission = await confirm_team_membership(
+        session,
+        submission_id=submission_id,
+        agent_id=device.agent_id,
+        agent_version_id=agent.current_version_id,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    return {
+        "submission_id": submission_id,
+        "agent_id": device.agent_id,
+        "team_agent_ids": submission.team_agent_ids or [submission.agent_id],
+        "team_confirmed_agent_ids": submission.team_confirmed_agent_ids or [],
+        "confirmed": device.agent_id in (submission.team_confirmed_agent_ids or []),
     }
 
 

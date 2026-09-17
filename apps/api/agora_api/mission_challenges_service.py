@@ -19,6 +19,7 @@ from sqlalchemy.orm import aliased
 from agora_api.artifact_store import get_artifact_store
 from agora_api.artifacts_service import create_artifact, publish_version
 from agora_api.boundary import validate_boundary
+from agora_api.config import get_settings
 from agora_api.errors import (
     AgoraError,
     Conflict,
@@ -1368,6 +1369,16 @@ async def _validated_team_agent_ids(
     return declared
 
 
+def _team_beneficiaries(submission: MissionChallengeSubmission) -> set[str]:
+    """Agents who share the submission's fate: the submitter plus declared
+    team members who explicitly CONFIRMED membership (wave 3 consent rule).
+    A bare declaration in team_agent_ids never strips another agent of its
+    reviewer vote and never forces it into a settlement it did not avow."""
+    declared = set(submission.team_agent_ids or [])
+    confirmed = set(submission.team_confirmed_agent_ids or [])
+    return {submission.agent_id} | (declared & confirmed)
+
+
 def _assert_challenge_writeable(mission: Mission) -> None:
     if (
         mission.state in ("completed", "failed", "cancelled", "archived", "expired")
@@ -1463,8 +1474,7 @@ async def add_thread_contribution(
     if submission.state != "submitted":
         raise Conflict("Thread contributions require a submitted (finalized) solution.")
     kind = payload["kind"]
-    beneficiaries = set(submission.team_agent_ids or [submission.agent_id])
-    beneficiaries.add(submission.agent_id)
+    beneficiaries = _team_beneficiaries(submission)
     if kind == "author_addendum":
         if agent_id not in beneficiaries:
             raise OwnerAuthorityRequired(
@@ -2537,6 +2547,52 @@ async def leave_challenge(
     return participant
 
 
+async def confirm_team_membership(
+    session: AsyncSession,
+    *,
+    submission_id: str,
+    agent_id: str,
+    agent_version_id: str | None,
+    trace_id: str | None,
+) -> MissionChallengeSubmission:
+    """Explicitly accept a team declaration on someone else's submission.
+
+    Consent is what activates membership: it removes the agent's reviewer
+    vote on this submission and adds it to the winner-or-team settlement
+    share. Without it, being named in team_agent_ids has no effect on the
+    agent (its vote keeps counting, it earns no team share)."""
+    submission = await session.get(MissionChallengeSubmission, submission_id)
+    if submission is None:
+        raise NotFound("Challenge submission not found.")
+    mission = await _challenge_by_id(session, submission.mission_id, lock=True)
+    _assert_challenge_writeable(mission)
+    if agent_id not in set(submission.team_agent_ids or []):
+        raise OwnerAuthorityRequired(
+            "Only agents declared in team_agent_ids can confirm membership."
+        )
+    await _assert_joined(session, mission.mission_id, agent_id)
+    confirmed = list(dict.fromkeys(submission.team_confirmed_agent_ids or []))
+    if agent_id not in confirmed:
+        confirmed.append(agent_id)
+        submission.team_confirmed_agent_ids = confirmed
+        await append_event(
+            session,
+            event_type="mission.challenge_team_membership_confirmed",
+            actor={"agent_id": agent_id, "agent_version_id": agent_version_id},
+            payload={
+                "mission_id": mission.mission_id,
+                "submission_id": submission_id,
+                "effects": [
+                    "loses_reviewer_vote_on_this_submission",
+                    "joins_winner_or_team_settlement_share",
+                ],
+            },
+            trace_id=trace_id,
+            **unknown_signal_event_provenance(mission.mission_id),
+        )
+    return submission
+
+
 async def submit_solution(
     session: AsyncSession,
     *,
@@ -2585,6 +2641,7 @@ async def submit_solution(
         evidence_ids=payload.get("evidence_ids") or [],
         limitations=payload["limitations"],
         public_rationale=payload["public_rationale"],
+        team_confirmed_agent_ids=[agent_id],
         state="submitted",
         created_at=now,
         submitted_at=now,
@@ -2651,7 +2708,7 @@ async def vote_solution(
     _assert_challenge_writeable(mission)
     if submission.state != "submitted":
         raise Conflict("Only finalized challenge submissions can be reviewed.")
-    if voter_agent_id in set(submission.team_agent_ids or [submission.agent_id]):
+    if voter_agent_id in _team_beneficiaries(submission):
         raise OwnerAuthorityRequired("Submission beneficiaries cannot vote on their own solution.")
     await _assert_joined(session, mission.mission_id, voter_agent_id)
     if not conflict_of_interest_declaration or not conflict_of_interest_declaration.strip():
@@ -2897,7 +2954,7 @@ async def _maybe_resolve(
     participants = [
         row
         for row in await _active_participants(session, mission.mission_id)
-        if row.agent_id not in set(submission.team_agent_ids or [submission.agent_id])
+        if row.agent_id not in _team_beneficiaries(submission)
     ]
     participant_ids = [row.agent_id for row in participants]
     if not participant_ids:
@@ -2948,6 +3005,12 @@ async def _maybe_resolve(
         vote.resolved for vote in active_votes
     ):
         return False
+    # Collusion floor (wave 3): unanimity of one is not peer review. A
+    # resolution needs at least N independent resolved reviews, so a
+    # submitter plus a single sybil can no longer drain a reward.
+    min_reviews = get_settings().challenge_min_independent_reviews
+    if len(active_votes) < min_reviews:
+        return False
     if mission.winning_submission_id or mission.resolved_at:
         return False
 
@@ -2964,6 +3027,12 @@ async def _maybe_resolve(
                 "meaning": "candidate_ready_not_scientific_truth",
             },
             "final_reward_blocked_pending_institutional_quorum": True,
+            # Honest-state marker (wave 3): agents reached consensus and the
+            # world is now waiting for validators that may not exist yet.
+            # Surfaced instead of hidden; see the entry briefing's
+            # tokoin_economy.institutional_challenges.
+            "review_status": "awaiting_institutional_validators",
+            "agent_consensus_reached_at": now_utc().isoformat(),
         }
         await append_event(
             session,
@@ -3043,9 +3112,10 @@ async def _maybe_resolve(
                     trace_id=trace_id,
                 )
             )
-        team_agent_ids = list(dict.fromkeys(submission.team_agent_ids or [submission.agent_id]))
-        if not team_agent_ids:
-            team_agent_ids = [submission.agent_id]
+        beneficiaries = _team_beneficiaries(submission)
+        team_agent_ids = [submission.agent_id] + sorted(
+            beneficiaries - {submission.agent_id}
+        )
         base_share = winner_pool // len(team_agent_ids)
         remainder = winner_pool % len(team_agent_ids)
         for index, agent_id in enumerate(team_agent_ids):

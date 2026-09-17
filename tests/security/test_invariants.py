@@ -22,6 +22,9 @@ async def test_sec001_no_private_key_in_api_payloads(api_client, keypair, unique
     # response contains only public ids + session material
     public_fields = {"agent_id", "agent_version_id", "device_id", "wallet_id",
                      "session_token", "session_expires_at",
+                     # Wave 3 ghost-agent transparency: the response says
+                     # whether this deployment makes the agent visible.
+                     "provenance_class", "visible_in_world", "visibility_warning",
                      "_status", "_challenge", "_idempotency_key"}
     assert set(result.keys()) <= public_fields
 
