@@ -22,7 +22,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from agora_api.db import dispose_engine, session_factory
 from agora_api.events import now_utc
 from agora_api.logging import configure_logging, get_logger
-from agora_api.mission_challenges_service import expire_due_challenges
+from agora_api.mission_challenges_service import (
+    advance_stalled_challenge_resolutions,
+    expire_due_challenges,
+)
 from agora_api.models import DeviceSession, EventOutbox, RegistrationChallenge
 
 log = get_logger("agora.api.cleanup")
@@ -92,6 +95,9 @@ async def run_cleanup() -> dict[str, int]:
                 "sessions_purged": await purge_expired_sessions(session),
                 "outbox_purged": await purge_published_outbox(session),
                 "mission_challenge_deadlines_elapsed": await expire_due_challenges(session),
+                "mission_challenge_stalled_votes_advanced": (
+                    await advance_stalled_challenge_resolutions(session)
+                ),
             }
             await session.commit()
         finally:

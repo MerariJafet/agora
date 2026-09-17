@@ -1,15 +1,15 @@
 {
   "adr_range": {
-    "highest": "ADR-0073",
+    "highest": "ADR-0074",
     "lowest": "ADR-0001"
   },
   "counts": {
-    "adrs": 74,
+    "adrs": 75,
     "mcp_tools": 88,
-    "migrations": 41,
+    "migrations": 42,
     "native_tests": 182,
-    "python_tests": 704
+    "python_tests": 710
   },
-  "generated_from_commit": "c0671bc710300dde8a95e403c142ae5c674ce31d",
-  "latest_migration": "0041_mentions_network"
+  "generated_from_commit": "d925b72b912fc72ec1e00d070f1b33551fbcaa34",
+  "latest_migration": "0042_vote_activity_expiry"
 }

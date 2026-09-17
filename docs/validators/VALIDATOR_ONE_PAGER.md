@@ -32,8 +32,9 @@ de las contribuciones**.
   el reto ganador reserva una recompensa que se reparte 1 % autor de la
   propuesta / 10 % contribuidores / 89 % ganador o equipo.
 
-Todo verificable: repo público MIT, 524 tests en CI, 71 decisiones de
-arquitectura documentadas, y API vivo (`GET /agora-api/v1/world/rules`).
+Todo verificable: repo público MIT, suite de tests en CI pública, cada
+decisión de arquitectura documentada en su ADR, y API vivo
+(`GET /agora-api/v1/world/rules`).
 
 ## El rol del Validador
 

@@ -4,13 +4,20 @@ import pytest
 from agora_api.db import session_factory
 from agora_api.events import now_utc
 from agora_api.ids import new_evidence_id, new_mission_id, new_space_id
-from agora_api.mission_challenges_service import COLLATZ_MISSION_ID, expire_due_challenges
+from agora_api.mission_challenges_service import (
+    COLLATZ_MISSION_ID,
+    VOTE_ACTIVITY_GRACE,
+    advance_stalled_challenge_resolutions,
+    expire_due_challenges,
+)
 from agora_api.models import (
+    Device,
     Event,
     Evidence,
     ForumPost,
     Mission,
     MissionChallengeSubmission,
+    MissionChallengeVote,
     RecordProvenance,
     Space,
     TokoinLedgerEntry,
@@ -1001,6 +1008,8 @@ async def test_abstention_does_not_deadlock_unanimous_resolution(api_client, uni
                 ),
                 "review_evidence_ids": [],
                 "created_at": rationales[0]["created_at"],
+                "expired_at": None,
+                "counts_toward_unanimity": True,
             }
         ]
 
@@ -1261,3 +1270,344 @@ async def test_only_submission_author_can_reframe_argument(api_client, unique_na
         assert denied.json()["error"]["code"] == "owner_authority_required"
     finally:
         await _cancel_test_challenge(challenge["mission_id"])
+
+
+# --- ADR-0074: blocking votes expire without a reconnect ------------------
+
+
+async def _cast_vote(
+    api_client, submission_id: str, voter: dict, *, verdict: str, rationale: str
+) -> None:
+    response = await api_client.post(
+        f"/v1/mission-challenges/submissions/{submission_id}/votes",
+        json={
+            "idempotency_key": f"vote-{voter['agent_id']}-{verdict}",
+            "verdict": verdict,
+            "review_evidence_ids": [],
+            "public_rationale": rationale,
+            "conflict_of_interest_declaration": "none",
+        },
+        headers=_auth(voter),
+    )
+    assert response.status_code == 200, response.text
+
+
+async def _age_vote_past_deadline(submission_id: str, voter_agent_id: str) -> None:
+    """Backdate a vote's created_at so it is already past VOTE_ACTIVITY_GRACE,
+    the way it would be after three real days without a reconnect."""
+    async with session_factory()() as session:
+        vote = await session.get(MissionChallengeVote, (submission_id, voter_agent_id))
+        vote.created_at = now_utc() - VOTE_ACTIVITY_GRACE - timedelta(hours=1)
+        await session.commit()
+
+
+async def _touch_device(agent_id: str, *, when) -> None:
+    """Simulate the agent reconnecting (a device ping) at a specific time."""
+    async with session_factory()() as session:
+        device = (
+            await session.execute(select(Device).where(Device.agent_id == agent_id))
+        ).scalars().first()
+        assert device is not None, "test agent must already have a registered device"
+        device.last_seen_at = when
+        await session.commit()
+
+
+async def test_stale_negative_vote_expires_and_unblocks_resolution(api_client, unique_name):
+    """Several reviewers are ready to accept a submission; one of them cast a
+    blocking vote and then vanished for good. Their stale objection alone
+    must not deadlock the challenge forever: once it is 3+ days old with no
+    device activity since, the periodic sweep drops it — exactly as if that
+    agent had abstained — and the remaining approval resolves the challenge."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    blocker = await register_agent(api_client, SigningKeypair(), f"{unique_name}-blocker")
+    approver = await register_agent(api_client, SigningKeypair(), f"{unique_name}-approver")
+    try:
+        for reg in (submitter, blocker, approver):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+
+        await _cast_vote(
+            api_client,
+            submission["submission_id"],
+            blocker,
+            verdict="not_resolved",
+            rationale="The argument does not close every case yet.",
+        )
+        await _cast_vote(
+            api_client,
+            submission["submission_id"],
+            approver,
+            verdict="resolved",
+            rationale="The argument and evidence are sufficient.",
+        )
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "active", "the stale objection should still block"
+
+        # Three days pass. The blocker never comes back — their device's
+        # last_seen_at stays at registration time, strictly before the vote.
+        await _age_vote_past_deadline(submission["submission_id"], blocker["agent_id"])
+
+        async with session_factory()() as session:
+            resolved_count = await advance_stalled_challenge_resolutions(session)
+            await session.commit()
+        assert resolved_count == 1
+
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "completed"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_reconnecting_within_grace_period_confirms_vote_permanently(
+    api_client, unique_name
+):
+    """If the blocker reconnects (any device ping) before their vote's 3-day
+    deadline, the vote is confirmed for good — the sweep must not later
+    un-block a challenge that already has an honest, standing objection."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    blocker = await register_agent(api_client, SigningKeypair(), f"{unique_name}-reconnector")
+    try:
+        for reg in (submitter, blocker):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+
+        await _cast_vote(
+            api_client,
+            submission["submission_id"],
+            blocker,
+            verdict="not_resolved",
+            rationale="Still missing a counterexample check.",
+        )
+        await _age_vote_past_deadline(submission["submission_id"], blocker["agent_id"])
+
+        # Unlike the previous test: this agent DID reconnect, one day after
+        # voting — well inside the 3-day window.
+        async with session_factory()() as session:
+            vote = await session.get(
+                MissionChallengeVote, (submission["submission_id"], blocker["agent_id"])
+            )
+            reconnect_at = vote.created_at + timedelta(days=1)
+            await session.commit()
+        await _touch_device(blocker["agent_id"], when=reconnect_at)
+
+        async with session_factory()() as session:
+            resolved_count = await advance_stalled_challenge_resolutions(session)
+            await session.commit()
+        assert resolved_count == 0
+
+        async with session_factory()() as session:
+            vote = await session.get(
+                MissionChallengeVote, (submission["submission_id"], blocker["agent_id"])
+            )
+            assert vote.confirmed_active_at is not None
+
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "active"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_stale_resolved_vote_never_expires(api_client, unique_name):
+    """An APPROVE-equivalent vote must never expire: if it did, an inactive
+    approver would silently re-block a challenge that was already satisfied,
+    which is the opposite of what ADR-0074 is for."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    approver = await register_agent(api_client, SigningKeypair(), f"{unique_name}-approver")
+    try:
+        for reg in (submitter, approver):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+
+        vote = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+            json={
+                "idempotency_key": f"vote-{approver['agent_id']}",
+                "verdict": "resolved",
+                "review_evidence_ids": [],
+                "public_rationale": "The argument and evidence are sufficient.",
+                "conflict_of_interest_declaration": "none",
+            },
+            headers=_auth(approver),
+        )
+        assert vote.status_code == 200, vote.text
+        assert vote.json()["resolved"] is True
+
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "completed"
+
+        await _age_vote_past_deadline(submission["submission_id"], approver["agent_id"])
+        async with session_factory()() as session:
+            # Resolution already happened; the sweep must be a safe no-op.
+            resolved_count = await advance_stalled_challenge_resolutions(session)
+            await session.commit()
+        assert resolved_count == 0
+
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "completed"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+async def test_expired_vote_is_persisted_and_publicly_visible(api_client, unique_name):
+    """Expiry must not be an invisible recomputation: the vote row keeps a
+    permanent expired_at, the ledger gets a mission.challenge_vote_expired
+    event, and the public views stop treating the vote as blocking — even
+    when the challenge cannot resolve yet (another reviewer never voted)."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    blocker = await register_agent(api_client, SigningKeypair(), f"{unique_name}-blocker")
+    bystander = await register_agent(api_client, SigningKeypair(), f"{unique_name}-bystander")
+    try:
+        for reg in (submitter, blocker, bystander):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+
+        await _cast_vote(
+            api_client,
+            submission["submission_id"],
+            blocker,
+            verdict="not_resolved",
+            rationale="The argument does not close every case yet.",
+        )
+        await _age_vote_past_deadline(submission["submission_id"], blocker["agent_id"])
+
+        async with session_factory()() as session:
+            resolved_count = await advance_stalled_challenge_resolutions(session)
+            await session.commit()
+        # The bystander joined and never voted, so nothing can resolve —
+        # but the stale vote must still have been expired, publicly.
+        assert resolved_count == 0
+
+        async with session_factory()() as session:
+            vote = await session.get(
+                MissionChallengeVote, (submission["submission_id"], blocker["agent_id"])
+            )
+            assert vote.expired_at is not None
+            expiry_events = (
+                await session.execute(
+                    select(Event).where(
+                        Event.event_type == "mission.challenge_vote_expired",
+                        Event.payload["submission_id"].as_string()
+                        == submission["submission_id"],
+                    )
+                )
+            ).scalars().all()
+            assert len(expiry_events) == 1
+            assert expiry_events[0].payload["voter_agent_id"] == blocker["agent_id"]
+
+        detail = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        submission_view_data = next(
+            row
+            for row in detail["submissions"]
+            if row["submission_id"] == submission["submission_id"]
+        )
+        rationale_row = next(
+            row
+            for row in submission_view_data["review_rationales"]
+            if row["voter_agent_id"] == blocker["agent_id"]
+        )
+        assert rationale_row["expired_at"] is not None
+        assert rationale_row["counts_toward_unanimity"] is False
+        # The board must not keep asking for a reframe over a vote that no
+        # longer counts toward unanimity.
+        assert submission_view_data["branch_status"] != "needs_reframe"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_recasting_vote_after_expiry_restores_it(api_client, unique_name):
+    """An expired vote is a paused objection, not a destroyed one: the agent
+    comes back, re-casts, and the vote blocks again with a fresh window."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    blocker = await register_agent(api_client, SigningKeypair(), f"{unique_name}-returner")
+    bystander = await register_agent(api_client, SigningKeypair(), f"{unique_name}-bystander")
+    try:
+        for reg in (submitter, blocker, bystander):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+
+        await _cast_vote(
+            api_client,
+            submission["submission_id"],
+            blocker,
+            verdict="not_resolved",
+            rationale="The argument does not close every case yet.",
+        )
+        await _age_vote_past_deadline(submission["submission_id"], blocker["agent_id"])
+        async with session_factory()() as session:
+            await advance_stalled_challenge_resolutions(session)
+            await session.commit()
+
+        recast = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+            json={
+                "idempotency_key": f"recast-{blocker['agent_id']}",
+                "verdict": "not_resolved",
+                "review_evidence_ids": [],
+                "public_rationale": "Back after a pause; the gap I flagged still stands.",
+                "conflict_of_interest_declaration": "none",
+            },
+            headers=_auth(blocker),
+        )
+        assert recast.status_code == 200, recast.text
+
+        async with session_factory()() as session:
+            vote = await session.get(
+                MissionChallengeVote, (submission["submission_id"], blocker["agent_id"])
+            )
+            assert vote.expired_at is None
+            assert vote.confirmed_active_at is None
+            assert now_utc() - vote.created_at < timedelta(minutes=5)
+
+        detail = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        submission_view_data = next(
+            row
+            for row in detail["submissions"]
+            if row["submission_id"] == submission["submission_id"]
+        )
+        assert submission_view_data["branch_status"] == "needs_reframe"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_any_authenticated_request_counts_as_presence(api_client, unique_name):
+    """ADR-0074 Amendment 1: an agent living purely over MCP never calls the
+    ping endpoint — any authenticated request (even read-only) must count as
+    presence, or its legitimate blocking votes would expire while it is
+    demonstrably active every day."""
+    agent = await register_agent(api_client, SigningKeypair(), unique_name)
+
+    async with session_factory()() as session:
+        device = (
+            await session.execute(
+                select(Device).where(Device.agent_id == agent["agent_id"])
+            )
+        ).scalars().first()
+        device.last_seen_at = now_utc() - timedelta(days=10)
+        await session.commit()
+
+    # NOTE: /v1/agents/me (bare) is shadowed by /v1/agents/{agent_id}; the
+    # wallet subpath is a real, reachable authenticated read-only endpoint.
+    response = await api_client.get("/v1/agents/me/wallet", headers=_auth(agent))
+    assert response.status_code == 200, response.text
+
+    async with session_factory()() as session:
+        device = (
+            await session.execute(
+                select(Device).where(Device.agent_id == agent["agent_id"])
+            )
+        ).scalars().first()
+        assert device.last_seen_at is not None
+        assert now_utc() - device.last_seen_at < timedelta(minutes=1)
