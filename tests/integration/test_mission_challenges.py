@@ -6,6 +6,7 @@ from agora_api.events import now_utc
 from agora_api.ids import new_evidence_id, new_mission_id, new_space_id
 from agora_api.mission_challenges_service import (
     COLLATZ_MISSION_ID,
+    REVIEW_RESPONSE_WINDOW,
     VOTE_ACTIVITY_GRACE,
     advance_stalled_challenge_resolutions,
     expire_due_challenges,
@@ -18,6 +19,7 @@ from agora_api.models import (
     Mission,
     MissionChallengeSubmission,
     MissionChallengeVote,
+    MissionParticipant,
     RecordProvenance,
     Space,
     TokoinLedgerEntry,
@@ -1611,3 +1613,166 @@ async def test_any_authenticated_request_counts_as_presence(api_client, unique_n
         ).scalars().first()
         assert device.last_seen_at is not None
         assert now_utc() - device.last_seen_at < timedelta(minutes=1)
+
+async def _age_review_window(submission_id: str, mission_id: str) -> None:
+    """Backdate the submission's review opening and every participant's join
+    so the ADR-0075 silent-reviewer response window has already elapsed."""
+    stale = now_utc() - REVIEW_RESPONSE_WINDOW - timedelta(hours=1)
+    async with session_factory()() as session:
+        submission = await session.get(MissionChallengeSubmission, submission_id)
+        submission.submitted_at = stale
+        participants = (
+            await session.execute(
+                select(MissionParticipant).where(
+                    MissionParticipant.mission_id == mission_id
+                )
+            )
+        ).scalars().all()
+        for row in participants:
+            row.joined_at = stale
+        await session.commit()
+
+
+async def test_silent_participant_lapses_and_unblocks_resolution(api_client, unique_name):
+    """ADR-0075: a participant who joins and never votes at all — not even an
+    abstention — must stop blocking unanimity once the 3-day response window
+    elapses. Their silence reads as abstention; the standing approval then
+    resolves the challenge."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    approver = await register_agent(api_client, SigningKeypair(), f"{unique_name}-approver")
+    silent = await register_agent(api_client, SigningKeypair(), f"{unique_name}-silent")
+    try:
+        for reg in (submitter, approver, silent):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+        await _cast_vote(
+            api_client,
+            submission["submission_id"],
+            approver,
+            verdict="resolved",
+            rationale="The argument and evidence are sufficient.",
+        )
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "active", "silence should still block inside the window"
+
+        await _age_review_window(submission["submission_id"], challenge["mission_id"])
+        async with session_factory()() as session:
+            resolved_count = await advance_stalled_challenge_resolutions(session)
+            await session.commit()
+        assert resolved_count == 1
+
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "completed"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_all_reviewers_silent_never_resolves_without_an_approval(
+    api_client, unique_name
+):
+    """The lapse rule must never manufacture an approval: if every reviewer
+    goes silent and nobody ever voted resolved, the challenge stays open."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    silent = await register_agent(api_client, SigningKeypair(), f"{unique_name}-silent")
+    try:
+        for reg in (submitter, silent):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+        await _age_review_window(submission["submission_id"], challenge["mission_id"])
+        async with session_factory()() as session:
+            resolved_count = await advance_stalled_challenge_resolutions(session)
+            await session.commit()
+        assert resolved_count == 0
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "active"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_leave_challenge_frees_census_and_rejoin_reuses_row(api_client, unique_name):
+    """ADR-0075: leaving is a first-class move. A participant who leaves is
+    removed from the unanimity census immediately (the remaining approval
+    resolves the challenge), and leave -> rejoin must reuse the participant
+    row instead of crashing on the composite primary key."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    approver = await register_agent(api_client, SigningKeypair(), f"{unique_name}-approver")
+    leaver = await register_agent(api_client, SigningKeypair(), f"{unique_name}-leaver")
+    try:
+        for reg in (submitter, approver, leaver):
+            await _join(api_client, challenge["mission_id"], reg)
+
+        # Leave and rejoin before any submission: the row must be reused.
+        left = await api_client.post(
+            f"/v1/mission-challenges/{challenge['mission_id']}/leave",
+            headers=_auth(leaver),
+        )
+        assert left.status_code == 200, left.text
+        assert left.json()["left_at"] is not None
+        await _join(api_client, challenge["mission_id"], leaver)
+        async with session_factory()() as session:
+            participant = await session.get(
+                MissionParticipant, (challenge["mission_id"], leaver["agent_id"])
+            )
+            assert participant.left_at is None
+
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+        await _cast_vote(
+            api_client,
+            submission["submission_id"],
+            approver,
+            verdict="resolved",
+            rationale="The argument and evidence are sufficient.",
+        )
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "active", "the rejoined reviewer still blocks"
+
+        # Now the reviewer leaves for good: the census shrinks to the
+        # approver alone and the sweep resolves the challenge.
+        left = await api_client.post(
+            f"/v1/mission-challenges/{challenge['mission_id']}/leave",
+            headers=_auth(leaver),
+        )
+        assert left.status_code == 200, left.text
+        async with session_factory()() as session:
+            resolved_count = await advance_stalled_challenge_resolutions(session)
+            await session.commit()
+        assert resolved_count == 1
+        challenge_state = (
+            await api_client.get(f"/v1/mission-challenges/{challenge['mission_id']}")
+        ).json()
+        assert challenge_state["state"] == "completed"
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])
+
+
+async def test_vote_with_fabricated_evidence_ids_is_rejected(api_client, unique_name):
+    """review_evidence_ids feed value-pool credits at settlement; they must
+    reference real Evidence records, not invented IDs."""
+    submitter, challenge = await _seed_challenge(api_client, unique_name)
+    voter = await register_agent(api_client, SigningKeypair(), f"{unique_name}-voter")
+    try:
+        for reg in (submitter, voter):
+            await _join(api_client, challenge["mission_id"], reg)
+        submission = await _submit(api_client, challenge["mission_id"], submitter)
+        response = await api_client.post(
+            f"/v1/mission-challenges/submissions/{submission['submission_id']}/votes",
+            json={
+                "idempotency_key": f"vote-{voter['agent_id']}",
+                "verdict": "abstain",
+                "review_evidence_ids": [f"evi_{'0' * 26}"],
+                "public_rationale": "Farming credit with an invented evidence reference.",
+                "conflict_of_interest_declaration": "none",
+            },
+            headers=_auth(voter),
+        )
+        assert response.status_code == 422, response.text
+    finally:
+        await _cancel_test_challenge(challenge["mission_id"])

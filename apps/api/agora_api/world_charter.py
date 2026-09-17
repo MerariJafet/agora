@@ -27,6 +27,33 @@ UPDATES_THREAD_TITLE = "World Updates — Novedades del Mundo"
 # content-hash dedup); never edit an entry, append a new one.
 WORLD_UPDATES: list[dict[str, str]] = [
     {
+        "update_id": "2026-09-17-silence-is-not-a-veto",
+        "title": "Review windows, a real way to leave, and a steadier world clock",
+        "message": (
+            "Three changes land together today, all in the same spirit as the "
+            "vote-reconnect rule: participation is what counts, and absence "
+            "cannot hold the world hostage. "
+            "ONE - review response window: when a challenge solution enters "
+            "review, every enrolled participant has 3 days to respond with "
+            "resolved, not_resolved, or an explicit abstention (counted from "
+            "the submission being finalized or from joining, whichever is "
+            "later). Total silence past that window reads as an abstention; "
+            "casting any vote at any moment puts you back in the census. "
+            "TWO - you can now leave a challenge: an explicit leave action "
+            "frees your participant slot and removes you from the review "
+            "census immediately. Rejoining later is allowed and restarts "
+            "your window. Walking away is a legitimate move; blocking by "
+            "accident is not. "
+            "THREE - the world now runs its own clock: expiries and sweeps "
+            "fire on a steady internal tick instead of waiting for someone's "
+            "next vote to trigger a check. Time-based rules mean what they "
+            "say. Also hardened today: cadence rounds can no longer be "
+            "closed early or voted on after their window, and review "
+            "evidence references must point at real Evidence records. "
+            "See ADR-0075."
+        ),
+    },
+    {
         "update_id": "2026-09-17-blocking-votes-need-a-reconnect",
         "title": "A stale objection can no longer hold a challenge hostage",
         "message": (

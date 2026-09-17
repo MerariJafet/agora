@@ -596,8 +596,16 @@ async def test_research_consensus_activates_challenge_without_tokoin_settlement(
             await session.execute(select(func.count(TokoinLedgerEntry.entry_id)))
         ).scalar_one()
 
-    activated = await api_client.post(
+    # The endpoint requires authentication since the cadence hardening: an
+    # anonymous call used to be able to close any open round as no-consensus.
+    anonymous = await api_client.post(
         f"/v1/forums/research-rounds/{round_id}/activate-if-consensus"
+    )
+    assert anonymous.status_code == 401, anonymous.text
+
+    activated = await api_client.post(
+        f"/v1/forums/research-rounds/{round_id}/activate-if-consensus",
+        headers=first_auth,
     )
     assert activated.status_code == 200, activated.text
     result = activated.json()
@@ -646,3 +654,114 @@ async def test_prompt_injection_forum_text_remains_untrusted(api_client, unique_
     body = posted.json()
     assert body["trust"]["instruction_trust"] == "untrusted_remote"
     assert body["trust"]["does_not_grant_local_permissions"] is True
+
+async def test_early_activation_call_cannot_close_an_open_round(api_client, unique_name):
+    """Cadence hardening: calling activate-if-consensus while the window is
+    still open and consensus has not formed must be a no-op — before the fix
+    it closed the round as complete_no_consensus, an (anonymous) kill-switch
+    for every research window."""
+    await _bootstrap(api_client)
+    first, first_auth = await _agent(api_client, f"{unique_name}-early-a")
+    second, _second_auth = await _agent(api_client, f"{unique_name}-early-b")
+    launched = await api_client.post(
+        "/v1/forums/research-test-01/launch",
+        json={
+            "idempotency_key": f"{unique_name}-early-launch",
+            "countdown_seconds": 0,
+            "eligible_agent_ids": [first["agent_id"], second["agent_id"]],
+        },
+    )
+    assert launched.status_code == 201, launched.text
+    round_id = launched.json()["round_id"]
+
+    # No votes yet, window wide open: the call must not close anything.
+    poked = await api_client.post(
+        f"/v1/forums/research-rounds/{round_id}/activate-if-consensus",
+        headers=first_auth,
+    )
+    assert poked.status_code == 200, poked.text
+    async with session_factory()() as session:
+        round_row = await session.get(ResearchConsensusRound, round_id)
+        assert round_row.state == "proposal_window"
+        # Close the round so it does not linger as an open window for
+        # later scheduler-focused tests in the same database.
+        round_row.state = "complete_no_consensus"
+        await session.commit()
+
+
+async def test_vote_on_closed_round_is_rejected(api_client, unique_name):
+    """Votes must not mutate closed rounds or resurrect them into late
+    consensus."""
+    await _bootstrap(api_client)
+    first, first_auth = await _agent(api_client, f"{unique_name}-closed-a")
+    proposal_id = await _eligible_proposal(api_client, first_auth, f"{unique_name}-closed-p")
+    launched = await api_client.post(
+        "/v1/forums/research-test-01/launch",
+        json={
+            "idempotency_key": f"{unique_name}-closed-launch",
+            "countdown_seconds": 0,
+            "eligible_agent_ids": [first["agent_id"]],
+        },
+    )
+    assert launched.status_code == 201, launched.text
+    round_id = launched.json()["round_id"]
+    async with session_factory()() as session:
+        round_row = await session.get(ResearchConsensusRound, round_id)
+        round_row.state = "complete_no_consensus"
+        await session.commit()
+
+    vote = await api_client.post(
+        f"/v1/forums/research-rounds/{round_id}/votes",
+        json={
+            "idempotency_key": f"{unique_name}-closed-vote",
+            "proposal_id": proposal_id,
+            "vote": "APPROVE",
+            "rationale": "This round is already closed; the vote must bounce.",
+        },
+        headers=first_auth,
+    )
+    assert vote.status_code == 409, vote.text
+    async with session_factory()() as session:
+        proposal = await session.get(ResearchProposal, proposal_id)
+        proposal.state = "WITHDRAWN"
+        await session.commit()
+
+
+async def test_vote_after_voting_window_is_rejected(api_client, unique_name):
+    """The window is the contract: once voting_ends_at passes, late votes
+    bounce instead of silently mutating round history."""
+    await _bootstrap(api_client)
+    first, first_auth = await _agent(api_client, f"{unique_name}-late-a")
+    proposal_id = await _eligible_proposal(api_client, first_auth, f"{unique_name}-late-p")
+    launched = await api_client.post(
+        "/v1/forums/research-test-01/launch",
+        json={
+            "idempotency_key": f"{unique_name}-late-launch",
+            "countdown_seconds": 0,
+            "eligible_agent_ids": [first["agent_id"]],
+        },
+    )
+    assert launched.status_code == 201, launched.text
+    round_id = launched.json()["round_id"]
+    async with session_factory()() as session:
+        round_row = await session.get(ResearchConsensusRound, round_id)
+        round_row.voting_ends_at = now_utc() - timedelta(minutes=1)
+        await session.commit()
+
+    vote = await api_client.post(
+        f"/v1/forums/research-rounds/{round_id}/votes",
+        json={
+            "idempotency_key": f"{unique_name}-late-vote",
+            "proposal_id": proposal_id,
+            "vote": "APPROVE",
+            "rationale": "The window elapsed; this vote must bounce.",
+        },
+        headers=first_auth,
+    )
+    assert vote.status_code == 409, vote.text
+    async with session_factory()() as session:
+        round_row = await session.get(ResearchConsensusRound, round_id)
+        round_row.state = "complete_no_consensus"
+        proposal = await session.get(ResearchProposal, proposal_id)
+        proposal.state = "WITHDRAWN"
+        await session.commit()

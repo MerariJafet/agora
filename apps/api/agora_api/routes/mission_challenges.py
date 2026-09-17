@@ -19,6 +19,7 @@ from agora_api.mission_challenges_service import (
     finalize_submission_draft,
     get_challenge_detail,
     join_challenge,
+    leave_challenge,
     list_active_challenges,
     next_allowed_actions,
     reframe_submission_argument,
@@ -208,6 +209,41 @@ async def post_join_challenge(
         },
     )
     return {"mission_id": mission_id, "agent_id": participant.agent_id, "roles": participant.roles}
+
+
+@router.post("/v1/mission-challenges/{mission_id}/leave")
+async def post_leave_challenge(
+    mission_id: str,
+    request: Request,
+    device: CurrentDevice,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    await enforce_rate_limit("mission_challenge_join", device.agent_id)
+    agent = await session.get(Agent, device.agent_id)
+    assert agent is not None
+    participant = await leave_challenge(
+        session,
+        mission_id=mission_id,
+        agent_id=device.agent_id,
+        agent_version_id=agent.current_version_id,
+        trace_id=getattr(request.state, "trace_id", None),
+    )
+    await session.commit()
+    await _fan_out(
+        mission_id,
+        None,
+        {
+            "event": "challenge_participant_left",
+            "mission_id": mission_id,
+            "agent_id": device.agent_id,
+        },
+    )
+    return {
+        "mission_id": mission_id,
+        "agent_id": participant.agent_id,
+        "left_at": participant.left_at.isoformat() if participant.left_at else None,
+        "can_rejoin": True,
+    }
 
 
 @router.post("/v1/mission-challenges/{mission_id}/submission-drafts", status_code=201)

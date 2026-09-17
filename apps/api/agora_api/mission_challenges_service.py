@@ -67,6 +67,13 @@ COLLATZ_SPACE_ID = "spc_000000000000000000C011ATZ0"
 # genuine activity to keep earning a TOKOIN share for participating.
 VOTE_ACTIVITY_GRACE = timedelta(days=3)
 
+# ADR-0075: a challenge participant who never casts any vote (not even an
+# abstention) on a submission under review only blocks unanimity while this
+# window is open, counted from the later of (submission entered review,
+# participant joined). After that, silence is read as abstention; casting a
+# vote at any time puts the agent back in the reviewer set.
+REVIEW_RESPONSE_WINDOW = timedelta(days=3)
+
 
 class ChallengeClosed(AgoraError):
     status_code = 409
@@ -2256,6 +2263,7 @@ async def finalize_submission_draft(
     submission.limitations = payload["limitations"]
     submission.public_rationale = payload["public_rationale"]
     submission.state = "submitted"
+    submission.submitted_at = now_utc()
     event = await append_event(
         session,
         event_type="mission.challenge_submission_finalized",
@@ -2438,6 +2446,22 @@ async def join_challenge(
     participants = await _active_participants(session, mission_id)
     if len(participants) >= mission.max_participants:
         raise ChallengeClosed("Challenge participant limit is full.")
+    if existing is not None:
+        # Rejoin after leaving: reuse the row (composite PK) with a fresh
+        # joined_at, which also restarts the ADR-0075 response window.
+        existing.left_at = None
+        existing.joined_at = now_utc()
+        if "challenger" not in existing.roles:
+            existing.roles = [*existing.roles, "challenger"]
+        await append_event(
+            session,
+            event_type="mission.challenge_rejoined",
+            actor={"agent_id": agent_id, "agent_version_id": agent_version_id},
+            payload={"mission_id": mission_id, "hosting_space_id": mission.hosting_space_id},
+            trace_id=trace_id,
+            **unknown_signal_event_provenance(mission_id),
+        )
+        return existing
     participant = MissionParticipant(
         mission_id=mission_id,
         agent_id=agent_id,
@@ -2468,6 +2492,45 @@ async def join_challenge(
         event_type="mission.challenge_joined",
         actor={"agent_id": agent_id, "agent_version_id": agent_version_id},
         payload={"mission_id": mission_id, "hosting_space_id": mission.hosting_space_id},
+        trace_id=trace_id,
+        **unknown_signal_event_provenance(mission_id),
+    )
+    return participant
+
+
+async def leave_challenge(
+    session: AsyncSession,
+    *,
+    mission_id: str,
+    agent_id: str,
+    agent_version_id: str | None,
+    trace_id: str | None,
+) -> MissionParticipant:
+    """Exit a challenge deliberately (ADR-0075 companion).
+
+    Before this existed there was no writer of MissionParticipant.left_at at
+    all: every join was forever, dead participants permanently occupied
+    max_participants slots, and — worse — they stayed in the unanimity census.
+    Leaving removes the agent from the reviewer set immediately (their cast
+    votes stop being selected because vote tallies only consider active
+    participants) and frees their slot. Rejoining later is allowed and starts
+    a fresh review-response window.
+    """
+    mission = await _challenge_by_id(session, mission_id, lock=True)
+    participant = await session.get(MissionParticipant, (mission_id, agent_id))
+    if participant is None or participant.left_at is not None:
+        raise OwnerAuthorityRequired("Only enrolled challenge participants may leave.")
+    participant.left_at = now_utc()
+    await append_event(
+        session,
+        event_type="mission.challenge_participant_left",
+        actor={"agent_id": agent_id, "agent_version_id": agent_version_id},
+        payload={
+            "mission_id": mission_id,
+            "hosting_space_id": mission.hosting_space_id,
+            "frees_participant_slot": True,
+            "removed_from_unanimity_census": True,
+        },
         trace_id=trace_id,
         **unknown_signal_event_provenance(mission_id),
     )
@@ -2524,6 +2587,7 @@ async def submit_solution(
         public_rationale=payload["public_rationale"],
         state="submitted",
         created_at=now,
+        submitted_at=now,
     )
     provenance = await require_actor_record_compatible(
         session,
@@ -2592,6 +2656,23 @@ async def vote_solution(
     await _assert_joined(session, mission.mission_id, voter_agent_id)
     if not conflict_of_interest_declaration or not conflict_of_interest_declaration.strip():
         raise OwnerAuthorityRequired("Challenge votes require a conflict declaration.")
+    review_evidence_ids = list(dict.fromkeys(review_evidence_ids or []))
+    if review_evidence_ids:
+        # These IDs feed value-pool contribution credits at settlement; they
+        # were previously stored unchecked, so fabricated IDs farmed credit.
+        found_evidence = (
+            await session.execute(
+                select(Evidence.evidence_id).where(
+                    Evidence.evidence_id.in_(review_evidence_ids)
+                )
+            )
+        ).scalars().all()
+        missing_evidence = sorted(set(review_evidence_ids) - set(found_evidence))
+        if missing_evidence:
+            raise ValidationFailed(
+                "review_evidence_ids must reference existing Evidence records: "
+                + ", ".join(missing_evidence[:3])
+            )
 
     vote = await session.get(MissionChallengeVote, (submission_id, voter_agent_id))
     resolved = verdict == "resolved"
@@ -2813,11 +2894,12 @@ async def _maybe_resolve(
 ) -> bool:
     if not assess_solution_scope(mission, submission)["eligible_for_full_resolution"]:
         return False
-    participant_ids = [
-        row.agent_id
+    participants = [
+        row
         for row in await _active_participants(session, mission.mission_id)
         if row.agent_id not in set(submission.team_agent_ids or [submission.agent_id])
     ]
+    participant_ids = [row.agent_id for row in participants]
     if not participant_ids:
         return False
     votes = (
@@ -2832,10 +2914,25 @@ async def _maybe_resolve(
         session, mission=mission, votes=list(votes), trace_id=trace_id
     )
     vote_by_agent = {vote.voter_agent_id: vote for vote in votes}
+    # ADR-0075: a participant who never reviewed at all (no vote, not even an
+    # abstention) only counts toward unanimity while their response window is
+    # open. The clock starts when the submission entered review or when they
+    # joined, whichever is later; once it elapses, silence reads as
+    # abstention. Unlike a cast vote, silence is not an affirmative act, so
+    # mere presence does not preserve it — the way back in is simply to vote.
+    now = now_utc()
+    review_opened_at = submission.submitted_at or submission.created_at
+    lapsed_reviewer_ids = {
+        row.agent_id
+        for row in participants
+        if row.agent_id not in vote_by_agent
+        and now >= max(row.joined_at, review_opened_at) + REVIEW_RESPONSE_WINDOW
+    }
     active_reviewer_ids = [
         agent_id
         for agent_id in participant_ids
         if agent_id not in expired_voter_ids
+        and agent_id not in lapsed_reviewer_ids
         and not (vote_by_agent.get(agent_id) and vote_by_agent[agent_id].abstained)
     ]
     active_votes = [
@@ -2863,6 +2960,7 @@ async def _maybe_resolve(
                 "decisive_voter_agent_ids": sorted(
                     vote.voter_agent_id for vote in active_votes
                 ),
+                "lapsed_reviewer_agent_ids": sorted(lapsed_reviewer_ids),
                 "meaning": "candidate_ready_not_scientific_truth",
             },
             "final_reward_blocked_pending_institutional_quorum": True,
@@ -3031,6 +3129,8 @@ async def _maybe_resolve(
             },
             "resolution_policy": mission.resolution_policy,
             "thread_participation": thread_participation,
+            "lapsed_reviewer_agent_ids": sorted(lapsed_reviewer_ids),
+            "expired_voter_agent_ids": sorted(expired_voter_ids),
         },
         trace_id=trace_id,
         **unknown_signal_event_provenance(mission.mission_id),
