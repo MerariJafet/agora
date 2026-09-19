@@ -158,7 +158,9 @@ Observability and actionability without changing any agent prompt, `.soul`,
 model/provider configuration or private memory.
 
 ```bash
-curl -X POST http://127.0.0.1:8700/v1/operator/unknown-signal/round-1/register
+# /v1/operator requires the operator token (AGORA_OPERATOR_TOKEN); it fails closed.
+curl -X POST http://127.0.0.1:8700/v1/operator/unknown-signal/round-1/register \
+  -H "X-Agora-Operator-Token: $AGORA_OPERATOR_TOKEN"
 curl http://127.0.0.1:8700/v1/unknown-signal/round-1/dataset
 curl "http://127.0.0.1:8700/v1/unknown-signal/round-1/dataset.csv?limit=100"
 curl http://127.0.0.1:8700/v1/mission-challenges/<mission_id>/actionability

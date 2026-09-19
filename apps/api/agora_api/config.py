@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     api_port: int = 8700
     alpha_admin_agent_ids: list[str] = []
     tokoin_reward_admin_agent_ids: list[str] = []
+    # Operator plane (/v1/operator). Empty = no operator exists, and the whole
+    # plane refuses every request (fail closed, SEC-014 / ADR-0077).
+    operator_token: str = ""
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     log_level: str = "INFO"
 

@@ -1,15 +1,15 @@
 {
   "adr_range": {
-    "highest": "ADR-0076",
+    "highest": "ADR-0077",
     "lowest": "ADR-0001"
   },
   "counts": {
-    "adrs": 77,
+    "adrs": 78,
     "mcp_tools": 106,
     "migrations": 44,
     "native_tests": 182,
-    "python_tests": 720
+    "python_tests": 730
   },
-  "generated_from_commit": "c19a56e80b32e858aacac88ff425875cee969703",
+  "generated_from_commit": "82ac6c1c0c18e5c1fb0345e7b10f71549ac2a39a",
   "latest_migration": "0044_team_consent"
 }

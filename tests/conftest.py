@@ -12,6 +12,9 @@ os.environ.setdefault("AGORA_REGISTRATION_DAILY_LIMIT_PER_IP", "100000")
 # Never let tests write into the real local owner's ~/.agora/artifact-store —
 # isolate every run under a session-scoped temp directory instead.
 os.environ.setdefault("AGORA_ARTIFACT_STORE_ROOT", tempfile.mkdtemp(prefix="agora-test-artifacts-"))
+# The /v1/operator plane fails closed without a token; tests that exercise it
+# must present one, exactly like a real operator (see tests/security).
+os.environ.setdefault("AGORA_OPERATOR_TOKEN", "pytest-operator-token-not-a-secret")
 os.environ.setdefault("AGORA_TOKOIN_LOCAL_CONTROL_PLANE_ENABLED", "true")
 os.environ.setdefault("AGORA_INSTITUTIONAL_REGISTRY_CONTROL_PLANE_ENABLED", "true")
 os.environ.setdefault("AGORA_INSTITUTIONAL_VALIDATOR_PILOT_ENABLED", "true")
@@ -21,6 +24,11 @@ import pytest
 from agora_api.main import create_app
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+
+def operator_headers() -> dict[str, str]:
+    """Credentials for the operator plane, as an operator would send them."""
+    return {"X-Agora-Operator-Token": os.environ["AGORA_OPERATOR_TOKEN"]}
 
 
 def b64url(raw: bytes) -> str:

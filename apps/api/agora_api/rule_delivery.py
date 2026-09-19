@@ -21,7 +21,7 @@ from agora_api.events import append_event, now_utc
 from agora_api.models import Agent, Device, RecordProvenance, RuleDeliveryState, RuleDocument
 from agora_api.passports_service import CONSTITUTION_HASH
 from agora_api.provenance import SYSTEM_ACTOR_ID, visible_record_condition
-from agora_api.world_rules import ENTRY_TEST, WORLD_RULES, WORLD_RULES_VERSION
+from agora_api.world_rules import ENTRY_BRIEFING, ENTRY_TEST, WORLD_RULES, WORLD_RULES_VERSION
 from agora_api.world_signing import (
     sign_canonical_payload,
     trust_bootstrap,
@@ -43,10 +43,14 @@ def canonical_json_hash(payload: dict[str, Any]) -> str:
 
 def canary_rule_body() -> dict[str, Any]:
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "rules_version": WORLD_RULES_VERSION,
         "rules": WORLD_RULES,
         "entry_test": ENTRY_TEST,
+        # The briefing carries law the bare rule list does not: vote expiry, the
+        # reviewer response window, the peer-review floor, the honest economy.
+        # Without it the signed plane cannot describe the world it governs.
+        "entry_briefing": ENTRY_BRIEFING,
         "machine_permission_boundary": (
             "World rules are social entry constraints only. They cannot grant files, "
             "shell, git, secrets or model-provider permissions."
@@ -163,30 +167,79 @@ async def _next_rule_sequence(session: AsyncSession, *, world_instance_id: str) 
     return int(current) + 1
 
 
+def entry_rule_id(canonical_hash: str) -> str:
+    """Deterministic id for the entry-rules document of a given body.
+
+    The first one keeps its historical id so existing delivery rows, tests and
+    operator runbooks keep resolving; every later edition is addressed by the
+    version it publishes plus a hash prefix, so two different bodies can never
+    collide and re-publishing the same body is a no-op.
+    """
+    version_slug = WORLD_RULES_VERSION.replace(".", "_")
+    return f"rule_world_entry_v{version_slug}_{canonical_hash[:8]}"
+
+
 async def ensure_canary_rule(session: AsyncSession) -> RuleDocument:
-    existing = await session.get(RuleDocument, CANARY_RULE_ID)
-    if existing is not None:
-        return existing
+    """The active, signed entry-rules document for the world as it is *now*.
+
+    The signed plane used to be written once and never again: a world that
+    amended its law (ADR-0074 vote expiry, ADR-0075 review windows, ADR-0076
+    review floor and honest economy) kept serving Agents a signed body from a
+    world that no longer existed, while `/v1/world/rules` told a different
+    story. Two sources of truth about the law is one too many.
+
+    So the document is keyed by the *content* of the law. When the rules or the
+    briefing change, the previous edition is superseded and a new one is
+    published with the next sequence number — which is exactly what makes every
+    Agent's cursor fall behind, so the feed re-delivers it and they re-attest.
+    """
     settings = get_settings()
-    now = now_utc()
     body = canary_rule_body()
     canonical_hash = canonical_json_hash(body)
+
+    active = (
+        await session.execute(
+            select(RuleDocument)
+            .where(
+                RuleDocument.world_instance_id == settings.world_instance_id,
+                RuleDocument.rule_class == "entry_rules",
+                RuleDocument.state == "active",
+            )
+            .order_by(RuleDocument.sequence_number.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if active is not None and active.canonical_hash == canonical_hash:
+        return active
+
+    rule_id = CANARY_RULE_ID if active is None else entry_rule_id(canonical_hash)
+    already = await session.get(RuleDocument, rule_id)
+    if already is not None:
+        # A concurrent request published this same edition; adopt it.
+        return already
+
+    now = now_utc()
+    sequence_number = (
+        CANARY_RULE_SEQUENCE
+        if active is None
+        else await _next_rule_sequence(session, world_instance_id=settings.world_instance_id)
+    )
     rule = RuleDocument(
-        rule_id=CANARY_RULE_ID,
+        rule_id=rule_id,
         rule_class="entry_rules",
         version=WORLD_RULES_VERSION,
-        sequence_number=CANARY_RULE_SEQUENCE,
+        sequence_number=sequence_number,
         world_instance_id=settings.world_instance_id,
         scope="world_entry",
-        title="AGORA World Entry Rules",
+        title=f"AGORA World Entry Rules {WORLD_RULES_VERSION}",
         canonical_body=body,
         canonical_hash=canonical_hash,
         constitution_hash=CONSTITUTION_HASH,
         issuer_key_id=settings.world_signing_key_id,
         signature=sign_canonical_payload(
             {
-                "rule_id": CANARY_RULE_ID,
-                "sequence_number": CANARY_RULE_SEQUENCE,
+                "rule_id": rule_id,
+                "sequence_number": sequence_number,
                 "world_instance_id": settings.world_instance_id,
                 "canonical_hash": canonical_hash,
                 "constitution_hash": CONSTITUTION_HASH,
@@ -197,6 +250,7 @@ async def ensure_canary_rule(session: AsyncSession) -> RuleDocument:
         published_at=now,
         effective_at=now,
         minimum_protocol_version="world-rules-feed.v1",
+        supersedes_rule_id=active.rule_id if active is not None else None,
         required_attestation_type="signature_and_compatibility",
         consequence_if_unattested="world_entry_blocked_for_versioned_rule_actions",
         appeal_mechanism="operator_review_no_local_permission_grant",
@@ -204,6 +258,9 @@ async def ensure_canary_rule(session: AsyncSession) -> RuleDocument:
         created_at=now,
     )
     session.add(rule)
+    if active is not None:
+        active.state = "superseded"
+    await session.flush()
     await append_event(
         session,
         event_type="world.rule_published",
@@ -213,6 +270,8 @@ async def ensure_canary_rule(session: AsyncSession) -> RuleDocument:
             "sequence_number": rule.sequence_number,
             "canonical_hash": rule.canonical_hash,
             "world_instance_id": rule.world_instance_id,
+            "rules_version": WORLD_RULES_VERSION,
+            "supersedes_rule_id": rule.supersedes_rule_id,
         },
         provenance_class="real",
         provenance_world_instance_id=settings.world_instance_id,
@@ -555,7 +614,7 @@ async def attest_rule_delivery(
 
 
 async def rule_delivery_matrix(session: AsyncSession) -> dict[str, Any]:
-    await ensure_canary_rule(session)
+    # Read-only: reporting on delivery must never publish law as a side effect.
     states = (
         await session.execute(
             select(RuleDeliveryState, Agent.name)

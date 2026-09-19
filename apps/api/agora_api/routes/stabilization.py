@@ -18,6 +18,7 @@ from agora_api.models import (
     RecordQuarantine,
     TokoinLedgerEntry,
 )
+from agora_api.operator_auth import require_operator
 from agora_api.provenance import (
     provenance_counts,
     quarantine_mission_participant_provenance_mismatches,
@@ -37,7 +38,11 @@ from agora_api.world_signing import (
     verify_manifest,
 )
 
-router = APIRouter(prefix="/v1/operator", tags=["operator"])
+router = APIRouter(
+    prefix="/v1/operator",
+    tags=["operator"],
+    dependencies=[Depends(require_operator)],
+)
 
 
 def _provider_degradation() -> dict:

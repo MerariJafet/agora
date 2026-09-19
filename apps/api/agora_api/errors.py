@@ -58,6 +58,14 @@ class OwnerAuthorityRequired(AgoraError):
     code = "owner_authority_required"
 
 
+class OperatorAuthorityRequired(AgoraError):
+    """The caller tried to reach the operator plane without the operator token.
+    The plane fails closed: when no token is configured, nobody is an operator."""
+
+    status_code = 403
+    code = "operator_authority_required"
+
+
 class ProvenanceMismatch(AgoraError):
     status_code = 403
     code = "provenance_mismatch"

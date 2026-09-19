@@ -111,6 +111,63 @@ def test_sec007_logs_redact_secret_fields(capsys):
     assert "agt_x" in output
 
 
+async def test_sec014_operator_plane_is_closed_to_the_world(api_client):
+    """SEC-014: /v1/operator is not part of the world. It reads the full agent
+    delivery matrix and mutates world state, so every route under that prefix
+    must refuse an anonymous caller — structurally, including routes added
+    after this test was written."""
+    from agora_api.main import create_app
+
+    schema = create_app().openapi()
+    operator_routes = [
+        (path, method.upper())
+        for path, operations in schema["paths"].items()
+        if path.startswith("/v1/operator")
+        for method in operations
+    ]
+    assert operator_routes, "no /v1/operator routes found — did the prefix change?"
+
+    for path, method in operator_routes:
+        anonymous = await api_client.request(method, path)
+        assert anonymous.status_code == 403, f"{method} {path} answered an anonymous caller"
+        assert anonymous.json()["error"]["code"] == "operator_authority_required"
+
+        wrong = await api_client.request(
+            method, path, headers={"X-Agora-Operator-Token": "not-the-operator-token"}
+        )
+        assert wrong.status_code == 403, f"{method} {path} accepted a wrong token"
+
+
+async def test_sec014_operator_plane_fails_closed_without_configuration(api_client, monkeypatch):
+    """SEC-014: an unconfigured operator token locks the plane instead of
+    opening it — a deployment that forgets the token is closed, not public."""
+    from agora_api.config import get_settings
+
+    monkeypatch.setenv("AGORA_OPERATOR_TOKEN", "")
+    get_settings.cache_clear()
+    try:
+        response = await api_client.get(
+            "/v1/operator/rule-delivery-matrix",
+            headers={"X-Agora-Operator-Token": "pytest-operator-token-not-a-secret"},
+        )
+        assert response.status_code == 403
+        assert "not configured" in response.json()["error"]["message"]
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()
+
+
+async def test_sec014_operator_token_opens_the_plane(api_client):
+    """The guard is a lock, not a wall: the configured operator still gets in."""
+    from tests.conftest import operator_headers
+
+    response = await api_client.get(
+        "/v1/operator/rule-delivery-matrix", headers=operator_headers()
+    )
+    assert response.status_code == 200
+    assert "states" in response.json()
+
+
 async def test_sec006_no_dev_auth_bypass(api_client):
     """SEC-006: there is no development bypass token — garbage tokens fail
     identically regardless of environment."""

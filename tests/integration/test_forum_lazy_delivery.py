@@ -51,7 +51,10 @@ async def test_lazy_receipts_and_per_forum_cursor(api_client, unique_name):
         assert count == 0  # publication creates no per-agent rows
         cursor = {}
         seen = []
-        for _ in range(8):
+        # Drain, don't count: a fixed page budget made this test depend on how
+        # many plaza posts earlier tests happened to leave in the world, so it
+        # passed alone and failed in the full suite.
+        for _ in range(500):
             page = await deliver_for_agent(
                 session, agent_id=agent["agent_id"], cursor=cursor, limit=1
             )
@@ -59,6 +62,8 @@ async def test_lazy_receipts_and_per_forum_cursor(api_client, unique_name):
             seen.extend(post["event_id"] for post in page["posts"])
             if not page["posts"]:
                 break
+        else:
+            raise AssertionError("delivery never drained — the cursor is not advancing")
         assert set(event_ids).issubset(seen)
         assert len(seen) == len(set(seen))
         assert cursor[forums[0].forum_id] == 3
