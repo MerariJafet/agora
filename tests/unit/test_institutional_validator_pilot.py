@@ -1,5 +1,7 @@
 import json
 
+import pytest
+from agora_api.magna_knowledge_ledger import canonical_json_hash
 from jsonschema import Draft202012Validator
 
 from scripts.institutional_validator_pilot import (
@@ -7,9 +9,12 @@ from scripts.institutional_validator_pilot import (
     _joint_candidate_ids,
     _owner_recommendation,
     _tokoin_recommendation,
+    bind_review_to_executed_evidence,
     normalize_model_review,
     parse_claude_result,
     run_reproduction,
+    verify_review_context,
+    watch_assignments,
 )
 
 
@@ -198,3 +203,89 @@ def test_unknown_protocol_gets_static_audit_without_executing_candidate_code(
         evidence["reproduction_status_hint"]
         == "NOT_REPRODUCIBLE_FROM_PROVIDED_ARTIFACTS"
     )
+
+
+def test_evidence_gate_demotes_unreproduced_model_approval() -> None:
+    review = normalize_model_review(_review())
+    evidence = {
+        "candidate_id": "candidate-x",
+        "tests_executed": ["Checked the package structure only."],
+        "reproduction_status_hint": "NOT_REPRODUCIBLE_FROM_PROVIDED_ARTIFACTS",
+    }
+
+    result = bind_review_to_executed_evidence(review, evidence)
+
+    assert result["verdict"] == "INSUFFICIENT_EVIDENCE"
+    assert result["confidence"] == 50
+    assert result["reproduction_status"] == evidence["reproduction_status_hint"]
+    assert result["executed_tests"] == evidence["tests_executed"]
+    assert result["artifacts_reviewed"] == [
+        "candidate-candidate-x.json", "reproduction-candidate-x.json"
+    ]
+    assert result["critical_issues"]
+    assert result["requested_changes"]
+
+
+def test_review_context_hash_rejects_modified_conversation() -> None:
+    context = {
+        "participants": [],
+        "world_conversation": [{"message_id": "msg-1", "content": "original"}],
+        "private_service_logs_disclosed": False,
+    }
+    context["context_hash"] = canonical_json_hash(
+        context, domain="agora.institutional.validator.context.v1"
+    )
+    package = {"review_context": context}
+    verify_review_context(package)
+
+    context["world_conversation"][0]["content"] = "modified"
+    with pytest.raises(RuntimeError, match="context hash mismatch"):
+        verify_review_context(package)
+
+
+def test_allowlisted_adapter_limits_untrusted_workload(tmp_path) -> None:
+    home = tmp_path / "validator"
+    (home / "artifacts").mkdir(parents=True)
+    package_path = home / "candidate.json"
+    package_path.write_text(
+        json.dumps(
+            {
+                "candidate": {"candidate_id": "candidate-large", "content_hash": "a" * 64},
+                "final_solution": {
+                    "payload": {
+                        "protocol_id": "sum-of-squares-v1",
+                        "inputs": {"start": 1, "end": 10_000_000},
+                        "expected_output": 1,
+                    }
+                },
+                "review_context": {"context_hash": "b" * 64},
+            }
+        )
+    )
+
+    evidence = run_reproduction(home, package_path)
+
+    assert evidence["reproduced"] is False
+    assert evidence["reproduction_status_hint"] == "NOT_REPRODUCED_DUE_TO_TOOL_LIMITATION"
+    assert evidence["candidate_code_executed"] is False
+
+
+def test_watch_reports_unassigned_queue_without_review(monkeypatch, tmp_path) -> None:
+    import scripts.institutional_validator_pilot as pilot
+
+    queue = {
+        "synthetic_test_only": True,
+        "awaiting_freeze": [],
+        "candidates": [{"candidate_id": "candidate-x", "next_action": "OWNER_ASSIGN_PANEL"}],
+    }
+    ticks = iter([0.0, 1.0])
+    monkeypatch.setattr(pilot, "WATCH_STATE", tmp_path / "watch.json")
+    monkeypatch.setattr(pilot, "validation_queue", lambda: queue)
+    monkeypatch.setattr(pilot, "assigned_candidate_ids", lambda _url: [])
+    monkeypatch.setattr(pilot.time, "monotonic", lambda: next(ticks))
+
+    result = watch_assignments("http://example.test", poll_seconds=1, max_wait_seconds=0.5)
+
+    assert result["idle_no_joint_assignment"] is True
+    assert result["queue"] == queue
+    assert json.loads((tmp_path / "watch.json").read_text())["candidates"] == queue["candidates"]
