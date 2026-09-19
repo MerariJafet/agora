@@ -479,6 +479,21 @@ async def _assignment_package(
     validator: InstitutionalValidator,
     candidate: ResearchCandidateSnapshot,
 ) -> dict[str, Any]:
+    package = await candidate_review_package(session, candidate, synthetic=True)
+    return {
+        "assignment_id": assignment.assignment_id,
+        "validator_id": validator.validator_id,
+        "review_role": validator.review_role,
+        "blind_review": True,
+        "peer_review_data_disclosed": False,
+        **package,
+    }
+
+
+async def candidate_review_package(
+    session: AsyncSession, candidate: ResearchCandidateSnapshot, *, synthetic: bool = False
+) -> dict[str, Any]:
+    """Build candidate evidence without assigning a synthetic validator identity."""
     mission = await session.get(Mission, candidate.challenge_id)
     submission = await session.get(MissionChallengeSubmission, candidate.submission_id)
     solution = await session.get(MagnaKnowledgeObject, candidate.final_solution_object_id)
@@ -637,6 +652,11 @@ async def _assignment_package(
             )
         )
     ).scalar_one_or_none()
+    advisory_key = (
+        "advisory_only_for_synthetic_validator"
+        if synthetic
+        else "advisory_only_for_agent_proposal"
+    )
     review_context: dict[str, Any] = {
         "participants": [
             {
@@ -761,7 +781,7 @@ async def _assignment_package(
                 "total_aceros": reward.total_aceros,
                 "allocation": reward.allocation,
                 "algorithm_version": reward.algorithm_version,
-                "advisory_only_for_synthetic_validator": True,
+                advisory_key: True,
             }
             if reward
             else {
@@ -769,7 +789,7 @@ async def _assignment_package(
                 "state": "NOT_CALCULATED",
                 "total_aceros": 0,
                 "allocation": {},
-                "advisory_only_for_synthetic_validator": True,
+                advisory_key: True,
             }
         ),
         "coverage_limits": {
@@ -786,11 +806,6 @@ async def _assignment_package(
         review_context, domain="agora.institutional.validator.context.v1"
     )
     return {
-        "assignment_id": assignment.assignment_id,
-        "validator_id": validator.validator_id,
-        "review_role": validator.review_role,
-        "blind_review": True,
-        "peer_review_data_disclosed": False,
         "candidate": {
             "candidate_id": candidate.candidate_id,
             "candidate_version": candidate.candidate_version,

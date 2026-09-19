@@ -41,6 +41,8 @@ export interface ResearchProtocolView {
     institution_id: string;
     verdict: string;
     content_hash: string;
+    institutional_notes: string | null;
+    submitted_by_agent_id: string | null;
     created_at: string;
   }>;
   institutional_validator_layer?: {
@@ -149,6 +151,71 @@ export interface InstitutionalReviewDraft {
   conflict_declaration: string;
 }
 
+export interface InstitutionAgentMandate {
+  mandate_id: string;
+  institution_id: string;
+  institution_name: string;
+  agent_id: string;
+  state: "PENDING" | "ACTIVE" | "REVOKED";
+  mandate_hash: string;
+  signed_by_institution: boolean;
+  identity_assurance: "TEST_FIXTURE" | "REGISTRY_ACTIVE";
+  delegation_role: "UNIVERSITY_AGENT";
+  created_at: string;
+}
+
+export interface InstitutionAgentProposal {
+  proposal_id: string;
+  mandate_id: string;
+  institution_id: string;
+  candidate_id: string;
+  proposal_version: number;
+  proposal_hash: string;
+  state: string;
+  review: InstitutionalReviewDraft;
+  recommendation: {
+    assessment: string;
+    rationale: string;
+    blocking_issues: string[];
+    what_is_missing: string[];
+    suggested_actions: string[];
+  };
+  evidence_manifest: {
+    context_hash: string;
+    participant_ids: string[];
+    thread_entry_ids: string[];
+    event_ids: string[];
+    artifact_ids: string[];
+    test_receipt_hashes: string[];
+  };
+  reproduction_receipt: Record<string, unknown> | null;
+  tokoin_recommendation: {
+    total_aceros: number;
+    allocations: Array<{
+      recipient_kind: string;
+      recipient_id: string;
+      amount_aceros: number;
+      basis: string;
+    }>;
+    advisory_only: true;
+    settlement_eligible: false;
+  };
+  package_snapshot: Pick<PilotAssignmentPackage,
+    "candidate" | "challenge" | "submission" | "final_solution" | "review_context"
+  > & { institution_agent: InstitutionAgentMandate };
+  decision: null | {
+    decision_id: string;
+    decision: "APPROVE" | "REQUEST_REVISION" | "REJECT";
+    proposal_hash: string;
+    owner_notes: string;
+    signed_payload_hash: string | null;
+    created_at: string;
+  };
+  counts_as_institutional_review: boolean;
+  tokoin_settlement_authorized: false;
+  created_at: string;
+}
+
 async function researchMutation<T>(path: string, csrfToken: string, body: object): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     method: "POST",
@@ -162,6 +229,95 @@ async function researchMutation<T>(path: string, csrfToken: string, body: object
 
 export function getMyResearchInstitution(): Promise<{ institution: ResearchInstitutionView | null }> {
   return getJson("/v1/research-protocol/institutions/me");
+}
+
+export function registerResearchInstitution(
+  csrfToken: string,
+  body: {
+    legal_entity_id: string;
+    name: string;
+    domain: string;
+    jurisdiction: string;
+    signing_public_key: string;
+    credential_reference: string;
+    credential_hash: string;
+  },
+): Promise<ResearchInstitutionView> {
+  return researchMutation("/v1/research-protocol/institutions", csrfToken, body);
+}
+
+export function getMyInstitutionAgentMandate(): Promise<{ mandate: InstitutionAgentMandate | null }> {
+  return getJson("/v1/research-protocol/institutions/me/agent-mandate");
+}
+
+export function prepareInstitutionAgentMandate(agentId: string, csrfToken: string): Promise<
+  InstitutionAgentMandate & { signed_payload_hash: string; signing_payload: object }
+> {
+  return researchMutation(
+    "/v1/research-protocol/institutions/me/agent-mandates",
+    csrfToken,
+    { agent_id: agentId },
+  );
+}
+
+export function activateInstitutionAgentMandate(
+  mandateId: string, csrfToken: string, signature: string,
+): Promise<InstitutionAgentMandate> {
+  return researchMutation(
+    `/v1/research-protocol/institutions/me/agent-mandates/${encodeURIComponent(mandateId)}/activate`,
+    csrfToken,
+    { signature },
+  );
+}
+
+export function revokeInstitutionAgentMandate(
+  mandateId: string, csrfToken: string, reason: string,
+): Promise<InstitutionAgentMandate> {
+  return researchMutation(
+    `/v1/research-protocol/institutions/me/agent-mandates/${encodeURIComponent(mandateId)}/revoke`,
+    csrfToken,
+    { reason },
+  );
+}
+
+export function getInstitutionAgentProposal(candidateId: string): Promise<{
+  mandate: InstitutionAgentMandate | null;
+  proposal: InstitutionAgentProposal | null;
+}> {
+  return getJson(
+    `/v1/research-protocol/institutions/me/agent-proposals/${encodeURIComponent(candidateId)}`,
+  );
+}
+
+export function getInstitutionAgentSigningPayload(
+  proposalId: string, csrfToken: string, ownerNotes: string,
+): Promise<{
+  proposal_hash: string;
+  signed_payload_hash: string;
+  signing_payload: object;
+}> {
+  return researchMutation(
+    `/v1/research-protocol/institutions/me/agent-proposals/${encodeURIComponent(proposalId)}/signing-payload`,
+    csrfToken,
+    { owner_notes: ownerNotes },
+  );
+}
+
+export function decideInstitutionAgentProposal(
+  proposalId: string,
+  csrfToken: string,
+  body: {
+    decision: "APPROVE" | "REQUEST_REVISION" | "REJECT";
+    proposal_hash: string;
+    owner_notes: string;
+    institution_signature?: string;
+  },
+): Promise<InstitutionAgentProposal> {
+  return researchMutation(
+    `/v1/research-protocol/institutions/me/agent-proposals/${encodeURIComponent(proposalId)}/decision`,
+    csrfToken,
+    body,
+  );
 }
 
 export function prepareInstitutionalReview(

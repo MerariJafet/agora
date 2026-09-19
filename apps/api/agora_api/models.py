@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -1788,15 +1789,119 @@ class InstitutionalReview(Base):
     paper_review: Mapped[str] = mapped_column(Text, nullable=False)
     experiment_review: Mapped[str] = mapped_column(Text, nullable=False)
     conflict_declaration: Mapped[str] = mapped_column(Text, nullable=False)
+    institutional_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     signed_payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     signature: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    agent_proposal_id: Mapped[str | None] = mapped_column(
+        String(30),
+        ForeignKey("institution_agent_proposals.proposal_id"),
+        nullable=True,
+        unique=True,
+    )
+    submitted_by_agent_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("agents.agent_id"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
         UniqueConstraint("institution_id", "candidate_id", name="uq_institution_candidate_review"),
         Index("ix_institutional_reviews_candidate", "candidate_id", "verdict"),
     )
+
+
+class InstitutionAgentMandate(Base):
+    """University-signed delegation to one AGORA Agent, not a research participant role."""
+
+    __tablename__ = "institution_agent_mandates"
+
+    mandate_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    institution_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_institutions.institution_id"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(String(30), ForeignKey("agents.agent_id"), nullable=False)
+    mandate_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index(
+            "uq_institution_agent_active_institution",
+            "institution_id",
+            unique=True,
+            postgresql_where=text("state = 'ACTIVE'"),
+        ),
+        Index(
+            "uq_institution_agent_active_agent",
+            "agent_id",
+            unique=True,
+            postgresql_where=text("state = 'ACTIVE'"),
+        ),
+    )
+
+
+class InstitutionAgentProposal(Base):
+    """A delegated agent's advisory draft; it is not an institutional review."""
+
+    __tablename__ = "institution_agent_proposals"
+
+    proposal_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    mandate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("institution_agent_mandates.mandate_id"), nullable=False
+    )
+    institution_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_institutions.institution_id"), nullable=False
+    )
+    candidate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_candidate_snapshots.candidate_id"), nullable=False
+    )
+    proposal_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    proposal_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    package_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    review_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    recommendation: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    evidence_manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    reproduction_receipt: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    tokoin_recommendation: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    supersedes_proposal_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("institution_agent_proposals.proposal_id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "mandate_id",
+            "candidate_id",
+            "proposal_version",
+            name="uq_institution_agent_proposal_version",
+        ),
+        Index("ix_institution_agent_proposals_candidate", "candidate_id", "state"),
+    )
+
+
+class InstitutionAgentDecision(Base):
+    """Append-only representative decision, optionally signed by the university key."""
+
+    __tablename__ = "institution_agent_decisions"
+
+    decision_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        String(30),
+        ForeignKey("institution_agent_proposals.proposal_id"),
+        nullable=False,
+        unique=True,
+    )
+    owner_id: Mapped[str] = mapped_column(String(30), ForeignKey("users.user_id"), nullable=False)
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    proposal_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    owner_notes: Mapped[str] = mapped_column(Text, nullable=False)
+    signed_payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    institution_signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decision_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class InstitutionalValidator(Base):

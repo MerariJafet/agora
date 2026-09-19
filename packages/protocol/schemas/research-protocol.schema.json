@@ -139,7 +139,7 @@
       "properties": {
         "context_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "participant_ids": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 64}, "maxItems": 200, "uniqueItems": true},
-        "thread_entry_ids": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 64}, "maxItems": 500, "uniqueItems": true},
+        "thread_entry_ids": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 64}, "maxItems": 1200, "uniqueItems": true},
         "event_ids": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 64}, "maxItems": 500, "uniqueItems": true},
         "artifact_ids": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 64}, "maxItems": 200, "uniqueItems": true},
         "test_receipt_hashes": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "maxItems": 100, "uniqueItems": true}
@@ -254,6 +254,99 @@
       "properties": {
         "decision": {"type": "string", "enum": ["APPROVE", "REQUEST_REVISION", "REJECT"]},
         "proposal_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "owner_notes": {"type": "string", "minLength": 3, "maxLength": 5000}
+      }
+    },
+    "PrepareInstitutionAgentMandateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id"],
+      "properties": {
+        "agent_id": {"type": "string", "minLength": 1, "maxLength": 30}
+      }
+    },
+    "ActivateInstitutionAgentMandateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signature"],
+      "properties": {
+        "signature": {"type": "string", "pattern": "^[A-Za-z0-9_-]{86}$"}
+      }
+    },
+    "RevokeInstitutionAgentMandateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": {"type": "string", "minLength": 5, "maxLength": 2000}
+      }
+    },
+    "InstitutionAgentTokoinRecommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["denomination", "total_aceros", "allocations", "advisory_only", "settlement_eligible"],
+      "properties": {
+        "denomination": {"const": "ACEROS"},
+        "total_aceros": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+        "allocations": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["recipient_kind", "recipient_id", "amount_aceros", "basis"],
+            "properties": {
+              "recipient_kind": {"type": "string", "enum": ["AGENT", "TEAM", "INFRASTRUCTURE", "RESERVE"]},
+              "recipient_id": {"type": "string", "minLength": 1, "maxLength": 160},
+              "amount_aceros": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+              "basis": {"type": "string", "minLength": 10, "maxLength": 2000}
+            }
+          }
+        },
+        "advisory_only": {"const": true},
+        "settlement_eligible": {"const": false}
+      }
+    },
+    "CreateInstitutionAgentProposalRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_content_hash", "review", "recommendation", "evidence_manifest", "tokoin_recommendation"],
+      "properties": {
+        "candidate_content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "review": {"$ref": "#/$defs/PrepareInstitutionalReviewRequest"},
+        "recommendation": {"$ref": "#/$defs/PilotOwnerRecommendation"},
+        "evidence_manifest": {"$ref": "#/$defs/PilotEvidenceManifest"},
+        "reproduction_receipt": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["candidate_id", "candidate_content_hash", "reproduction_status", "tests_executed"],
+          "properties": {
+            "candidate_id": {"type": "string", "minLength": 1, "maxLength": 30},
+            "candidate_content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "reproduction_status": {"type": "string", "enum": ["REPRODUCED", "PARTIAL", "FAILED", "NOT_REPRODUCED"]},
+            "tests_executed": {"type": "array", "items": {"type": "object"}, "maxItems": 100}
+          },
+          "maxProperties": 30
+        },
+        "tokoin_recommendation": {"$ref": "#/$defs/InstitutionAgentTokoinRecommendation"}
+      }
+    },
+    "DecideInstitutionAgentProposalRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "proposal_hash", "owner_notes"],
+      "properties": {
+        "decision": {"type": "string", "enum": ["APPROVE", "REQUEST_REVISION", "REJECT"]},
+        "proposal_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "owner_notes": {"type": "string", "minLength": 3, "maxLength": 5000},
+        "institution_signature": {"type": "string", "pattern": "^[A-Za-z0-9_-]{86}$"}
+      }
+    },
+    "PrepareInstitutionAgentSigningRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner_notes"],
+      "properties": {
         "owner_notes": {"type": "string", "minLength": 3, "maxLength": 5000}
       }
     }

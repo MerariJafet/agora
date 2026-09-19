@@ -114,6 +114,9 @@ PREFIXES = (
     "rcs",
     "ins",
     "irv",
+    "iam",
+    "iap",
+    "iad",
     "rsc",
     "rrc",
     "rpp",
@@ -136,7 +139,7 @@ _ID_RE = re.compile(
     r"|opp|ned|off|cmt|ctb|out|con|wct|wcp|acc|rev"
     r"|rpr|elg|pas|dup|rsv|rse|cpl|apl|kob|ked|krr|kmb|kag|kpd"
     r"|tdp|twb|tsa|tsp|tca|tkr|tpr|tdt|ppe|tms"
-    r"|frm|fth|fpo|fdr|rrd|rvv|rcs|ins|irv|rsc|rrc|rpp|ivl|iva|ivr|ivp|ivd"
+    r"|frm|fth|fpo|fdr|rrd|rvv|rcs|ins|irv|iam|iap|iad|rsc|rrc|rpp|ivl|iva|ivr|ivp|ivd"
     r"|rpi|mtc|grp|ntf)"
     r"_([0-9A-HJKMNP-TV-Z]{26})$"
 )
@@ -577,6 +580,18 @@ def new_institution_id() -> str:
 
 def new_institutional_review_id() -> str:
     return new_id("irv")
+
+
+def new_institution_agent_mandate_id() -> str:
+    return new_id("iam")
+
+
+def new_institution_agent_proposal_id() -> str:
+    return new_id("iap")
+
+
+def new_institution_agent_decision_id() -> str:
+    return new_id("iad")
 
 
 def new_research_score_id() -> str:

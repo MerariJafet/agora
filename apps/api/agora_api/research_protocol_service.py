@@ -30,6 +30,7 @@ from agora_api.ids import (
 )
 from agora_api.magna_knowledge_ledger import canonical_json_hash
 from agora_api.models import (
+    InstitutionAgentMandate,
     InstitutionalReview,
     MagnaKnowledgeEdge,
     MagnaKnowledgeObject,
@@ -51,6 +52,16 @@ PROTOCOL_VERSION = "1.0.0"
 SCORING_VERSION = "AGORA_CONTRIBUTION_SCORE_V1"
 APPROVAL_VERDICTS = {"APPROVED", "APPROVED_WITH_MINOR_CHANGES"}
 ADVERSE_VERDICTS = {"REQUIRES_REVISION", "REJECTED", "INSUFFICIENT_EVIDENCE"}
+
+
+def is_test_institution(institution: ResearchInstitution) -> bool:
+    return (
+        institution.jurisdiction.upper() == "TEST"
+        or institution.legal_entity_id.upper().startswith("TEST-")
+        or institution.domain.lower().endswith(".example.org")
+    )
+
+
 REWARD_PERCENT = {
     "research_proposer": 1,
     "final_solution": 10,
@@ -132,7 +143,7 @@ def institution_view(row: ResearchInstitution, *, public: bool = True) -> dict[s
 
 
 def review_signing_payload(candidate: ResearchCandidateSnapshot, payload: dict[str, Any]) -> dict:
-    return {
+    result = {
         "domain": "agora.institutional.review.v1",
         "candidate_id": candidate.candidate_id,
         "candidate_content_hash": candidate.content_hash,
@@ -144,6 +155,9 @@ def review_signing_payload(candidate: ResearchCandidateSnapshot, payload: dict[s
         "experiment_review": payload["experiment_review"],
         "conflict_declaration": payload["conflict_declaration"],
     }
+    if "institutional_notes" in payload:
+        result["institutional_notes"] = payload["institutional_notes"]
+    return result
 
 
 async def register_institution(
@@ -419,6 +433,7 @@ async def create_review(
     owner: User,
     payload: dict[str, Any],
     trace_id: str | None,
+    delegated_agent_id: str | None = None,
 ) -> InstitutionalReview:
     candidate = await session.get(ResearchCandidateSnapshot, candidate_id)
     institution = await session.get(ResearchInstitution, payload["institution_id"])
@@ -426,8 +441,24 @@ async def create_review(
         raise NotFound("Research candidate not found.")
     if institution is None or institution.state != "ACTIVE":
         raise OwnerAuthorityRequired("Institution is not active.")
+    if get_settings().env != "test" and is_test_institution(institution):
+        raise OwnerAuthorityRequired("TEST institution cannot issue a real institutional review.")
     if institution.representative_owner_id != owner.user_id:
         raise OwnerAuthorityRequired("Owner is not the institution representative.")
+    active_mandate = (
+        await session.execute(
+            select(InstitutionAgentMandate).where(
+                InstitutionAgentMandate.institution_id == institution.institution_id,
+                InstitutionAgentMandate.state == "ACTIVE",
+            )
+        )
+    ).scalar_one_or_none()
+    if active_mandate is not None and active_mandate.agent_id != delegated_agent_id:
+        raise OwnerAuthorityRequired(
+            "An active university delegation requires the Agent to submit the signed review."
+        )
+    if active_mandate is None and delegated_agent_id is not None:
+        raise OwnerAuthorityRequired("Delegated Agent no longer has an active mandate.")
     signing_payload = review_signing_payload(candidate, payload)
     signed_hash = canonical_json_hash(
         signing_payload, domain="agora.institutional.review.payload.v1"
@@ -449,6 +480,7 @@ async def create_review(
         paper_review=payload["paper_review"],
         experiment_review=payload["experiment_review"],
         conflict_declaration=payload["conflict_declaration"],
+        institutional_notes=payload.get("institutional_notes"),
         signed_payload_hash=signed_hash,
         signature=payload["signature"],
         content_hash=canonical_json_hash(body, domain="agora.institutional.review.v1"),
@@ -763,7 +795,9 @@ async def lock_reward(
     approved_legal_entities = {
         institution.legal_entity_id
         for review, institution in reviews
-        if review.verdict in APPROVAL_VERDICTS and institution.state == "ACTIVE"
+        if review.verdict in APPROVAL_VERDICTS
+        and institution.state == "ACTIVE"
+        and (settings.env == "test" or not is_test_institution(institution))
     }
     if len(approved_legal_entities) < 2:
         raise Conflict(
@@ -1062,6 +1096,8 @@ async def challenge_research_view(session: AsyncSession, challenge_id: str) -> d
                 "institution_id": row.institution_id,
                 "verdict": row.verdict,
                 "content_hash": row.content_hash,
+                "institutional_notes": row.institutional_notes,
+                "submitted_by_agent_id": row.submitted_by_agent_id,
                 "created_at": row.created_at.isoformat(),
             }
             for row in reviews

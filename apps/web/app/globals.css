@@ -322,7 +322,7 @@ body:has(.observatory-shell) .shell > header {
   margin: 0.55rem 0 0;
   color: var(--agora-muted);
 }
-.research-protocol-header nav { display: flex; gap: 0.5rem; }
+.research-protocol-header nav { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .research-protocol-header nav a,
 .research-protocol-link {
   display: inline-flex;
@@ -434,11 +434,11 @@ body:has(.observatory-shell) .shell > header {
   border: 1px solid #ffffff15;
   background: #0e151e;
 }
-.genealogy-panel > header { display: flex; justify-content: space-between; padding: 1rem; border-bottom: 1px solid #ffffff12; }
+.genealogy-panel > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; padding: 1rem; border-bottom: 1px solid #ffffff12; }
 .genealogy-panel h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0; }
 .genealogy-panel code,
 .candidate-record code,
-.review-record code { color: #83a6bd; font-size: 0.68rem; }
+.review-record code { color: #83a6bd; font-size: 0.68rem; overflow-wrap: anywhere; }
 .genealogy-track { padding: 0.4rem 1rem 1rem; }
 .genealogy-node {
   position: relative;
@@ -448,18 +448,20 @@ body:has(.observatory-shell) .shell > header {
   padding: 0.85rem 0;
   border-bottom: 1px solid #ffffff0d;
 }
+.genealogy-node > div:last-child { min-width: 0; }
 .genealogy-node::before { content: ""; position: absolute; left: 21px; top: 46px; bottom: -12px; width: 1px; background: #42d6bf44; }
 .genealogy-node:last-child::before { display: none; }
 .genealogy-index { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid #42d6bf66; background: #10241f; color: var(--agora-teal); font: 0.72rem ui-monospace, monospace; }
-.genealogy-node h3 { margin: 0.2rem 0; font-size: 0.92rem; letter-spacing: 0; }
+.genealogy-node h3 { margin: 0.2rem 0; font-size: 0.92rem; letter-spacing: 0; overflow-wrap: anywhere; }
 .genealogy-node p { margin: 0; color: var(--agora-muted); font-size: 0.74rem; }
-.genealogy-node footer { display: flex; gap: 0.8rem; margin-top: 0.45rem; }
+.genealogy-node footer { display: flex; flex-wrap: wrap; gap: 0.4rem 0.8rem; margin-top: 0.45rem; }
 .node-type { color: var(--agora-accent); font-size: 0.65rem; text-transform: uppercase; }
 .node-refuted .genealogy-index { border-color: var(--agora-danger); color: var(--agora-danger); background: #2a1118; }
 .research-review-rail { display: grid; align-content: start; gap: 0.8rem; }
 .research-review-rail > section { padding: 1rem; }
 .candidate-record,
 .review-record { display: grid; gap: 0.25rem; padding: 0.7rem 0; border-bottom: 1px solid #ffffff0d; }
+.review-record p { margin: 0.15rem 0; color: #c0ccd3; font-size: 0.74rem; line-height: 1.45; overflow-wrap: anywhere; }
 .candidate-record span,
 .review-record span { color: var(--agora-muted); font-size: 0.74rem; }
 .reward-total { display: block; margin: 0.4rem 0 0.8rem; font-size: 1.3rem; }
@@ -480,6 +482,14 @@ body:has(.observatory-shell) .shell > header {
 .institution-signature-step code { overflow-wrap: anywhere; color: var(--agora-accent); }
 .institution-signature-step pre { max-height: 300px; overflow: auto; white-space: pre-wrap; }
 .validator-owner-console { max-width: 1480px; margin: 0 auto; }
+.university-review-entry { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; border-block: 1px solid #ffffff20; padding: 1.15rem 0; }
+.university-review-entry h2 { margin: 0.15rem 0; font-size: 1.1rem; letter-spacing: 0; }
+.university-review-entry p:last-child { margin: 0; color: var(--agora-muted); font-size: 0.78rem; }
+.university-review-entry a { flex: 0 0 auto; border: 1px solid #42d6bf66; border-radius: 5px; background: #10241f; color: var(--agora-teal); padding: 0.65rem 0.85rem; font-size: 0.75rem; text-decoration: none; }
+.pilot-history { border-bottom: 1px solid #ffffff18; }
+.pilot-history > summary { padding: 0.8rem 0; color: var(--agora-muted); cursor: pointer; font-size: 0.73rem; }
+.pilot-history:not([open]) > :not(summary) { display: none; }
+@media (max-width: 760px) { .university-review-entry { align-items: start; flex-direction: column; } }
 .validator-owner-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -594,6 +604,41 @@ body:has(.observatory-shell) .shell > header {
 .validator-panel-assignment button { border: 1px solid #42d6bf66; border-radius: 5px; background: #10241f; color: var(--agora-teal); padding: 0.55rem 0.75rem; cursor: pointer; font: inherit; font-size: 0.74rem; }
 .validator-panel-assignment button:disabled { cursor: not-allowed; opacity: 0.42; }
 .validator-assignment-status { margin: 0 1rem 0.8rem; color: var(--agora-teal); font-size: 0.74rem; }
+.university-agent-console { display: grid; gap: 0.8rem; }
+.university-agent-console .validator-owner-summary { width: 100%; }
+.university-agent-band { display: grid; gap: 0.8rem; border-block: 1px solid #ffffff1b; padding: 1rem 0; }
+.university-agent-band > header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.university-agent-band h2 { margin: 0; font-size: 1.05rem; letter-spacing: 0; }
+.university-agent-band h3 { margin: 0.55rem 0 0.15rem; font-size: 0.83rem; letter-spacing: 0; }
+.university-agent-band p, .university-agent-band li { margin: 0; color: #c0ccd3; font-size: 0.77rem; line-height: 1.5; overflow-wrap: anywhere; }
+.university-agent-band label:not(.validator-owner-confirm) { display: grid; gap: 0.35rem; max-width: 880px; color: var(--agora-muted); font-size: 0.7rem; text-transform: uppercase; }
+.university-agent-band input:not([type="checkbox"]), .university-agent-band textarea, .university-agent-band select { width: 100%; min-width: 0; border: 1px solid var(--agora-border); border-radius: 4px; background: #080d12; color: var(--agora-text); padding: 0.62rem; font: inherit; font-size: 0.82rem; }
+.university-agent-band textarea { min-height: 94px; resize: vertical; }
+.university-agent-band > button, .university-agent-band details button { justify-self: start; border: 1px solid #42d6bf66; border-radius: 5px; background: #10241f; color: var(--agora-teal); padding: 0.57rem 0.8rem; cursor: pointer; font: inherit; font-size: 0.76rem; }
+.university-agent-band button:disabled { cursor: not-allowed; opacity: 0.45; }
+.university-agent-band > code { overflow-wrap: anywhere; color: #91b8c8; font-size: 0.72rem; }
+.university-agent-band details { max-width: 880px; }
+.university-agent-band details summary { cursor: pointer; color: #efb4bd; font-size: 0.75rem; }
+.university-agent-band details label { margin: 0.7rem 0; }
+.university-agent-registration { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem 1rem; max-width: 1050px; }
+.university-agent-registration label { max-width: none !important; }
+.university-agent-registration button { justify-self: start; border: 1px solid #42d6bf66; border-radius: 5px; background: #10241f; color: var(--agora-teal); padding: 0.57rem 0.8rem; cursor: pointer; font: inherit; font-size: 0.76rem; }
+.university-agent-review { gap: 0.45rem; }
+.university-agent-review > header strong { color: var(--agora-teal); font-size: 0.76rem; }
+.university-agent-review .validator-finding-columns > div { min-width: 0; border-left: 2px solid #83a6bd; padding-left: 0.75rem; }
+.university-agent-review ul { margin: 0.25rem 0 0; padding-left: 1rem; }
+.university-agent-review table { width: 100%; min-width: 780px; border-collapse: collapse; }
+.university-agent-review th, .university-agent-review td { border-bottom: 1px solid #ffffff1b; padding: 0.55rem; text-align: left; vertical-align: top; color: #c0ccd3; font-size: 0.71rem; overflow-wrap: anywhere; }
+.university-agent-review th { color: var(--agora-muted); text-transform: uppercase; }
+.university-agent-decision { background: #0b1219; padding: 1rem; }
+.university-agent-decision > p[role="alert"] { color: #ff8792; }
+.university-agent-decision .validator-owner-confirm { max-width: 100%; color: #c0ccd3; font-size: 0.76rem; text-transform: none; }
+@media (max-width: 760px) {
+  .university-agent-registration { grid-template-columns: 1fr; }
+  .university-agent-band > header { flex-direction: column; }
+  .university-agent-band .validator-decision-actions { display: grid; }
+  .university-agent-band .validator-decision-actions button { width: 100%; }
+}
 @media (max-width: 760px) { .institution-context { grid-template-columns: 1fr; } }
 @media (max-width: 880px) {
   .research-protocol-header,
