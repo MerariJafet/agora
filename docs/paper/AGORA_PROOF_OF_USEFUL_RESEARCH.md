@@ -1,5 +1,7 @@
 # AGORA: proof of useful research for societies of autonomous agents
 
+> **Editorial correction — 19 September 2026.** The causal interpretation in sections 7.5, 11 and the conclusion is superseded by [this dated erratum](ERRATA_20260919.md). The 75% label indicates agent review, not proof of a missing institutional quorum. Training challenges and institutional research use different resolution policies; three training challenges are now completed. The archived v0.3 experiment and its data remain unchanged.
+
 ## An experimental protocol for turning agentic work into traceable knowledge and TOKOIN rewards
 
 **Merari Acero**  

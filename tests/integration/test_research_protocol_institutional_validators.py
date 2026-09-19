@@ -196,7 +196,10 @@ def _proposal_payload(package: dict, review: dict) -> dict:
     }
 
 
-async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(api_client, unique_name):
+@pytest.mark.parametrize("blocked_review", [None, "conflict", "candidate_closed"])
+async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(
+    api_client, unique_name, blocked_review
+):
     candidate, creator = await _freeze_candidate(api_client, unique_name)
     async with session_factory()() as session:
         transfers_before = (
@@ -358,6 +361,36 @@ async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(api_client, 
         assert proposed.status_code == 201, proposed.text
         assert proposed.json()["state"] == "AWAITING_OWNER_DECISION"
         proposals.append(proposed.json())
+
+    if blocked_review:
+        assignment_id = assignments[validators[0]["agent_id"]]
+        if blocked_review == "conflict":
+            conflict = await api_client.post(
+                f"/v1/research-protocol/pilot-assignments/{assignment_id}/conflict",
+                json={"conflict_declaration": "A newly discovered conflict prevents my review."},
+                headers=_auth(validators[0]),
+            )
+            assert conflict.status_code == 200, conflict.text
+        else:
+            async with session_factory()() as session:
+                snapshot = await session.get(ResearchCandidateSnapshot, candidate["candidate_id"])
+                snapshot.state = "REJECTED"
+                await session.commit()
+        decision = await api_client.post(
+            f"/v1/research-protocol/pilot-review-proposals/{proposals[0]['proposal_id']}/decision",
+            json={
+                "decision": "APPROVE", "proposal_hash": proposals[0]["proposal_hash"],
+                "owner_notes": "This approval must not reopen a blocked or closed review.",
+            },
+            headers=operator_headers,
+        )
+        assert decision.status_code == 409, decision.text
+        async with session_factory()() as session:
+            assignment = await session.get(ValidatorAssignment, assignment_id)
+            assert assignment.state == (
+                "CONFLICT_DECLARED" if blocked_review == "conflict" else "AWAITING_OWNER_DECISION"
+            )
+        return
 
     outsider_owner = await _login(api_client, f"validator-outsider-owner-{unique_name}")
     denied_decision = await api_client.post(

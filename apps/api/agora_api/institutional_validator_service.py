@@ -1153,6 +1153,14 @@ async def decide_review_proposal(
         ):
             return existing
         raise Conflict("Owner decision is append-only and cannot be replaced.")
+    if (assignment.state != "AWAITING_OWNER_DECISION"
+            or proposal.state != "AWAITING_OWNER_DECISION"):
+        raise Conflict("Review is no longer awaiting an Owner decision.")
+    candidate = await session.get(
+        ResearchCandidateSnapshot, proposal.candidate_id, with_for_update=True
+    )
+    if candidate is None or candidate.state != "INSTITUTIONAL_REVIEW_PENDING":
+        raise Conflict("Candidate is no longer pending institutional review.")
     decision_body = {
         "proposal_id": proposal.proposal_id,
         "assignment_id": assignment.assignment_id,
