@@ -58,6 +58,18 @@ to the peer Agent. `REQUEST_REVISION` causes a new proposal version;
 commit/reveal. All displayed financial amounts remain recommendations in
 `ACEROS` with `settlement_eligible=false`.
 
+The dashboard also shows each validator's blind candidate package: frozen
+candidate and solution, participants and votes, challenge/world/forum
+conversations, public audit events, genealogy, artifact/evidence metadata,
+and reward context. It does not disclose private service logs or artifact
+blobs. Before a proposal, the assigning Owner sees the current package. Each
+new proposal preserves that package as a JSON snapshot, so subsequent public
+activity cannot silently change the evidence shown at decision time. The
+console disables decisions if the proposal's context hash does not match the
+loaded package. An old panel without a proposal has no Owner decision to make.
+Migration `0046_validator_package` adds the optional snapshot column without
+altering earlier reviews.
+
 From `/research/{challenge_id}`, an authenticated Owner can assign the active
 Codex reproduction/methodology profile and Claude falsification/evidence
 profile to an unassigned frozen candidate. The assigning Owner becomes the

@@ -551,6 +551,43 @@ body:has(.observatory-shell) .shell > header {
 .validator-decision-actions button.danger { border-color: #ff6b7a66; background: #2a1118; color: #ff8792; }
 .validator-decision-actions button:disabled { cursor: not-allowed; opacity: 0.42; }
 .validator-console-status { position: sticky; bottom: 1rem; margin: 1rem auto 0; border: 1px solid #42d6bf66; border-radius: 5px; background: #10241f; padding: 0.75rem 1rem; color: var(--agora-teal); font-size: 0.78rem; }
+.validator-dashboard-tracks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-bottom: 0.8rem; background: #ffffff20; border: 1px solid #ffffff20; }
+.validator-dashboard-tracks button { display: grid; min-width: 0; gap: 0.25rem; border: 0; border-bottom: 3px solid transparent; background: #0a1119; padding: 0.85rem 1rem; text-align: left; color: var(--agora-text); cursor: pointer; font: inherit; }
+.validator-dashboard-tracks button.active { border-bottom-color: var(--agora-teal); background: #10201f; }
+.validator-dashboard-tracks button span { color: var(--agora-teal); font-size: 0.7rem; }
+.validator-dashboard-tracks button strong { font-size: 0.95rem; }
+.validator-dashboard-tracks button small { color: var(--agora-muted); font-size: 0.66rem; overflow-wrap: anywhere; }
+.validator-dashboard-dossier { margin-bottom: 0.8rem; border-block: 1px solid #ffffff1c; background: #0b1219; }
+.validator-dashboard-dossier > header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; padding: 1rem; }
+.validator-dashboard-dossier h2 { margin: 0; font-size: 1rem; letter-spacing: 0; }
+.validator-dashboard-dossier h3 { margin: 1.2rem 0 0.5rem; font-size: 0.86rem; letter-spacing: 0; }
+.validator-dashboard-dossier h4 { margin: 0.95rem 0 0.3rem; font-size: 0.75rem; letter-spacing: 0; }
+.validator-dashboard-dossier h3 small { margin-left: 0.3rem; color: var(--agora-muted); font-weight: 400; }
+.validator-dashboard-dossier p { color: #c0ccd3; font-size: 0.78rem; line-height: 1.55; overflow-wrap: anywhere; }
+.validator-dashboard-dossier code { color: #91b8c8; overflow-wrap: anywhere; font-size: 0.7rem; }
+.validator-dossier-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.7rem 1rem; border-block: 1px solid #ffffff12; padding: 0.55rem 1rem; color: var(--agora-muted); font-size: 0.7rem; }
+.validator-dossier-meta strong { color: var(--agora-teal); font-size: 0.64rem; }
+.validator-dossier-tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #ffffff1a; }
+.validator-dossier-tabs button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--agora-muted); padding: 0.75rem 1rem; cursor: pointer; font: inherit; font-size: 0.73rem; }
+.validator-dossier-tabs button.active { border-bottom-color: var(--agora-teal); color: var(--agora-text); }
+.validator-dossier-section { max-height: 680px; overflow: auto; padding: 0.45rem 1rem 1.2rem; }
+.validator-dossier-intro { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-top: 0.7rem; background: #ffffff12; }
+.validator-dossier-intro div { display: grid; min-width: 0; gap: 0.2rem; background: #0b1219; padding: 0.6rem 0.7rem; }
+.validator-dossier-intro span { color: var(--agora-muted); text-transform: uppercase; font-size: 0.62rem; }
+.validator-dossier-intro strong { font-size: 0.76rem; }
+.validator-dossier-json { margin: 0.5rem 0; border-left: 2px solid #547c84; background: #080e13; padding: 0.75rem; color: #c4d2d7; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 0.7rem/1.5 ui-monospace, monospace; }
+.validator-dashboard-dossier > .validator-dossier-json { max-height: 680px; margin: 0; }
+.validator-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1px; background: #ffffff12; }
+.validator-people div { display: grid; gap: 0.25rem; min-width: 0; background: #0b1219; padding: 0.6rem; }
+.validator-people span { color: var(--agora-muted); font-size: 0.68rem; }
+.validator-dossier-log { border-top: 1px solid #ffffff12; }
+.validator-dossier-log article, .validator-dossier-log details { border-bottom: 1px solid #ffffff12; padding: 0.6rem 0.15rem; }
+.validator-dossier-log article header, .validator-dossier-log details summary { display: flex; align-items: baseline; justify-content: space-between; gap: 0.65rem; flex-wrap: wrap; }
+.validator-dossier-log strong { font-size: 0.75rem; }
+.validator-dossier-log span, .validator-dossier-log small { color: var(--agora-muted); font-size: 0.67rem; }
+.validator-dossier-log article p { margin: 0.4rem 0; white-space: pre-wrap; }
+.validator-dossier-log details summary { cursor: pointer; }
+.validator-scope-note { border-left: 2px solid #ddac5e; padding-left: 0.7rem; }
 .validator-panel-assignment { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0.8rem 0; border-block: 1px solid #ffffff18; padding: 0.75rem 1rem; }
 .validator-panel-assignment div { display: flex; min-width: 0; align-items: center; gap: 0.65rem; }
 .validator-panel-assignment code { color: #83a6bd; }
@@ -574,6 +611,8 @@ body:has(.observatory-shell) .shell > header {
   .validator-hash-row { grid-template-columns: 1fr; }
   .validator-panel-assignment,
   .validator-panel-assignment div { align-items: stretch; flex-direction: column; }
+  .validator-dashboard-tracks, .validator-dossier-intro { grid-template-columns: 1fr; }
+  .validator-dashboard-dossier > header { flex-direction: column; }
 }
 
 @media (max-width: 760px) {

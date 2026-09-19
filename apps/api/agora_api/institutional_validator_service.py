@@ -450,9 +450,35 @@ async def _owned_assignment(
 async def assignment_package(
     session: AsyncSession, *, assignment_id: str, device: Device
 ) -> dict[str, Any]:
-    """Return only immutable candidate material to the assigned validator."""
+    """Return the blind candidate and current public review context to its validator."""
     _require_pilot_control_plane()
     assignment, validator, candidate = await _owned_assignment(session, assignment_id, device)
+    return await _assignment_package(session, assignment, validator, candidate)
+
+
+async def owner_assignment_package(
+    session: AsyncSession, *, assignment_id: str, owner: User
+) -> dict[str, Any]:
+    """Show the proposal's evidence snapshot, or the current blind package before submission."""
+    _require_pilot_control_plane()
+    assignment = await session.get(ValidatorAssignment, assignment_id)
+    if assignment is None or assignment.decision_owner_id != owner.user_id:
+        raise NotFound("Validator assignment not found.")
+    proposal = await _latest_proposal(session, assignment_id)
+    if proposal is not None and proposal.package_snapshot is not None:
+        return proposal.package_snapshot
+    validator = await session.get(InstitutionalValidator, assignment.validator_id)
+    candidate = await session.get(ResearchCandidateSnapshot, assignment.candidate_id)
+    assert validator is not None and candidate is not None
+    return await _assignment_package(session, assignment, validator, candidate)
+
+
+async def _assignment_package(
+    session: AsyncSession,
+    assignment: ValidatorAssignment,
+    validator: InstitutionalValidator,
+    candidate: ResearchCandidateSnapshot,
+) -> dict[str, Any]:
     mission = await session.get(Mission, candidate.challenge_id)
     submission = await session.get(MissionChallengeSubmission, candidate.submission_id)
     solution = await session.get(MagnaKnowledgeObject, candidate.final_solution_object_id)
@@ -1024,6 +1050,7 @@ async def submit_review_proposal(
         recommendation=payload["recommendation"],
         evidence_manifest=payload["evidence_manifest"],
         tokoin_recommendation=payload["tokoin_recommendation"],
+        package_snapshot=package,
         proposal_hash=computed,
         state="AWAITING_OWNER_DECISION",
         supersedes_proposal_id=previous.proposal_id if previous else None,
@@ -1092,9 +1119,21 @@ async def owner_review_proposals(
         ).all()
     )
     proposals: list[dict[str, Any]] = []
+    assignments: list[dict[str, Any]] = []
     pending_analysis = 0
     for assignment, validator in rows:
         proposal = await _latest_proposal(session, assignment.assignment_id)
+        assignments.append(
+            {
+                "assignment_id": assignment.assignment_id,
+                "candidate_id": assignment.candidate_id,
+                "state": assignment.state,
+                "assigned_at": assignment.assigned_at.isoformat(),
+                "validator": validator_view(validator),
+                "proposal_id": proposal.proposal_id if proposal else None,
+                "proposal_state": proposal.state if proposal else None,
+            }
+        )
         if proposal is None:
             if assignment.revealed_at is None:
                 pending_analysis += 1
@@ -1111,6 +1150,7 @@ async def owner_review_proposals(
         "challenge_id": challenge_id,
         "owner_id": owner.user_id,
         "pending_agent_analysis": pending_analysis,
+        "assignments": assignments,
         "proposals": proposals,
         "synthetic_test_only": True,
         "human_validation_satisfied": False,

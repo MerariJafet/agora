@@ -13,6 +13,7 @@ from agora_api.institutional_validator_service import (
     assignment_package,
     decide_review_proposal,
     own_review_proposal,
+    owner_assignment_package,
     owner_review_proposals,
     register_pilot_validator,
     submit_review_proposal,
@@ -259,6 +260,15 @@ async def get_pilot_assignment_package(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     return await assignment_package(session, assignment_id=assignment_id, device=device)
+
+
+@router.get("/pilot-assignments/{assignment_id}/package/owner")
+async def get_owner_pilot_assignment_package(
+    assignment_id: str,
+    owner: CurrentOwner,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    return await owner_assignment_package(session, assignment_id=assignment_id, owner=owner)
 
 
 @router.post("/pilot-assignments/{assignment_id}/proposal", status_code=201)

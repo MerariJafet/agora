@@ -4,6 +4,7 @@ import hashlib
 
 import pytest
 from agora_api.db import session_factory
+from agora_api.events import append_event
 from agora_api.institutional_validator_service import review_commitment
 from agora_api.models import (
     Agent,
@@ -299,6 +300,29 @@ async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(api_client, 
         assert package.json()["review_context"]["private_service_logs_disclosed"] is False
         packages.append(package.json())
 
+    for index, validator in enumerate(validators):
+        owner_package = await api_client.get(
+            f"/v1/research-protocol/pilot-assignments/"
+            f"{assignments[validator['agent_id']]}/package/owner"
+        )
+        assert owner_package.status_code == 200, owner_package.text
+        assert owner_package.json() == packages[index]
+    owner_queue = await api_client.get(
+        f"/v1/research-protocol/challenges/{packages[0]['challenge']['challenge_id']}"
+        "/pilot-review-proposals/me"
+    )
+    assert owner_queue.status_code == 200
+    assert {row["assignment_id"] for row in owner_queue.json()["assignments"]} == set(
+        assignments.values()
+    )
+    await _login(api_client, f"other-owner-{unique_name}")
+    denied_owner_package = await api_client.get(
+        f"/v1/research-protocol/pilot-assignments/"
+        f"{assignments[validators[0]['agent_id']]}/package/owner"
+    )
+    assert denied_owner_package.status_code == 404
+    operator_headers = await _login(api_client, f"validator-operator-{unique_name}")
+
     payloads = [
         _review_payload(
             "nonce-codex-review-0001",
@@ -358,6 +382,14 @@ async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(api_client, 
         assert proposed.status_code == 201, proposed.text
         assert proposed.json()["state"] == "AWAITING_OWNER_DECISION"
         proposals.append(proposed.json())
+
+    for index, reg in enumerate(validators):
+        owner_package = await api_client.get(
+            f"/v1/research-protocol/pilot-assignments/"
+            f"{assignments[reg['agent_id']]}/package/owner"
+        )
+        assert owner_package.status_code == 200, owner_package.text
+        assert owner_package.json() == packages[index]
 
     outsider_owner = await _login(api_client, f"validator-outsider-owner-{unique_name}")
     denied_decision = await api_client.post(
@@ -475,6 +507,30 @@ async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(api_client, 
     }
     assert revealed["tokoin_settlement_eligible"] is False
     assert revealed["pilot_credit_is_non_settleable"] is True
+
+    async with session_factory()() as session:
+        await append_event(
+            session,
+            event_type="research.candidate.public_note_added",
+            actor={"agent_id": creator["agent_id"]},
+            payload={"candidate_id": candidate["candidate_id"], "note": "Post-review context"},
+        )
+        await session.commit()
+    current_package = await api_client.get(
+        f"/v1/research-protocol/pilot-assignments/"
+        f"{assignments[validators[0]['agent_id']]}/package",
+        headers=_auth(validators[0]),
+    )
+    owner_snapshot = await api_client.get(
+        f"/v1/research-protocol/pilot-assignments/"
+        f"{assignments[validators[0]['agent_id']]}/package/owner",
+        headers=operator_headers,
+    )
+    assert current_package.status_code == owner_snapshot.status_code == 200
+    assert current_package.json()["review_context"]["context_hash"] != packages[0][
+        "review_context"
+    ]["context_hash"]
+    assert owner_snapshot.json() == packages[0]
 
     async with session_factory()() as session:
         snapshot = await session.get(ResearchCandidateSnapshot, candidate["candidate_id"])

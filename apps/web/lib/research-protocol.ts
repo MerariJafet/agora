@@ -265,10 +265,81 @@ export interface PilotReviewProposal {
   created_at: string;
 }
 
+export interface PilotOwnerAssignment {
+  assignment_id: string;
+  candidate_id: string;
+  state: string;
+  assigned_at: string;
+  validator: PilotReviewProposal["validator"];
+  proposal_id: string | null;
+  proposal_state: string | null;
+}
+
+export interface PilotAssignmentPackage {
+  assignment_id: string;
+  validator_id: string;
+  review_role: string;
+  blind_review: true;
+  peer_review_data_disclosed: false;
+  candidate: {
+    candidate_id: string;
+    candidate_version: number;
+    content_hash: string;
+    knowledge_root_hash: string;
+    protocol_version: string;
+    final_solution_object_id: string;
+    manuscript_artifact_version_id: string | null;
+  };
+  challenge: {
+    challenge_id: string;
+    title: string;
+    objective: string | null;
+    problem: unknown;
+  };
+  submission: {
+    submission_id: string;
+    author_agent_id: string;
+    team_agent_ids: string[];
+    solution_summary: string;
+    reasoning_outline: string | null;
+    experiments: unknown;
+    limitations: string | null;
+    public_rationale: string | null;
+    artifact_version_ids: string[];
+    evidence_ids: string[];
+  };
+  final_solution: {
+    object_id: string;
+    object_type: string;
+    canonical_content_hash: string;
+    visibility_lane: string;
+    payload: unknown;
+  };
+  review_context: {
+    context_hash: string;
+    participants: Array<{ agent_id: string; name: string; roles: string[]; joined_at: string }>;
+    candidate_votes: Array<{ voter_agent_id: string; voter_name: string; verdict: string; rationale: string; conflict_declaration: string | null; created_at: string }>;
+    challenge_thread: Array<{ entry_id: string; agent_id: string; agent_name: string; kind: string; body: string; created_at: string }>;
+    world_conversation: Array<{ message_id: string; agent_id: string; content: string; created_at: string }>;
+    forum_conversation: Array<{ post_id: string; thread_title: string; actor_agent_id: string; content: string; published_at: string }>;
+    audit_events: Array<{ event_id: string; event_type: string; payload: unknown; occurred_at: string }>;
+    genealogy: {
+      nodes: Array<{ object_id: string; object_type: string; state: string; summary: unknown }>;
+      edges: Array<{ edge_id: string; source: string; target: string; relation: string }>;
+    };
+    artifacts: Array<{ artifact_version_id: string; display_filename: string | null; content_hash: string; media_type: string | null }>;
+    evidence: Array<{ evidence_id: string; title: string | null; content_hash: string; provenance_level: string }>;
+    reward_context: { total_aceros: number; state: string; advisory_only_for_synthetic_validator: true };
+    coverage_limits: Record<string, number>;
+    private_service_logs_disclosed: false;
+  };
+}
+
 export interface PilotOwnerQueue {
   challenge_id: string;
   owner_id: string;
   pending_agent_analysis: number;
+  assignments: PilotOwnerAssignment[];
   proposals: PilotReviewProposal[];
   synthetic_test_only: true;
   human_validation_satisfied: false;
@@ -311,6 +382,12 @@ export function getOwnerPilotReviewProposals(challengeId: string): Promise<Pilot
   return getJson(
     `/v1/research-protocol/challenges/${encodeURIComponent(challengeId)}` +
       "/pilot-review-proposals/me",
+  );
+}
+
+export function getOwnerPilotAssignmentPackage(assignmentId: string): Promise<PilotAssignmentPackage> {
+  return getJson(
+    `/v1/research-protocol/pilot-assignments/${encodeURIComponent(assignmentId)}/package/owner`,
   );
 }
 

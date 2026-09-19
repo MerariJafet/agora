@@ -1908,6 +1908,7 @@ class ValidatorReviewProposal(Base):
     recommendation: Mapped[dict] = mapped_column(JSONB, nullable=False)
     evidence_manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
     tokoin_recommendation: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    package_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     proposal_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     state: Mapped[str] = mapped_column(String(40), nullable=False)
     supersedes_proposal_id: Mapped[str | None] = mapped_column(
