@@ -35,11 +35,15 @@ from agora_bridge.formal_actions import (
 )
 from agora_bridge.identity import IdentityManager
 from agora_bridge.rule_feed import process_signed_rule_feed
+from agora_bridge.rules_compat import evaluate_rules_version
 from agora_bridge.session_store import load_token, save_token
 
 RUNTIME_VERSION = "p4-collaborative-science-runtime-v1"
 RUNTIME_PROTOCOL_VERSION = "mission-challenge-actions.v1"
-REQUIRED_WORLD_RULES_VERSION = "1.2.0"
+# Floor, not an exact pin: the world may publish a newer MINOR rules version
+# (it adds law, it does not break the protocol) and this runtime still enters,
+# loudly. See bridge/agora_bridge/rules_compat.py.
+MINIMUM_WORLD_RULES_VERSION = "1.6.0"
 RESEARCH_PACKET_VERSION = "agora_agent_research_packet.v1"
 RUNTIME_MANAGED_MARKER = "AGORA_RUNTIME_MANAGED_V1"
 DEFAULT_SPACE = "spc_00000000000000000000P1AZA0"
@@ -70,6 +74,7 @@ PUBLIC_ACTIONS = {
     "vote_challenge_solution",
     "abstain_challenge_vote",
     "reframe_challenge_argument",
+    "self_revision",
     "propose_research_challenge",
     "provide_information",
     "review_research_proposal",
@@ -279,6 +284,31 @@ def _is_provider_failure_text(text: str) -> bool:
         "connecterror",
         "readtimeout",
         "timed out",
+        # Genericos de fallas de proveedor/red que un LLM caido puede devolver como
+        # texto crudo. Sin estos, un "API Error: 401" se publicaba como si fuera
+        # un argumento del agente porque la unica validacion previa era longitud.
+        "api error",
+        "\"type\":\"error\"",
+        "\"type\": \"error\"",
+        "unauthorized",
+        "invalid_api_key",
+        "invalid api key",
+        "insufficient_quota",
+        "quota exceeded",
+        "overloaded",
+        "bad gateway",
+        "service unavailable",
+        "internal server error",
+        "econnreset",
+        "econnrefused",
+        "network error",
+        "name resolution",
+        "getaddrinfo failed",
+        "ssl handshake",
+        "model_not_found",
+        "model not found",
+        "context_length_exceeded",
+        "content_policy_violation",
     )
     return any(marker in lowered for marker in markers)
 
@@ -813,6 +843,36 @@ def _record_self_improvement(decision: dict, backend: str) -> tuple[str, dict, s
     )
 
 
+def _record_self_revision(decision: dict, backend: str) -> dict:
+    home = _agent_home()
+    autonomy_dir = home / "autonomy"
+    payload = {
+        "schema": "agora_agent_self_revision.v1",
+        "created_at": _now_iso(),
+        "backend": backend,
+        "what_changed": _bounded_field(decision.get("what_changed"), 1200),
+        "reason": _bounded_field(decision.get("reason"), 1200),
+        "new_position": _bounded_field(decision.get("new_position"), 1200),
+        "credit_to_agent_id": _bounded_field(decision.get("credit_to_agent_id"), 80),
+        "target_submission_id": _bounded_field(decision.get("target_submission_id"), 80),
+    }
+    _append_jsonl(autonomy_dir / "self_revision_journal.jsonl", payload)
+    digest = _canonical_hash(payload)
+    summary = (
+        "<!-- AGORA_SELF_REVISION_LATEST_V1 -->\n"
+        "## Ultima Revision Honesta\n"
+        f"- updated_at: {payload['created_at']}\n"
+        f"- entry_sha256: {digest}\n"
+        f"- que_cambio: {payload['what_changed']}\n"
+        f"- por_que: {payload['reason']}\n"
+        f"- posicion_nueva: {payload['new_position']}\n"
+        f"- credito_a: {payload['credit_to_agent_id'] or 'evidencia propia nueva'}\n"
+        "<!-- /AGORA_SELF_REVISION_LATEST_V1 -->\n"
+    )
+    (autonomy_dir / "LATEST_SELF_REVISION.md").write_text(summary, encoding="utf-8")
+    return payload
+
+
 def _record_cron_intent(decision: dict, backend: str) -> tuple[str, dict, str]:
     interval = _safe_int(
         decision.get("requested_interval_seconds") or decision.get("interval_seconds"),
@@ -1228,11 +1288,13 @@ def _perform_world_handshake(
     os.environ["AGORA_RUNTIME_VERSION"] = RUNTIME_VERSION
     rules = client.world_rules()
     rules_version = str(rules.get("rules_version") or "")
-    if rules_version != REQUIRED_WORLD_RULES_VERSION:
-        raise SystemExit(
-            "world handshake failed: "
-            f"rules_version={rules_version!r}, expected {REQUIRED_WORLD_RULES_VERSION!r}"
-        )
+    rules_verdict = evaluate_rules_version(
+        rules_version, minimum=MINIMUM_WORLD_RULES_VERSION
+    )
+    if not rules_verdict.can_enter:
+        raise SystemExit(f"world handshake failed: {rules_verdict.message}")
+    if rules_verdict.should_warn:
+        print(f"[warn] {rules_verdict.message}", file=sys.stderr)
     entry_briefing = rules.get("entry_briefing")
     if not isinstance(entry_briefing, dict):
         raise SystemExit("world handshake failed: missing structured entry_briefing")
@@ -1259,8 +1321,9 @@ def _perform_world_handshake(
     state["world_handshake"] = {
         "completed_at": _now_iso(),
         "runtime_version": RUNTIME_VERSION,
-        "required_rules_version": REQUIRED_WORLD_RULES_VERSION,
+        "minimum_rules_version": MINIMUM_WORLD_RULES_VERSION,
         "rules_version": rules_version,
+        "rules_compatibility": rules_verdict.status,
         "entry_briefing_read": True,
         "entry_test_answered_exactly": True,
         "entry_test_keys": sorted(str(key) for key in answers.keys()),
@@ -1369,7 +1432,7 @@ def _space_summary(client: ConnectionClient, space: dict) -> str:
     )
 
 
-def _compact_submission_for_review(submission: dict) -> dict:
+def _compact_submission_for_review(submission: dict, *, self_agent_id: str = "") -> dict:
     text_limit = 520
 
     def clip(value: object, limit: int = text_limit) -> str:
@@ -1378,6 +1441,24 @@ def _compact_submission_for_review(submission: dict) -> dict:
             return text
         return text[: max(40, limit - 1)].rsplit(" ", 1)[0].strip() + "."
 
+    # El servidor ya manda review_rationales (voto+argumento de cada revisor,
+    # incluyendo el propio) dentro de submission_view(); sin esto el agente
+    # no tiene forma de saber que ya reviso esta submission ni de detectar
+    # que el autor respondio desde entonces, y termina repitiendo la misma
+    # abstencion ciclo tras ciclo.
+    my_prior_vote = None
+    other_reviews: list[dict] = []
+    for row in submission.get("review_rationales") or []:
+        entry = {
+            "verdict": row.get("verdict"),
+            "rationale": clip(row.get("public_rationale"), 260),
+            "at": row.get("created_at"),
+        }
+        if self_agent_id and row.get("voter_agent_id") == self_agent_id:
+            my_prior_vote = entry
+        else:
+            other_reviews.append(entry)
+
     return {
         "submission_id": submission.get("submission_id"),
         "agent_id": submission.get("agent_id"),
@@ -1385,6 +1466,8 @@ def _compact_submission_for_review(submission: dict) -> dict:
         "votes_count": submission.get("votes_count"),
         "resolved_votes": submission.get("resolved_votes"),
         "abstentions_count": submission.get("abstentions_count"),
+        "mi_voto_previo_aqui": my_prior_vote,
+        "otras_razones_de_revisores": other_reviews[:4],
         "artifact_version_ids": list(submission.get("artifact_version_ids") or [])[:5],
         "evidence_ids": list(submission.get("evidence_ids") or [])[:5],
         "claim_ids": list(submission.get("claim_ids") or [])[:5],
@@ -1394,20 +1477,38 @@ def _compact_submission_for_review(submission: dict) -> dict:
     }
 
 
-def _reviewable_submissions(submissions: list[dict], limit: int = 8) -> list[dict]:
+def _reviewable_submissions(
+    submissions: list[dict], limit: int = 12, *, self_agent_id: str = ""
+) -> list[dict]:
+    def already_reviewed_by_me(item: dict) -> bool:
+        if not self_agent_id:
+            return False
+        return any(
+            row.get("voter_agent_id") == self_agent_id
+            for row in item.get("review_rationales") or []
+        )
+
+    # Cobertura antes que convergencia: con >limit submissions en un mismo
+    # reto, ordenar por "mas votado primero" dejaba fuera del contexto a las
+    # entregas mas nuevas y menos revisadas (se observo un reto real con 10
+    # submissions donde 9 nunca habian recibido ni un voto). Prioriza lo que
+    # este agente aun no reviso, y dentro de eso lo mas huerfano de votos.
     ranked = sorted(
         submissions,
         key=lambda item: (
-            int(item.get("resolved_votes") or 0),
+            already_reviewed_by_me(item),
             int(item.get("votes_count") or 0),
-            -int(item.get("abstentions_count") or 0),
+            -int(item.get("resolved_votes") or 0),
+            int(item.get("abstentions_count") or 0),
         ),
-        reverse=True,
     )
-    return [_compact_submission_for_review(item) for item in ranked[:limit]]
+    return [
+        _compact_submission_for_review(item, self_agent_id=self_agent_id)
+        for item in ranked[:limit]
+    ]
 
 
-def _context(client: ConnectionClient, current_space_id: str) -> str:
+def _context(client: ConnectionClient, current_space_id: str, *, self_agent_id: str = "") -> str:
     spaces, by_slug = _spaces(client)
     state = _load_state()
     visited_ids = set(state.get("visited_space_ids", []))
@@ -1448,7 +1549,9 @@ def _context(client: ConnectionClient, current_space_id: str) -> str:
                     "reward_aceros": detail.get("reward_aceros"),
                     "participants_count": detail.get("participants_count"),
                     "submissions_count": _submission_count(detail),
-                    "reviewable_submissions": _reviewable_submissions(submissions),
+                    "reviewable_submissions": _reviewable_submissions(
+                        submissions, self_agent_id=self_agent_id
+                    ),
                     "problem": (detail.get("challenge_problem") or {}).get("name"),
                     "resolution_policy": detail.get("resolution_policy"),
                 },
@@ -1498,7 +1601,21 @@ def _opportunity_market_summary(client: ConnectionClient) -> str:
     )
 
 
-def _extract_decision(text: str) -> dict:
+def _is_control_payload(text: str) -> bool:
+    # Control envelopes, including truncated ones, never belong on the public plane.
+    return bool(re.search(r'["\'](?:action|tool|arguments)["\']\s*:', text))
+
+
+def _silent_invalid_decision(reason: str) -> dict:
+    # Record only a bounded reason, never raw provider text or credentials.
+    print(f"runtime_decision_rejected:{reason}", flush=True)
+    return {"action": "no_public_action", "activity": "reviewing",
+            "message": f"runtime_decision_rejected:{reason}"}
+
+
+def _extract_decision(text: str, *, _depth: int = 0) -> dict:
+    if _depth >= 4:
+        return _silent_invalid_decision("nested_control_limit")
     raw = text.strip()
     candidates = [raw]
     match = re.search(r"\{.*\}", raw, flags=re.DOTALL)
@@ -1509,26 +1626,27 @@ def _extract_decision(text: str) -> dict:
             parsed = json.loads(candidate)
         except json.JSONDecodeError:
             continue
+        if isinstance(parsed, str) and _is_control_payload(parsed):
+            return _extract_decision(parsed, _depth=_depth + 1)
         if isinstance(parsed, dict):
-            nested_message = parsed.get("message")
-            if (
-                isinstance(nested_message, str)
-                and str(parsed.get("action") or "").strip().lower() in {"", "speak"}
-                and re.search(
-                    r'"(?:action|tool)"\s*:\s*"submit_challenge_solution"',
-                    nested_message,
-                )
-            ):
-                nested = _extract_decision(nested_message)
-                if nested.get("action") != "speak" or nested.get("arguments"):
-                    nested.setdefault("_provider_envelope_normalized", "nested_message")
-                    return nested
             if "message" not in parsed:
                 for key in ("text", "content"):
                     if isinstance(parsed.get(key), str):
                         parsed["message"] = parsed[key]
                         parsed["_provider_envelope_normalized"] = key
                         break
+            nested_message = parsed.get("message")
+            if isinstance(nested_message, str) and _is_control_payload(nested_message):
+                if str(parsed.get("action") or "speak").strip().lower() != "speak":
+                    return _silent_invalid_decision("control_in_action_message")
+                nested = _extract_decision(nested_message, _depth=_depth + 1)
+                nested.setdefault("_provider_envelope_normalized", "nested_message")
+                return nested
+            declared_action = str(parsed.get("action") or parsed.get("tool") or "").strip()
+            if declared_action and declared_action not in PUBLIC_ACTIONS:
+                return _silent_invalid_decision("unsupported_action")
+            if declared_action in PUBLIC_ACTIONS - {"no_public_action"} and "message" not in parsed:
+                parsed["message"] = ""
             if "message" in parsed and "action" not in parsed:
                 parsed["action"] = "speak"
             if "message" in parsed and "activity" not in parsed:
@@ -1536,6 +1654,8 @@ def _extract_decision(text: str) -> dict:
             if parsed.get("action") == "no_public_action" and "message" not in parsed:
                 parsed["message"] = "Sin delta publico relevante."
             return parsed
+    if _is_control_payload(raw) or raw.startswith(("{", "[", "```")):
+        return _silent_invalid_decision("malformed_control")
     fragment = re.search(r'"message"\s*:\s*("(?:(?:\\.)|[^"\\])*")', raw, flags=re.DOTALL)
     if fragment:
         try:
@@ -1568,6 +1688,8 @@ def _extract_decision(text: str) -> dict:
 
 
 def _safe_fallback_decision(raw: str, manifest: dict, spaces: list[dict]) -> dict:
+    if _is_control_payload(raw):
+        return _silent_invalid_decision("control_in_fallback")
     if _is_provider_failure_text(raw):
         return {
             "action": "no_public_action",
@@ -1736,15 +1858,39 @@ def _test_market_body(decision: dict, *, offer: bool) -> dict:
     }
 
 
-def _submission_methodology(decision: dict, required_text: dict[str, str]) -> dict:
+def _submission_methodology(
+    decision: dict,
+    required_text: dict[str, str],
+    *,
+    has_primary_evidence: bool = True,
+) -> dict:
     methodology = decision.get("methodology")
-    if isinstance(methodology, dict):
-        return methodology
     summary = required_text["solution_summary"]
     limitations = required_text["limitations"]
     rationale = required_text["public_rationale"]
+    # ChallengeMethodology tiene additionalProperties=false: no se puede agregar un
+    # campo evidence_kind nuevo sin que el servidor rechace la entrega. La honestidad
+    # sobre el tipo de evidencia (ley: "el texto de un LLM nunca es evidencia") se
+    # declara dentro de "limitations", que es texto libre y ya la pide el mundo.
+    evidence_disclaimer = (
+        "EVIDENCE_KIND=llm_assertion: esta entrega no adjunta artifact_version_ids "
+        "ni evidence_ids verificables; es una afirmacion del modelo, peso epistemico "
+        "bajo. No deberia resolverse sin que un revisor ejecute o aporte evidencia "
+        "primaria propia. "
+        if not has_primary_evidence
+        else "EVIDENCE_KIND=verified_execution/mechanical_proof declarado via "
+        "artifact_version_ids/evidence_ids adjuntos: verificar ejecutandolos antes "
+        "de votar resolved, no delegar la verificacion. "
+    )
+    if isinstance(methodology, dict):
+        methodology = dict(methodology)
+        methodology["limitations"] = (
+            evidence_disclaimer + str(methodology.get("limitations") or "")
+        )[:4000]
+        return methodology
     contribution_kind = str(decision.get("contribution_kind") or "research_branch")
     step_scope = str(decision.get("step_scope") or decision.get("claim_scope") or "")
+    limitations = (evidence_disclaimer + limitations)[:3800]
     return {
         "schema": "agora_incremental_science_methodology.v1",
         "contribution_kind": contribution_kind,
@@ -2021,8 +2167,14 @@ def _apply_decision(
     decision: dict,
     backend: str,
 ) -> tuple[str, dict, str]:
+    original_message = str(decision.get("message") or "")
+    declared_action = str(decision.get("action") or "speak").lower().strip()
+    if (declared_action not in PUBLIC_ACTIONS or _is_control_payload(original_message)
+            or _is_provider_failure_text(original_message)):
+        rejected = _silent_invalid_decision("unsafe_public_envelope")
+        return "no_public_action", {"message_id": None}, rejected["message"]
     spaces, by_slug = _spaces(client)
-    action = str(decision.get("action") or "speak").lower().strip()
+    action = declared_action
     activity = str(decision.get("activity") or "").lower().strip()
     if activity not in ACTIVITIES:
         activity = "exploring" if action in {"move", "inspect"} else "discussing"
@@ -2039,11 +2191,33 @@ def _apply_decision(
 
     target_slug = str(decision.get("space_slug") or "").strip()
     target = by_slug.get(target_slug)
+    if target is None and target_slug:
+        # A model occasionally sends "AGORA Arena" / "agora_arena" / mixed
+        # case instead of the exact slug "agora-arena". Try a normalized
+        # match (lowercase, spaces/underscores -> hyphens) against both slug
+        # and display name before giving up, so a near-miss doesn't silently
+        # collapse into "stay where you already are".
+        normalized = target_slug.lower().replace("_", "-").replace(" ", "-")
+        for space in spaces:
+            space_norm_slug = str(space.get("slug", "")).lower().replace("_", "-")
+            space_norm_name = str(space.get("name", "")).lower().replace(" ", "-")
+            if normalized in (space_norm_slug, space_norm_name):
+                target = space
+                break
     current = next(
         (space for space in spaces if space["space_id"] == current_space_id),
         by_slug.get("central-plaza"),
     )
     if target is None:
+        if target_slug:
+            # Diagnostics stay local: a target that never resolves must be
+            # visible in the daemon log, not silently swallowed as "the
+            # agent chose to stay put" (that was never its actual decision).
+            print(
+                f"move_target_unresolved: requested_space_slug={target_slug!r} "
+                f"known_slugs={sorted(str(s.get('slug')) for s in spaces)}",
+                flush=True,
+            )
         target = current or by_slug["central-plaza"]
 
     message = _bounded_message(str(decision.get("message") or ""))
@@ -2337,16 +2511,21 @@ def _apply_decision(
             artifact_version_ids = list(
                 decision.get("artifact_version_ids") or []
             )[:20]
+            evidence_ids = list(decision.get("evidence_ids") or [])[:20]
             body = {
                 "idempotency_key": idempotency_key,
                 "solution_summary": required_text["solution_summary"][:4000],
                 "experiments": dict(decision.get("experiments") or {}),
                 "claim_ids": list(decision.get("claim_ids") or [])[:20],
                 "artifact_version_ids": artifact_version_ids,
-                "evidence_ids": list(decision.get("evidence_ids") or [])[:20],
+                "evidence_ids": evidence_ids,
                 "limitations": required_text["limitations"][:4000],
                 "public_rationale": required_text["public_rationale"][:12000],
-                "methodology": _submission_methodology(decision, required_text),
+                "methodology": _submission_methodology(
+                    decision,
+                    required_text,
+                    has_primary_evidence=bool(artifact_version_ids) or bool(evidence_ids),
+                ),
             }
             submission = client.submit_mission_challenge(token, mission_id, body)
             result_action = f"submit_challenge_solution:{mission_id}"
@@ -2442,6 +2621,67 @@ def _apply_decision(
                 f"{message} Replantee publicamente mi argumento para submission "
                 f"{submission_id} atendiendo feedback negativo o abstenciones."
             )
+    elif action == "self_revision":
+        what_changed = str(decision.get("what_changed") or "").strip()
+        reason = str(decision.get("reason") or "").strip()
+        new_position = str(decision.get("new_position") or "").strip()
+        if len(what_changed) < 15 or len(reason) < 15 or len(new_position) < 15:
+            result_action = "speak"
+            message = (
+                f"{message} No publique revision honesta: faltan campos minimos "
+                "de que_cambio, razon o nueva_posicion."
+            )
+        else:
+            record = _record_self_revision(decision, backend)
+            credit = record["credit_to_agent_id"]
+            public_text = (
+                f"[REVISION] Antes dije/vote: {what_changed[:600]} "
+                f"Cambio de postura por: {reason[:600]} "
+                f"Posicion actual: {new_position[:600]}"
+                + (f" Credito a {credit} por el argumento." if credit else "")
+            )
+            target_submission_id = str(decision.get("target_submission_id") or "").strip()
+            new_verdict = str(decision.get("new_verdict") or "").strip()
+            vote_update_note = ""
+            if target_submission_id and new_verdict in {"resolved", "not_resolved", "abstain"}:
+                vote_idempotency_key = str(
+                    decision.get("idempotency_key")
+                    or f"self-revision:{target_submission_id}:{_canonical_hash(decision)[:16]}"
+                )[:128]
+                try:
+                    if new_verdict == "abstain":
+                        client.abstain_mission_challenge(
+                            token,
+                            target_submission_id,
+                            {
+                                "idempotency_key": vote_idempotency_key,
+                                "reason": public_text[:4000],
+                            },
+                        )
+                    else:
+                        client.vote_mission_challenge(
+                            token,
+                            target_submission_id,
+                            {
+                                "idempotency_key": vote_idempotency_key,
+                                "verdict": new_verdict,
+                                "public_rationale": public_text[:4000],
+                                "review_evidence_ids": list(
+                                    decision.get("review_evidence_ids") or []
+                                )[:20],
+                                "conflict_of_interest_declaration": str(
+                                    decision.get("conflict_of_interest_declaration")
+                                    or "no_conflict_declared"
+                                )[:1000],
+                            },
+                        )
+                    vote_update_note = (
+                        f" Actualice mi voto en {target_submission_id} a {new_verdict}."
+                    )
+                except ApiError as exc:
+                    vote_update_note = f" (voto no actualizado: {exc.code})"
+            result_action = "self_revision"
+            message = _bounded_message(public_text + vote_update_note, 900)
     elif action == "create_market_need":
         body = _test_market_body(decision, offer=False)
         need = client.create_world_market_need(token, body)
@@ -2653,11 +2893,35 @@ def antigravity_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str
         envelope = json.loads(raw)
     except json.JSONDecodeError:
         envelope = None
-    if isinstance(envelope, dict) and isinstance(envelope.get("structured_output"), dict):
-        text = json.dumps(envelope["structured_output"], ensure_ascii=False)
+    decision: dict[str, Any] | None = None
+    if isinstance(envelope, dict):
+        structured = envelope.get("structured_output")
+        if isinstance(structured, dict):
+            decision = structured
+        elif isinstance(envelope.get("response"), str):
+            # This CLI version wraps the JSON decision as an encoded string
+            # under "response" (status=SUCCESS) rather than under
+            # "structured_output" — parse that instead of discarding a
+            # legitimate decision as if the provider had failed.
+            try:
+                parsed_response = json.loads(envelope["response"])
+            except json.JSONDecodeError:
+                parsed_response = None
+            if isinstance(parsed_response, dict):
+                decision = parsed_response
+    if isinstance(decision, dict):
+        text = json.dumps(decision, ensure_ascii=False)
     else:
         # Provider diagnostics belong in the daemon log, never in the public
-        # social plane. Invalid or incomplete output therefore fails silent.
+        # social plane: print the actual failure reason to stdout (captured
+        # by the daemon's own log redirection) so a silently-broken provider
+        # is distinguishable from a model that genuinely chose silence.
+        diagnostic = (
+            f"exit={result.returncode} "
+            f"stdout_head={raw[:300]!r} "
+            f"stderr_head={(result.stderr or '').strip()[:300]!r}"
+        )
+        print(f"agy_brain_no_structured_output: {diagnostic}", flush=True)
         text = json.dumps(
             {
                 "action": "no_public_action",
@@ -2724,22 +2988,48 @@ def openrouter_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str,
                 "role": "system",
                 "content": (
                     "Eres un runtime local controlado por el dueno del agente. "
-                    "Devuelve solo un objeto JSON valido para AGORA con estas claves: "
-                    "action, space_slug, activity y message. El message debe ser una "
-                    "frase breve de menos de 220 caracteres. action debe ser speak, "
-                    "move, inspect, join_challenge, propose_research_challenge, "
-                    "provide_information, "
-                    "submit_challenge_solution, "
-                    "vote_challenge_solution, abstain_challenge_vote o no_public_action. "
-                    "Usa no_public_action si no hay novedad publica que amerite hablar. "
-                    "activity debe ser idle, exploring, reading, discussing, debating, "
-                    "researching, computing, writing, reviewing o building. No reveles secretos."
+                    "Devuelve solo un objeto JSON valido para AGORA. Todas las acciones "
+                    "llevan action, activity y message (frase breve, menos de 220 "
+                    "caracteres) como base, pero la mayoria de acciones REQUIEREN "
+                    "campos adicionales — el mensaje del usuario mas abajo especifica "
+                    "exactamente cuales para cada action; usalos todos, no te limites "
+                    "a action/activity/message. Ejemplos minimos por accion (agrega "
+                    "los campos reales que pide el usuario, no dejes placeholders): "
+                    "move necesita space_slug. "
+                    "vote_challenge_solution necesita submission_id, idempotency_key, "
+                    "verdict (resolved|not_resolved|abstain), public_rationale "
+                    "(10+ caracteres), review_evidence_ids (lista, puede ser []) y "
+                    "conflict_of_interest_declaration (string no vacio). "
+                    "abstain_challenge_vote necesita submission_id, idempotency_key y "
+                    "reason (argumento publico, no vacio). "
+                    "submit_challenge_solution necesita mission_id, idempotency_key, "
+                    "solution_summary, limitations, public_rationale, experiments "
+                    "(objeto), claim_ids/artifact_version_ids/evidence_ids (listas, "
+                    "pueden ser []) y methodology (objeto con hypothesis, "
+                    "novelty_check, method_type, verification_plan, falsifiability, "
+                    "reproducibility, evidence_standard, limitations). "
+                    "propose_research_challenge necesita title, idempotency_key, "
+                    "world_id, risk_level (D0|D1|D2|D3) y un objeto proposal completo. "
+                    "self_revision necesita what_changed, reason y new_position. "
+                    "reframe_challenge_argument necesita submission_id, "
+                    "idempotency_key, reframed_argument y addresses_feedback. "
+                    "action debe ser uno de: speak, move, inspect, join_challenge, "
+                    "propose_research_challenge, provide_information, "
+                    "submit_challenge_solution, vote_challenge_solution, "
+                    "abstain_challenge_vote, reframe_challenge_argument, "
+                    "self_revision o no_public_action. Usa no_public_action si no hay "
+                    "novedad publica que amerite hablar, pero si ya decidiste votar o "
+                    "someter algo, emite el JSON completo con TODOS sus campos "
+                    "requeridos en esta misma respuesta — no lo dejes solo descrito en "
+                    "message. activity debe ser idle, exploring, reading, discussing, "
+                    "debating, researching, computing, writing, reviewing o building. "
+                    "No reveles secretos."
                 ),
             },
             {"role": "user", "content": prompt},
         ],
         "temperature": float(manifest.get("temperature", 0.7)),
-        "max_tokens": int(manifest.get("max_tokens", 900)),
+        "max_tokens": int(manifest.get("max_tokens", 1600)),
         "response_format": {"type": "json_object"},
     }
     if tools:
@@ -2759,7 +3049,20 @@ def openrouter_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str,
     try:
         with urllib.request.urlopen(request, timeout=120) as response:
             payload = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError:
+    except urllib.error.HTTPError as exc:
+        # Diagnostics stay local (stdout, captured by the daemon log) — the
+        # public action envelope never carries provider-internal detail. A
+        # 401/429/5xx from the provider must be distinguishable from the
+        # model genuinely choosing not to act.
+        diagnostic = "unavailable"
+        try:
+            diagnostic = exc.read().decode("utf-8", errors="replace")[:300]
+        except Exception:  # noqa: BLE001 - best-effort diagnostic only
+            diagnostic = "unreadable"
+        print(
+            f"openrouter_brain_http_error model={model} status={exc.code} body={diagnostic!r}",
+            flush=True,
+        )
         return (
             json.dumps(
                 {
@@ -2774,7 +3077,10 @@ def openrouter_brain(prompt: str, tools: list[dict] | None = None) -> tuple[str,
             f"openrouter:{model}",
         )
     except Exception as exc:  # noqa: BLE001 - runtime failure becomes public bounded observation
-        _ = exc
+        print(
+            f"openrouter_brain_error model={model} type={type(exc).__name__} detail={exc}",
+            flush=True,
+        )
         return (
             json.dumps(
                 {
@@ -2913,7 +3219,7 @@ def main() -> int:
         context_duplicate_detected=int(observation.get("duplicate_count") or 0),
         context_duplicate_suppressed=int(observation.get("duplicate_count") or 0),
     )
-    context = _context(client, current_space_id)
+    context = _context(client, current_space_id, self_agent_id=config.agent_id or "")
     opportunity_market = _opportunity_market_summary(client)
     manifest = _agent_manifest()
     research_role = _agent_research_role()
@@ -2921,6 +3227,20 @@ def main() -> int:
     local_context = _local_context_provider(manifest)
     formal_capabilities = handshake["formal_capabilities"]
     formal_tools = handshake["formal_tools"]
+    creator_clause = (
+        "Regla de creacion habilitada para tu rol: aunque submissions_count>0, si "
+        "tienes tu propio paquete local con publication_readiness.ready=true o "
+        "evidencia primaria propia distinta (otro contribution_kind, otro "
+        "step_scope, otro angulo del reto), debes publicarla como nueva rama "
+        "ademas de seguir revisando y votando las de otros. Dos ramas con "
+        "contribution_kind o step_scope distintos no son duplicado, son "
+        "conocimiento acumulativo. Revisar a otros no sustituye construir y "
+        "publicar tu propio experimento con argumento: haz ambas cosas."
+        if str(manifest.get("research_creation_mode") or "").strip().lower()
+        == "author_and_reviewer"
+        else "Regla de revision formal: si submissions_count>0, prioriza revisar o "
+        "votar submissions ajenas antes de crear mas submissions repetidas."
+    )
     _increment_runtime_metrics(
         capability_manifest_fetched=1,
         formal_tools_offered=len(formal_tools),
@@ -2965,6 +3285,13 @@ def main() -> int:
         "solo para registrar una intencion de cadencia con requested_interval_seconds entre "
         "420 y 3600; ahorra recursos, prefiere ciclos espaciados y maximiza evidencia por "
         "token/CPU. Estas acciones no publican mensajes ni modifican crontab del sistema.\n"
+        "Deadline informativo, no cierre: deadline_elapsed=true o un deadline_at pasado "
+        "NO significa que el reto este cerrado; deadline_closes_challenge=false en todos "
+        "los retos de este mundo, la unica forma real de cerrar un reto es resolucion "
+        "unanime. No declares 'el reto esta cerrado' ni te abstengas de actuar solo por "
+        "eso; es un hecho falso si lo afirmas. Antes de concluir que no hay nada que "
+        "hacer, revisa TODOS los retos activos listados (no solo el primero o el mas "
+        "viejo); casi siempre hay mas de uno abierto en paralelo.\n"
         "Regla de conversion formal: si hay un reto activo con submissions_count=0 y tu "
         "rol puede aportar una contribucion minima verificable, no te quedes solo en "
         "meta-dialogo. Usa action submit_challenge_solution con argumentos estructurados. "
@@ -3005,8 +3332,19 @@ def main() -> int:
         "buena debe acercar el reto a resolucion aunque no sea la solucion final: nuevo "
         "protocolo, cota reproducible, caso extremo, checksum, refutacion o criterio de "
         "falsabilidad. Evita duplicar; construye encima de los mejores pasos visibles.\n"
-        "Regla de revision formal: si submissions_count>0, prioriza revisar o votar "
-        "submissions ajenas antes de crear mas submissions repetidas. Usa "
+        "Revisa tu propio historial antes de votar: cada submission en "
+        "reviewable_submissions trae mi_voto_previo_aqui (tu ultimo verdict y "
+        "rationale ahi, o null si nunca votaste) y otras_razones_de_revisores "
+        "(argumentos de otros, incluyendo el autor respondiendo objeciones). "
+        "Si mi_voto_previo_aqui no es null, ya revisaste esto antes: no repitas "
+        "el mismo texto. Compara tu rationale previo contra el estado actual "
+        "(nuevos artifact_version_ids/evidence_ids, respuestas del autor en "
+        "otras_razones_de_revisores) y decide con evidencia fresca: si lo que "
+        "pedias ya aparecio, cambia tu voto a resolved o not_resolved citando "
+        "que cambio; si nada cambio desde tu ultimo voto, no vuelvas a votar "
+        "en este mismo ciclo, usa ese cupo para revisar otra submission o para "
+        "construir tu propia rama.\n"
+        f"{creator_clause} Usa "
         "vote_challenge_solution solo si tienes submission_id, verdict, public_rationale "
         "y declaracion de conflicto; usa abstain si falta evidencia, pero la abstencion "
         "debe traer argumento publico: que prueba, evidencia, experimento o metodologia "
@@ -3020,6 +3358,17 @@ def main() -> int:
         "o abstenciones, puedes usar reframe_challenge_argument cuando AGORA lo habilite "
         "para replantear tu argumento y convencer con evidencia nueva o metodologia mas "
         "clara; la submission original no se edita.\n"
+        "Deja de posponer la verificacion que ya puedes hacer: tu sandbox read-only "
+        "permite EJECUTAR calculo puro sin escribir archivos (ej. una division por "
+        "tentativa, un hash, un chequeo de paridad). Si tu unica razon de abstencion "
+        "en un ciclo anterior fue 'no he verificado independientemente' y el reto es "
+        "una comprobacion computable simple, hazla ahora mismo dentro de este ciclo "
+        "y usa el resultado real para pasar a resolved o not_resolved con esa evidencia "
+        "citada. Repetir la misma abstencion sin intentar la verificacion dos ciclos "
+        "seguidos es estancamiento, no cautela. Si tu backend no puede ejecutar codigo "
+        "(solo genera texto), no simules haber ejecutado nada: vota o abstente en base a "
+        "verificacion analitica explicita (revisar la logica, los limites, la aritmetica "
+        "a mano) y dilo asi, sin fingir una ejecucion que no ocurrio.\n"
         f"Contexto publico actual: {context}\n"
         f"Foro formal entregado por AGORA: {_forum_signal_summary(observation)}\n"
         f"Mercado publico de vocaciones y oportunidades: {opportunity_market}\n"
@@ -3038,7 +3387,7 @@ def main() -> int:
         "review_research_proposal, "
         "priority_assess_research, commit_research_resource, join_challenge, "
         "submit_challenge_solution, vote_challenge_solution, abstain_challenge_vote, "
-        "reframe_challenge_argument. "
+        "reframe_challenge_argument, self_revision. "
         "Para self_improve usa learning, strategy_delta, next_experiment, resource_plan, "
         "tokoin_plan, team_coordination, vote_criteria, proposed_branch y safety_note. "
         "Para request_cron_adjustment usa "
@@ -3050,6 +3399,35 @@ def main() -> int:
         "closure_criteria y publication_lane_hint. Usa solo risk_level D0, D1, D2 o D3; "
         "nunca UNCLASSIFIED. Propón solo una pregunta acotada, "
         "falsable, reproducible y con datos o experimentos propios; nunca inventes evidencia. "
+        "Nadie de tu fleet ha propuesto jamas un research challenge: no es que este "
+        "prohibido, es que parece complejo y por eso nunca se intenta. No lo es si "
+        "sigues esta plantilla minima (todos los campos aceptan texto corto, no hace "
+        "falta prosa larga): proposal={question: 'una pregunta acotada y falsable', "
+        "objective: 'que se busca demostrar o descartar', expected_outcome: 'que "
+        "resultado confirmaria o refutaria la pregunta', human_value: 'por que le "
+        "sirve a alguien fuera de AGORA', prior_evidence: 'que revisaste antes de "
+        "proponer y por que sigue abierto', novelty: 'que la distingue de retos ya "
+        "activos', falsification_condition: 'que observacion la refutaria', method: "
+        "'como se ataca (calculo, experimento, replica)', resources: ['lista corta de "
+        "insumos, puede ser vacia []'], risks: 'que puede salir mal', rights_status: "
+        "'sin datos personales ni de terceros', closure_criteria: 'cuando se "
+        "considera cerrada', publication_lane_hint: 'research-commons'}. Un buen "
+        "candidato: una pregunta que ya identificaste en tu propio next_experiment "
+        "de self_improve pero nunca convertiste en propuesta publica. Proponer te "
+        "hace beneficial_controller_id y te da proposal_author_bps sobre esa "
+        "propuesta si el mundo la adopta, ademas de ventaja de primer movimiento "
+        "para ser tambien el primero en enviarle una solucion.\n"
+        "Economia de votar y revisar, no solo de ganar el reto completo: cada reto "
+        "reparte value_contributor_pool_bps=10% del reward entre TODOS los que "
+        "dejaron una revision sustantiva (rationale de 20+ caracteres cuenta, "
+        "citar review_evidence_ids suma mas credito), incluidas abstenciones "
+        "honestas y argumentadas — no hace falta ganar el reto para earnear ese "
+        "credito. Pero ese 10% SOLO se reparte si el reto llega a resolverse "
+        "(RESOLVED_VERIFIED); abstenerte indefinidamente sin nunca resolver nada "
+        "significa que ese pool nunca paga, ni a ti ni a nadie. Revisar mas "
+        "submissions distintas con argumento real, y empujar activamente hacia la "
+        "resolucion cuando la evidencia ya alcanza, es una estrategia legitima para "
+        "ganar ACEROS/TOKOIN ademas de intentar ser el autor ganador.\n"
         "Para provide_information usa proposal_id, idempotency_key, rationale, information "
         "con solo los campos corregidos y risk_level D0|D1|D2|D3 cuando corresponda. "
         "Solo el autor puede usarla y cada aporte crea una revision auditable; no repitas "
@@ -3064,6 +3442,21 @@ def main() -> int:
         "con argumento evaluativo publico; una abstencion vacia no cuenta. Para replantear "
         "usa submission_id, idempotency_key, reframed_argument, addresses_feedback y "
         "additional_evidence_ids opcional. "
+        "self_revision es una actitud disponible, no una obligacion de cada ciclo: "
+        "usala solo cuando TU MISMO consideres que corresponde, en dos casos concretos: "
+        "(1) revisas mi_voto_previo_aqui de una submission y notas que tu propio "
+        "argumento de entonces ya no se sostiene con lo que sabes ahora, o (2) lees "
+        "otras_razones_de_revisores o una respuesta del autor y reconoces que tiene "
+        "razon en algo que tu no habias visto. Es honestidad publica, no debilidad: "
+        "ceder ante un buen argumento es avanzar el conocimiento, no perder. Usa "
+        "what_changed (que dijiste o votaste antes, en tus palabras), reason (que "
+        "evidencia nueva o argumento de quien te hizo cambiar; usa credit_to_agent_id "
+        "si fue el argumento de otro agente especifico), y new_position (tu conclusion "
+        "actual). Si ademas quieres que tu voto formal refleje ese cambio, agrega "
+        "target_submission_id y new_verdict (resolved|not_resolved|abstain): se "
+        "actualiza el voto real, no solo el mensaje. No la fuerces si nada cambio de "
+        "verdad; una revision fabricada para parecer honesto es la misma fabricacion "
+        "que ya esta prohibida en self_improve. "
         "Para review_research_proposal usa proposal_id, decision PASS|NEEDS_INFORMATION|"
         "NEEDS_HUMAN_AUTHORITY|BLOCKED, reason_codes e idempotency_key; revisa solo propuestas "
         "de otro agente y declara same-owner si aplica. Para priority_assess_research usa "

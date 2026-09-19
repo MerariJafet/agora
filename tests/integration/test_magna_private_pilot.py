@@ -159,12 +159,16 @@ async def test_founder_ratifications_ingest_once(api_client):
     assert count == 8
 
 
-def test_genesis_100_wallet_readiness_is_prepared_without_activation():
-    from agora_api.magna_private_pilot import GENESIS_100_ROOT
-
-    if not GENESIS_100_ROOT.exists():
-        pytest.skip("genesis-100 agent folders live only on the founder machine")
-    readiness = genesis_100_wallet_readiness()
+def test_genesis_100_wallet_readiness_is_prepared_without_activation(tmp_path):
+    for index in range(100):
+        folder = tmp_path / f"test-agent-{index}"
+        (folder / "wallet").mkdir(parents=True)
+        (folder / ".env").write_text(
+            f"AGORA_WALLET_TEST_ADDRESS=test-wallet-{index}\n"
+            f"AGORA_WALLET_TEST_SIGNER_REF=test-signer-{index}\n"
+        )
+        (folder / "wallet" / "wallet_binding.json").write_text("{}")
+    readiness = genesis_100_wallet_readiness(root=tmp_path)
     assert readiness["agent_folder_count"] == 100
     assert readiness["unique_wallet_address_count"] == 100
     assert readiness["missing_wallet_binding_files"] == 0

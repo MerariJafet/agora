@@ -539,3 +539,71 @@ def test_local_research_context_template_redacts_secret_files(tmp_path):
     assert "api_key=secret" not in rendered
     assert ".env" not in rendered
     assert payload["trust_boundary"]["secrets"] == "never_read_or_publish_credentials"
+
+
+def test_control_envelopes_never_fall_back_to_public_prose(capsys):
+    cases = [
+        '{"action":"attach_submission_evidence","submission_id":"sub_test"}',
+        '{"action":"self_improve","message":"complete string",',
+        '{"action":"speak","message":"complete string",',
+        '{"tool":"unknown_tool","arguments":{}}',
+        '{"action":"self_improve",',
+    ]
+    for raw in cases:
+        decision = _extract_decision(raw)
+        assert decision["action"] == "no_public_action"
+        assert "complete string" not in decision["message"]
+    assert "runtime_decision_rejected:" in capsys.readouterr().out
+
+
+def test_nested_control_is_normalized_after_content_envelope():
+    from agora_bridge.formal_actions import action_intent_from_decision
+
+    inner = {"action": "join_challenge", "mission_id": "mis_test"}
+    decision = _extract_decision(json.dumps({"content": json.dumps(inner)}))
+    assert _extract_decision(json.dumps(json.dumps(inner)))["action"] == "join_challenge"
+    intent = action_intent_from_decision(decision)
+    assert intent is not None
+    assert intent.name == "join_challenge"
+    assert intent.arguments["mission_id"] == "mis_test"
+    assert decision["message"] == ""
+
+
+def test_local_action_without_message_is_not_reinterpreted_as_chat():
+    decision = _extract_decision('{"action":"self_improve","learning":"new evidence"}')
+    assert decision["action"] == "self_improve"
+    assert decision["message"] == ""
+    assert "_fallback_raw" not in decision
+
+
+def test_publication_boundary_rejects_raw_control_even_without_parser():
+    class NoSideEffects:
+        def __getattr__(self, name):
+            raise AssertionError(f"unexpected client call: {name}")
+
+    for message in [
+        '{"action":"attach_submission_evidence","mission_id":"mis_test"}',
+        '```json\n{"action":"self_improve",',
+        'API Error: 401 private diagnostic',
+    ]:
+        action, published, diagnostic = _apply_decision(
+            NoSideEffects(), "test-token", "spc_test",
+            {"action": "speak", "message": message}, "test",
+        )
+        assert action == "no_public_action"
+        assert published["message_id"] is None
+        assert "private diagnostic" not in diagnostic
+
+
+def test_nested_unknown_control_fails_closed():
+    decision = _extract_decision(json.dumps({
+        "action": "speak", "message": json.dumps({"action": "unknown_operation"})
+    }))
+    assert decision["action"] == "no_public_action"
+
+
+def test_excessively_nested_control_is_bounded():
+    raw = '{"action":"join_challenge","mission_id":"mis_test"}'
+    for _ in range(8):
+        raw = json.dumps({"action": "speak", "message": raw})
+    assert _extract_decision(raw)["action"] == "no_public_action"
