@@ -1573,7 +1573,15 @@ async def _validation_queue() -> dict[str, Any]:
 
 
 def validation_queue() -> dict[str, Any]:
-    return asyncio.run(_validation_queue())
+    async def scan() -> dict[str, Any]:
+        from agora_api.db import dispose_engine
+
+        try:
+            return await _validation_queue()
+        finally:
+            await dispose_engine()
+
+    return asyncio.run(scan())
 
 
 def run_dual_review(api_url: str, candidate_id: str | None = None) -> dict[str, Any]:

@@ -13,6 +13,7 @@ from scripts.institutional_validator_pilot import (
     normalize_model_review,
     parse_claude_result,
     run_reproduction,
+    validation_queue,
     verify_review_context,
     watch_assignments,
 )
@@ -289,3 +290,25 @@ def test_watch_reports_unassigned_queue_without_review(monkeypatch, tmp_path) ->
     assert result["idle_no_joint_assignment"] is True
     assert result["queue"] == queue
     assert json.loads((tmp_path / "watch.json").read_text())["candidates"] == queue["candidates"]
+
+
+def test_queue_disposes_async_pool_between_poll_cycles(monkeypatch) -> None:
+    import agora_api.db as db
+
+    import scripts.institutional_validator_pilot as pilot
+
+    calls: list[str] = []
+
+    async def scan() -> dict:
+        calls.append("scan")
+        return {"candidates": []}
+
+    async def dispose() -> None:
+        calls.append("dispose")
+
+    monkeypatch.setattr(pilot, "_validation_queue", scan)
+    monkeypatch.setattr(db, "dispose_engine", dispose)
+
+    assert validation_queue() == {"candidates": []}
+    assert validation_queue() == {"candidates": []}
+    assert calls == ["scan", "dispose", "scan", "dispose"]
