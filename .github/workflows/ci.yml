@@ -129,5 +129,7 @@ jobs:
       - run: npm run test:preflight
       - run: npm run test:bundle
       - run: npm run audit:static
-      - run: npm run bundle:verify -- ../../audit/launch-2026-09-09/tokoin-candidate-bundle.json
+      # The sealed candidate tracks the current build inputs; earlier dated
+      # bundles stay verifiable against their own tree, never re-bound here.
+      - run: npm run bundle:verify -- ../../audit/launch-2026-09-18/tokoin-candidate-bundle.json
       - run: npm audit --audit-level=high
