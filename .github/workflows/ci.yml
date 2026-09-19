@@ -20,6 +20,7 @@ jobs:
       AGORA_REDIS_URL: redis://localhost:6380/15
       AGORA_OUTBOX_ENABLED: "false"
       AGORA_RESEARCH_SCHEDULER_ENABLED: "false"
+      AGORA_OPERATOR_TOKEN: ci-operator-token-not-a-secret
       AGORA_NATS_URL: nats://localhost:4222
     services:
       postgres:

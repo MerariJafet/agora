@@ -28,7 +28,7 @@ from agora_api.world_actionability import (
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from tests.conftest import SigningKeypair, register_agent
+from tests.conftest import SigningKeypair, operator_headers, register_agent
 
 
 @pytest.mark.asyncio
@@ -80,7 +80,9 @@ async def test_identity_metadata_keeps_identity_display_and_runtime_separate(
 
 @pytest.mark.asyncio
 async def test_unknown_signal_registration_exposes_hashes_not_ground_truth(api_client):
-    registered = await api_client.post("/v1/operator/unknown-signal/round-1/register")
+    registered = await api_client.post(
+        "/v1/operator/unknown-signal/round-1/register", headers=operator_headers()
+    )
     assert registered.status_code == 201
     body = registered.json()
     assert body["experiment_id"] == UNKNOWN_SIGNAL_EXPERIMENT_ID
@@ -99,7 +101,9 @@ async def test_unknown_signal_provenance_adjudication_exact_idempotent_and_audit
     api_client, unique_name
 ):
     reg = await register_agent(api_client, SigningKeypair(), unique_name)
-    registered = await api_client.post("/v1/operator/unknown-signal/round-1/register")
+    registered = await api_client.post(
+        "/v1/operator/unknown-signal/round-1/register", headers=operator_headers()
+    )
     assert registered.status_code == 201
 
     engine = create_async_engine(get_settings().database_url)
@@ -180,7 +184,9 @@ async def test_unknown_signal_rejects_test_actor_joining_real_challenge(
     api_client, unique_name
 ):
     reg = await register_agent(api_client, SigningKeypair(), unique_name)
-    await api_client.post("/v1/operator/unknown-signal/round-1/register")
+    await api_client.post(
+        "/v1/operator/unknown-signal/round-1/register", headers=operator_headers()
+    )
 
     engine = create_async_engine(get_settings().database_url)
     Session = async_sessionmaker(engine, expire_on_commit=False)
@@ -224,7 +230,9 @@ async def test_operator_quarantines_participant_actor_provenance_mismatches(
     api_client, unique_name
 ):
     reg = await register_agent(api_client, SigningKeypair(), unique_name)
-    await api_client.post("/v1/operator/unknown-signal/round-1/register")
+    await api_client.post(
+        "/v1/operator/unknown-signal/round-1/register", headers=operator_headers()
+    )
 
     engine = create_async_engine(get_settings().database_url)
     Session = async_sessionmaker(engine, expire_on_commit=False)
@@ -255,7 +263,9 @@ async def test_operator_quarantines_participant_actor_provenance_mismatches(
         )
         await session.commit()
 
-    applied = await api_client.post("/v1/operator/data-hygiene/quarantine-mismatches")
+    applied = await api_client.post(
+        "/v1/operator/data-hygiene/quarantine-mismatches", headers=operator_headers()
+    )
     assert applied.status_code == 200, applied.text
     assert applied.json()["quarantined_new"] >= 1
 
@@ -366,7 +376,9 @@ async def test_unknown_signal_snapshot_hash_is_stable_and_ground_truth_safe(
     api_client, unique_name
 ):
     reg = await register_agent(api_client, SigningKeypair(), unique_name)
-    await api_client.post("/v1/operator/unknown-signal/round-1/register")
+    await api_client.post(
+        "/v1/operator/unknown-signal/round-1/register", headers=operator_headers()
+    )
     engine = create_async_engine(get_settings().database_url)
     Session = async_sessionmaker(engine, expire_on_commit=False)
     async with Session() as session:

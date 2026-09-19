@@ -36,6 +36,7 @@ export AGORA_DATABASE_URL="postgresql+asyncpg://agora:agora_dev_password@localho
 export AGORA_REDIS_URL="${AGORA_TEST_REDIS_URL:-redis://localhost:6380/15}"
 export AGORA_NATS_URL="${AGORA_TEST_NATS_URL:-nats://localhost:4222}"
 export AGORA_OUTBOX_ENABLED=false
+export AGORA_OPERATOR_TOKEN="${AGORA_TEST_OPERATOR_TOKEN:-isolated-test-operator-token}"
 export AGORA_RESEARCH_SCHEDULER_ENABLED=false
 export AGORA_ARTIFACT_STORE_ROOT="$(mktemp -d -t agora-test-artifacts-XXXXXX)"
 

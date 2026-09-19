@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from agora_api.config import get_settings
 from agora_api.db import get_session
 from agora_api.forum_consensus_service import world_cadence_view
+from agora_api.operator_auth import require_operator
 from agora_api.unknown_signal_readiness import (
     apply_unknown_signal_adjudication_manifest,
     build_unknown_signal_adjudication_manifest,
@@ -65,7 +66,11 @@ async def get_world_cadence(session: AsyncSession = Depends(get_session)) -> dic
     return await world_cadence_view(session)
 
 
-@router.post("/v1/operator/unknown-signal/round-1/register", status_code=201)
+@router.post(
+    "/v1/operator/unknown-signal/round-1/register",
+    status_code=201,
+    dependencies=[Depends(require_operator)],
+)
 async def register_unknown_signal_round_1(session: AsyncSession = Depends(get_session)) -> dict:
     experiment = await ensure_unknown_signal_experiment(session)
     adjudication = None

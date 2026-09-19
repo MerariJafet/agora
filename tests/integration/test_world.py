@@ -12,7 +12,7 @@ from agora_api.world import build_manifest, manifest_etag
 from agora_api.world_signing import sign_canonical_payload
 from sqlalchemy import func, select
 
-from tests.conftest import register_agent
+from tests.conftest import operator_headers, register_agent
 
 pytestmark = pytest.mark.integration
 
@@ -158,7 +158,7 @@ async def test_signed_rule_feed_tracks_cursor_and_rejects_tampering(
     reg = await register_agent(api_client, keypair, unique_name)
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
 
-    queued = await api_client.post("/v1/operator/rule-delivery/canary")
+    queued = await api_client.post("/v1/operator/rule-delivery/canary", headers=operator_headers())
     assert queued.status_code == 200, queued.text
     assert queued.json()["eligible_agents"] >= 1
 
@@ -215,7 +215,7 @@ async def test_signed_rule_feed_tracks_cursor_and_rejects_tampering(
     )
     assert replay_poll.status_code == 200
     assert replay_poll.json()["rules"] == []
-    matrix = await api_client.get("/v1/operator/rule-delivery-matrix")
+    matrix = await api_client.get("/v1/operator/rule-delivery-matrix", headers=operator_headers())
     state = next(
         row for row in matrix.json()["states"]
         if row["agent_id"] == reg["agent_id"] and row["rule_id"] == rule["rule_id"]
@@ -223,11 +223,69 @@ async def test_signed_rule_feed_tracks_cursor_and_rejects_tampering(
     assert state["technical_state"] == "compatible"
 
 
+async def test_signed_rules_republish_when_the_world_amends_its_law(
+    api_client, keypair, unique_name, monkeypatch
+):
+    """The signed plane must describe the world as it is now.
+
+    It used to be written once and never again: a world that amended its law
+    kept serving a signed body from a world that no longer existed, while
+    /v1/world/rules told a different story."""
+    reg = await register_agent(api_client, keypair, unique_name)
+    auth = {"Authorization": f"Bearer {reg['session_token']}"}
+
+    first = (await api_client.get("/v1/world/rules/feed", headers=auth)).json()["rules"]
+    assert len(first) == 1
+    original = first[0]
+    assert original["canonical_body"]["rules_version"] == original["version"]
+    # The briefing is part of the signed law, not only of the unsigned endpoint.
+    assert "peer_review_floor" in original["canonical_body"]["entry_briefing"]
+
+    settled = await api_client.get(
+        "/v1/world/rules/feed",
+        params={"after_sequence": original["sequence_number"]},
+        headers=auth,
+    )
+    assert settled.json()["rules"] == [], "an unchanged world must not re-publish"
+
+    monkeypatch.setattr("agora_api.rule_delivery.WORLD_RULES_VERSION", "9.9.9")
+    amended = await api_client.get(
+        "/v1/world/rules/feed",
+        params={"after_sequence": original["sequence_number"]},
+        headers=auth,
+    )
+    assert amended.status_code == 200, amended.text
+    republished = amended.json()["rules"]
+    assert len(republished) == 1, "the amended law never reached the Agent"
+    new_rule = republished[0]
+    assert new_rule["rule_id"] != original["rule_id"]
+    assert new_rule["version"] == "9.9.9"
+    assert new_rule["canonical_body"]["rules_version"] == "9.9.9"
+    assert new_rule["sequence_number"] > original["sequence_number"]
+    assert new_rule["canonical_hash"] != original["canonical_hash"]
+    assert new_rule["signature"]["domain"] == "agora.world.rules.v1"
+
+    # The Agent can attest the new edition; the old one is no longer served.
+    accepted = await api_client.post(
+        "/v1/world/rules/attest-versioned",
+        json={
+            "rule_id": new_rule["rule_id"],
+            "canonical_hash": new_rule["canonical_hash"],
+            "decision": "compatible",
+        },
+        headers=auth,
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["technical_state"] == "compatible"
+
+
 async def test_world_update_rule_is_announced_as_lobby_json(api_client, keypair, unique_name):
     reg = await register_agent(api_client, keypair, unique_name)
     auth = {"Authorization": f"Bearer {reg['session_token']}"}
 
-    queued = await api_client.post("/v1/operator/rule-delivery/research-board-update")
+    queued = await api_client.post(
+        "/v1/operator/rule-delivery/research-board-update", headers=operator_headers()
+    )
     assert queued.status_code == 200, queued.text
     body = queued.json()
     assert body["status"] == "queued"

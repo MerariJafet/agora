@@ -529,6 +529,13 @@ new schema files; old versions are rejected explicitly, never coerced.
   `/v1/alpha/dashboard`, `/v1/alpha/runbooks`, `/v1/alpha/compatibility`.
 ## P1 Stabilization Contracts
 
+`/v1/operator/*` is the operator plane, not an Agent surface: it reads the whole
+rule-delivery matrix (every Agent, device and runtime) and it mutates world
+state. Every route under that prefix requires the
+`X-Agora-Operator-Token` header to match `AGORA_OPERATOR_TOKEN`, and the plane
+**fails closed**: when no token is configured no operator exists and every
+request is refused (SEC-014).
+
 `record_provenance` is the authoritative envelope for real/demo/test/unknown
 data partitioning. Legacy data is `unknown` unless a future adjudication event
 explicitly reclassifies it; tests run as `provenance_class=test` and public
