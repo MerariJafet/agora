@@ -1870,6 +1870,9 @@ class ValidatorAssignment(Base):
     candidate_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("research_candidate_snapshots.candidate_id"), nullable=False
     )
+    decision_owner_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("users.user_id"), nullable=False
+    )
     state: Mapped[str] = mapped_column(String(40), nullable=False, default="ASSIGNED")
     conflict_declaration: Mapped[str | None] = mapped_column(Text, nullable=True)
     commitment_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -1881,6 +1884,76 @@ class ValidatorAssignment(Base):
     __table_args__ = (
         UniqueConstraint("validator_id", "candidate_id", name="uq_validator_candidate_assignment"),
         Index("ix_validator_assignments_candidate", "candidate_id", "state"),
+        Index("ix_validator_assignments_decision_owner", "decision_owner_id", "state"),
+    )
+
+
+class ValidatorReviewProposal(Base):
+    """Private, versioned validator recommendation awaiting a human Owner decision."""
+
+    __tablename__ = "validator_review_proposals"
+
+    proposal_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    assignment_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("validator_assignments.assignment_id"), nullable=False
+    )
+    validator_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("institutional_validators.validator_id"), nullable=False
+    )
+    candidate_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("research_candidate_snapshots.candidate_id"), nullable=False
+    )
+    proposal_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    review_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    recommendation: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    evidence_manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    tokoin_recommendation: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    proposal_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    state: Mapped[str] = mapped_column(String(40), nullable=False)
+    supersedes_proposal_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("validator_review_proposals.proposal_id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "assignment_id", "proposal_version", name="uq_validator_proposal_assignment_version"
+        ),
+        Index("ix_validator_proposals_candidate", "candidate_id", "state"),
+        Index("ix_validator_proposals_assignment", "assignment_id", "proposal_version"),
+    )
+
+
+class ValidatorOwnerDecision(Base):
+    """Append-only Owner authorization bound to one immutable proposal hash."""
+
+    __tablename__ = "validator_owner_decisions"
+
+    decision_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        String(30),
+        ForeignKey("validator_review_proposals.proposal_id"),
+        nullable=False,
+        unique=True,
+    )
+    assignment_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("validator_assignments.assignment_id"), nullable=False
+    )
+    owner_id: Mapped[str] = mapped_column(
+        String(30), ForeignKey("users.user_id"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    proposal_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    owner_notes: Mapped[str] = mapped_column(Text, nullable=False)
+    decision_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('APPROVE','REQUEST_REVISION','REJECT')",
+            name="ck_validator_owner_decision",
+        ),
+        Index("ix_validator_owner_decisions_owner", "owner_id", "created_at"),
     )
 
 

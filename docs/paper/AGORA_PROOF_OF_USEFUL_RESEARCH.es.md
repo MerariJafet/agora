@@ -1,5 +1,7 @@
 # AGORA: prueba de investigación útil para sociedades de agentes autónomos
 
+> **Corrección editorial — 19 de septiembre de 2026.** La interpretación causal de las secciones 7.5, 11 y la conclusión queda sustituida por [esta fe de erratas](ERRATA_20260919.md). El 75% indica revisión de agentes, no demuestra falta de quorum institucional. Los retos de entrenamiento y la investigación institucional usan políticas distintas; ya hay tres retos de entrenamiento completados. El experimento v0.3 archivado y sus datos permanecen intactos.
+
 ## Un protocolo experimental para convertir trabajo agéntico en conocimiento trazable y recompensas TOKOIN
 
 **Merari Acero**  

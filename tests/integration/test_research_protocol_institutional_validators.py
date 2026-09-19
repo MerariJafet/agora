@@ -145,7 +145,61 @@ def _review_payload(nonce: str, *, verdict: str, reproduction_status: str) -> di
     }
 
 
-async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(api_client, unique_name):
+def _proposal_payload(package: dict, review: dict) -> dict:
+    context = package["review_context"]
+    assessment = {
+        "APPROVED": "PASS",
+        "APPROVED_WITH_MINOR_CHANGES": "PASS_WITH_CONDITIONS",
+        "REQUIRES_REVISION": "PASS_WITH_CONDITIONS",
+        "REJECTED": "FAIL",
+        "INSUFFICIENT_EVIDENCE": "INSUFFICIENT_EVIDENCE",
+    }[review["verdict"]]
+    total = context["reward_context"]["total_aceros"]
+    return {
+        "review": review,
+        "recommendation": {
+            "assessment": assessment,
+            "rationale": "The recommendation follows the reproduced evidence and declared limits.",
+            "blocking_issues": review["critical_issues"],
+            "what_is_missing": review["requested_changes"],
+            "suggested_actions": review["requested_changes"],
+        },
+        "evidence_manifest": {
+            "context_hash": context["context_hash"],
+            "participant_ids": [row["agent_id"] for row in context["participants"]],
+            "thread_entry_ids": [
+                *[row["entry_id"] for row in context["challenge_thread"]],
+                *[row["message_id"] for row in context["world_conversation"]],
+                *[row["post_id"] for row in context["forum_conversation"]],
+            ],
+            "event_ids": [row["event_id"] for row in context["audit_events"]],
+            "artifact_ids": [package["final_solution"]["object_id"]],
+            "test_receipt_hashes": [hashlib.sha256(review["summary"].encode()).hexdigest()],
+        },
+        "tokoin_recommendation": {
+            "denomination": "ACEROS",
+            "total_aceros": total,
+            "allocations": [
+                {
+                    "recipient_kind": "AGENT",
+                    "recipient_id": package["submission"]["author_agent_id"],
+                    "amount_aceros": total,
+                    "basis": "Synthetic recommendation based on the frozen candidate contribution.",
+                }
+            ]
+            if total
+            else [],
+            "synthetic_test_only": True,
+            "settlement_eligible": False,
+            "requires_separate_human_validation": True,
+        },
+    }
+
+
+@pytest.mark.parametrize("blocked_review", [None, "conflict", "candidate_closed"])
+async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(
+    api_client, unique_name, blocked_review
+):
     candidate, creator = await _freeze_candidate(api_client, unique_name)
     async with session_factory()() as session:
         transfers_before = (
@@ -236,13 +290,17 @@ async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(api_client, 
         track["validator"]["actor_id"]: track["assignment_id"] for track in panel["tracks"]
     }
 
-    package = await api_client.get(
-        f"/v1/research-protocol/pilot-assignments/{assignments[validators[0]['agent_id']]}/package",
-        headers=_auth(validators[0]),
-    )
-    assert package.status_code == 200, package.text
-    assert package.json()["candidate"]["content_hash"] == candidate["content_hash"]
-    assert package.json()["peer_review_data_disclosed"] is False
+    packages = []
+    for validator in validators:
+        package = await api_client.get(
+            f"/v1/research-protocol/pilot-assignments/{assignments[validator['agent_id']]}/package",
+            headers=_auth(validator),
+        )
+        assert package.status_code == 200, package.text
+        assert package.json()["candidate"]["content_hash"] == candidate["content_hash"]
+        assert package.json()["peer_review_data_disclosed"] is False
+        assert package.json()["review_context"]["private_service_logs_disclosed"] is False
+        packages.append(package.json())
 
     payloads = [
         _review_payload(
@@ -281,6 +339,125 @@ async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(api_client, 
         headers=_auth(outsider),
     )
     assert impersonation.status_code == 403
+
+    blocked_before_owner = await api_client.post(
+        f"/v1/research-protocol/pilot-assignments/{assignments[validators[0]['agent_id']]}/commit",
+        json={
+            "commitment_hash": hashes[0],
+            "commitment_signature": validator_keys[0].sign_b64(hashes[0].encode("ascii")),
+            "conflict_declaration": "No conflict declared for this synthetic test review.",
+        },
+        headers=_auth(validators[0]),
+    )
+    assert blocked_before_owner.status_code == 403
+
+    proposals = []
+    for index, reg in enumerate(validators):
+        proposed = await api_client.post(
+            f"/v1/research-protocol/pilot-assignments/{assignments[reg['agent_id']]}/proposal",
+            json=_proposal_payload(packages[index], payloads[index]),
+            headers=_auth(reg),
+        )
+        assert proposed.status_code == 201, proposed.text
+        assert proposed.json()["state"] == "AWAITING_OWNER_DECISION"
+        proposals.append(proposed.json())
+
+    if blocked_review:
+        assignment_id = assignments[validators[0]["agent_id"]]
+        if blocked_review == "conflict":
+            conflict = await api_client.post(
+                f"/v1/research-protocol/pilot-assignments/{assignment_id}/conflict",
+                json={"conflict_declaration": "A newly discovered conflict prevents my review."},
+                headers=_auth(validators[0]),
+            )
+            assert conflict.status_code == 200, conflict.text
+        else:
+            async with session_factory()() as session:
+                snapshot = await session.get(ResearchCandidateSnapshot, candidate["candidate_id"])
+                snapshot.state = "REJECTED"
+                await session.commit()
+        decision = await api_client.post(
+            f"/v1/research-protocol/pilot-review-proposals/{proposals[0]['proposal_id']}/decision",
+            json={
+                "decision": "APPROVE", "proposal_hash": proposals[0]["proposal_hash"],
+                "owner_notes": "This approval must not reopen a blocked or closed review.",
+            },
+            headers=operator_headers,
+        )
+        assert decision.status_code == 409, decision.text
+        async with session_factory()() as session:
+            assignment = await session.get(ValidatorAssignment, assignment_id)
+            assert assignment.state == (
+                "CONFLICT_DECLARED" if blocked_review == "conflict" else "AWAITING_OWNER_DECISION"
+            )
+        return
+
+    outsider_owner = await _login(api_client, f"validator-outsider-owner-{unique_name}")
+    denied_decision = await api_client.post(
+        f"/v1/research-protocol/pilot-review-proposals/{proposals[0]['proposal_id']}/decision",
+        json={
+            "decision": "APPROVE",
+            "proposal_hash": proposals[0]["proposal_hash"],
+            "owner_notes": "Attempted approval by an owner who did not assign this panel.",
+        },
+        headers=outsider_owner,
+    )
+    assert denied_decision.status_code == 403
+    operator_headers = await _login(api_client, f"validator-operator-{unique_name}")
+
+    owner_queue = await api_client.get(
+        f"/v1/research-protocol/challenges/{packages[0]['challenge']['challenge_id']}"
+        "/pilot-review-proposals/me",
+        headers=operator_headers,
+    )
+    assert owner_queue.status_code == 200, owner_queue.text
+    assert len(owner_queue.json()["proposals"]) == 2
+    assert all(not row["tokoin_settlement_eligible"] for row in owner_queue.json()["proposals"])
+
+    stale_decision = await api_client.post(
+        f"/v1/research-protocol/pilot-review-proposals/{proposals[0]['proposal_id']}/decision",
+        json={
+            "decision": "APPROVE",
+            "proposal_hash": "0" * 64,
+            "owner_notes": "This deliberately stale hash must never authorize publication.",
+        },
+        headers=operator_headers,
+    )
+    assert stale_decision.status_code == 409
+
+    revision = await api_client.post(
+        f"/v1/research-protocol/pilot-review-proposals/{proposals[0]['proposal_id']}/decision",
+        json={
+            "decision": "REQUEST_REVISION",
+            "proposal_hash": proposals[0]["proposal_hash"],
+            "owner_notes": "Reissue the recommendation as a new immutable proposal version.",
+        },
+        headers=operator_headers,
+    )
+    assert revision.status_code == 200, revision.text
+    revised = await api_client.post(
+        f"/v1/research-protocol/pilot-assignments/{assignments[validators[0]['agent_id']]}/proposal",
+        json=_proposal_payload(packages[0], payloads[0]),
+        headers=_auth(validators[0]),
+    )
+    assert revised.status_code == 201, revised.text
+    assert revised.json()["proposal_version"] == 2
+    proposals[0] = revised.json()
+
+    for proposal in proposals:
+        decision = await api_client.post(
+            f"/v1/research-protocol/pilot-review-proposals/{proposal['proposal_id']}/decision",
+            json={
+                "decision": "APPROVE",
+                "proposal_hash": proposal["proposal_hash"],
+                "owner_notes": (
+                    "I reviewed this exact synthetic recommendation and approve publication."
+                ),
+            },
+            headers=operator_headers,
+        )
+        assert decision.status_code == 200, decision.text
+        assert decision.json()["tokoin_released"] is False
 
     for index, reg in enumerate(validators):
         committed = await api_client.post(

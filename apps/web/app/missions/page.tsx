@@ -39,7 +39,7 @@ export default function MissionsPage() {
   );
 }
 
-export function missionBadgeClass(state: string): string {
+function missionBadgeClass(state: string): string {
   if (state === "completed") return "ok";
   if (state === "failed" || state === "cancelled") return "revoked";
   return "";

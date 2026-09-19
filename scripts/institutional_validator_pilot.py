@@ -12,12 +12,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import fcntl
 import hashlib
 import json
 import os
 import secrets
 import subprocess
 import sys
+import time
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -25,6 +27,7 @@ from typing import Any, cast
 
 import httpx
 from jsonschema import Draft202012Validator
+from sqlalchemy import func, select
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "apps" / "api"))
@@ -38,6 +41,8 @@ API_DEFAULT = "http://127.0.0.1:8700"
 AGENT_ROOT = Path.home() / ".agora-agents"
 FIXTURE_ROOT = AGENT_ROOT / "institutional-validation-fixture"
 PILOT_STATE = AGENT_ROOT / "institutional-validation-pilot.json"
+PILOT_LOCK = AGENT_ROOT / "institutional-validation-pilot.lock"
+WATCH_STATE = AGENT_ROOT / "institutional-validation-watch.json"
 PILOT_TITLE = "Institutional Validator deterministic live-local pilot"
 PILOT_KIND = "institutional_validator_pilot"
 PUBLIC_LABEL = "Institución simulada para pruebas de AGORA"
@@ -191,30 +196,81 @@ from pathlib import Path
 
 package_path = Path(sys.argv[1])
 package = json.loads(package_path.read_text())
-payload = package["final_solution"]["payload"]
-if payload.get("protocol_id") != "sum-of-squares-v1":
-    raise SystemExit("unsupported protocol_id")
-start = int(payload["inputs"]["start"])
-end = int(payload["inputs"]["end"])
-expected = int(payload["expected_output"])
-iterative = sum(value * value for value in range(start, end + 1))
-formula = end * (end + 1) * (2 * end + 1) // 6
-if start > 1:
-    previous = start - 1
-    formula -= previous * (previous + 1) * (2 * previous + 1) // 6
-mutated_endpoint = sum(value * value for value in range(start, end))
+candidate = package.get("candidate", {})
+context = package.get("review_context", {})
+solution = package.get("final_solution", {})
+payload = solution.get("payload") if isinstance(solution, dict) else None
+protocol_id = payload.get("protocol_id") if isinstance(payload, dict) else None
 result = {
-    "protocol_id": payload["protocol_id"],
-    "candidate_id": package["candidate"]["candidate_id"],
-    "candidate_content_hash": package["candidate"]["content_hash"],
+    "adapter": "static-context-integrity-v1",
+    "protocol_id": protocol_id,
+    "candidate_id": candidate.get("candidate_id"),
+    "candidate_content_hash": candidate.get("content_hash"),
     "package_sha256": hashlib.sha256(package_path.read_bytes()).hexdigest(),
-    "expected": expected,
-    "iterative_result": iterative,
-    "closed_form_result": formula,
-    "mutated_endpoint_result": mutated_endpoint,
-    "mutation_distinguishes_claim": mutated_endpoint != expected,
-    "reproduced": iterative == expected and formula == expected,
+    "context_hash_present": isinstance(context.get("context_hash"), str),
+    "private_service_logs_disclosed": context.get("private_service_logs_disclosed"),
+    "participant_count": len(context.get("participants", [])),
+    "thread_entry_count": sum(
+        len(context.get(key, []))
+        for key in ("challenge_thread", "world_conversation", "forum_conversation")
+    ),
+    "event_count": len(context.get("audit_events", [])),
+    "artifact_count": len(context.get("artifacts", [])),
+    "evidence_count": len(context.get("evidence", [])),
+    "protocol_adapter_supported": False,
+    "candidate_code_executed": False,
+    "tests_executed": [
+        "Parsed the frozen review package in an isolated Python process.",
+        "Inventoried public context and checked that private service logs were not disclosed.",
+        "Checked whether a locally allowlisted deterministic protocol adapter exists.",
+    ],
+    "reproduced": False,
+    "reproduction_status_hint": "NOT_REPRODUCIBLE_FROM_PROVIDED_ARTIFACTS",
+    "limitations": [
+        "No candidate-provided code or command was executed.",
+        "A protocol-specific allowlisted adapter is required for an independent reproduction.",
+    ],
 }
+if protocol_id == "sum-of-squares-v1":
+    try:
+        start = int(payload["inputs"]["start"])
+        end = int(payload["inputs"]["end"])
+        expected = int(payload["expected_output"])
+        if start < 0 or end < start:
+            raise ValueError("invalid input range")
+        if end - start > 100000:
+            result["reproduction_status_hint"] = "NOT_REPRODUCED_DUE_TO_TOOL_LIMITATION"
+            result["limitations"] = ["Input range exceeds the allowlisted adapter limit."]
+            print(json.dumps(result, sort_keys=True))
+            raise SystemExit(0)
+        iterative = sum(value * value for value in range(start, end + 1))
+        formula = end * (end + 1) * (2 * end + 1) // 6
+        if start > 1:
+            previous = start - 1
+            formula -= previous * (previous + 1) * (2 * previous + 1) // 6
+        mutated_endpoint = sum(value * value for value in range(start, end))
+        reproduced = iterative == expected and formula == expected
+        result.update({
+            "adapter": "sum-of-squares-v1",
+            "protocol_adapter_supported": True,
+            "expected": expected,
+            "iterative_result": iterative,
+            "closed_form_result": formula,
+            "mutated_endpoint_result": mutated_endpoint,
+            "mutation_distinguishes_claim": mutated_endpoint != expected,
+            "reproduced": reproduced,
+            "reproduction_status_hint": "REPRODUCED" if reproduced else "FAILED_TO_REPRODUCE",
+            "tests_executed": [
+                "Parsed the frozen review package in an isolated Python process.",
+                "Computed the inclusive sum of squares with a local loop.",
+                "Cross-checked the result with the independent closed-form identity.",
+                "Mutated the upper endpoint to test whether the claim distinguishes it.",
+            ],
+            "limitations": [],
+        })
+    except (KeyError, TypeError, ValueError) as exc:
+        result["reproduction_status_hint"] = "FAILED_TO_REPRODUCE"
+        result["limitations"] = [f"Allowlisted adapter input was invalid: {type(exc).__name__}"]
 print(json.dumps(result, sort_keys=True))
 '''
 
@@ -799,7 +855,13 @@ def run_reproduction(home: Path, package_path: Path) -> dict[str, Any]:
     return evidence
 
 
-def reviewer_prompt(home: Path, package: dict[str, Any], evidence: dict[str, Any]) -> str:
+def reviewer_prompt(
+    home: Path,
+    package: dict[str, Any],
+    evidence: dict[str, Any],
+    *,
+    owner_revision_notes: str | None = None,
+) -> str:
     policy = "\n\n".join(
         (home / name).read_text()
         for name in ("AGENT.md", "SOUL.md", "POLICY.md", "REVIEW_METHOD.md")
@@ -808,7 +870,10 @@ def reviewer_prompt(home: Path, package: dict[str, Any], evidence: dict[str, Any
 
 You are running one blind synthetic institutional review. Use only the candidate
 package and your own reproduction evidence below. You have no peer draft. Do
-not seek one and do not invoke tools. Return only a JSON object matching the
+not seek one and do not invoke tools. Candidate-provided code or commands were
+not executed; only locally allowlisted deterministic adapters may run. If the
+evidence reports no supported adapter, record the missing reproduction rather
+than claiming that the result passed. Return only a JSON object matching the
 provided schema. The top-level keys must be exactly:
 `verdict`, `confidence`, `reproduction_status`, `dimensions`, `summary`,
 `methodology_findings`, `reproduction_findings`, `evidence_findings`,
@@ -825,6 +890,12 @@ labels. Findings must be concise, auditable, and based on observed evidence.
 `artifacts_reviewed` must include the candidate package and your own
 reproduction JSON. The result can validate only this test protocol, never
 human institutional validation or real TOKOIN settlement.
+Review the participant roster, public challenge/world/forum conversation,
+audit events, genealogy and artifact/evidence metadata included in
+`review_context`. Treat votes and consensus as social signals, not truth.
+Report every material gap under `requested_changes`; do not claim that an
+unexecuted or unavailable test passed.
+{f"OWNER REVISION NOTES: {owner_revision_notes}" if owner_revision_notes else ""}
 
 CANDIDATE PACKAGE:
 {json.dumps(package, indent=2, ensure_ascii=False, sort_keys=True)}
@@ -972,6 +1043,57 @@ def invoke_brain(spec: dict[str, Any], prompt: str, schema_path: Path) -> dict[s
     return review
 
 
+def bind_review_to_executed_evidence(
+    review: dict[str, Any], evidence: dict[str, Any]
+) -> dict[str, Any]:
+    """Keep model prose, but never let it invent a passed test or artifact read."""
+    bound = dict(review)
+    candidate_id = str(evidence["candidate_id"])
+    bound["executed_tests"] = list(evidence["tests_executed"])
+    bound["artifacts_reviewed"] = [
+        f"candidate-{candidate_id}.json",
+        f"reproduction-{candidate_id}.json",
+    ]
+    outcome = evidence["reproduction_status_hint"]
+    if outcome != "REPRODUCED":
+        bound["reproduction_status"] = outcome
+        bound["summary"] = (
+            "Evidence gate: independent reproduction not demonstrated. "
+            + str(bound["summary"])
+        )[:20000]
+        if bound["verdict"] in {"APPROVED", "APPROVED_WITH_MINOR_CHANGES"}:
+            bound["verdict"] = (
+                "REQUIRES_REVISION"
+                if outcome == "FAILED_TO_REPRODUCE"
+                else "INSUFFICIENT_EVIDENCE"
+            )
+            bound["confidence"] = min(int(bound["confidence"]), 50)
+        limitation = (
+            "Independent reproduction did not pass the local allowlisted adapter; "
+            "the candidate cannot receive a positive TEST verdict."
+        )
+        bound["critical_issues"] = [*bound["critical_issues"][:49], limitation]
+        bound["requested_changes"] = [
+            *bound["requested_changes"][:49],
+            "Provide a verifiable, allowlisted reproduction path and a new frozen "
+            "candidate version.",
+        ]
+    Draft202012Validator(MODEL_REVIEW_SCHEMA).validate(bound)
+    return bound
+
+
+def verify_review_context(package: dict[str, Any]) -> None:
+    from agora_api.magna_knowledge_ledger import canonical_json_hash
+
+    context = dict(package["review_context"])
+    expected = context.pop("context_hash")
+    actual = canonical_json_hash(context, domain="agora.institutional.validator.context.v1")
+    if actual != expected:
+        raise RuntimeError("Validator review context hash mismatch")
+    if context.get("private_service_logs_disclosed") is not False:
+        raise RuntimeError("Validator package disclosed private service logs")
+
+
 def prepare_review(spec: dict[str, Any], api_url: str, candidate_id: str) -> dict[str, Any]:
     home = Path(spec["home"])
     bridge_home = home / "identity"
@@ -994,42 +1116,55 @@ def prepare_review(spec: dict[str, Any], api_url: str, candidate_id: str) -> dic
             ),
             200,
         )
+        proposal_response = client.get(
+            f"/v1/research-protocol/pilot-assignments/{assignment['assignment_id']}/proposal",
+            headers=agent_headers(token),
+        )
+        if proposal_response.status_code not in {200, 404}:
+            checked(proposal_response, 200)
+        existing_proposal = (
+            proposal_response.json() if proposal_response.status_code == 200 else None
+        )
     if package["peer_review_data_disclosed"]:
         raise RuntimeError("Blind package disclosed peer review data")
+    verify_review_context(package)
     package_path = home / "artifacts" / f"candidate-{candidate_id}.json"
     write_json(package_path, package)
     evidence = run_reproduction(home, package_path)
     schema_path = home / "state" / "model-review.schema.json"
     write_json(schema_path, MODEL_REVIEW_SCHEMA)
-    draft_path = home / "reviews" / f"{candidate_id}.sealed-review.json"
-    if draft_path.exists():
+    next_version = (
+        int(existing_proposal["proposal_version"]) + 1
+        if existing_proposal and existing_proposal["state"] == "REVISION_REQUESTED"
+        else int(existing_proposal["proposal_version"])
+        if existing_proposal
+        else 1
+    )
+    draft_path = home / "reviews" / f"{candidate_id}.v{next_version}.sealed-review.json"
+    revision_notes = (
+        existing_proposal.get("decision", {}).get("owner_notes")
+        if existing_proposal and existing_proposal.get("decision")
+        else None
+    )
+    if existing_proposal and existing_proposal["state"] != "REVISION_REQUESTED":
+        review = existing_proposal["review"]
+    elif draft_path.exists():
         review = read_json(draft_path)
         Draft202012Validator(MODEL_REVIEW_SCHEMA).validate(
             {key: value for key, value in review.items() if key != "commitment_nonce"}
         )
-    elif (
-        spec["brain_provider"] == "claude"
-        and (home / "logs" / "claude-result-envelope.json").exists()
-    ):
-        envelope_path = home / "logs" / "claude-result-envelope.json"
-        review = normalize_model_review(parse_claude_result(envelope_path.read_text()))
-        errors = list(Draft202012Validator(MODEL_REVIEW_SCHEMA).iter_errors(review))
-        if errors:
-            review = invoke_brain(spec, reviewer_prompt(home, package, evidence), schema_path)
-        else:
-            write_json(
-                home / "logs" / "claude-normalization-receipt.json",
-                {
-                    "adapter": "claude-extended-review-to-agora-wire-v1",
-                    "source_sha256": hashlib.sha256(envelope_path.read_bytes()).hexdigest(),
-                    "verdict_preserved": review["verdict"],
-                    "normalized_at": now_iso(),
-                },
-            )
-        review["commitment_nonce"] = secrets.token_urlsafe(24)
-        write_json(draft_path, review, private=True)
     else:
-        review = invoke_brain(spec, reviewer_prompt(home, package, evidence), schema_path)
+        review = invoke_brain(
+            spec,
+            reviewer_prompt(
+                home,
+                package,
+                evidence,
+                owner_revision_notes=revision_notes,
+            ),
+            schema_path,
+        )
+        review = bind_review_to_executed_evidence(review, evidence)
         review["commitment_nonce"] = secrets.token_urlsafe(24)
         write_json(draft_path, review, private=True)
     from agora_api.boundary import validate_research_protocol_request
@@ -1040,8 +1175,153 @@ def prepare_review(spec: dict[str, Any], api_url: str, candidate_id: str) -> dic
         "assignment": assignment,
         "package": package,
         "review": review,
+        "existing_proposal": existing_proposal,
         "draft_path": str(draft_path),
     }
+
+
+def _owner_recommendation(review: dict[str, Any]) -> dict[str, Any]:
+    assessment = {
+        "APPROVED": "PASS",
+        "APPROVED_WITH_MINOR_CHANGES": "PASS_WITH_CONDITIONS",
+        "REQUIRES_REVISION": "PASS_WITH_CONDITIONS",
+        "REJECTED": "FAIL",
+        "INSUFFICIENT_EVIDENCE": "INSUFFICIENT_EVIDENCE",
+    }[review["verdict"]]
+    return {
+        "assessment": assessment,
+        "rationale": review["summary"],
+        "blocking_issues": review["critical_issues"],
+        "what_is_missing": review["requested_changes"],
+        "suggested_actions": review["requested_changes"],
+    }
+
+
+def _tokoin_recommendation(
+    package: dict[str, Any], validator_actor_id: str
+) -> dict[str, Any]:
+    reward = package["review_context"]["reward_context"]
+    total = int(reward["total_aceros"])
+    source = reward.get("allocation", {})
+    allocations: list[dict[str, Any]] = []
+    kind_by_pool = {
+        "research_proposer": "AGENT",
+        "final_solution": "AGENT",
+        "participant_contribution_pool": "AGENT",
+        "agora_infrastructure": "INFRASTRUCTURE",
+    }
+    for pool, recipient_kind in kind_by_pool.items():
+        for row in source.get(pool, []):
+            allocations.append(
+                {
+                    "recipient_kind": recipient_kind,
+                    "recipient_id": row["actor_id"],
+                    "amount_aceros": int(row["amount_aceros"]),
+                    "basis": f"Provisional {pool} allocation from frozen contribution scoring.",
+                }
+            )
+    participant_reserve = int(
+        source.get("reserved_unallocated", {}).get("participant_contribution_pool", 0)
+    )
+    if participant_reserve:
+        allocations.append(
+            {
+                "recipient_kind": "RESERVE",
+                "recipient_id": "PARTICIPANT_CONTRIBUTION_TEST_RESERVE",
+                "amount_aceros": participant_reserve,
+                "basis": "No scored public contribution currently supports this reserved amount.",
+            }
+        )
+    institutional_pool = int(
+        source.get("pools", {}).get("institutional_validation_pool", 0)
+    )
+    if institutional_pool:
+        own_credit = institutional_pool // 2
+        allocations.extend(
+            [
+                {
+                    "recipient_kind": "TEST_VALIDATOR_CREDIT",
+                    "recipient_id": validator_actor_id,
+                    "amount_aceros": own_credit,
+                    "basis": "Non-settleable TEST credit for this validator review workload.",
+                },
+                {
+                    "recipient_kind": "RESERVE",
+                    "recipient_id": "PEER_VALIDATOR_TEST_CREDIT_RESERVE",
+                    "amount_aceros": institutional_pool - own_credit,
+                    "basis": "Reserved TEST credit for the independent peer validator workload.",
+                },
+            ]
+        )
+    allocated = sum(row["amount_aceros"] for row in allocations)
+    if allocated < total:
+        allocations.append(
+            {
+                "recipient_kind": "RESERVE",
+                "recipient_id": "AGORA_TEST_UNALLOCATED_RESERVE",
+                "amount_aceros": total - allocated,
+                "basis": "Unallocated remainder retained for explicit human governance review.",
+            }
+        )
+    if sum(row["amount_aceros"] for row in allocations) != total:
+        raise RuntimeError("TOKOIN TEST recommendation does not sum to the provisional total")
+    return {
+        "denomination": "ACEROS",
+        "total_aceros": total,
+        "allocations": allocations,
+        "synthetic_test_only": True,
+        "settlement_eligible": False,
+        "requires_separate_human_validation": True,
+    }
+
+
+def proposal_for(prepared: dict[str, Any]) -> dict[str, Any]:
+    package = prepared["package"]
+    context = package["review_context"]
+    evidence_path = Path(prepared["spec"]["home"]) / "artifacts" / (
+        f"reproduction-{package['candidate']['candidate_id']}.json"
+    )
+    return {
+        "review": prepared["review"],
+        "recommendation": _owner_recommendation(prepared["review"]),
+        "evidence_manifest": {
+            "context_hash": context["context_hash"],
+            "participant_ids": [row["agent_id"] for row in context["participants"]],
+            "thread_entry_ids": [
+                *[row["entry_id"] for row in context["challenge_thread"]],
+                *[row["message_id"] for row in context["world_conversation"]],
+                *[row["post_id"] for row in context["forum_conversation"]],
+            ],
+            "event_ids": [row["event_id"] for row in context["audit_events"]],
+            "artifact_ids": [
+                package["final_solution"]["object_id"],
+                *[row["artifact_version_id"] for row in context["artifacts"]],
+                *[row["evidence_id"] for row in context["evidence"]],
+            ],
+            "test_receipt_hashes": [hashlib.sha256(evidence_path.read_bytes()).hexdigest()],
+        },
+        "tokoin_recommendation": _tokoin_recommendation(
+            package, prepared["assignment"]["validator"]["actor_id"]
+        ),
+    }
+
+
+def submit_prepared_proposal(prepared: dict[str, Any], api_url: str) -> dict[str, Any]:
+    existing = prepared.get("existing_proposal")
+    if existing and existing["state"] != "REVISION_REQUESTED":
+        return existing
+    spec = prepared["spec"]
+    _, token = agent_session(Path(spec["home"]) / "identity", api_url)
+    return checked(
+        httpx.post(
+            f"{api_url}/v1/research-protocol/pilot-assignments/"
+            f"{prepared['assignment']['assignment_id']}/proposal",
+            json=proposal_for(prepared),
+            headers=agent_headers(token),
+            timeout=30,
+        ),
+        201,
+    )
 
 
 def commitment_for(prepared: dict[str, Any]) -> str:
@@ -1126,11 +1406,190 @@ def persist_completed_panel(state: dict[str, Any], panel: dict[str, Any]) -> Non
     write_json(PILOT_STATE, state, private=True)
 
 
-def run_dual_review(api_url: str) -> dict[str, Any]:
-    state = read_json(PILOT_STATE)
-    if not state or not state.get("candidate_id"):
+def _joint_candidate_ids(assignments_by_validator: list[list[dict[str, Any]]]) -> list[str]:
+    candidates_by_validator: list[set[str]] = []
+    terminal_states = {"CONFLICT_DECLARED", "OWNER_REJECTED", "VERDICT_REVEALED"}
+    for assignments in assignments_by_validator:
+        candidates_by_validator.append(
+            {
+                row["candidate_id"]
+                for row in assignments
+                if not row["revealed"] and row["state"] not in terminal_states
+            }
+        )
+    if not candidates_by_validator:
+        return []
+    return sorted(set.intersection(*candidates_by_validator))
+
+
+def assigned_candidate_ids(api_url: str) -> list[str]:
+    assignments_by_validator: list[list[dict[str, Any]]] = []
+    for spec in VALIDATORS:
+        home = Path(cast(str | os.PathLike[str], spec["home"]))
+        _, token = agent_session(home / "identity", api_url)
+        mine = checked(
+            httpx.get(
+                f"{api_url}/v1/research-protocol/institutional-validators/me",
+                headers=agent_headers(token),
+                timeout=30,
+            ),
+            200,
+        )
+        assignments_by_validator.append(mine["assignments"])
+    return _joint_candidate_ids(assignments_by_validator)
+
+
+async def _validation_queue() -> dict[str, Any]:
+    """Read world readiness without changing candidates or owner assignments."""
+    from agora_api.db import session_factory
+    from agora_api.models import (
+        Mission,
+        MissionChallengeSubmission,
+        MissionChallengeVote,
+        ResearchCandidateSnapshot,
+        ValidatorAssignment,
+        ValidatorReview,
+    )
+
+    async with session_factory()() as session:
+        candidates = list(
+            (
+                await session.execute(
+                    select(ResearchCandidateSnapshot).where(
+                        ResearchCandidateSnapshot.state == "INSTITUTIONAL_REVIEW_PENDING"
+                    )
+                )
+            ).scalars()
+        )
+        candidate_ids = [row.candidate_id for row in candidates]
+        assignments = list(
+            (
+                await session.execute(
+                    select(ValidatorAssignment).where(
+                        ValidatorAssignment.candidate_id.in_(candidate_ids)
+                    )
+                )
+            ).scalars()
+        ) if candidate_ids else []
+        reviews = list(
+            (
+                await session.execute(
+                    select(ValidatorReview).where(ValidatorReview.candidate_id.in_(candidate_ids))
+                )
+            ).scalars()
+        ) if candidate_ids else []
+        assignments_by_candidate: dict[str, int] = {}
+        reviews_by_candidate: dict[str, int] = {}
+        for assignment_row in assignments:
+            assignments_by_candidate[assignment_row.candidate_id] = (
+                assignments_by_candidate.get(assignment_row.candidate_id, 0) + 1
+            )
+        for review_row in reviews:
+            reviews_by_candidate[review_row.candidate_id] = (
+                reviews_by_candidate.get(review_row.candidate_id, 0) + 1
+            )
+        candidate_queue = [
+            {
+                "candidate_id": row.candidate_id,
+                "challenge_id": row.challenge_id,
+                "candidate_hash": row.content_hash,
+                "assignments": assignments_by_candidate.get(row.candidate_id, 0),
+                "reviews": reviews_by_candidate.get(row.candidate_id, 0),
+                "next_action": (
+                    "OWNER_ASSIGN_PANEL"
+                    if assignments_by_candidate.get(row.candidate_id, 0) < 2
+                    else "VALIDATORS_OR_OWNER_DECISION"
+                    if reviews_by_candidate.get(row.candidate_id, 0) < 2
+                    else "COMPLETE_TEST_ONLY"
+                ),
+            }
+            for row in candidates
+        ]
+        missions = list(
+            (
+                await session.execute(
+                    select(Mission).where(
+                        Mission.resolution_policy == "institutional_research_v1",
+                        Mission.state == "review",
+                    )
+                )
+            ).scalars()
+        )
+        challenges_with_candidate = {row.challenge_id for row in candidates}
+        awaiting_freeze = [
+            {
+                "challenge_id": row.mission_id,
+                "title": row.title,
+                "next_action": "AUTHOR_FREEZE_CANDIDATE",
+            }
+            for row in missions
+            if row.mission_id not in challenges_with_candidate
+        ]
+        near_consensus = list(
+            (
+                await session.execute(
+                    select(
+                        MissionChallengeSubmission.mission_id,
+                        MissionChallengeSubmission.submission_id,
+                        func.count(MissionChallengeVote.voter_agent_id).label("positive_votes"),
+                    )
+                    .join(Mission, Mission.mission_id == MissionChallengeSubmission.mission_id)
+                    .join(
+                        MissionChallengeVote,
+                        MissionChallengeVote.submission_id
+                        == MissionChallengeSubmission.submission_id,
+                    )
+                    .where(
+                        Mission.resolution_policy == "institutional_research_v1",
+                        Mission.state == "active",
+                        MissionChallengeSubmission.state == "submitted",
+                        MissionChallengeVote.resolved.is_(True),
+                        MissionChallengeVote.abstained.is_(False),
+                    )
+                    .group_by(
+                        MissionChallengeSubmission.mission_id,
+                        MissionChallengeSubmission.submission_id,
+                    )
+                    .having(func.count(MissionChallengeVote.voter_agent_id) >= 2)
+                    .limit(50)
+                )
+            ).all()
+        )
+    return {
+        "synthetic_test_only": True,
+        "human_validation_satisfied": False,
+        "tokoin_settlement_eligible": False,
+        "awaiting_freeze": awaiting_freeze,
+        "candidates": candidate_queue,
+        "preliminary_two_positive_votes": [
+            {
+                "challenge_id": row.mission_id,
+                "submission_id": row.submission_id,
+                "positive_votes": row.positive_votes,
+            }
+            for row in near_consensus
+        ],
+    }
+
+
+def validation_queue() -> dict[str, Any]:
+    async def scan() -> dict[str, Any]:
+        from agora_api.db import dispose_engine
+
+        try:
+            return await _validation_queue()
+        finally:
+            await dispose_engine()
+
+    return asyncio.run(scan())
+
+
+def run_dual_review(api_url: str, candidate_id: str | None = None) -> dict[str, Any]:
+    state = read_json(PILOT_STATE, {})
+    candidate_id = candidate_id or state.get("candidate_id")
+    if not candidate_id:
         raise RuntimeError("Bootstrap and assign a candidate before running reviews")
-    candidate_id = state["candidate_id"]
+    state["candidate_id"] = candidate_id
     initial = checked(
         httpx.get(
             f"{api_url}/v1/research-protocol/candidates/{candidate_id}/pilot-panel",
@@ -1148,6 +1607,33 @@ def run_dual_review(api_url: str) -> dict[str, Any]:
             "resumed_completed": True,
         }
     prepared = [prepare_review(spec, api_url, candidate_id) for spec in VALIDATORS]
+    proposals = [submit_prepared_proposal(item, api_url) for item in prepared]
+    if not all(item["state"] == "OWNER_APPROVED" for item in proposals):
+        panel = checked(
+            httpx.get(
+                f"{api_url}/v1/research-protocol/candidates/{candidate_id}/pilot-panel",
+                timeout=30,
+            ),
+            200,
+        )
+        state.update(
+            {
+                "panel_status": panel["status"],
+                "proposal_ids": [item["proposal_id"] for item in proposals],
+                "proposal_hashes": [item["proposal_hash"] for item in proposals],
+                "owner_decision_required": True,
+                "updated_at": now_iso(),
+            }
+        )
+        write_json(PILOT_STATE, state, private=True)
+        return {
+            "proposals": proposals,
+            "commits": [],
+            "first_reveal": None,
+            "second_reveal": None,
+            "panel": panel,
+            "awaiting_owner_decision": True,
+        }
     commits = [commit_prepared(item, api_url) for item in prepared]
     sealed = checked(
         httpx.get(
@@ -1183,7 +1669,93 @@ def run_dual_review(api_url: str) -> dict[str, Any]:
         200,
     )
     persist_completed_panel(state, panel)
-    return {"commits": commits, "first_reveal": first, "second_reveal": second, "panel": panel}
+    return {
+        "proposals": proposals,
+        "commits": commits,
+        "first_reveal": first,
+        "second_reveal": second,
+        "panel": panel,
+    }
+
+
+def watch_assignments(
+    api_url: str, *, poll_seconds: float, max_wait_seconds: float
+) -> dict[str, Any]:
+    if poll_seconds < 1:
+        raise ValueError("poll_seconds must be at least 1")
+    if max_wait_seconds < 0:
+        raise ValueError("max_wait_seconds cannot be negative")
+    deadline = time.monotonic() + max_wait_seconds if max_wait_seconds else None
+    last_result: dict[str, Any] | None = None
+    last_status: tuple[str | None, str | None] | None = None
+    last_queue: dict[str, Any] | None = None
+    while True:
+        try:
+            queue = validation_queue()
+            if queue != last_queue:
+                write_json(WATCH_STATE, {**queue, "checked_at": now_iso()}, private=True)
+                print(
+                    json.dumps(
+                        {"event": "validator_queue_changed", "queue": queue},
+                        sort_keys=True,
+                    ),
+                    file=sys.stderr,
+                    flush=True,
+                )
+                last_queue = queue
+            candidate_ids = assigned_candidate_ids(api_url)
+            for candidate_id in candidate_ids:
+                try:
+                    last_result = run_dual_review(api_url, candidate_id)
+                    panel = last_result["panel"]
+                    status = (candidate_id, panel.get("status"))
+                    if status != last_status:
+                        print(
+                            json.dumps(
+                                {"candidate_id": candidate_id, "status": panel.get("status")},
+                                ensure_ascii=False,
+                                sort_keys=True,
+                            ),
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        last_status = status
+                except Exception as exc:
+                    print(
+                        json.dumps({"candidate_id": candidate_id, "review_error": str(exc)[:500]}),
+                        file=sys.stderr,
+                        flush=True,
+                    )
+        except Exception as exc:
+            print(
+                json.dumps({"watch_error": str(exc)[:500]}),
+                file=sys.stderr,
+                flush=True,
+            )
+        if deadline is not None and time.monotonic() >= deadline:
+            if last_result is not None:
+                return {**last_result, "watch_timed_out": True, "queue": last_queue}
+            return {
+                "panel": {},
+                "watch_timed_out": True,
+                "idle_no_joint_assignment": True,
+                "queue": last_queue,
+            }
+        time.sleep(poll_seconds)
+
+
+@contextlib.contextmanager
+def pilot_process_lock() -> Iterator[None]:
+    PILOT_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    with PILOT_LOCK.open("a+") as lock_file:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise RuntimeError("Another Institutional Validator worker is active") from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def public_status(api_url: str) -> dict[str, Any]:
@@ -1203,13 +1775,20 @@ def public_status(api_url: str) -> dict[str, Any]:
             ),
             200,
         )
-    return {"validators": validators, "panel": panel, "local_state": state}
+    return {
+        "validators": validators,
+        "panel": panel,
+        "local_state": state,
+        "watch_state": read_json(WATCH_STATE, {}),
+    }
 
 
 def summary(value: dict[str, Any]) -> dict[str, Any]:
     panel = value.get("panel", value)
     tracks = panel.get("tracks", []) if isinstance(panel, dict) else []
     return {
+        "idle_no_joint_assignment": value.get("idle_no_joint_assignment", False),
+        "watch_timed_out": value.get("watch_timed_out", False),
         "candidate_id": panel.get("candidate_id") if isinstance(panel, dict) else None,
         "status": panel.get("status") if isinstance(panel, dict) else None,
         "all_committed": panel.get("all_committed") if isinstance(panel, dict) else None,
@@ -1228,6 +1807,7 @@ def summary(value: dict[str, Any]) -> dict[str, Any]:
                 "review_role": track["validator"]["review_role"],
                 "badge": track["validator"]["badge"],
                 "state": track["state"],
+                "owner_gate": track.get("owner_gate"),
                 "commitment_hash": track.get("commitment_hash"),
                 "verdict": track.get("review", {}).get("verdict"),
                 "review_hash": track.get("review", {}).get("review_hash"),
@@ -1240,24 +1820,44 @@ def summary(value: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "command", choices=("register", "bootstrap", "review", "status", "all")
+        "command", choices=("register", "bootstrap", "review", "watch", "scan", "status", "all")
     )
     parser.add_argument("--api-url", default=API_DEFAULT)
+    parser.add_argument("--candidate-id")
+    parser.add_argument("--poll-seconds", type=float, default=30.0)
+    parser.add_argument("--max-wait-seconds", type=float, default=0.0)
     args = parser.parse_args()
     os.environ.setdefault("AGORA_INSTITUTIONAL_VALIDATOR_PILOT_ENABLED", "true")
-    if args.command == "register":
-        result = register_validators(args.api_url)
-    elif args.command == "bootstrap":
-        result = bootstrap_candidate(args.api_url)
-    elif args.command == "review":
-        result = run_dual_review(args.api_url)
-    elif args.command == "status":
+    if args.command == "status":
         result = public_status(args.api_url)
+    elif args.command == "scan":
+        result = {"queue": validation_queue()}
     else:
-        register_validators(args.api_url)
-        bootstrap_candidate(args.api_url)
-        result = run_dual_review(args.api_url)
-    print(json.dumps(summary(result), indent=2, ensure_ascii=False, sort_keys=True))
+        with pilot_process_lock():
+            if args.command == "register":
+                result = register_validators(args.api_url)
+            elif args.command == "bootstrap":
+                result = bootstrap_candidate(args.api_url)
+            elif args.command == "review":
+                result = run_dual_review(args.api_url, args.candidate_id)
+            elif args.command == "watch":
+                result = watch_assignments(
+                    args.api_url,
+                    poll_seconds=args.poll_seconds,
+                    max_wait_seconds=args.max_wait_seconds,
+                )
+            else:
+                register_validators(args.api_url)
+                bootstrap_candidate(args.api_url)
+                result = run_dual_review(args.api_url, args.candidate_id)
+    print(
+        json.dumps(
+            result["queue"] if args.command == "scan" else summary(result),
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
     return 0
 
 

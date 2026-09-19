@@ -20,9 +20,19 @@ representative.
 
 Each frozen candidate receives exactly two distinct pilot validators: one Codex
 reproduction/methodology track and one Claude falsification/evidence track. Each
-signs a review commitment with its Ed25519 device key. No verdict or findings
-are exposed until both commitments and both reveals exist. Revealed reviews and
-reproduction outcomes become immutable knowledge-genealogy nodes and edges.
+inspects the frozen candidate plus the public challenge thread, public world and
+forum conversation, participants, events, evidence and artifacts available to
+the review package. Votes and consensus are social context, never proof.
+
+Before signing, each validator submits a private, versioned proposal containing
+its human-readable pass/fail recommendation, tested evidence manifest, missing
+work and a non-settleable TOKOIN TEST allocation recommendation. Only the Owner
+who assigned the panel can approve, reject or request a revision, and that
+append-only decision is bound to the exact proposal hash. A validator cannot
+commit or reveal a different payload. Each approved review is then signed with
+its Ed25519 device key. No verdict or findings are exposed publicly until both
+commitments and both reveals exist. Revealed reviews and reproduction outcomes
+become immutable knowledge-genealogy nodes and edges.
 
 The pilot result is a separate protocol signal. It never changes a candidate to
 `HUMAN_VALIDATED`, never satisfies institutional quorum, never publishes a

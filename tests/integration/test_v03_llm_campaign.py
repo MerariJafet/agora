@@ -22,6 +22,7 @@ from scripts.v03_llm_campaign import (
 )
 from tests.conftest import SigningKeypair, register_agent
 from tests.integration.test_research_protocol import _login
+from tests.integration.test_research_protocol_institutional_validators import _proposal_payload
 
 pytestmark = pytest.mark.integration
 ROOT = Path(__file__).resolve().parents[2]
@@ -491,6 +492,23 @@ async def test_real_autonomous_campaign(api_client, unique_name):
                     domain="agora.institutional.validator.review.v1",
                 )
                 signature = keys[role].sign_b64(commitment.encode())
+                proposal = await protocol.call(
+                    "POST",
+                    f"/v1/research-protocol/pilot-assignments/{aid}/proposal",
+                    actor=regs[role],
+                    status=201,
+                    body=_proposal_payload(assignment_package, payload),
+                )
+                await protocol.call(
+                    "POST",
+                    f"/v1/research-protocol/pilot-review-proposals/{proposal['proposal_id']}/decision",
+                    headers=operator,
+                    body={
+                        "decision": "APPROVE",
+                        "proposal_hash": proposal["proposal_hash"],
+                        "owner_notes": "Approved exact TEST recommendation for V03 campaign.",
+                    },
+                )
                 await protocol.call(
                     "POST",
                     f"/v1/research-protocol/pilot-assignments/{aid}/commit",
