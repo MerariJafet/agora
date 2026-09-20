@@ -6,10 +6,10 @@
   "counts": {
     "adrs": 78,
     "mcp_tools": 106,
-    "migrations": 46,
+    "migrations": 47,
     "native_tests": 182,
-    "python_tests": 747
+    "python_tests": 757
   },
-  "generated_from_commit": "93b023bfcf3cf36291aaa2814badb258f967668f",
-  "latest_migration": "0045_merge_validator_owner_gate"
+  "generated_from_commit": "ebab11bec60f15fb4f2d388f27631cec442e1970",
+  "latest_migration": "0046_validator_package_snapshot"
 }

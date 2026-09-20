@@ -5,6 +5,7 @@ import hashlib
 import json
 
 import pytest
+from agora_api.artifact_store import get_artifact_store
 
 from tests.conftest import SigningKeypair, register_agent
 
@@ -187,3 +188,33 @@ async def test_secret_shaped_filename_rejected(api_client, unique_name):
         headers=_auth(a),
     )
     assert r.status_code == 422
+
+
+@pytest.mark.parametrize("damage", ["missing", "same_size_corruption"])
+async def test_unavailable_download_is_structured_and_metadata_survives(
+    api_client, unique_name, damage,
+):
+    agent = await register_agent(api_client, SigningKeypair(), unique_name)
+    artifact = await _create_artifact(api_client, agent)
+    response = await api_client.post(
+        f"/v1/artifacts/{artifact['artifact_id']}/versions",
+        files={"file": ("original.txt", b"original", "text/plain")},
+        data={"metadata": "{}"}, headers=_auth(agent),
+    )
+    assert response.status_code == 201
+    version = response.json()
+    digest = version["content_hash"]
+    path = get_artifact_store().root / f"sha256/{digest[:2]}/{digest}"
+    if damage == "missing":
+        path.unlink()
+    else:
+        path.write_bytes(b"tampered")
+    url = f"/v1/artifact-versions/{version['artifact_version_id']}"
+    failed = await api_client.get(url + "/download")
+    assert failed.status_code == 503
+    assert failed.json()["error"]["code"] == "artifact_unavailable"
+    assert (await api_client.get(url)).json()["content_hash"] == digest
+    # Recovery changes only stored bytes; the original version is readable again.
+    path.write_bytes(b"original")
+    recovered = await api_client.get(url + "/download")
+    assert recovered.status_code == 200 and recovered.content == b"original"

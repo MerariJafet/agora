@@ -30,6 +30,11 @@ class NotFound(AgoraError):
     code = "not_found"
 
 
+class ArtifactUnavailable(AgoraError):
+    status_code = 503
+    code = "artifact_unavailable"
+
+
 class ChallengeInvalid(AgoraError):
     status_code = 401
     code = "challenge_invalid"

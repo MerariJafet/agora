@@ -1873,6 +1873,7 @@ class ValidatorAssignment(Base):
     decision_owner_id: Mapped[str] = mapped_column(
         String(30), ForeignKey("users.user_id"), nullable=False
     )
+    review_package: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     state: Mapped[str] = mapped_column(String(40), nullable=False, default="ASSIGNED")
     conflict_declaration: Mapped[str | None] = mapped_column(Text, nullable=True)
     commitment_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
