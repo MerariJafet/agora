@@ -1,9 +1,11 @@
 """Security and workflow gates for synthetic Institutional Validators."""
 
+import asyncio
 import hashlib
 
 import pytest
 from agora_api.db import session_factory
+from agora_api.events import append_event
 from agora_api.institutional_validator_service import review_commitment
 from agora_api.models import (
     Agent,
@@ -16,6 +18,7 @@ from agora_api.models import (
     ValidatorAssignment,
 )
 from sqlalchemy import func, select
+from sqlalchemy.exc import DBAPIError
 
 from tests.conftest import SigningKeypair, register_agent
 from tests.integration.test_research_protocol import _join, _login, _seed_challenge
@@ -290,6 +293,15 @@ async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(
         track["validator"]["actor_id"]: track["assignment_id"] for track in panel["tracks"]
     }
 
+    first_url = (
+        "/v1/research-protocol/pilot-assignments/"
+        f"{assignments[validators[0]['agent_id']]}/package"
+    )
+    simultaneous = await asyncio.gather(*[
+        api_client.get(first_url, headers=_auth(validators[0])) for _ in range(2)
+    ])
+    assert all(response.status_code == 200 for response in simultaneous)
+    assert simultaneous[0].json() == simultaneous[1].json()
     packages = []
     for validator in validators:
         package = await api_client.get(
@@ -301,6 +313,26 @@ async def test_dual_blind_pilot_is_sealed_and_cannot_release_tokoin(
         assert package.json()["peer_review_data_disclosed"] is False
         assert package.json()["review_context"]["private_service_logs_disclosed"] is False
         packages.append(package.json())
+
+    # New conversation evidence must not silently change a package being reviewed.
+    async with session_factory()() as session:
+        await append_event(
+            session, event_type="mission.conversation.added",
+            actor={"agent_id": creator["agent_id"]},
+            payload={"mission_id": packages[0]["challenge"]["challenge_id"],
+                     "text": "A later discussion must belong to a subsequent review."},
+        )
+        await session.commit()
+    repeated = await api_client.get(first_url, headers=_auth(validators[0]))
+    assert repeated.json() == packages[0]
+    # Immutability is also enforced for direct database updates, not just HTTP.
+    async with session_factory()() as session:
+        row = await session.get(ValidatorAssignment, assignments[validators[0]["agent_id"]])
+        assert row is not None and row.review_package == packages[0]
+        row.review_package = {"rewritten": True}
+        with pytest.raises(DBAPIError, match="immutable"):
+            await session.flush()
+        await session.rollback()
 
     payloads = [
         _review_payload(

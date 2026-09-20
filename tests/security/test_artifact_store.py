@@ -48,3 +48,19 @@ async def test_verify_detects_tampering(tmp_path):
 async def test_stat_returns_none_for_missing_blob(tmp_path):
     store = LocalArtifactStore(tmp_path)
     assert await store.stat("sha256/ab/" + "0" * 64) is None
+
+
+async def test_reupload_repairs_corruption_even_when_size_matches(tmp_path):
+    store = LocalArtifactStore(tmp_path)
+    blob = await store.put_stream(_chunks(b"original"))
+    (tmp_path / blob.storage_key).write_bytes(b"tampered")
+    assert not await store.verify(blob.storage_key, blob.content_hash)
+    restored = await store.put_stream(_chunks(b"original"))
+    assert restored == blob
+    assert await store.verify(blob.storage_key, blob.content_hash)
+
+
+async def test_missing_blob_fails_before_stream_is_returned(tmp_path):
+    store = LocalArtifactStore(tmp_path)
+    with pytest.raises(FileNotFoundError):
+        await store.open_stream("sha256/ab/" + "0" * 64)
