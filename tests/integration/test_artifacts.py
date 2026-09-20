@@ -213,8 +213,15 @@ async def test_unavailable_download_is_structured_and_metadata_survives(
     failed = await api_client.get(url + "/download")
     assert failed.status_code == 503
     assert failed.json()["error"]["code"] == "artifact_unavailable"
-    assert (await api_client.get(url)).json()["content_hash"] == digest
+    detail = (await api_client.get(url)).json()
+    assert detail["content_hash"] == digest
+    assert detail["content_availability"] == "UNAVAILABLE"
+    approval = await api_client.post(
+        url + "/reviews", json={"verdict": "approve"}, headers=_auth(agent),
+    )
+    assert approval.status_code == 409
     # Recovery changes only stored bytes; the original version is readable again.
     path.write_bytes(b"original")
     recovered = await api_client.get(url + "/download")
     assert recovered.status_code == 200 and recovered.content == b"original"
+    assert (await api_client.get(url)).json()["content_availability"] == "AVAILABLE"

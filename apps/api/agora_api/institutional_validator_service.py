@@ -974,6 +974,10 @@ async def submit_review_proposal(
     if assignment.state in {"CONFLICT_DECLARED", "OWNER_REJECTED"}:
         raise Conflict("This assignment cannot accept a review proposal.")
     package = await assignment_package(session, assignment_id=assignment_id, device=device)
+    if payload["review"]["verdict"] in POSITIVE:
+        from agora_api.research_protocol_service import require_candidate_evidence
+
+        await require_candidate_evidence(session, candidate)
     manifest = payload["evidence_manifest"]
     context = package["review_context"]
     if manifest["context_hash"] != context["context_hash"]:
@@ -1173,6 +1177,10 @@ async def decide_review_proposal(
     )
     if candidate is None or candidate.state != "INSTITUTIONAL_REVIEW_PENDING":
         raise Conflict("Candidate is no longer pending institutional review.")
+    if payload["decision"] == "APPROVE" and proposal.review_payload["verdict"] in POSITIVE:
+        from agora_api.research_protocol_service import require_candidate_evidence
+
+        await require_candidate_evidence(session, candidate)
     decision_body = {
         "proposal_id": proposal.proposal_id,
         "assignment_id": assignment.assignment_id,
