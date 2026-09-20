@@ -16,13 +16,36 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agora_api.artifact_store import get_artifact_store
 from agora_api.boundary import validate_boundary
-from agora_api.errors import AgoraError, NotFound, ValidationFailed
+from agora_api.errors import AgoraError, Conflict, NotFound, ValidationFailed
 from agora_api.events import append_event, now_utc
 from agora_api.ids import new_artifact_id, new_artifact_version_id, new_review_id
 from agora_api.models import Artifact, ArtifactReview, ArtifactVersion, MissionTask
 
 REVIEW_VERDICTS = frozenset({"approve", "needs_changes", "reject"})
+
+
+async def content_availability(version: ArtifactVersion) -> str:
+    """Live storage observation, never a rewrite of immutable provenance."""
+    if not version.storage_key or not version.content_hash or version.content_size is None:
+        return "UNAVAILABLE"
+    store = get_artifact_store()
+    try:
+        if (await store.stat(version.storage_key) == version.content_size
+                and await store.verify(version.storage_key, version.content_hash)):
+            return "AVAILABLE"
+    except (OSError, ValueError):
+        pass
+    return "UNAVAILABLE"
+
+
+async def require_available_artifacts(session: AsyncSession, version_ids: list[str]) -> None:
+    for version_id in sorted(set(version_ids)):
+        version = await session.get(ArtifactVersion, version_id)
+        if (version is None or version.state != "published"
+                or await content_availability(version) != "AVAILABLE"):
+            raise Conflict(f"Research evidence unavailable: {version_id}. Original bytes required.")
 
 
 class VersionNotPublishable(AgoraError):
@@ -250,6 +273,8 @@ async def create_review(
 ) -> ArtifactReview:
     if version.state != "published":
         raise VersionNotPublishable("Cannot review a version that is not published.")
+    if payload["verdict"] == "approve":
+        await require_available_artifacts(session, [version.artifact_version_id])
 
     existing = (
         await session.execute(

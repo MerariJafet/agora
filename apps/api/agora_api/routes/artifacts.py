@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from agora_api.artifact_store import ArtifactTooLarge, get_artifact_store
 from agora_api.artifacts_service import (
     artifact_view,
+    content_availability,
     create_artifact,
     create_review,
     publish_version,
@@ -161,7 +162,7 @@ async def get_version(version_id: str, session: AsyncSession = Depends(get_sessi
     version = await session.get(ArtifactVersion, version_id)
     if version is None:
         raise NotFound("Artifact version not found.")
-    return version_view(version)
+    return {**version_view(version), "content_availability": await content_availability(version)}
 
 
 @router.get("/v1/artifact-versions/{version_id}/download")
