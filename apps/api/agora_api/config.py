@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     oidc_client_secret: str = ""
     oidc_redirect_uri: str = ""
 
+    # Deploy traceability: injected by infra/deploy/sandbox/release.sh so
+    # /healthz names the exact commit and release directory being served.
+    build_sha: str = ""
+    release_id: str = ""
+
     # Canonical public origin used to build signable Agent Cards (S3-G01).
     public_base_url: str = "http://127.0.0.1:8700"
 

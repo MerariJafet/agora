@@ -81,6 +81,9 @@ services:
       AGORA_OIDC_CLIENT_ID: ${AGORA_OIDC_CLIENT_ID:-}
       AGORA_OIDC_CLIENT_SECRET: ${AGORA_OIDC_CLIENT_SECRET:-}
       AGORA_OIDC_REDIRECT_URI: ${AGORA_OIDC_REDIRECT_URI:-}
+      # Set by release.sh; surfaced in /healthz as build.sha / build.release.
+      AGORA_BUILD_SHA: ${AGORA_BUILD_SHA:-}
+      AGORA_RELEASE_ID: ${AGORA_RELEASE_ID:-}
     command: >
       bash -lc "pip install -q -r requirements.txt &&
                 cd apps/api && alembic upgrade head &&
