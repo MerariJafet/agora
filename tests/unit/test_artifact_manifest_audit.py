@@ -1,6 +1,7 @@
 """Offline audits must not mistake partial recovery or same-size corruption for PASS."""
 import hashlib
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,8 @@ audit = _module.audit
 
 @pytest.mark.parametrize("damage", [None, "missing", "corrupt", "escape", "size_mismatch"])
 def test_audit_requires_original_bytes_and_safe_paths(tmp_path, damage):
+    if damage == "escape" and sys.platform == "win32":
+        pytest.skip("creating symlinks needs an elevated privilege on Windows")
     content = b"original"
     digest = hashlib.sha256(content).hexdigest()
     key = f"sha256/{digest[:2]}/{digest}"
