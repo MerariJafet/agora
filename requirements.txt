@@ -11,7 +11,7 @@ asyncpg==0.31.0
 attrs==26.1.0
 boolean.py==5.0
 CacheControl==0.14.4
-certifi==2026.7.22
+certifi==2026.10.19
 cffi==2.1.1
 charset-normalizer==3.5.1
 click==8.4.2
@@ -20,7 +20,7 @@ culsans==0.11.0
 cyclonedx-python-lib==11.12.0
 defusedxml==0.7.1
 fastapi==0.141.1
-filelock==3.32.3
+filelock==4.2.1
 google-api-core==2.34.0
 google-auth==2.56.3
 googleapis-common-protos==1.75.1
@@ -47,15 +47,15 @@ license-expression==30.4.4
 Mako==1.4.1
 markdown-it-py==4.2.0
 MarkupSafe==3.0.3
-mcp==2.0.0
-mcp-types==2.0.0
+mcp==2.2.0
+mcp-types==2.2.0
 mdurl==0.1.2
 more-itertools==11.1.0
 msgpack==1.2.1
 mypy==2.3.1
 mypy_extensions==1.1.0
 nats-py==2.15.0
-opentelemetry-api==1.44.0
+opentelemetry-api==1.45.1
 packageurl-python==0.17.6
 packaging==26.3
 pathspec==1.1.1
@@ -75,7 +75,7 @@ pydantic==2.13.4
 pydantic-settings==2.15.0
 pydantic_core==2.46.4
 Pygments==2.21.0
-PyJWT==2.13.0
+PyJWT==2.15.0
 pyparsing==3.3.2
 pytest==9.1.1
 pytest-asyncio==1.4.0
@@ -101,7 +101,7 @@ tomli_w==1.2.0
 truststore==0.10.4
 typing-inspection==0.4.4
 typing_extensions==4.16.0
-urllib3==2.7.0
+urllib3==2.8.0
 uvicorn==0.52.4
 uvloop==0.22.1
 watchfiles==1.2.0

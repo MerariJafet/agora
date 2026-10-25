@@ -1,0 +1,29 @@
+{
+  "_comment": "Advisories accepted for this dev-only toolchain. Each entry expires; the gate fails after the date so the exception is re-decided, not forgotten. package-lock.json is sealed into the audited release bundle (audit/launch-2026-09-18/tokoin-candidate-bundle.json), so `npm audit fix` here breaks bundle:verify and needs a new external audit decision.",
+  "advisories": [
+    {
+      "id": "GHSA-mrhx-c7xc-m3w5",
+      "package": "zod",
+      "reason": "Memory exhaustion validating oversized collections (<4.6.6). Reached only through hardhat 3.x / hardhat-zod-utils (latest hardhat 3.21 still requires zod ^3), which validate the local hardhat config, never untrusted input. No non-breaking fix exists.",
+      "expires": "2027-01-31"
+    },
+    {
+      "id": "GHSA-xjj6-f33q-929c",
+      "package": "undici",
+      "reason": "DoS on excessive content-encodings. Used by hardhat-utils for RPC to the local devnet only; the fix (6.29.1) changes the sealed lockfile. Re-decide when the bundle is re-bound.",
+      "expires": "2026-12-31"
+    },
+    {
+      "id": "GHSA-q3jh-wrc6-jgq8",
+      "package": "follow-redirects",
+      "reason": "Credential headers kept on cross-origin redirect. Dev toolchain only; local devnet runs send no credentials to redirecting hosts. The fix changes the sealed lockfile.",
+      "expires": "2026-12-31"
+    },
+    {
+      "id": "GHSA-8r9p-f939-6h3c",
+      "package": "follow-redirects",
+      "reason": "sensitiveHeaders regex escaping. Same scope and constraint as GHSA-q3jh-wrc6-jgq8.",
+      "expires": "2026-12-31"
+    }
+  ]
+}
