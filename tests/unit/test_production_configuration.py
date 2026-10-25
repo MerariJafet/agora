@@ -51,3 +51,23 @@ def test_unsafe_setting_fails_without_leaking_value(field, value):
 
 def test_development_configuration_remains_usable():
     validate_production_settings(Settings(_env_file=None, env='development'))
+
+
+@pytest.mark.parametrize('env', ['development', 'test'])
+@pytest.mark.parametrize('field', ['public_base_url', 'oidc_redirect_uri'])
+def test_non_production_env_refuses_a_public_origin(env, field):
+    """AGORA_ENV left at a development value on a reachable host must not boot."""
+    settings = Settings(_env_file=None, env=env, **{field: 'https://agora.example.org/cb'})
+    with pytest.raises(RuntimeError, match='AGORA_ENV=production'):
+        validate_production_settings(settings)
+
+
+@pytest.mark.parametrize('url', [
+    'http://127.0.0.1:8700', 'http://localhost:3000/login/callback', 'http://api.agora.test',
+    'http://testserver',
+    'https://test.invalid',  # infra/pilot smoke runs AGORA_ENV=test on this reserved host
+])
+def test_non_production_env_allows_local_origins(url):
+    validate_production_settings(
+        Settings(_env_file=None, env='development', public_base_url=url, oidc_redirect_uri=url)
+    )
