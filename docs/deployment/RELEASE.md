@@ -13,7 +13,7 @@ Now:
 | Every deploy | `sudo infra/deploy/sandbox/release.sh <git-ref>` |
 | What is serving | `curl -s https://agora.datateologica.com/healthz` → `build.sha`, `build.release` |
 | Evidence | `/opt/agora-releases/<date>-<sha12>.receipt.json` (written by the script) |
-| Pre-migration backup | `/opt/agora-backups/<date>-<sha12>/pre-release.dump` |
+| Pre-migration backup | `/opt/agora-backups/<date>-<sha12>/pre-release-<UTC timestamp>.dump` (one per attempt) |
 | Rollback | `release.sh <previous sha>`; restore the dump only if a migration must be undone |
 
 `release.sh` extracts the commit with `git archive` (no working copy, so no

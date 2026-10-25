@@ -87,14 +87,17 @@ EOF
 fi
 
 # 3. backup before migrations
-BACKUP="$BACKUPS/$ID/pre-release.dump"
+# One dump per attempt: a retry of the same commit (same $ID) after its
+# migrations ran must never overwrite the true pre-migration recovery point.
+BACKUP="$BACKUPS/$ID/pre-release-$(date -u +%Y%m%dT%H%M%SZ).dump"
 run mkdir -p "$BACKUPS/$ID"
 if [ "$DRY_RUN" = 1 ]; then
   echo "  [dry-run] pg_dump $DB_CONTAINER > $BACKUP"
 else
-  docker exec "$DB_CONTAINER" sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$BACKUP"
-  docker exec -i "$DB_CONTAINER" pg_restore --list < "$BACKUP" > /dev/null
-  chmod 600 "$BACKUP"
+  docker exec "$DB_CONTAINER" sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$BACKUP.tmp"
+  docker exec -i "$DB_CONTAINER" pg_restore --list < "$BACKUP.tmp" > /dev/null
+  chmod 600 "$BACKUP.tmp"
+  mv "$BACKUP.tmp" "$BACKUP"
   log "backup $BACKUP ($(du -h "$BACKUP" | cut -f1))"
 fi
 
@@ -117,16 +120,13 @@ done
 [ "$served" = "$SHA" ] || { log "FAIL: API serves '${served:-nothing}', expected $SHA"; exit 1; }
 log "API serves $SHA"
 
+# The public URL must serve the same build (proves nginx routes to this stack).
 public="unchecked"
-if command -v python3 >/dev/null && [ -f "$DIR/infra/deploy/tls/check_public_endpoints.py" ]; then
-  for _ in $(seq 1 60); do
-    if python3 "$DIR/infra/deploy/tls/check_public_endpoints.py" --min-days 0 \
-         --health-url "$PUBLIC_HEALTH" --expect-sha "$SHA" "$(echo "$PUBLIC_HEALTH" | cut -d/ -f3)"; then
-      public="ok"; break
-    fi
-    sleep 10
-  done
-fi
+for _ in $(seq 1 60); do
+  public_sha="$(curl -fsS --max-time 10 "$PUBLIC_HEALTH" 2>/dev/null     | python3 -c "import json,sys;print((json.load(sys.stdin).get('build') or {}).get('sha') or '')"     2>/dev/null || true)"
+  if [ "$public_sha" = "$SHA" ]; then public="ok"; break; fi
+  sleep 10
+done
 
 # 6. receipt
 cat > "$RECEIPT" <<EOF
