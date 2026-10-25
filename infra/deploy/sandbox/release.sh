@@ -86,6 +86,15 @@ services:
 EOF
 fi
 
+# 2b. never publish legal pages with placeholders (owner-supplied data missing)
+if [ -f "$DIR/scripts/check_legal_placeholders.py" ] && [ "${ALLOW_LEGAL_PLACEHOLDERS:-0}" != 1 ]; then
+  if [ "$DRY_RUN" = 1 ] && [ ! -d "$DIR/apps" ]; then
+    echo "  [dry-run] python3 scripts/check_legal_placeholders.py (tree not extracted)"
+  elif ! python3 "$DIR/scripts/check_legal_placeholders.py" "$DIR"; then
+    log "REFUSED: legal pages still contain placeholders (see above)"; exit 4
+  fi
+fi
+
 # 3. backup before migrations
 # One dump per attempt: a retry of the same commit (same $ID) after its
 # migrations ran must never overwrite the true pre-migration recovery point.

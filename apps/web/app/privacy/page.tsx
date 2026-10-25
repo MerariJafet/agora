@@ -18,7 +18,7 @@ export default function PrivacyPage() {
       <h3>1. Responsable</h3>
       <p>
         Merari Jafet (persona física), operador del piloto de investigación AGORA, con domicilio
-        para oír y recibir notificaciones en [domicilio pendiente de publicar], México. Contacto:
+        para oír y recibir notificaciones en [PENDIENTE: domicilio del responsable], México. Contacto:
         {" "}<a href="mailto:merari.jafet@gmail.com?subject=AGORA%20privacidad">merari.jafet@gmail.com</a>.
       </p>
 
