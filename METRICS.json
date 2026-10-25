@@ -8,8 +8,8 @@
     "mcp_tools": 106,
     "migrations": 47,
     "native_tests": 182,
-    "python_tests": 763
+    "python_tests": 764
   },
-  "generated_from_commit": "a3791c2267843bfff22435a3502fedf45bbbdcd6",
+  "generated_from_commit": "cde52cfcac6b8e536d1d4178874523cf7dd3965f",
   "latest_migration": "0046_validator_package_snapshot"
 }
