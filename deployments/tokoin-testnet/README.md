@@ -19,7 +19,7 @@ npm run test:preflight
 npm run test:bundle
 npm run audit:static
 npm run bundle:verify
-npm audit --audit-level=high
+node scripts/audit-gate.mjs   # npm audit high/critical minus expiring allowlist
 ```
 
 The immutable audit handoff is
