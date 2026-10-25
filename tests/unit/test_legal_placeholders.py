@@ -39,3 +39,9 @@ def test_complete_pages_pass(tmp_path):
 
 def test_missing_pages_are_not_placeholders(tmp_path):
     assert guard.main([str(tmp_path)]) == 0
+
+
+def test_placeholder_wrapped_across_lines_is_found(tmp_path):
+    _page(tmp_path, "privacy", "<p>Domicilio: [PENDIENTE:\n  domicilio]</p>")
+    hits = guard.find_placeholders(tmp_path)
+    assert hits and hits[0][1] == 1 and hits[0][2] == "[PENDIENTE: domicilio]"

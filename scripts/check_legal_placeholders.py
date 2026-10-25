@@ -32,9 +32,11 @@ def find_placeholders(root: Path) -> list[tuple[str, int, str]]:
         path = root / rel
         if not path.exists():
             continue
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            for match in PLACEHOLDER.finditer(line):
-                hits.append((rel, number, match.group(0)))
+        # Whole-file scan: a placeholder wrapped across lines must still count.
+        text = path.read_text(encoding="utf-8")
+        for match in PLACEHOLDER.finditer(text):
+            number = text.count("\n", 0, match.start()) + 1
+            hits.append((rel, number, " ".join(match.group(0).split())))
     return hits
 
 
