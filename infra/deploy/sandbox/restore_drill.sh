@@ -23,10 +23,12 @@ started=$(date +%s)
 docker run -d --rm --name "$NAME" --network none --memory 512m \
   -e POSTGRES_USER=agora -e POSTGRES_PASSWORD=drill -e POSTGRES_DB=agora postgres:16 >/dev/null
 for _ in $(seq 1 60); do
-  docker exec "$NAME" pg_isready -U agora -d agora >/dev/null 2>&1 && break
+  docker exec "$NAME" pg_isready -h 127.0.0.1 -U agora -d agora >/dev/null 2>&1 && break
   sleep 1
 done
-docker exec "$NAME" pg_isready -U agora -d agora >/dev/null
+docker exec "$NAME" pg_isready -h 127.0.0.1 -U agora -d agora >/dev/null
+# TCP readiness above only answers once the entrypoint has finished its
+# socket-only init server and started the final one.
 
 # --no-owner: the drill database has a single role; ownership is not under test.
 docker exec -i "$NAME" pg_restore -U agora -d agora --no-owner --exit-on-error < "$DUMP"
