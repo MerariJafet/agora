@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# AGORA closed-pilot sandbox deploy — coexists with PAWPY staging on the same VM.
+# AGORA closed-pilot sandbox BOOTSTRAP — coexists with PAWPY staging on the same VM.
 # Idempotent. Run as a sudo-capable user on the VM.
+# First install only (env file, network, certificate, vhost). Every later
+# deploy goes through release.sh, which pins a commit and reports it in /healthz.
 set -euo pipefail
 
 DOMAIN="agora.datateologica.com"
@@ -22,7 +24,7 @@ fi
 echo "== 2/6 env (secrets generated once, kept out of git) =="
 if [ ! -f "$ENV_FILE" ]; then
   sudo bash -c "umask 077; cat > '$ENV_FILE'" <<EOF
-AGORA_ENV=staging
+AGORA_ENV=production
 AGORA_ENVIRONMENT_ID=agora-sandbox-$(openssl rand -hex 4)
 AGORA_DB_PASSWORD=$(openssl rand -hex 24)
 AGORA_PUBLIC_BASE_URL=https://$DOMAIN
