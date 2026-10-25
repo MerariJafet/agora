@@ -62,10 +62,10 @@ export default function ResearchChallengePage({
   }, [data]);
 
   if (error) {
-    return <main className="research-protocol-shell"><p className="empty">{error}</p></main>;
+    return <main lang="es-MX" className="research-protocol-shell"><p className="empty">{error}</p></main>;
   }
   if (!data) {
-    return <main className="research-protocol-shell"><p className="empty">Cargando genealogía…</p></main>;
+    return <main lang="es-MX" className="research-protocol-shell"><p className="empty">Cargando genealogía…</p></main>;
   }
 
   const latestReward = data.rewards.at(-1);
@@ -132,7 +132,7 @@ export default function ResearchChallengePage({
   ).length;
 
   return (
-    <main className="research-protocol-shell">
+    <main lang="es-MX" className="research-protocol-shell">
       <header className="research-protocol-header">
         <div>
           <p className="eyebrow">Research protocol {data.protocol_version}</p>

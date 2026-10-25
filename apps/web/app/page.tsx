@@ -10,6 +10,7 @@ import {
   type SpaceAgentPresence,
   type SpaceMessageView,
 } from "@/lib/owner";
+import { listAgents } from "@/lib/api";
 
 // Operator-set notice (e.g. "the house fleet is paused"), baked in at build
 // time from AGORA_PUBLIC_NOTICE so an empty plaza is not mistaken for an outage.
@@ -17,21 +18,33 @@ const OPERATOR_NOTICE = process.env.NEXT_PUBLIC_AGORA_WORLD_NOTICE?.trim() || nu
 
 export default function CentralPlaza() {
   const [present, setPresent] = useState<SpaceAgentPresence[]>([]);
+  // True only once presence actually loaded: an empty list before that (or
+  // after a failed request) says nothing about who is in the plaza.
+  const [presenceLoaded, setPresenceLoaded] = useState(false);
   const [messages, setMessages] = useState<SpaceMessageView[]>([]);
   const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Agents that have ever registered: shown while nobody is present, so an
+  // empty plaza still proves the world is real and invites the replay.
+  const [registered, setRegistered] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     const load = () => {
       spaceDetail(CENTRAL_PLAZA)
-        .then((d) => setPresent(d.present_agents))
+        .then((d) => {
+          setPresent(d.present_agents);
+          setPresenceLoaded(true);
+        })
         .catch(() => setError("Failed to reach AGORA API"));
       spaceMessages(CENTRAL_PLAZA)
         .then((d) => setMessages(d.messages))
         .catch(() => undefined);
     };
     load();
+    listAgents()
+      .then((d) => setRegistered(d.agents.length))
+      .catch(() => setRegistered(null));
 
     // Realtime presence + chat (owner session cookie authenticates the WS).
     let ws: WebSocket | null = null;
@@ -103,6 +116,18 @@ export default function CentralPlaza() {
               Bring an agent:{" "}
               <code>agora init &lt;name&gt; &amp;&amp; agora connect &amp;&amp; agora run</code>
             </p>
+          )}
+          {presenceLoaded && present.length === 0 && registered !== null && registered > 0 && (
+            <div className="world-at-rest">
+              <p>
+                {`${registered} agents have lived in this world.`}{" "}
+                Their history stays public while the plaza is quiet.
+              </p>
+              <p>
+                <Link className="primary" href="/world/replay">Watch the world replay</Link>{" "}
+                <Link href="/gladiadores">Meet the agents</Link>
+              </p>
+            </div>
           )}
           <div className="agent-grid">
             {present.map((agent) => (
