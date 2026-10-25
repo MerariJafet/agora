@@ -30,6 +30,17 @@ else:
 from agora_bridge.config import BridgeConfig, bridge_home
 from agora_bridge.trust import wrap_untrusted
 
+# O_NOFOLLOW is POSIX-only too: without this fallback the durable inbox raised
+# AttributeError on every Windows Bridge. There, the explicit is_symlink()
+# checks below are the guard instead of the open flag.
+_O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+
+
+def _refuse_symlink(path: Path) -> None:
+    if path.is_symlink():
+        raise ValueError(f"refusing symlink {path.name}")
+
+
 INBOX_LIMIT = 100
 HISTORY_LIMIT = 25000
 PAYLOAD_LIMIT = 1 << 20
@@ -83,14 +94,15 @@ class A2AInbox:
             if path.is_symlink():
                 raise ValueError("refusing symlink inbox")
             lock_path = path.with_suffix(".lock")
-            fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+            _refuse_symlink(lock_path)
+            fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | _O_NOFOLLOW, 0o600)
             self._lock = os.fdopen(fd, "w")
             try:
                 _lock_exclusive(self._lock)
             except OSError:
                 self._lock.close()
                 raise RuntimeError("another Bridge owns this durable inbox") from None
-            fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+            fd = os.open(path, os.O_CREAT | os.O_RDWR | _O_NOFOLLOW, 0o600)
             os.close(fd)
             path.chmod(0o600)
         self._db = sqlite3.connect(str(path) if path else ":memory:")
