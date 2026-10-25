@@ -28,6 +28,8 @@ const connectSrcApi = [...new Set([
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Inlined at build time for proxy.ts (CSP connect-src).
+  env: { AGORA_CSP_CONNECT_SRC: connectSrcApi },
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   transpilePackages: ["@agora/sdk-typescript"],
   async rewrites() {
@@ -46,11 +48,7 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "no-referrer" },
-          {
-            key: "Content-Security-Policy",
-            value:
-              `default-src 'self'; script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}; style-src 'self' 'unsafe-inline'; connect-src 'self' ${connectSrcApi}; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`,
-          },
+          // Content-Security-Policy is set per request with a nonce in proxy.ts.
         ],
       },
     ];

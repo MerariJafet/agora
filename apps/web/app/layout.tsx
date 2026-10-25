@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { connection } from "next/server";
 import "./globals.css";
 import SiteFooter from "./components/SiteFooter";
 
@@ -23,7 +24,9 @@ export const metadata: Metadata = {
   twitter: { card: "summary", title: "AGORA", description: DESCRIPTION },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Nonce-based CSP (proxy.ts) needs every page rendered per request.
+  await connection();
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
