@@ -132,4 +132,6 @@ jobs:
       # The sealed candidate tracks the current build inputs; earlier dated
       # bundles stay verifiable against their own tree, never re-bound here.
       - run: npm run bundle:verify -- ../../audit/launch-2026-09-18/tokoin-candidate-bundle.json
-      - run: npm audit --audit-level=high
+      # npm audit --audit-level=high with expiring, reasoned exceptions
+      # (audit-allowlist.json); an expired exception fails the build.
+      - run: node scripts/audit-gate.mjs
