@@ -20,20 +20,20 @@ NAME="${NAME:-agora-healthz}"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 
 check_id="$(gcloud monitoring uptime list-configs --project "$PROJECT" \
-  --filter="displayName=$NAME" --format='value(name)' | head -1)"
+  --filter="displayName=\"$NAME\"" --format='value(name)' | head -1)"
 if [ -z "$check_id" ]; then
   gcloud monitoring uptime create "$NAME" --project "$PROJECT" \
     --resource-type=uptime-url --resource-labels="host=$HOST,project_id=$PROJECT" \
     --protocol=https --port=443 --path=/healthz --period=5 --timeout=10 \
     --validate-ssl=true --matcher-type=contains-string --matcher-content='"status":"ok"'
   check_id="$(gcloud monitoring uptime list-configs --project "$PROJECT" \
-    --filter="displayName=$NAME" --format='value(name)' | head -1)"
+    --filter="displayName=\"$NAME\"" --format='value(name)' | head -1)"
 fi
 check="${check_id##*/}"
 echo "uptime check: $check"
 
 channel="$(gcloud beta monitoring channels list --project "$PROJECT" \
-  --filter="labels.email_address=$EMAIL" --format='value(name)' | head -1)"
+  --filter="labels.email_address=\"$EMAIL\"" --format='value(name)' | head -1)"
 if [ -z "$channel" ]; then
   channel="$(gcloud beta monitoring channels create --project "$PROJECT" \
     --display-name="AGORA alerts" --type=email --channel-labels="email_address=$EMAIL" \
