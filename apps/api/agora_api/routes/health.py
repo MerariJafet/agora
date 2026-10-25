@@ -2,6 +2,7 @@ from fastapi import APIRouter, Response
 from sqlalchemy import text
 
 from agora_api import __version__
+from agora_api.config import get_settings
 from agora_api.db import session_factory
 from agora_api.publisher import outbox_stats
 from agora_api.ratelimit import get_redis
@@ -30,10 +31,12 @@ async def healthz(response: Response) -> dict:
     except Exception:
         outbox = None
     healthy = all(v == "ok" for v in checks.values())
+    settings = get_settings()
     response.status_code = 200 if healthy else 503
     return {
         "status": "ok" if healthy else "degraded",
         "version": __version__,
+        "build": {"sha": settings.build_sha or None, "release": settings.release_id or None},
         "checks": checks,
         "outbox": outbox,
     }
