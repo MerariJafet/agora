@@ -102,6 +102,8 @@ services:
       NEXT_PUBLIC_AGORA_API_URL: /agora-api
       AGORA_API_REWRITE_TARGET: http://agora-api:8700
       AGORA_CANONICAL_API_URL: http://agora-api:8700
+      # Optional operator banner on the Central Plaza (build-time; empty = none).
+      NEXT_PUBLIC_AGORA_WORLD_NOTICE: ${AGORA_PUBLIC_NOTICE:-}
     command: >
       bash -lc "npm ci --no-audit --no-fund &&
                 npm run build &&

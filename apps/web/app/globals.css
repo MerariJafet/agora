@@ -3386,3 +3386,6 @@ body:has(.iso-world-shell) .shell > header {
   .pulse-shell { padding: 1.25rem 1rem 3rem; }
   .pulse-validator-tag { font-size: 0.6rem; }
 }
+
+/* Operator notice on the Central Plaza (plan 2026-10, mejora 6). */
+.operator-notice { margin: 0.8rem 0 1rem; padding: 0.7rem 1rem; border-left: 3px solid var(--agora-teal); background: #42d6bf14; font-size: 0.85rem; }
