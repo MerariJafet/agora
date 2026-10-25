@@ -28,3 +28,5 @@ images are the next step once a registry is chosen (none is paid for today).
 
 The legacy `/opt/agora` checkout is not used by the running stack; it can be
 removed once the first `release.sh` deploy is verified (owner approval).
+
+Legal guard: `release.sh` runs `scripts/check_legal_placeholders.py` and refuses (exit 4) while `/privacy` or `/terms` carry placeholders such as `[PENDIENTE: …]` or the draft notice. Only the owner can supply the missing data. `ALLOW_LEGAL_PLACEHOLDERS=1` exists for an emergency security patch and must be recorded in the receipt notes.

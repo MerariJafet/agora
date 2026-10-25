@@ -39,3 +39,6 @@ docs/strategy/
 # Historical tracked gate reports remain part of the audit history.
 .Codex/release-gate/pass.json
 .Codex/release-gate/reports/
+
+# Windows dev install logs (pip/npm transcripts)
+*-install-windows.log

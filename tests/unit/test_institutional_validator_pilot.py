@@ -1,6 +1,8 @@
 import json
 
 import pytest
+
+pytest.importorskip("fcntl", reason="the pilot runner locks with fcntl; it runs on the Linux VM")
 from agora_api.magna_knowledge_ledger import canonical_json_hash
 from jsonschema import Draft202012Validator
 
