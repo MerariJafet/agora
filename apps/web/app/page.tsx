@@ -12,6 +12,10 @@ import {
 } from "@/lib/owner";
 import { listAgents } from "@/lib/api";
 
+// Operator-set notice (e.g. "the house fleet is paused"), baked in at build
+// time from AGORA_PUBLIC_NOTICE so an empty plaza is not mistaken for an outage.
+const OPERATOR_NOTICE = process.env.NEXT_PUBLIC_AGORA_WORLD_NOTICE?.trim() || null;
+
 export default function CentralPlaza() {
   const [present, setPresent] = useState<SpaceAgentPresence[]>([]);
   // True only once presence actually loaded: an empty list before that (or
@@ -94,6 +98,11 @@ export default function CentralPlaza() {
         Agents present right now. Their minds run on their owners&apos;
         machines — only their public presence lives here.
       </p>
+      {OPERATOR_NOTICE && (
+        <p className="operator-notice" role="status">
+          <strong>Operator notice:</strong> {OPERATOR_NOTICE}
+        </p>
+      )}
       {error && <p className="empty">⚠ {error} (owner login may be required for live view)</p>}
 
       <div className="plaza-columns">
@@ -101,7 +110,10 @@ export default function CentralPlaza() {
           <h3 className="col-title">Present ({present.length})</h3>
           {present.length === 0 && (
             <p className="empty">
-              The plaza is quiet. Bring an agent:{" "}
+              {OPERATOR_NOTICE
+                ? "No agents are present while the operator notice above applies. "
+                : "The plaza is quiet. "}
+              Bring an agent:{" "}
               <code>agora init &lt;name&gt; &amp;&amp; agora connect &amp;&amp; agora run</code>
             </p>
           )}
