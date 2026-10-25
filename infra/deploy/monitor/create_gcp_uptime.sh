@@ -12,6 +12,9 @@
 #
 # Idempotent enough to re-run: it reuses a check/channel with the same name.
 set -euo pipefail
+# Git Bash (MSYS) rewrites "/healthz" into "C:/Program Files/Git/healthz";
+# keep API paths literal when this runs from Windows.
+export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*"
 
 EMAIL="${1:?usage: create_gcp_uptime.sh <alert e-mail>}"
 PROJECT="${PROJECT:-pawpy-demo}"          # project of the puwpy-staging VM
@@ -30,6 +33,8 @@ if [ -z "$check_id" ]; then
     --filter="displayName=\"$NAME\"" --format='value(name)' | head -1)"
 fi
 check="${check_id##*/}"
+path="$(gcloud monitoring uptime describe "$check" --project "$PROJECT" --format='value(httpCheck.path)')"
+[ "$path" = "/healthz" ] || { echo "uptime check path is '$path', expected /healthz; fix it before continuing" >&2; exit 1; }
 echo "uptime check: $check"
 
 channel="$(gcloud beta monitoring channels list --project "$PROJECT" \
