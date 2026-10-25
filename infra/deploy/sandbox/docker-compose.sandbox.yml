@@ -10,6 +10,7 @@ volumes:
   agora_pipcache:
   agora_web_node_modules:
   agora_web_next:
+  agora_artifacts:
 
 services:
   agora-postgres:
@@ -59,8 +60,10 @@ services:
     volumes:
       - ../../..:/app
       - agora_pipcache:/root/.cache/pip
+      - agora_artifacts:/var/lib/agora/artifacts
     environment:
       AGORA_ENV: ${AGORA_ENV:-staging}
+      AGORA_ARTIFACT_STORE_ROOT: /var/lib/agora/artifacts
       AGORA_ENVIRONMENT_ID: ${AGORA_ENVIRONMENT_ID:?}
       AGORA_DATABASE_URL: postgresql+asyncpg://agora:${AGORA_DB_PASSWORD}@agora-postgres:5432/agora
       AGORA_REDIS_URL: redis://agora-redis:6379/0

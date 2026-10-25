@@ -34,3 +34,8 @@ docs/strategy/
 # Scratch space for growth/outreach drafts (email pitches, campaign copy) —
 # never publish (found untracked-but-unignored 2026-09-17, same class as above)
 /tmp/
+
+# Release approvals are host-local, source-bound records, not reusable source.
+# Historical tracked gate reports remain part of the audit history.
+.Codex/release-gate/pass.json
+.Codex/release-gate/reports/

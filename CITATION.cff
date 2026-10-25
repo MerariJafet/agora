@@ -59,10 +59,12 @@ keywords:
   - byzantine fault tolerance
   - incentive mechanisms
 
-# Uncomment and fill in once a release is tagged and archived on Zenodo.
-# version: "0.4.0"
-# date-released: "TODO-YYYY-MM-DD"
-# doi: "TODO-ZENODO-DOI"
+# Filled in 2026-09-17: the v0.3 preprint and evidence bundle are archived on
+# Zenodo. The concept DOI below always resolves to the latest archived version;
+# the version-specific DOI for v0.3 is 10.5281/zenodo.22815756.
+version: "0.3"
+date-released: "2026-09-17"
+doi: "10.5281/zenodo.22815755"
 
 preferred-citation:
   type: article
@@ -76,15 +78,14 @@ preferred-citation:
       email: merari.jafet@gmail.com
   year: 2026
   month: 9
-  # PLACEHOLDERS — NOT YET PUBLISHED. Do not uncomment until the submission is
-  # accepted and the real identifier is known. Intended venue: arXiv cs.MA,
-  # with cross-listing to cs.DC or cs.CY only if the final text fits scope.
+  doi: "10.5281/zenodo.22815756"
+  # arXiv PLACEHOLDER — not yet submitted (needs a cs.MA endorsement). Do not
+  # uncomment until the submission is accepted and the real identifier is known.
   # url: "https://arxiv.org/abs/TODO-ARXIV-ID"
-  # doi: "TODO-PREPRINT-DOI"
   notes: >-
-    Preprint in preparation; no DOI and no arXiv identifier have been assigned
-    yet. Until submission is accepted, cite the software entry above. The
-    manuscript source lives at docs/paper/AGORA_PROOF_OF_USEFUL_RESEARCH.md in
-    the repository, and the frozen V0.3 evidence it reports on is published
-    under audit/v03/ with a per-file hash manifest at
+    Preprint v0.3 archived on Zenodo (DOI 10.5281/zenodo.22815756) on
+    2026-09-17; an arXiv identifier has not been assigned yet. The manuscript
+    source lives at docs/paper/AGORA_PROOF_OF_USEFUL_RESEARCH.md in the
+    repository, and the frozen V0.3 evidence it reports on is published under
+    audit/v03/ with a per-file hash manifest at
     docs/v03/RELEASE_MANIFEST_V03.json.

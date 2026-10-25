@@ -86,6 +86,8 @@ class LocalArtifactStore:
                         raise ArtifactTooLarge(max_bytes)
                     hasher.update(chunk)
                     tmp_file.write(chunk)
+                tmp_file.flush()
+                os.fsync(tmp_file.fileno())
             content_hash = hasher.hexdigest()
             final_path = self._final_path(content_hash)
             final_path.parent.mkdir(parents=True, exist_ok=True)
@@ -94,7 +96,9 @@ class LocalArtifactStore:
                 # Verify the existing blob's size before discarding the
                 # upload, so a hash collision (astronomically unlikely) or
                 # prior corruption cannot silently masquerade as a match.
-                if final_path.stat().st_size == size:
+                if final_path.stat().st_size == size and await self.verify(
+                    f"sha256/{content_hash[:2]}/{content_hash}", content_hash
+                ):
                     tmp_path.unlink(missing_ok=True)
                     return StoredBlob(
                         content_hash, size, f"sha256/{content_hash[:2]}/{content_hash}"
@@ -107,6 +111,9 @@ class LocalArtifactStore:
 
     async def open_stream(self, storage_key: str) -> AsyncIterator[bytes]:
         path = self._safe_resolve(storage_key)
+        # Fail before StreamingResponse sends headers for an absent blob.
+        if not path.is_file():
+            raise FileNotFoundError("Artifact content is unavailable")
 
         async def _iter() -> AsyncIterator[bytes]:
             with path.open("rb") as fh:

@@ -8,6 +8,7 @@ validation, publication, or TOKOIN settlement gates.
 from __future__ import annotations
 
 import base64
+from copy import deepcopy
 from typing import Any
 
 from cryptography.exceptions import InvalidSignature
@@ -452,7 +453,15 @@ async def assignment_package(
 ) -> dict[str, Any]:
     """Return only immutable candidate material to the assigned validator."""
     _require_pilot_control_plane()
-    assignment, validator, candidate = await _owned_assignment(session, assignment_id, device)
+    assignment, validator, candidate = await _owned_assignment(
+        session, assignment_id, device, lock=True
+    )
+    # Serialize first materialization. Every later read/proposal uses these
+    # same bytes, even if conversations, votes or mission metadata change.
+    if assignment.review_package is not None:
+        return deepcopy(assignment.review_package)
+    if assignment.state != "ASSIGNED":
+        raise Conflict("Legacy review has no frozen package; create a new candidate review.")
     mission = await session.get(Mission, candidate.challenge_id)
     submission = await session.get(MissionChallengeSubmission, candidate.submission_id)
     solution = await session.get(MagnaKnowledgeObject, candidate.final_solution_object_id)
@@ -759,7 +768,7 @@ async def assignment_package(
     review_context["context_hash"] = canonical_json_hash(
         review_context, domain="agora.institutional.validator.context.v1"
     )
-    return {
+    package = {
         "assignment_id": assignment.assignment_id,
         "validator_id": validator.validator_id,
         "review_role": validator.review_role,
@@ -801,6 +810,9 @@ async def assignment_package(
         },
         "review_context": review_context,
     }
+    assignment.review_package = package
+    await session.flush()
+    return deepcopy(package)
 
 
 async def declare_conflict(
@@ -962,6 +974,10 @@ async def submit_review_proposal(
     if assignment.state in {"CONFLICT_DECLARED", "OWNER_REJECTED"}:
         raise Conflict("This assignment cannot accept a review proposal.")
     package = await assignment_package(session, assignment_id=assignment_id, device=device)
+    if payload["review"]["verdict"] in POSITIVE:
+        from agora_api.research_protocol_service import require_candidate_evidence
+
+        await require_candidate_evidence(session, candidate)
     manifest = payload["evidence_manifest"]
     context = package["review_context"]
     if manifest["context_hash"] != context["context_hash"]:
@@ -1153,6 +1169,18 @@ async def decide_review_proposal(
         ):
             return existing
         raise Conflict("Owner decision is append-only and cannot be replaced.")
+    if (assignment.state != "AWAITING_OWNER_DECISION"
+            or proposal.state != "AWAITING_OWNER_DECISION"):
+        raise Conflict("Review is no longer awaiting an Owner decision.")
+    candidate = await session.get(
+        ResearchCandidateSnapshot, proposal.candidate_id, with_for_update=True
+    )
+    if candidate is None or candidate.state != "INSTITUTIONAL_REVIEW_PENDING":
+        raise Conflict("Candidate is no longer pending institutional review.")
+    if payload["decision"] == "APPROVE" and proposal.review_payload["verdict"] in POSITIVE:
+        from agora_api.research_protocol_service import require_candidate_evidence
+
+        await require_candidate_evidence(session, candidate)
     decision_body = {
         "proposal_id": proposal.proposal_id,
         "assignment_id": assignment.assignment_id,

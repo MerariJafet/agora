@@ -4,6 +4,7 @@ import hashlib
 from datetime import timedelta
 
 import pytest
+from agora_api.artifact_store import get_artifact_store
 from agora_api.db import session_factory
 from agora_api.events import now_utc
 from agora_api.ids import new_mission_id, new_space_id
@@ -124,13 +125,27 @@ async def test_consensus_cannot_pay_without_two_signed_independent_reviews(api_c
     for reg in (creator, reviewer_a, reviewer_b):
         await _join(api_client, mission_id, reg)
 
+    artifact = (await api_client.post(
+        "/v1/artifacts", json={"title": "Original research bytes", "artifact_type": "analysis"},
+        headers=_auth(creator),
+    )).json()
+    version_response = await api_client.post(
+        f"/v1/artifacts/{artifact['artifact_id']}/versions",
+        files={"file": ("proof.txt", b"original evidence", "text/plain")},
+        data={"metadata": "{}"}, headers=_auth(creator),
+    )
+    assert version_response.status_code == 201, version_response.text
+    version = version_response.json()
+    digest = version["content_hash"]
+    blob = get_artifact_store().root / f"sha256/{digest[:2]}/{digest}"
+
     submission_response = await api_client.post(
         f"/v1/mission-challenges/{mission_id}/submissions",
         json={
             "idempotency_key": f"{unique_name}-submission",
             "solution_summary": "A candidate with a falsifiable bounded argument.",
             "claim_ids": [],
-            "artifact_version_ids": [],
+            "artifact_version_ids": [version["artifact_version_id"]],
             "evidence_ids": [],
             "limitations": "This fixture validates workflow, not scientific truth.",
             "public_rationale": "Independent peers can reproduce the deterministic path.",
@@ -193,6 +208,16 @@ async def test_consensus_cannot_pay_without_two_signed_independent_reviews(api_c
         assert mission is not None and mission.state == "review"
         assert mission.winning_submission_id is None
 
+    blob.unlink()
+    blocked_candidate = await api_client.post(
+        f"/v1/research-protocol/challenges/{mission_id}/candidates",
+        json={"submission_id": submission_id, "final_solution_object_id": object_id,
+              "idempotency_key": f"{unique_name}-missing-candidate"},
+        headers=_auth(creator),
+    )
+    assert blocked_candidate.status_code == 409
+    assert "evidence unavailable" in blocked_candidate.text
+    blob.write_bytes(b"original evidence")
     candidate_response = await api_client.post(
         f"/v1/research-protocol/challenges/{mission_id}/candidates",
         json={
@@ -328,6 +353,14 @@ async def test_consensus_cannot_pay_without_two_signed_independent_reviews(api_c
         assert prepared.json()["signed_payload_hash"] == signed_hash
         payload["signature"] = key.sign_b64(signed_hash.encode("ascii"))
         accepted_payloads.append(payload)
+        blob.unlink()
+        missing_review = await api_client.post(
+            f"/v1/research-protocol/candidates/{candidate['candidate_id']}/reviews",
+            json=payload, headers=headers,
+        )
+        assert missing_review.status_code == 409
+        assert "evidence unavailable" in missing_review.text
+        blob.write_bytes(b"original evidence")
         review = await api_client.post(
             f"/v1/research-protocol/candidates/{candidate['candidate_id']}/reviews",
             json=payload,
@@ -344,6 +377,14 @@ async def test_consensus_cannot_pay_without_two_signed_independent_reviews(api_c
     assert duplicate_review.status_code == 409
 
     operator_headers = await _login(api_client, f"operator-{unique_name}")
+    blob.unlink()
+    missing = await api_client.post(
+        f"/v1/research-protocol/candidates/{candidate['candidate_id']}/lock-reward",
+        headers=operator_headers,
+    )
+    assert missing.status_code == 409
+    assert "evidence unavailable" in missing.text
+    blob.write_bytes(b"original evidence")
     locked = await api_client.post(
         f"/v1/research-protocol/candidates/{candidate['candidate_id']}/lock-reward",
         headers=operator_headers,
@@ -355,6 +396,14 @@ async def test_consensus_cannot_pay_without_two_signed_independent_reviews(api_c
     ][0]
     assert locked_detail["allocation"]["reserved_unallocated"]["institutional_validation_pool"] == 0
     assert len(locked_detail["allocation"]["institutional_validation_pool"]) == 2
+    blob.unlink()
+    missing = await api_client.post(
+        f"/v1/research-protocol/candidates/{candidate['candidate_id']}/publication-package",
+        headers=operator_headers,
+    )
+    assert missing.status_code == 409
+    assert "evidence unavailable" in missing.text
+    blob.write_bytes(b"original evidence")
     package = await api_client.post(
         f"/v1/research-protocol/candidates/{candidate['candidate_id']}/publication-package",
         headers=operator_headers,

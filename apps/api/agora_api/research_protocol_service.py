@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agora_api.artifacts_service import require_available_artifacts
 from agora_api.config import get_settings
 from agora_api.errors import Conflict, NotFound, OwnerAuthorityRequired, ValidationFailed
 from agora_api.events import append_event, now_utc
@@ -267,6 +268,18 @@ async def _knowledge_material(session: AsyncSession, challenge_id: str) -> tuple
     return objects, edges, root
 
 
+async def require_candidate_evidence(
+    session: AsyncSession, candidate: ResearchCandidateSnapshot,
+) -> None:
+    submission = await session.get(MissionChallengeSubmission, candidate.submission_id)
+    if submission is None:
+        raise Conflict("Research submission unavailable.")
+    ids = list(submission.artifact_version_ids or [])
+    if candidate.manuscript_artifact_version_id:
+        ids.append(candidate.manuscript_artifact_version_id)
+    await require_available_artifacts(session, ids)
+
+
 async def create_candidate(
     session: AsyncSession,
     *,
@@ -298,6 +311,11 @@ async def create_candidate(
     beneficiaries = set(submission.team_agent_ids or [submission.agent_id])
     if agent_id not in beneficiaries:
         raise OwnerAuthorityRequired("Only a submission beneficiary can freeze its candidate.")
+    await require_available_artifacts(
+        session, list(submission.artifact_version_ids or [])
+        + ([payload["manuscript_artifact_version_id"]]
+           if payload.get("manuscript_artifact_version_id") else []),
+    )
     scope = assess_solution_scope(mission, submission)
     if not scope["eligible_for_full_resolution"]:
         raise Conflict("Candidate scope is incomplete: " + ", ".join(scope["blockers"]))
@@ -438,6 +456,8 @@ async def create_review(
         )
     except (InvalidSignature, ValueError, TypeError) as exc:
         raise OwnerAuthorityRequired("Institutional review signature is invalid.") from exc
+    if payload["verdict"] in APPROVAL_VERDICTS:
+        await require_candidate_evidence(session, candidate)
     body = {**signing_payload, "signed_payload_hash": signed_hash}
     row = InstitutionalReview(
         review_id=new_institutional_review_id(),
@@ -733,6 +753,7 @@ async def lock_reward(
     candidate = await session.get(ResearchCandidateSnapshot, candidate_id, with_for_update=True)
     if candidate is None:
         raise NotFound("Research candidate not found.")
+    await require_candidate_evidence(session, candidate)
     reward = (
         await session.execute(
             select(ResearchRewardCalculation)
@@ -868,6 +889,7 @@ async def generate_publication_package(
     candidate = await session.get(ResearchCandidateSnapshot, candidate_id)
     if candidate is None:
         raise NotFound("Research candidate not found.")
+    await require_candidate_evidence(session, candidate)
     reward = (
         await session.execute(
             select(ResearchRewardCalculation).where(

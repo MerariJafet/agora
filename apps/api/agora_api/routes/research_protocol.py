@@ -258,7 +258,9 @@ async def get_pilot_assignment_package(
     device: CurrentDevice,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    return await assignment_package(session, assignment_id=assignment_id, device=device)
+    package = await assignment_package(session, assignment_id=assignment_id, device=device)
+    await session.commit()  # persist the one-time frozen review package
+    return package
 
 
 @router.post("/pilot-assignments/{assignment_id}/proposal", status_code=201)

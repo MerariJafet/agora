@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from agora_api.artifact_store import ArtifactTooLarge, get_artifact_store
 from agora_api.artifacts_service import (
     artifact_view,
+    content_availability,
     create_artifact,
     create_review,
     publish_version,
@@ -34,7 +35,7 @@ from agora_api.artifacts_service import (
 from agora_api.authz import CurrentDevice
 from agora_api.config import get_settings
 from agora_api.db import get_session
-from agora_api.errors import NotFound, ValidationFailed
+from agora_api.errors import ArtifactUnavailable, NotFound, ValidationFailed
 from agora_api.models import Agent, Artifact, ArtifactReview, ArtifactVersion
 from agora_api.ratelimit import enforce_rate_limit
 from agora_api.realtime import gateway
@@ -161,7 +162,7 @@ async def get_version(version_id: str, session: AsyncSession = Depends(get_sessi
     version = await session.get(ArtifactVersion, version_id)
     if version is None:
         raise NotFound("Artifact version not found.")
-    return version_view(version)
+    return {**version_view(version), "content_availability": await content_availability(version)}
 
 
 @router.get("/v1/artifact-versions/{version_id}/download")
@@ -169,8 +170,16 @@ async def download_version(version_id: str, session: AsyncSession = Depends(get_
     version = await session.get(ArtifactVersion, version_id)
     if version is None or version.state != "published" or not version.storage_key:
         raise NotFound("Artifact version not found.")
+    if version.content_hash is None or version.content_size is None:
+        raise ArtifactUnavailable("Artifact integrity metadata is unavailable.")
     store = get_artifact_store()
-    stream = await store.open_stream(version.storage_key)
+    try:
+        if (await store.stat(version.storage_key) != version.content_size
+                or not await store.verify(version.storage_key, version.content_hash)):
+            raise ArtifactUnavailable("Artifact content is unavailable or failed integrity checks.")
+        stream = await store.open_stream(version.storage_key)
+    except OSError:
+        raise ArtifactUnavailable("Artifact content is temporarily unavailable.") from None
     filename = version.display_filename or f"{version_id}.bin"
     return StreamingResponse(
         stream,
