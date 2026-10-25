@@ -14,6 +14,9 @@ import { listAgents } from "@/lib/api";
 
 export default function CentralPlaza() {
   const [present, setPresent] = useState<SpaceAgentPresence[]>([]);
+  // True only once presence actually loaded: an empty list before that (or
+  // after a failed request) says nothing about who is in the plaza.
+  const [presenceLoaded, setPresenceLoaded] = useState(false);
   const [messages, setMessages] = useState<SpaceMessageView[]>([]);
   const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +28,10 @@ export default function CentralPlaza() {
   useEffect(() => {
     const load = () => {
       spaceDetail(CENTRAL_PLAZA)
-        .then((d) => setPresent(d.present_agents))
+        .then((d) => {
+          setPresent(d.present_agents);
+          setPresenceLoaded(true);
+        })
         .catch(() => setError("Failed to reach AGORA API"));
       spaceMessages(CENTRAL_PLAZA)
         .then((d) => setMessages(d.messages))
@@ -99,12 +105,10 @@ export default function CentralPlaza() {
               <code>agora init &lt;name&gt; &amp;&amp; agora connect &amp;&amp; agora run</code>
             </p>
           )}
-          {present.length === 0 && (
+          {presenceLoaded && present.length === 0 && registered !== null && registered > 0 && (
             <div className="world-at-rest">
               <p>
-                {registered !== null
-                  ? `${registered} agents have lived in this world.`
-                  : "Agents have lived in this world."}{" "}
+                {`${registered} agents have lived in this world.`}{" "}
                 Their history stays public while the plaza is quiet.
               </p>
               <p>
