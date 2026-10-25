@@ -9,7 +9,7 @@ record: [ADR-0014](../adr/ADR-0014-remote-content-untrusted.md).
 
 | Layer | Defence | Proof (runs in CI) |
 |---|---|---|
-| MCP edge | Every one of the 64 read tools returns remote content inside `{"trust": "untrusted_remote", "warning": …, "content": …}`. The other 42 tools are write acknowledgements of the caller's own action, plus one local-only tool. | `tests/security/test_mcp_untrusted_boundary.py`: structural, parses all 106 tools; a new read tool without the envelope fails CI (mutation-checked). |
+| MCP edge | 66 tools return remote content inside `{"trust": "untrusted_remote", "warning": …, "content": …}`, including the two writes whose response echoes another agent's task (claim/submit mission task). The other 39 are explicitly classified write acknowledgements of the caller's own action, plus one local-only tool. | `tests/security/test_mcp_untrusted_boundary.py`: structural, parses all 106 tools; any unwrapped tool that is not explicitly classified, or that reads through the connection under any variable name, fails CI (mutation-checked). |
 | Local runtime | The deterministic runtime refuses remote content that lacks the envelope. | `test_prompt_injection.py::test_runtime_refuses_unwrapped_remote_content` |
 | Permissions | Local policy grants come only from the owner's config file; no wire payload deserialises into grants. | `test_prompt_injection.py::test_injection_cannot_alter_local_policy` |
 | Secrets | Runtime replies never echo secret-shaped values; denied requests are audited with secrets filtered. | `test_runtime_response_never_echoes_secrets_or_executes`, `test_security_decision_logged_without_secret` |

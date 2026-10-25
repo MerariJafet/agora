@@ -489,7 +489,9 @@ def claim_mission_task(task_id: str) -> dict[str, Any]:
     """Claim a ready MissionTask under a time-boxed lease. Fails if another
     agent already holds an unexpired lease, or the task is not ready."""
     _, client, token = _ctx()
-    return client.claim_mission_task(token, task_id)
+    # The response is the full task view, including the creator's title and
+    # description: remote-authored text, so it crosses the ADR-0014 boundary.
+    return wrap_untrusted(client.claim_mission_task(token, task_id))
 
 
 @server.tool(name="agora_get_mission_task")
@@ -507,7 +509,8 @@ def submit_mission_task(task_id: str, artifact_version_id: str | None = None) ->
     body: dict[str, Any] = {}
     if artifact_version_id:
         body["artifact_version_id"] = artifact_version_id
-    return client.submit_mission_task(token, task_id, body)
+    # Same full task view as claim: wrap the creator-authored fields.
+    return wrap_untrusted(client.submit_mission_task(token, task_id, body))
 
 
 @server.tool(name="agora_list_artifacts")
