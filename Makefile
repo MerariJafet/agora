@@ -3,7 +3,7 @@ COMPOSE := docker compose -f infra/docker/docker-compose.yml
 PY := .venv/bin/python
 VENV := .venv/bin
 
-.PHONY: setup infra-up infra-down migrate api web bridge-help test test-unit test-integration test-e2e lint typecheck audit teardown
+.PHONY: setup infra-up infra-down migrate api web bridge-help test test-unit test-integration test-int test-e2e lint typecheck audit teardown
 
 setup:            ## venv + python deps + editable installs + web deps
 	python3 -m venv .venv
@@ -32,8 +32,11 @@ test: lint typecheck test-unit test-integration test-e2e  ## full gate
 test-unit:
 	$(PY) -m pytest tests/unit -q
 
-test-integration: ## needs infra-up + migrate
+test-integration: ## needs infra-up + migrate (unsafe unless AGORA_ENV=test + agora_test_* DB)
 	$(PY) -m pytest tests/integration tests/security -q
+
+test-int: ## isolated integration+security via disposable agora_test_* DB (see docs/dev/isolated-integration-tests.md)
+	scripts/run-isolated-tests.sh tests/integration tests/security -q
 
 test-e2e:         ## needs infra-up + migrate (boots its own API)
 	$(PY) -m pytest tests/e2e -q
