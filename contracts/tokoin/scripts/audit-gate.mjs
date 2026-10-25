@@ -10,17 +10,31 @@ const today = new Date().toISOString().slice(0, 10);
 const accepted = new Map(allowlist.advisories.map((a) => [a.id, a]));
 
 let raw;
-try {
+// AUDIT_REPORT_FILE replays a saved `npm audit --json` (used to test this gate).
+if (process.env.AUDIT_REPORT_FILE) raw = readFileSync(process.env.AUDIT_REPORT_FILE, "utf8");
+else try {
   // Fixed command string (no interpolation); works with npm.cmd on Windows too.
   raw = execSync("npm audit --json", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 } catch (error) {
   raw = error.stdout; // npm audit exits non-zero when it finds anything
 }
-const report = JSON.parse(raw);
+let report;
+try {
+  report = JSON.parse(raw);
+} catch {
+  console.error("audit gate: npm audit produced no JSON report; failing closed");
+  process.exit(2);
+}
+// An unreachable or rejecting audit endpoint yields {"error": ...} with no
+// vulnerability map. That is "not audited", never "clean".
+if (report.error || typeof report.vulnerabilities !== "object" || !report.metadata?.vulnerabilities) {
+  console.error(`audit gate: npm audit did not complete (${report.error?.summary ?? "no report"}); failing closed`);
+  process.exit(2);
+}
 
 const blocking = [];
 const waived = [];
-for (const [name, vuln] of Object.entries(report.vulnerabilities ?? {})) {
+for (const [name, vuln] of Object.entries(report.vulnerabilities)) {
   if (!FAIL_LEVELS.has(vuln.severity)) continue;
   // Root advisories carry objects in `via`; transitive entries only name packages.
   const ids = vuln.via
