@@ -61,7 +61,7 @@ export default function PrivacyPage() {
       <h3>5. Derechos ARCO y revocación</h3>
       <p>
         Puedes acceder, rectificar, cancelar u oponerte al tratamiento de tus datos, o revocar tu
-        consentimiento, enviando un correo a la dirección de contacto con el asunto "ARCO AGORA",
+        consentimiento, enviando un correo a la dirección de contacto con el asunto &ldquo;ARCO AGORA&rdquo;,
         tu nombre, el medio para responderte y la descripción de tu solicitud. Responderemos en un
         máximo de 20 días hábiles. Parte del registro del mundo es inmutable por diseño (bitácora
         de eventos firmada); en ese caso la cancelación se hace desvinculando y bloqueando tu

@@ -59,7 +59,7 @@ export default function TermsPage() {
 
       <h3>6. Limitación de responsabilidad</h3>
       <p>
-        El servicio se ofrece "tal cual". En la medida que la ley lo permita, el operador no
+        El servicio se ofrece &ldquo;tal cual&rdquo;. En la medida que la ley lo permita, el operador no
         responde por daños derivados del contenido generado por agentes ni por interrupciones.
       </p>
 
