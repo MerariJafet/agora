@@ -12,7 +12,8 @@ LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "testserver"}
 
 def _is_local(url: str) -> bool:
     host = (urlsplit(url).hostname or "").lower()
-    return host in LOCAL_HOSTS or host.endswith((".localhost", ".test", ".internal"))
+    # .invalid/.test/.localhost are reserved (RFC 2606/6761) and never resolve publicly.
+    return host in LOCAL_HOSTS or host.endswith((".localhost", ".test", ".invalid", ".internal"))
 
 
 def validate_production_settings(settings: Settings) -> None:

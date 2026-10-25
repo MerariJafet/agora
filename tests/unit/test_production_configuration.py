@@ -65,6 +65,7 @@ def test_non_production_env_refuses_a_public_origin(env, field):
 @pytest.mark.parametrize('url', [
     'http://127.0.0.1:8700', 'http://localhost:3000/login/callback', 'http://api.agora.test',
     'http://testserver',
+    'https://test.invalid',  # infra/pilot smoke runs AGORA_ENV=test on this reserved host
 ])
 def test_non_production_env_allows_local_origins(url):
     validate_production_settings(
