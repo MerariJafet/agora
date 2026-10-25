@@ -77,11 +77,17 @@ cat > "$WORK/tls.json" <<JSON
 JSON
 for policy in down tls; do
   shown="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['displayName'])" "$WORK/$policy.json")"
-  if gcloud alpha monitoring policies list --project "$PROJECT" --filter="displayName=\"$shown\"" \
-       --format='value(name)' | grep -q .; then
-    echo "policy exists: $shown"
+  existing="$(gcloud alpha monitoring policies list --project "$PROJECT"     --filter="displayName=\"$shown\"" --format='value(name)' | head -1)"
+  if [ -n "$existing" ]; then
+    # Re-runs reconcile the policy with the current channel and thresholds,
+    # so changing the alert e-mail actually moves the alerts.
+    gcloud alpha monitoring policies update "$existing" --project "$PROJECT"       --policy-from-file="$WORK/$policy.json"
+    echo "policy updated: $shown"
   else
     gcloud alpha monitoring policies create --project "$PROJECT" --policy-from-file="$WORK/$policy.json"
   fi
 done
-echo "Done. Test: stop agora-web for 10 min on the VM (or watch the first certificate alert threshold)."
+# /healthz is served by agora-api (nginx routes it straight to the API), so the
+# outage test must interrupt the API, not the web frontend.
+echo "Done. Alert test: on the VM run 'sudo docker stop agora-sandbox-agora-api-1', wait ~10 min"
+echo "for the e-mail, then 'sudo docker start agora-sandbox-agora-api-1'. Record the time in the PR."
