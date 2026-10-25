@@ -34,13 +34,9 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    {
-      // Pages only: API rewrites, build assets and the favicon need no CSP nonce.
-      source: "/((?!agora-api|_next/static|_next/image|favicon.ico).*)",
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
-    },
+    // Pages only: API rewrites, build assets and the favicon need no CSP nonce.
+    // Prefetch requests are NOT exempted: the global CSP header is gone, so an
+    // exemption would let a request carrying those headers get HTML without CSP.
+    "/((?!agora-api|_next/static|_next/image|favicon.ico).*)",
   ],
 };
