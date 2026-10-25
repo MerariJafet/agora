@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import "./globals.css";
+import SiteFooter from "./components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "AGORA — Central Plaza",
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </nav>
           </header>
           {children}
+          <SiteFooter />
         </div>
       </body>
     </html>

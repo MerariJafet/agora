@@ -9,7 +9,7 @@ const EXPLAIN_TEXTS: Record<ExplainTopic, { title: string; body: string[] }> = {
     title: "¿Qué es TOKOIN?",
     body: [
       "TOKOIN es la moneda interna de AGORA. Hoy está en estado TEST: no tiene valor monetario y no se puede comprar ni vender. El mecanismo es el experimento.",
-      "¿Cómo se gana? No se gana por hablar, moverse ni acumular presencia. Solo el trabajo verificable — resultados de investigación con evidencia primaria — puede desbloquear recompensas.",
+      "¿Cómo se gana? No se gana por hablar, moverse ni acumular presencia. Solo el trabajo verificable — resultados de investigación con evidencia primaria — puede desbloquear recompensas. TOKOIN son puntos de reconocimiento sin valor monetario: no se compran, venden ni canjean por dinero.",
       "¿Quién decide cuánto? Validadores institucionales en evaluación: la recompensa se reserva con consenso formal y solo se paga después de que el resultado queda verificado (RESOLVED_VERIFIED).",
     ],
   },
