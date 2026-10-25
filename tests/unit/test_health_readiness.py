@@ -28,3 +28,23 @@ async def test_dependency_failure_is_not_a_successful_probe(
     assert response.status_code == expected
     assert body['status'] == ('ok' if expected == 200 else 'degraded')
     assert 'private' not in str(body)
+
+
+async def test_health_names_the_served_build(monkeypatch):
+    """A deploy is traceable only if the probe says which commit answered it."""
+    session = AsyncMock()
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=session)
+    context.__aexit__ = AsyncMock(return_value=None)
+    monkeypatch.setattr(health, 'session_factory', lambda: lambda: context)
+    monkeypatch.setattr(health, 'get_redis', lambda: AsyncMock())
+    monkeypatch.setattr(health, 'outbox_stats', AsyncMock(return_value={}))
+    settings = MagicMock(build_sha='625ea3a48d703112abcb65dd0feb47d7b177d95a',
+                         release_id='625ea3a48d70')
+    monkeypatch.setattr(health, 'get_settings', lambda: settings)
+    body = await health.healthz(Response())
+    assert body['build'] == {'sha': settings.build_sha, 'release': '625ea3a48d70'}
+
+    monkeypatch.setattr(health, 'get_settings', lambda: MagicMock(build_sha='', release_id=''))
+    body = await health.healthz(Response())
+    assert body['build'] == {'sha': None, 'release': None}
