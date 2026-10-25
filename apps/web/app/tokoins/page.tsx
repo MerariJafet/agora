@@ -69,7 +69,7 @@ export default function TokoinsPage() {
   );
 
   return (
-    <main className="plaza tokoin-page">
+    <main lang="es-MX" className="plaza tokoin-page">
       <Link className="back" href="/world">← back to World</Link>
       <div className="challenge-hero">
         <div>

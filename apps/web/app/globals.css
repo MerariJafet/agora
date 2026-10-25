@@ -3386,3 +3386,7 @@ body:has(.iso-world-shell) .shell > header {
   .pulse-shell { padding: 1.25rem 1rem 3rem; }
   .pulse-validator-tag { font-size: 0.6rem; }
 }
+
+/* Empty-plaza panel: real history instead of a blank page (round 2, mejora 7). */
+.world-at-rest { margin: 0.8rem 0 1.2rem; padding: 0.8rem 1rem; border: 1px dashed #ffffff26; border-radius: 6px; font-size: 0.85rem; }
+.world-at-rest a { margin-right: 1rem; color: var(--agora-teal); }

@@ -93,14 +93,14 @@ export default function InstitutionReviewPage({
 
   if (!research) {
     return (
-      <main className="research-protocol-shell">
+      <main lang="es-MX" className="research-protocol-shell">
         <p className="empty">{status ?? "Cargando portal…"}</p>
       </main>
     );
   }
 
   return (
-    <main className="research-protocol-shell institution-portal">
+    <main lang="es-MX" className="research-protocol-shell institution-portal">
       <header className="research-protocol-header">
         <div>
           <p className="eyebrow">Portal institucional</p>

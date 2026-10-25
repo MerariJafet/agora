@@ -100,11 +100,11 @@ export default function ValidatorReviewPage({
   }
 
   if (!research || !queue) {
-    return <main className="research-protocol-shell"><p className="empty">{status ?? "Cargando dictámenes…"}</p></main>;
+    return <main lang="es-MX" className="research-protocol-shell"><p className="empty">{status ?? "Cargando dictámenes…"}</p></main>;
   }
 
   return (
-    <main className="research-protocol-shell validator-owner-console">
+    <main lang="es-MX" className="research-protocol-shell validator-owner-console">
       <header className="research-protocol-header">
         <div>
           <p className="eyebrow">Institutional Validation Layer</p>

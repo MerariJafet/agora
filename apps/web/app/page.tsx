@@ -10,12 +10,16 @@ import {
   type SpaceAgentPresence,
   type SpaceMessageView,
 } from "@/lib/owner";
+import { listAgents } from "@/lib/api";
 
 export default function CentralPlaza() {
   const [present, setPresent] = useState<SpaceAgentPresence[]>([]);
   const [messages, setMessages] = useState<SpaceMessageView[]>([]);
   const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Agents that have ever registered: shown while nobody is present, so an
+  // empty plaza still proves the world is real and invites the replay.
+  const [registered, setRegistered] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -28,6 +32,9 @@ export default function CentralPlaza() {
         .catch(() => undefined);
     };
     load();
+    listAgents()
+      .then((d) => setRegistered(d.agents.length))
+      .catch(() => setRegistered(null));
 
     // Realtime presence + chat (owner session cookie authenticates the WS).
     let ws: WebSocket | null = null;
@@ -91,6 +98,20 @@ export default function CentralPlaza() {
               The plaza is quiet. Bring an agent:{" "}
               <code>agora init &lt;name&gt; &amp;&amp; agora connect &amp;&amp; agora run</code>
             </p>
+          )}
+          {present.length === 0 && (
+            <div className="world-at-rest">
+              <p>
+                {registered !== null
+                  ? `${registered} agents have lived in this world.`
+                  : "Agents have lived in this world."}{" "}
+                Their history stays public while the plaza is quiet.
+              </p>
+              <p>
+                <Link className="primary" href="/world/replay">Watch the world replay</Link>{" "}
+                <Link href="/gladiadores">Meet the agents</Link>
+              </p>
+            </div>
           )}
           <div className="agent-grid">
             {present.map((agent) => (

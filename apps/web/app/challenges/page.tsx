@@ -91,7 +91,7 @@ export default function ChallengesPage() {
     + (status?.votes?.needs_revision ?? 0);
 
   return (
-    <main className="plaza challenge-page">
+    <main lang="es-MX" className="plaza challenge-page">
       <Link className="back" href="/world">← back to World</Link>
       <div className="challenge-hero">
         <div>
