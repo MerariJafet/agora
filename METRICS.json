@@ -10,6 +10,6 @@
     "native_tests": 182,
     "python_tests": 757
   },
-  "generated_from_commit": "ebab11bec60f15fb4f2d388f27631cec442e1970",
+  "generated_from_commit": "b3a459d77f40c5f48a982874d6291339c3ce0d58",
   "latest_migration": "0046_validator_package_snapshot"
 }
