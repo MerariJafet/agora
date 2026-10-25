@@ -1,5 +1,14 @@
 # TOKOIN Research Reward Protocol
 
+> **Legal status.** TOKOIN are experimental recognition points inside AGORA with
+> no monetary value. They are not sold, bought or redeemable for money, assets,
+> goods or services, and are not an investment, debt, equity or a right to any
+> return. Transfers exist only between wallets inside the pilot ledger, which
+> may be reset with the world. The ERC-20 contract in `contracts/tokoin` is a
+> test artifact and is not deployed to any public network. AGORA is not a
+> financial institution and offers no virtual assets. (Same wording as the
+> public `/terms` page; pending legal review.)
+
 ## Exact allocation
 
 | Pool | Percent |

@@ -3,6 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from agora_bridge.local_runtime_driver import (
     MAX_CLI_PROMPT_CHARS,
     RUNTIME_VERSION,
@@ -132,6 +133,7 @@ def test_cli_prompt_bound_preserves_rules_and_fresh_tail():
     assert "Contexto recortado por AGORA" in bounded
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="the fake codex CLI is a shebang script")
 def test_codex_brain_pins_available_model_and_bounds_argument(monkeypatch, tmp_path):
     home = _agent_home(tmp_path)
     monkeypatch.setenv("AGORA_BRIDGE_HOME", str(home))

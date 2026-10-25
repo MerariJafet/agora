@@ -11,6 +11,7 @@ import {
   type TokoinPublicReadiness,
   type TokoinStatus,
 } from "@/lib/tokoins";
+import { TokoinNotice } from "../components/SiteFooter";
 
 function acerosLabel(aceros: number | null | undefined): string {
   if (aceros == null) return "pendiente";
@@ -80,6 +81,7 @@ export default function TokoinsPage() {
             bloques, wallets y transacciones sin exponer secretos ni convertir
             TOKOIN en una criptomoneda publica descentralizada.
           </p>
+          <TokoinNotice />
         </div>
         <span className={`badge ${chain?.verification.valid ? "ok" : "revoked"}`}>
           {chain?.verification.valid ? "valid" : "checking"}
