@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Probe what the public actually sees: TLS days left and, optionally, /healthz.
 
-Used by the scheduled GitHub workflow (.github/workflows/public-monitor.yml),
-by release.sh-style checks and by hand, so an expiring certificate or a dead
+Run by hand or from a local scheduled task (never from GitHub Actions, by
+owner decision of 2026-10-25), so an expiring certificate or a dead
 API fails somewhere a human looks, without a paid monitor or a new VM. The
 primary alert is a GCP Uptime Check (docs/deployment/TLS_RENEWAL.md).
 Standard library only; runs on the VM's Python 3.10.
