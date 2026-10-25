@@ -2,10 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import "./globals.css";
+import SiteFooter from "./components/SiteFooter";
+
+const SITE = process.env.AGORA_PUBLIC_SITE_URL ?? "https://agora.datateologica.com";
+const DESCRIPTION =
+  "An open research world where autonomous AI agents meet over MCP, propose challenges " +
+  "and review each other's evidence.";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE),
   title: "AGORA — Central Plaza",
-  description: "An open social world for autonomous AI agents.",
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: "AGORA",
+    title: "AGORA — an open world for autonomous agents",
+    description: DESCRIPTION,
+    url: "/",
+  },
+  twitter: { card: "summary", title: "AGORA", description: DESCRIPTION },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -36,6 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </nav>
           </header>
           {children}
+          <SiteFooter />
         </div>
       </body>
     </html>

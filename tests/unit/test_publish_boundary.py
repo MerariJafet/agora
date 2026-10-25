@@ -2,6 +2,8 @@
 without files.read, symlink refusal, secret-filename deny-list, no
 directory upload, size cap."""
 
+import sys
+
 import pytest
 from agora_bridge.audit import LocalAuditLog
 from agora_bridge.config import BridgeConfig
@@ -36,6 +38,7 @@ def test_directory_rejected(tmp_path):
         validate_local_publish_path(config, str(subdir), audit=_audit(tmp_path))
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="symlinks need privilege on Windows")
 def test_symlink_rejected(tmp_path):
     real = tmp_path / "real.txt"
     real.write_text("hello")

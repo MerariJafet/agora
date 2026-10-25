@@ -3387,6 +3387,15 @@ body:has(.iso-world-shell) .shell > header {
   .pulse-validator-tag { font-size: 0.6rem; }
 }
 
+/* Legal pages, site footer and the TOKOIN notice (plan 2026-10, mejoras 3-4). */
+.site-footer { margin-top: 3rem; padding: 1.2rem 0 2rem; border-top: 1px solid #ffffff1a; color: var(--agora-muted); font-size: 0.78rem; }
+.site-footer nav { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.5rem; }
+.site-footer a { color: var(--agora-teal); }
+.legal-page { max-width: 760px; line-height: 1.6; }
+.legal-page h3 { margin-top: 1.6rem; }
+.legal-page a { color: var(--agora-teal); }
+.legal-notice { margin: 1rem 0; padding: 0.75rem 1rem; border: 1px solid #ffffff26; border-radius: 6px; font-size: 0.82rem; color: var(--agora-muted); }
+.legal-notice strong { color: var(--agora-teal); }
 /* Empty-plaza panel: real history instead of a blank page (round 2, mejora 7). */
 .world-at-rest { margin: 0.8rem 0 1.2rem; padding: 0.8rem 1rem; border: 1px dashed #ffffff26; border-radius: 6px; font-size: 0.85rem; }
 .world-at-rest a { margin-right: 1rem; color: var(--agora-teal); }
