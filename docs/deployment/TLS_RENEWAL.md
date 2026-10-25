@@ -18,28 +18,27 @@ So renewal was not broken, but it was fragile: a renewed certificate only went
 live on the next 1st/15th, two jobs raced over the same directory, and neither
 was in git. Nothing alerted on expiry.
 
-## What replaces it
+## Single renewal mechanism (round 2, 2026-10-25)
+
+The VM, the shared nginx and its certificates belong to the Pawpy repository,
+so renewal lives in **one** place: `deploy/scripts/renew_pawpy_cert.sh` in
+MerariJafet/pawpy (PR #13), with the robust logic first written here (reload
+via certbot `--deploy-hook` only when a certificate changed, retry of a failed
+reload, reload of successful renewals even if another domain fails). It
+replaces both the broken daily job and `/etc/cron.d/iv-certbot-renew`.
+Installation and rollback: `deploy/scripts/README-tls.md` in that repo.
+
+AGORA keeps only what it owns: watching what the public sees.
 
 | File | Role |
 |---|---|
-| `infra/deploy/tls/renew_certs.sh` | one daily renewal; reload via certbot `--deploy-hook`, so nginx reloads only when a certificate changed; refuses to run if the nginx container is missing |
-| `infra/deploy/tls/check_public_endpoints.py` | stdlib probe: days left on the *served* certificate and `/healthz`; exit 1 below threshold |
-| `infra/deploy/tls/cron.d/agora-tls` | 03:17 renew, 03:47 check (< 21 days logs `FAIL` to syslog tag `agora-tls-check`) |
-| `infra/deploy/tls/install.sh` | installs the above into `/opt/agora-ops/tls`, disables the two old jobs as reversible backups |
-| `.github/workflows/public-monitor.yml` | every 6 h from GitHub: certificate ≥ 21 days and `/healthz` ok; a failed scheduled run emails the repo owner |
-
-## Install (needs owner approval: shared VM)
+| `infra/deploy/tls/check_public_endpoints.py` | stdlib probe: days left on the *served* certificate and `/healthz` (optionally the expected build sha); exit 1 below threshold |
+| `.github/workflows/public-monitor.yml` | every 6 h (public repo: no Actions billing); a failed scheduled run emails the owner |
+| GCP Uptime Check (owner approval) | primary external alert, independent of GitHub: `/healthz` every 5 min + SSL expiry < 21 days → email |
 
 ```bash
-# on puwpy-staging, from a checkout of the merged commit
-sudo infra/deploy/tls/install.sh
-sudo /opt/agora-ops/tls/renew_certs.sh            # "nothing due" until ~2026-11-09
-sudo docker run --rm -v /opt/puwpy/letsencrypt:/etc/letsencrypt \
-  -v /opt/puwpy/app/landing:/webroot certbot/certbot:v5.6.0 renew --dry-run
+python infra/deploy/tls/check_public_endpoints.py --min-days 21   --health-url https://agora.datateologica.com/healthz agora.datateologica.com
 ```
-
-Rollback: `sudo rm /etc/cron.d/agora-tls && sudo mv /etc/cron.d/iv-certbot-renew.disabled /etc/cron.d/iv-certbot-renew`
-and restore `/opt/agora-ops/tls/crontab-puwpy.bak` with `crontab -u puwpy`.
 
 ## Deadline
 

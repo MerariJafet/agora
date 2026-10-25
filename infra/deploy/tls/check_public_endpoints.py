@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Probe what the public actually sees: TLS days left and, optionally, /healthz.
 
-Used by the VM cron (infra/deploy/tls/cron.d/agora-tls) and by the scheduled
-GitHub workflow (.github/workflows/public-monitor.yml), so an expiring
-certificate or a dead API fails somewhere a human looks, without a paid
-monitor or a new VM. Standard library only; runs on the VM's Python 3.10.
+Used by the scheduled GitHub workflow (.github/workflows/public-monitor.yml),
+by release.sh-style checks and by hand, so an expiring certificate or a dead
+API fails somewhere a human looks, without a paid monitor or a new VM. The
+primary alert is a GCP Uptime Check (docs/deployment/TLS_RENEWAL.md).
+Standard library only; runs on the VM's Python 3.10.
 
 Exit codes: 0 all good, 1 a check failed, 2 a probe could not run.
 """

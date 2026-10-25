@@ -1,6 +1,0 @@
-# Installed by infra/deploy/tls/install.sh — replaces iv-certbot-renew and the
-# puwpy user's renew_pawpy_cert.sh entry (both kept as .disabled backups).
-# 03:17 UTC daily: renew anything within 30 days of expiry, reload nginx only if changed.
-17 3 * * * root /opt/agora-ops/tls/renew_certs.sh >> /var/log/agora-tls-renew.log 2>&1
-# 03:47 UTC daily: fail loudly (syslog + log) if any served certificate has < 21 days left.
-47 3 * * * root /usr/bin/python3 /opt/agora-ops/tls/check_public_endpoints.py --min-days 21 agora.datateologica.com datateologica.com pawpy.mx 2>&1 | logger -t agora-tls-check
