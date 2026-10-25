@@ -2,10 +2,16 @@
 
 import json
 import stat
+import sys
 
+import pytest
 from agora_bridge.installation import ensure_installation_key, installation_path
 
+# Windows has no POSIX file modes; there the keyring/ACL path is the guard.
+NO_POSIX_MODES = pytest.mark.skipif(sys.platform == "win32", reason="no POSIX file modes")
 
+
+@NO_POSIX_MODES
 def test_installation_key_is_local_persistent_and_hardware_free(tmp_path, monkeypatch):
     monkeypatch.setenv("AGORA_BRIDGE_HOME", str(tmp_path))
 

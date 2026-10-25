@@ -1,0 +1,28 @@
+name: Public monitor
+
+# Free, VM-less uptime and certificate watch for the public pilot. A failed run
+# emails the repository owner (GitHub's default notification for scheduled
+# workflows), which is the alert channel until a paging service is chosen.
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: TLS (>= 21 days) and /healthz
+        run: >-
+          python infra/deploy/tls/check_public_endpoints.py
+          --min-days 21
+          --health-url https://agora.datateologica.com/healthz
+          agora.datateologica.com

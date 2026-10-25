@@ -2,9 +2,14 @@
 permission-restricted, and never silently selected in production-like
 environments."""
 
+import sys
+
 import pytest
 from agora_bridge import identity as identity_mod
 from agora_bridge.identity import IdentityManager
+
+# Windows has no POSIX file modes; there the keyring/ACL path is the guard.
+NO_POSIX_MODES = pytest.mark.skipif(sys.platform == "win32", reason="no POSIX file modes")
 
 
 @pytest.fixture
@@ -24,6 +29,7 @@ def test_production_refuses_file_keystore_without_opt_in(file_backend, monkeypat
     assert not (file_backend / "keys").exists()
 
 
+@NO_POSIX_MODES
 def test_production_file_keystore_with_explicit_opt_in(file_backend, monkeypatch, capsys):
     monkeypatch.setenv("AGORA_BRIDGE_ENV", "production")
     monkeypatch.setenv("AGORA_BRIDGE_ALLOW_FILE_KEYSTORE", "1")
@@ -39,6 +45,7 @@ def test_production_file_keystore_with_explicit_opt_in(file_backend, monkeypatch
     assert (key_file.stat().st_mode & 0o777) == 0o600
 
 
+@NO_POSIX_MODES
 def test_dev_fallback_warns_and_restricts_permissions(file_backend, monkeypatch, capsys):
     monkeypatch.delenv("AGORA_BRIDGE_ENV", raising=False)
     manager = IdentityManager("DevAgent")
