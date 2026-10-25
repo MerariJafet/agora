@@ -33,8 +33,7 @@ AGORA keeps only what it owns: watching what the public sees.
 | File | Role |
 |---|---|
 | `infra/deploy/tls/check_public_endpoints.py` | stdlib probe: days left on the *served* certificate and `/healthz` (optionally the expected build sha); exit 1 below threshold |
-| `.github/workflows/public-monitor.yml` | every 6 h (public repo: no Actions billing); a failed scheduled run emails the owner |
-| GCP Uptime Check (owner approval) | primary external alert, independent of GitHub: `/healthz` every 5 min + SSL expiry < 21 days → email |
+| GCP Uptime Check (`infra/deploy/monitor/create_gcp_uptime.sh`) | the external alert (owner decision 2026-10-25: no monitors in GitHub Actions): `/healthz` every 5 min + SSL expiry < 21 days → email |
 
 ```bash
 python infra/deploy/tls/check_public_endpoints.py --min-days 21   --health-url https://agora.datateologica.com/healthz agora.datateologica.com
